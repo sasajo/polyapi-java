@@ -1,0 +1,385 @@
+{
+	"info": {
+		"_postman_id": "b2faec36-2abc-46c3-81b0-42a5a11a978d",
+		"name": "Poly Demo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1022384"
+	},
+	"item": [
+		{
+			"name": "GMaps, XY from Keyword",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://maps.googleapis.com/maps/api/geocode/json?address={{address}}&key={{GAPIKey}}",
+					"protocol": "https",
+					"host": [
+						"maps",
+						"googleapis",
+						"com"
+					],
+					"path": [
+						"maps",
+						"api",
+						"geocode",
+						"json"
+					],
+					"query": [
+						{
+							"key": "address",
+							"value": "{{address}}"
+						},
+						{
+							"key": "key",
+							"value": "{{GAPIKey}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "AW, Weather from Location ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://dataservice.accuweather.com/currentconditions/v1/{{locationId}}?apikey={{AAPIKey}}&language=en-us",
+					"protocol": "http",
+					"host": [
+						"dataservice",
+						"accuweather",
+						"com"
+					],
+					"path": [
+						"currentconditions",
+						"v1",
+						"{{locationId}}"
+					],
+					"query": [
+						{
+							"key": "apikey",
+							"value": "{{AAPIKey}}"
+						},
+						{
+							"key": "language",
+							"value": "en-us"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "AW, Location ID from XY",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey={{AAPIKey}}&q={{Lat}},{{Lng}}&language=en-us",
+					"protocol": "http",
+					"host": [
+						"dataservice",
+						"accuweather",
+						"com"
+					],
+					"path": [
+						"locations",
+						"v1",
+						"cities",
+						"geoposition",
+						"search"
+					],
+					"query": [
+						{
+							"key": "apikey",
+							"value": "{{AAPIKey}}"
+						},
+						{
+							"key": "q",
+							"value": "{{Lat}},{{Lng}}"
+						},
+						{
+							"key": "language",
+							"value": "en-us"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Twillio Send Message",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "username",
+							"value": "ACe562bccbc410295451a07d40747eb10b",
+							"type": "string"
+						},
+						{
+							"key": "password",
+							"value": "{{AUTH_TOKEN}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "To",
+							"value": "{{My_Phone_Number}}",
+							"type": "text"
+						},
+						{
+							"key": "From",
+							"value": "+17622396902",
+							"type": "text"
+						},
+						{
+							"key": "Body",
+							"value": "{{message}}",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://api.twilio.com/2010-04-01/Accounts/ACe562bccbc410295451a07d40747eb10b/Messages.json",
+					"protocol": "https",
+					"host": [
+						"api",
+						"twilio",
+						"com"
+					],
+					"path": [
+						"2010-04-01",
+						"Accounts",
+						"ACe562bccbc410295451a07d40747eb10b",
+						"Messages.json"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Hubspot, Search Contacts",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"filterGroups\":[\r\n      {\r\n        \"filters\":[\r\n          {\r\n            \"propertyName\": \"firstname\",\r\n            \"operator\": \"EQ\",\r\n            \"value\": \"{{Name}}\"\r\n          }\r\n        ]\r\n      }\r\n    ],\r\n    \"properties\": [ \"phone\"]\r\n  }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://api.hubapi.com/crm/v3/objects/contacts/search?properties",
+					"protocol": "https",
+					"host": [
+						"api",
+						"hubapi",
+						"com"
+					],
+					"path": [
+						"crm",
+						"v3",
+						"objects",
+						"contacts",
+						"search"
+					],
+					"query": [
+						{
+							"key": "properties",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GSM Get Sercret",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "tokenName",
+							"value": "Google OAuth getpostman3",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "authorization_code",
+							"type": "string"
+						},
+						{
+							"key": "scope",
+							"value": "https://www.googleapis.com/auth/cloud-platform",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "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",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "648894068510-4prtt1g10ls6br3ok2s926o95rvs0fgr.apps.googleusercontent.com",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://accounts.google.com/o/oauth2/token",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://accounts.google.com/o/oauth2/auth",
+							"type": "string"
+						},
+						{
+							"key": "redirect_uri",
+							"value": "https://www.getpostman.com/oauth2/callback",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://secretmanager.googleapis.com/v1/projects/648894068510/secrets/{{GSKey}}/versions/{{GSKeyVersion}}:access",
+					"protocol": "https",
+					"host": [
+						"secretmanager",
+						"googleapis",
+						"com"
+					],
+					"path": [
+						"v1",
+						"projects",
+						"648894068510",
+						"secrets",
+						"{{GSKey}}",
+						"versions",
+						"{{GSKeyVersion}}:access"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GSM SetSecret",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "grant_type",
+							"value": "authorization_code",
+							"type": "string"
+						},
+						{
+							"key": "scope",
+							"value": "https://www.googleapis.com/auth/cloud-platform",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "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",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "648894068510-4prtt1g10ls6br3ok2s926o95rvs0fgr.apps.googleusercontent.com",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://accounts.google.com/o/oauth2/token",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://accounts.google.com/o/oauth2/auth",
+							"type": "string"
+						},
+						{
+							"key": "redirect_uri",
+							"value": "https://www.getpostman.com/oauth2/callback",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Google OAuth getpostman",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"payload\": {\r\n    \"data\": \"AIzaSyCsIwk-Uxhebs2jdBbxiY3llPZrxgtjFNc\"\r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://secretmanager.googleapis.com/v1/projects/test123-156000/secrets/GAPIKey:addVersion",
+					"protocol": "https",
+					"host": [
+						"secretmanager",
+						"googleapis",
+						"com"
+					],
+					"path": [
+						"v1",
+						"projects",
+						"test123-156000",
+						"secrets",
+						"GAPIKey:addVersion"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "url",
+			"value": "https://4cb1486d-e184-4292-a233-377bf3c43922.mock.pstmn.io"
+		}
+	]
+}
