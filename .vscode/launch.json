@@ -4,7 +4,7 @@
       {
           "type": "node",
           "request": "launch",
-          "name": "Debug Nest Framework",
+          "name": "Nest",
           "args": [
               "${workspaceFolder}/src/main.ts"
           ],
@@ -20,6 +20,16 @@
           "cwd": "${workspaceRoot}",
           "console": "integratedTerminal",
           "protocol": "inspector"
-      }
+      },
+        {
+            "name": "Current",
+            "type": "node",
+            "request": "launch",
+            "args": ["${relativeFile}"],
+            "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+            "sourceMaps": true,
+            "cwd": "${workspaceRoot}",
+            "protocol": "inspector",
+        }
   ]
 }
