@@ -26,4 +26,5 @@ model PolyFunction {
   headers  String?
   body     String?
   response String?
+  trained  Boolean @default(false)
 }
