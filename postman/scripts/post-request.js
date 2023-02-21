@@ -9,7 +9,7 @@ const postRequest = {
   method: 'POST',
   header: {
     'Content-Type': 'application/json',
-    'X-PolyApiKey': 'YOUR_API_KEY'
+    'X-PolyApiKey': 'ab4f62d3421bca3674hfd627'  // default dev key
   },
   body: {
     mode: 'raw',
