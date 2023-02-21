@@ -1,9 +1,7 @@
 import { Body, Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { PolyFunctionService } from 'poly-function/poly-function.service';
-import { TeachDto } from 'teach/dto/teach.dto';
-import { TeachResponseDto } from 'teach/dto/teach-response.dto';
+import { TeachDto, TeachResponseDto, TeachDetailsDto } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { TeachDetailsDto } from 'teach/dto/teach-details.dto';
 
 @Controller('teach')
 export class TeachController {

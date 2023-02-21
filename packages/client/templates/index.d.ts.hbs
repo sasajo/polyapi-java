@@ -1,0 +1,12 @@
+{{#each contextFiles}}
+/// <reference path="./{{this}}" />
+{{/each}}
+
+export = poly;
+export as namespace poly;
+
+declare const poly: poly.Poly;
+
+declare namespace poly {
+  interface Poly {}
+}
