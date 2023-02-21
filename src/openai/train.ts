@@ -22,6 +22,9 @@ async function main() {
     const funcs = await getUntrained();
     console.log(`Now training on ${funcs.length} functions...`);
     for (const func of funcs) {
+      //openai.Completion.create(
+      // prompt=prompt,
+      // engine="text-davinci-..."
       // send to chatGPT
       // on success:
       await markAsTrained(func.id);
