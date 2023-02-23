@@ -1,0 +1,11 @@
+import poly = require("./index");
+declare module "./index" {
+  interface {{interfaceName}} {
+    {{#each subContexts}}
+      {{name}}: {{interfaceName}};
+    {{/each}}
+    {{#each functions}}
+      {{name}}: ({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}) => Promise<{{returnType}}>;
+    {{/each}}
+  }
+}

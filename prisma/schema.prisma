@@ -27,4 +27,5 @@ model PolyFunction {
   body     String?
   response String?
   trained  Boolean @default(false)
+  publicId String  @default(uuid())
 }

@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./build"
+  },
+  "references": [
+    {
+      "path": "../common"
+    }
+  ],
+  "include": ["src", "src/templates/*.hbs"]
+}
