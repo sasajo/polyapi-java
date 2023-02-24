@@ -34,3 +34,12 @@ model PolyFunction {
   response String?
   trained  Boolean @default(false)
 }
+
+
+// FunctionPrompt
+// id Int @id @default(autoincrement())
+// func PolyFunction
+//
+// TODO FK to PolyFunction showing all the prompts we might use for the
+// also make a script that can generate a newline delimited prompt/completion script as seen here
+// https://platform.openai.com/docs/guides/fine-tuning
