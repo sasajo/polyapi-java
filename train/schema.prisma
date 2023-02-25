@@ -1,0 +1,45 @@
+// TODO just load this from ../prisma so it always stays in sync?
+// we could set the provider/interface via environment variable
+// the url is already set via env variable so we can easily handle that
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "sync"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../prisma/data/poly.db"
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  apiKey        String         @unique
+  name          String?
+  polyFunctions PolyFunction[]
+}
+
+model PolyFunction {
+  id       Int     @id @default(autoincrement())
+  user     User    @relation(fields: [userId], references: [id])
+  userId   Int
+  alias    String?
+  context  String?
+  payload  String?
+  method   String?
+  url      String?
+  headers  String?
+  body     String?
+  response String?
+  trained  Boolean @default(false)
+}
+
+
+// FunctionPrompt
+// id Int @id @default(autoincrement())
+// func PolyFunction
+//
+// TODO FK to PolyFunction showing all the prompts we might use for the
+// also make a script that can generate a newline delimited prompt/completion script as seen here
+// https://platform.openai.com/docs/guides/fine-tuning

@@ -1,0 +1,3 @@
+{"prompt": "how would i set bacon ipsum", "completion": "polyapi.food.setBaconIpsumSimple"}
+{"prompt": "how would i get a hotel person", "completion": "polyapi.shipping.hotel.getHotelPerson"}
+{"prompt": "how would i get a hotel", "completion": "polyapi.shipping.getHotel"}
