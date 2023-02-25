@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { PolyFunctionService } from 'poly-function/poly-function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { FunctionDto, ExecuteFunctionDto } from '@poly/common';
+import { FunctionDto, ExecuteFunctionDto, UpdateFunctionDto } from '@poly/common';
 
 @Controller('function')
 export class PolyFunctionController {
@@ -16,7 +16,19 @@ export class PolyFunctionController {
   }
 
   @Post('/execute/:publicId')
-  async executeFunction(@Param('publicId') publicId, @Body() executeFunctionDto: ExecuteFunctionDto): Promise<any> {
+  async executeFunction(@Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteFunctionDto): Promise<any> {
     return await this.service.executeFunction(publicId, executeFunctionDto);
+  }
+
+  @Put('/:id')
+  @UseGuards(ApiKeyGuard)
+  async updateFunction(@Req() req, @Param('id') id: number, @Body() updateFunctionDto: UpdateFunctionDto): Promise<any> {
+    return this.service.toDto(await this.service.updateFunction(req.user, id, updateFunctionDto.alias, updateFunctionDto.context));
+  }
+
+  @Delete('/:id')
+  @UseGuards(ApiKeyGuard)
+  async deleteFunction(@Req() req, @Param('id') id: number): Promise<void> {
+    await this.service.deleteFunction(req.user, id);
   }
 }

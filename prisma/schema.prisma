@@ -18,8 +18,8 @@ model PolyFunction {
   id       Int     @id @default(autoincrement())
   user     User    @relation(fields: [userId], references: [id])
   userId   Int
-  alias    String?
-  context  String?
+  alias    String
+  context  String
   payload  String?
   method   String?
   url      String?
