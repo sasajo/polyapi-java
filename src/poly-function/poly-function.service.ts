@@ -376,9 +376,10 @@ export class PolyFunctionService {
   private normalizePayload(payload: string | null, polyFunction: PolyFunction) {
     if (payload == null) {
       payload = polyFunction.payload;
-    }
-    if (!payload.startsWith('$')) {
-      payload = `$${payload.startsWith('[') ? '' : '.'}${payload}`;
+    } else {
+      if (!payload.startsWith('$')) {
+        payload = `$${payload.startsWith('[') ? '' : '.'}${payload}`;
+      }
     }
 
     return payload;
