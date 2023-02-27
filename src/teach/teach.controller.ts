@@ -22,7 +22,7 @@ export class TeachController {
   @UseGuards(ApiKeyGuard)
   @Post('/:functionId')
   async teachDetails(@Req() req, @Param('functionId') id: number, @Body() teachDetailsDto: TeachDetailsDto): Promise<void> {
-    const { functionAlias = null, context = null, response } = teachDetailsDto;
-    await this.polyFunctionService.updateDetails(id, req.user, functionAlias, context, response);
+    const { functionAlias = null, context = null, payload = null, response } = teachDetailsDto;
+    await this.polyFunctionService.updateDetails(id, req.user, functionAlias, context, payload, response);
   }
 }

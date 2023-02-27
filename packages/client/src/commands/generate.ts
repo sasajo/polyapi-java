@@ -3,6 +3,7 @@ import handlebars from 'handlebars';
 import set from 'lodash/set';
 import chalk from 'chalk';
 import shell from 'shelljs';
+import { toPascalCase } from '@guanghechen/helper-string';
 
 import { FunctionDto } from '@poly/common';
 import { getPolyFunctions } from '../api';
@@ -52,10 +53,7 @@ const generateTSDeclarationFilesForContext = async (
     .filter((key) => contextData[key].type !== 'function')
     .map((key) => ({
       name: key,
-      interfaceName: `${contextPath}.${key}`
-        .split('.')
-        .map((part) => (part[0]?.toUpperCase() || '') + part.slice(1))
-        .join(''),
+      interfaceName: toPascalCase(`${contextPath}.${key}`),
     }));
 
   const contextFiles = await generateTSContextDeclarationFile(
@@ -107,19 +105,25 @@ const generateTSContextDeclarationFile = async (
     await loadTemplate('{{context}}.d.ts.hbs'),
   );
   const fileName = `${context === '' ? 'default' : context}.d.ts`;
+  const returnTypeDefinitions = functions.reduce((result, func) => {
+    return `${result}${func.returnType}\n`;
+  }, '');
+
+  const toFunctionData = (func: FunctionDto) => ({
+    ...func,
+    returnType:
+      'Promise<' +
+      toPascalCase(`${context}.${func.name}`) +
+      "Type['response']>",
+  });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${fileName}`,
     template({
-      interfaceName:
-        context === ''
-          ? 'Poly'
-          : context
-              .split('.')
-              .map((part) => part[0].toUpperCase() + part.slice(1))
-              .join(''),
+      interfaceName: context === '' ? 'Poly' : toPascalCase(context),
       context,
-      functions,
+      functions: functions.map(toFunctionData),
       subContexts,
+      returnTypeDefinitions,
     }),
   );
 

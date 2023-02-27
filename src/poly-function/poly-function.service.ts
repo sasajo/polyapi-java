@@ -1,5 +1,7 @@
+import jsonpath from 'jsonpath';
+import { quicktype, jsonInputForTargetLanguage, InputData } from 'quicktype-core';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { toCamelCase } from '@guanghechen/helper-string';
+import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, map } from 'rxjs';
 import mustache from 'mustache';
@@ -109,7 +111,7 @@ export class PolyFunctionService {
     });
   }
 
-  async updateDetails(id: number, user: User, alias: string | null, context: string | null, response: unknown) {
+  async updateDetails(id: number, user: User, alias: string | null, context: string | null, payload: string | null, response: unknown) {
     const polyFunction = await this.prisma.polyFunction.findFirst({
       where: {
         id,
@@ -122,14 +124,20 @@ export class PolyFunctionService {
       return;
     }
 
+    alias = this.normalizeAlias(alias, polyFunction);
+    context = this.normalizeContext(context, polyFunction);
+    payload = this.normalizePayload(payload, polyFunction);
+
     await this.prisma.polyFunction.update({
       where: {
         id,
       },
       data: {
-        alias: alias == null ? polyFunction.alias : alias,
-        context: context == null ? polyFunction.context : context,
+        alias,
+        context,
+        payload,
         response: JSON.stringify(response),
+        responseType: await this.generateResponseType(toPascalCase(`${context} ${alias} Type`), response, payload),
       },
     });
   }
@@ -157,7 +165,7 @@ export class PolyFunctionService {
       name: polyFunction.alias,
       context: polyFunction.context,
       arguments: this.getArguments(polyFunction),
-      returnType: 'any',
+      returnType: polyFunction.responseType || 'Promise<any>',
     };
   }
 
@@ -186,6 +194,13 @@ export class PolyFunctionService {
       data: this.getBodyData(body),
     }).pipe(
       map(response => response.data),
+      map(response => {
+        try {
+          return this.getPayloadResponse(response, polyFunction.payload);
+        } catch (e) {
+          return response;
+        }
+      }),
     ).pipe(
       catchError(error => {
           throw new HttpException(error.response.data, error.response.status);
@@ -285,5 +300,87 @@ export class PolyFunctionService {
     if (found) {
       throw new HttpException(`Function with alias ${alias} and context ${context} already exists.`, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  private async generateResponseType(typeName: string, response: unknown, payload: string | null) {
+    if (!response) {
+      return '';
+    }
+
+    try {
+      response = this.getPayloadResponse(response, payload);
+    } catch (e) {
+      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+    }
+
+    const jsonInput = jsonInputForTargetLanguage('ts');
+    await jsonInput.addSource({
+      name: typeName,
+      samples: [JSON.stringify({
+        response,
+      })],
+    });
+    const inputData = new InputData();
+    inputData.addInput(jsonInput);
+
+    const { lines } = await quicktype({
+      lang: 'ts',
+      inputData,
+      combineClasses: true,
+      rendererOptions: {
+        'just-types': 'true',
+      },
+    });
+
+    return lines
+      .map(line => line.replace('response: Response', `response: ${typeName}Response`))
+      .map(line => line.replace('export interface', 'interface'))
+      .map(line => line.replace('interface Response', `interface ${typeName}Response`))
+      .join('\n');
+  }
+
+  private getPayloadResponse(response: unknown, payload: string | null): unknown {
+    if (!payload) {
+      return response;
+    }
+
+    try {
+      const result = jsonpath.query(response, payload);
+      if (payload.includes('[*]')) {
+        return result;
+      } else if (result.length === 0) {
+        return null;
+      } else {
+        return result[0];
+      }
+    } catch (e) {
+      throw new Error(`Invalid payload ${payload}`);
+    }
+  }
+
+  private normalizeAlias(alias: string | null, polyFunction: PolyFunction) {
+    if (alias == null) {
+      alias = polyFunction.alias;
+    }
+    return alias;
+  }
+
+  private normalizeContext(context: string | null, polyFunction: PolyFunction) {
+    if (context == null) {
+      context = polyFunction.context;
+    }
+
+    return context;
+  }
+
+  private normalizePayload(payload: string | null, polyFunction: PolyFunction) {
+    if (payload == null) {
+      payload = polyFunction.payload;
+    }
+    if (!payload.startsWith('$')) {
+      payload = `$${payload.startsWith('[') ? '' : '.'}${payload}`;
+    }
+
+    return payload;
   }
 }

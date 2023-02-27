@@ -1,4 +1,4 @@
-import { ArgumentType, ReturnType } from '../types';
+import { ArgumentType } from '../types';
 
 export type FunctionArgument = {
   name: string;
@@ -10,5 +10,5 @@ export type FunctionDto = {
   context: string;
   name: string;
   arguments: FunctionArgument[];
-  returnType: ReturnType;
+  returnType: string;
 }
