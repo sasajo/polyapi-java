@@ -3,27 +3,31 @@ import os
 import openai
 from prisma import Prisma
 
+# TODO get from env variables
+OPENAI_TEMPERATURE = 0
+OPENAI_TOP_P = 1
+
 
 def main() -> None:
     db = Prisma()
     db.connect()
 
     # write your queries here
-    print("foo")
-    for func in db.polyfunction.find_many():
-        print(func)
+    # for func in db.polyfunction.find_many():
+    #     print(func)
 
     openai.api_key = os.getenv("OPENAI_API_KEY")
+    prompt = "how do I get bacon ipsum?"
     response = openai.Completion.create(
-        model="code-davinci-002",
-        prompt='"""1. Create a list of first names\n2. Create a list of last names\n3. Combine them randomly into a list of 100 full names\n"""',
-        temperature=0,
+        model="davinci:ft-poly-api-2023-02-25-01-33-45",
+        prompt=f'From Poly API, {prompt}',
+        temperature=OPENAI_TEMPERATURE,
         max_tokens=300,
-        top_p=1,
+        top_p=OPENAI_TOP_P,
         frequency_penalty=0,
         presence_penalty=0
     )
-    print(response)
+    print(response['choices'][0]['text'])
 
     db.disconnect()
 

@@ -33,13 +33,16 @@ model PolyFunction {
   body     String?
   response String?
   trained  Boolean @default(false)
+  // prompts  TrainingPrompt[]
 }
 
 
-// FunctionPrompt
-// id Int @id @default(autoincrement())
-// func PolyFunction
-//
-// TODO FK to PolyFunction showing all the prompts we might use for the
-// also make a script that can generate a newline delimited prompt/completion script as seen here
-// https://platform.openai.com/docs/guides/fine-tuning
+// HOLD OFF ON TRAINING PROMPTS FOR NOW
+// JUST LOAD DIRECT FROM CSV
+// model TrainingPrompt {
+//   // add some sample prompts to feed to OpenAI as training data
+//   id       Int           @id @default(autoincrement())
+//   func     PolyFunction  @relation(fields: [funcId], references: [id])
+//   funcId   Int
+//   text     String
+// }
