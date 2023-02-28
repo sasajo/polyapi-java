@@ -15,17 +15,18 @@ model User {
 }
 
 model PolyFunction {
-  id       Int     @id @default(autoincrement())
-  user     User    @relation(fields: [userId], references: [id])
-  userId   Int
-  alias    String
-  context  String
-  payload  String?
-  method   String?
-  url      String?
-  headers  String?
-  body     String?
-  response String?
-  trained  Boolean @default(false)
-  publicId String  @default(uuid())
+  id           Int     @id @default(autoincrement())
+  user         User    @relation(fields: [userId], references: [id])
+  userId       Int
+  alias        String
+  context      String
+  payload      String?
+  method       String?
+  url          String?
+  headers      String?
+  body         String?
+  response     String?
+  responseType String?
+  trained      Boolean @default(false)
+  publicId     String  @default(uuid())
 }
