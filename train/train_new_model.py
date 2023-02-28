@@ -35,7 +35,7 @@ def transform_to_jsonl() -> str:
 def main() -> None:
     jsonl_path = transform_to_jsonl()
     upload = openai.File.create(file=open(jsonl_path, "rb"), purpose="fine-tune")
-    resp = openai.FineTune.create(training_file=upload.id, model="davinci")
+    resp = openai.FineTune.create(training_file=upload.id, model="davinci:ft-poly-api-2023-02-25-01-33-45")
     print("To follow the model and see when it's done, please run the following:")
     print(f"openai api fine_tunes.follow -i {resp['id']}")
 
