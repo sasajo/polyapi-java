@@ -165,7 +165,7 @@ export class PolyFunctionService {
       name: polyFunction.alias,
       context: polyFunction.context,
       arguments: this.getArguments(polyFunction),
-      returnType: polyFunction.responseType || 'Promise<any>',
+      returnType: polyFunction.responseType,
     };
   }
 

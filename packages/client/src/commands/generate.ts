@@ -111,10 +111,11 @@ const generateTSContextDeclarationFile = async (
 
   const toFunctionData = (func: FunctionDto) => ({
     ...func,
-    returnType:
-      'Promise<' +
-      toPascalCase(`${context}.${func.name}`) +
-      "Type['response']>",
+    returnType: func.returnType
+      ? 'Promise<' +
+        toPascalCase(`${context}.${func.name}`) +
+        "Type['response']>"
+      : 'Promise<any>',
   });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${fileName}`,

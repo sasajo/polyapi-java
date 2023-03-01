@@ -1,6 +1,6 @@
 {
   "name": "polyapi",
-  "version": "0.0.60",
+  "version": "0.0.61",
   "description": "Poly is a CLI tool to help you create and manage your Poly definitions.",
   "files": [
     "build/**/*",
