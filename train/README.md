@@ -25,6 +25,8 @@ POST /function_completion/
 
 The server will build a query based on your question, send it to OpenAI, and return the response.
 
+NOTE: you must have an OPENAI_API_KEY in your environment. Contact Darko for a key if you don't have one yet!
+
 
 ## Training
 
