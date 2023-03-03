@@ -1,0 +1,50 @@
+.message-input-wrapper {
+    display: grid;
+    max-height: 20rem;
+    font-size: var(--vscode-font-size);
+}
+
+.message-input-wrapper > textarea {
+    resize: none;
+    overflow: hidden auto;
+    max-height: 20rem;
+}
+
+.message-input-wrapper > textarea,
+.message-input-wrapper::after {
+    border: 1px solid black;
+    padding: 0.5rem 2rem 0.5rem 0.5rem;
+    grid-area: 1 / 1 / 2 / 2;
+}
+
+#conversation-list .code-section {
+    position: relative;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    padding: 0.5rem 1rem;
+    background: var(--vscode-terminal-ansiBlack);
+}
+
+.loading-container .dot1 {
+    animation: loading 1s infinite;
+}
+.loading-container .dot2 {
+    animation: loading 1s infinite;
+    animation-delay: 0.2s;
+}
+.loading-container .dot3 {
+    animation: loading 1s infinite;
+    animation-delay: 0.4s;
+}
+
+@keyframes loading {
+    0%{
+        opacity: 0;
+    }
+    50%{
+        opacity: 1;
+    }
+    100%{
+        opacity: 0;
+    }
+}

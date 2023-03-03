@@ -4,3 +4,5 @@ export * from './teach-details.dto';
 export * from './teach-response.dto';
 export * from './execute-function.dto';
 export * from './update-function.dto';
+export * from './post-question.dto';
+export * from './post-question-response.dto';

@@ -28,3 +28,10 @@ export type Body = RawBody | UrlencodedBody | FormDataBody | EmptyBody;
 export type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
 
 export type ArgumentType = 'string' | 'number' | 'boolean';
+
+export type ChatText = {
+  type: TextType;
+  value: string;
+};
+
+type TextType = 'plain' | 'js' | 'markdown';
