@@ -1,10 +1,13 @@
-import { Body, Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { PolyFunctionService } from 'poly-function/poly-function.service';
-import { TeachDto, TeachResponseDto, TeachDetailsDto } from '@poly/common';
+import { TeachDetailsDto, TeachDto, TeachResponseDto } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
+import { ParseIdPipe } from 'pipe/parse-id.pipe';
 
 @Controller('teach')
 export class TeachController {
+  private logger: Logger = new Logger(TeachController.name);
+
   public constructor(private readonly polyFunctionService: PolyFunctionService) {
   }
 
@@ -12,6 +15,7 @@ export class TeachController {
   @Post()
   async teach(@Req() req, @Body() teachDto: TeachDto): Promise<TeachResponseDto> {
     const { url, method, alias, headers, body } = teachDto;
+    this.logger.debug(`Teaching ${method} ${url} with alias '${alias}' for user ${req.user.id}...`);
     const polyFunction = await this.polyFunctionService.findOrCreate(req.user, url, method, alias, headers, body);
 
     return {
@@ -21,8 +25,10 @@ export class TeachController {
 
   @UseGuards(ApiKeyGuard)
   @Post('/:functionId')
-  async teachDetails(@Req() req, @Param('functionId') id: number, @Body() teachDetailsDto: TeachDetailsDto): Promise<void> {
+  async teachDetails(@Req() req, @Param('functionId', ParseIdPipe) id: number, @Body() teachDetailsDto: TeachDetailsDto): Promise<void> {
     const { functionAlias = null, context = null, payload = null, response } = teachDetailsDto;
+    this.logger.debug(`Teaching details of function ${id} for user ${req.user.id}...`);
+    this.logger.debug(`alias: ${functionAlias}, context: ${context}, payload: ${payload}, response: ${response}`);
     await this.polyFunctionService.updateDetails(id, req.user, functionAlias, context, payload, response);
   }
 }

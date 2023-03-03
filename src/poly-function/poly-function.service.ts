@@ -1,6 +1,6 @@
 import jsonpath from 'jsonpath';
 import { quicktype, jsonInputForTargetLanguage, InputData } from 'quicktype-core';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, map } from 'rxjs';
@@ -13,6 +13,8 @@ const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
 @Injectable()
 export class PolyFunctionService {
+  private logger: Logger = new Logger(PolyFunctionService.name);
+
   constructor(private readonly prisma: PrismaService, private readonly httpService: HttpService) {
   }
 
@@ -84,6 +86,7 @@ export class PolyFunctionService {
       },
     });
     if (found) {
+      this.logger.debug(`Found existing poly function ${found.id}. Updating...`);
       return this.prisma.polyFunction.update({
         where: {
           id: found.id,
@@ -96,6 +99,7 @@ export class PolyFunctionService {
       });
     }
 
+    this.logger.debug(`Creating new poly function...`);
     return await this.create({
       user: {
         connect: {
@@ -121,12 +125,16 @@ export class PolyFunctionService {
       },
     });
     if (!polyFunction) {
-      return;
+      throw new HttpException(`Poly function not found`, HttpStatus.NOT_FOUND);
     }
 
     alias = this.normalizeAlias(alias, polyFunction);
     context = this.normalizeContext(context, polyFunction);
     payload = this.normalizePayload(payload, polyFunction);
+    this.logger.debug(`Normalized: alias: ${alias}, context: ${context}, payload: ${payload}`);
+
+    const responseType = await this.generateResponseType(toPascalCase(`${context} ${alias} Type`), response, payload);
+    this.logger.debug(`Generated response type:\n${responseType}`);
 
     await this.prisma.polyFunction.update({
       where: {
@@ -137,7 +145,7 @@ export class PolyFunctionService {
         context,
         payload,
         response: JSON.stringify(response),
-        responseType: await this.generateResponseType(toPascalCase(`${context} ${alias} Type`), response, payload),
+        responseType: responseType,
       },
     });
   }
@@ -178,14 +186,19 @@ export class PolyFunctionService {
     if (!polyFunction) {
       throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
     }
+    this.logger.debug(`Executing function ${polyFunction.id} with arguments ${JSON.stringify(executeFunctionDto.args)}`);
+
     const args = this.getArguments(polyFunction)
       .reduce((args, arg, index) => Object.assign(args, { [arg.name]: executeFunctionDto.args[index] }), {});
     const headers = JSON.parse(mustache.render(polyFunction.headers, args));
     const body = JSON.parse(mustache.render(polyFunction.body, args));
+    const url = mustache.render(polyFunction.url, args);
+    const method = polyFunction.method;
 
+    this.logger.debug(`Performing HTTP request ${method} ${url} (id: ${polyFunction.id})...\nHeaders:\n${JSON.stringify(headers)}\nBody:\n${JSON.stringify(body)}`);
     return this.httpService.request({
-      url: mustache.render(polyFunction.url, args),
-      method: polyFunction.method,
+      url,
+      method,
       headers: headers
         .reduce(
           (headers, header) => Object.assign(headers, { [header.key]: header.value }),
@@ -196,16 +209,21 @@ export class PolyFunctionService {
       map(response => response.data),
       map(response => {
         try {
-          return this.getPayloadResponse(response, polyFunction.payload);
+          this.logger.debug(`Response (id: ${polyFunction.id}):\n${JSON.stringify(response)}`);
+          const payloadResponse = this.getPayloadResponse(response, polyFunction.payload);
+          if (response !== payloadResponse) {
+            this.logger.debug(`Payload response (id: ${polyFunction.id}, payload: ${polyFunction.payload}):\n${JSON.stringify(payloadResponse)}`);
+          }
+          return payloadResponse;
         } catch (e) {
           return response;
         }
       }),
     ).pipe(
       catchError(error => {
-          throw new HttpException(error.response.data, error.response.status);
-        },
-      ),
+        this.logger.error(`Error while performing HTTP request (id: ${polyFunction.id}): ${error}`);
+        throw new HttpException(error.response.data, error.response.status);
+      }),
     );
   }
 
@@ -256,6 +274,7 @@ export class PolyFunctionService {
 
     this.checkAliasAndContextDuplicates(user, alias || found.alias, context == null ? found.context || '' : context);
 
+    this.logger.debug(`Updating function ${id} with alias ${alias} and context ${context}`);
     return this.prisma.polyFunction.update({
       where: {
         id,
@@ -280,6 +299,7 @@ export class PolyFunctionService {
       throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
     }
 
+    this.logger.debug(`Deleting function ${id}`);
     await this.prisma.polyFunction.delete({
       where: {
         id,
