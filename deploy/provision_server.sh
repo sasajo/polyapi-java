@@ -7,5 +7,7 @@ npm install yarn
 # maybe do this instead:
 # curl --compressed -o- -L https://yarnpkg.com/install.sh | bash
 yarn install
+sudo apt-get install libcap2-bin
+sudo setcap cap_net_bind_service=+ep /usr/bin/node
 # TODO add OPENAI_API_KEY env variable
 # also add other variables?

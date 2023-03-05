@@ -10,7 +10,7 @@ app = Flask(__name__)
 @app.route("/")
 def home():
     readme_link = "<a href='https://github.com/polyapi/poly-alpha/blob/main/train/README.md'>README</a>"
-    return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completions/`! See the {readme_link} for details"
+    return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
 
 
 @app.route("/function-completion", methods=['POST'])  # type: ignore
