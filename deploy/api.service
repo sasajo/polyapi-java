@@ -3,6 +3,7 @@ Description=poly api
 After=network.target
 
 [Service]
+User=ubuntu
 EnvironmentFile=/home/ubuntu/poly-alpha/.env
 WorkingDirectory=/home/ubuntu/poly-alpha
 ExecStart=node /home/ubuntu/poly-alpha/dist/src/main
