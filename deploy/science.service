@@ -1,0 +1,13 @@
+[Unit]
+Description=science server
+After=network.target
+
+[Service]
+EnvironmentFile=/home/ubuntu/poly-alpha/.env
+WorkingDirectory=/home/ubuntu/poly-alpha/science
+ExecStart=/home/ubuntu/poly-alpha/science.py
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
