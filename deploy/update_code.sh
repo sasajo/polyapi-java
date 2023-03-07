@@ -6,6 +6,10 @@ git pull
 sudo pip3 install -r "train/requirements.txt"
 yarn install
 prisma db push
+
+# regenerate the hooks for the python client
+cd science && prisma generate && cd ..
+
 yarn run build
 # TODO npm install
 # sudo systemctl restart api.service
