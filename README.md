@@ -1,6 +1,4 @@
-## Description
-
-Poly API.
+# Poly API
 
 ## Installation
 
