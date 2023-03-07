@@ -3,7 +3,6 @@
 set -e
 cd $HOME/poly-alpha/
 git pull
-sudo pip3 install -r "train/requirements.txt"
 yarn install
 
 # regenerate the hooks for the npm client
@@ -11,10 +10,12 @@ yarn install
 prisma db push
 
 # regenerate the hooks for the python client
-cd science && prisma generate && cd ..
+cd science
+pip install -r requirements.txt
+prisma generate
+cd ..
 
 yarn run build
-# TODO npm install
 # sudo systemctl restart api.service
 # api.service will be `PORT=80 yarn run start:prod`
 # sudo systemctl restart ds-server.service
