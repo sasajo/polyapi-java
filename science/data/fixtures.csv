@@ -1,0 +1,10 @@
+context,alias,description
+hospitality,opera.checkin(date),get a list of guests that checked in to a hotel on a specific date
+hospitality,opera.getHotelDetails(reservationID),find the hotel that a reservation is for and returns the details of that hotel
+hospitality,opera.guestDetails(GuestId).email,get the email of a guest
+hospitality,opera.guestDetailsDan(passportID).email,get the email of a guest via passport
+hospitality,opera.prepareforGuest(guestID),notify a hotel to prepare for a guest that will be arriving soon
+hospitality,"opera.reservationDetails(GuestId, date)","get the full reservation details for a specific guest, including the hotel they will be staying at"
+travel,"unitedAirlines.bookTicket(flightID, userName)",book a specific flight for a user
+travel,unitedAirlines.getFlights(guestID),get a list of flights for a specific user
+travel,unitedAirlines.getStatus(flightID),"get the status of a specific flight, including airport of origin and arrival"

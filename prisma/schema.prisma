@@ -20,6 +20,7 @@ model PolyFunction {
   userId       Int
   alias        String
   context      String
+  description  String  @default("")
   payload      String?
   method       String?
   url          String?

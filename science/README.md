@@ -31,7 +31,9 @@ NOTE: you must have an OPENAI_API_KEY in your environment. Contact Darko for a k
 
 ## Training
 
-This python library will train a new model, upload it to OpenAI, and validate it!
+IN THE FUTURE:
+
+This library will have a script to generate new training data, upload it to OpenAI, and kick off the creation (aka fine tune) of a new model
 
 Once we are sure we want to roll out a new model, we simply update the environment variables for the OpenAI model and restart the NodeJS server:
 
@@ -53,7 +55,7 @@ https://docs.google.com/spreadsheets/d/1TwV1uSw3cDrRf8BOBfXMhCd-Wm-m2U8ilhZSuUHK
 
 To train using this data:
 
-1. `cd poly-alpha/train`
+1. `cd poly-alpha/science`
 2. Download as CSV
 3. Put the CSV here: `./data/examples.csv`
 4. Run `./train_new_model.py`

@@ -2,6 +2,9 @@
 /dist
 /node_modules
 
+# data
+prisma/data/poly.db
+
 # Logs
 logs
 *.log

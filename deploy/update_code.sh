@@ -5,6 +5,9 @@ cd $HOME/poly-alpha/
 git pull
 sudo pip3 install -r "train/requirements.txt"
 yarn install
+
+# regenerate the hooks for the npm client
+# TODO switch to prisma db migrate?
 prisma db push
 
 # regenerate the hooks for the python client
