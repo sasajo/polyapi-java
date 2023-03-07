@@ -10,9 +10,10 @@ This Python library contains the code for:
 To start the server, run the following:
 
 ```
-> cd train
+> cd science
 > pip install -r requirements.txt
-> flask --app server run
+> prisma generate  # generates the library for python to access the db
+> ./server.py
 < * Running on http://127.0.0.1:5000
 ```
 
