@@ -12,7 +12,7 @@ $ yarn install
 
 ```bash
 # just copy over the template for local development
-$ cp .env.dev .env
+$ cp .env.template .env
 ```
 
 ## Loading the DB
