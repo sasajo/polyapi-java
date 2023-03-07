@@ -1,0 +1,13 @@
+[Unit]
+Description=poly api
+After=network.target
+
+[Service]
+EnvironmentFile=/home/ubuntu/poly-alpha/.env
+WorkingDirectory=/home/ubuntu/poly-alpha
+ExecStart=yarn run start:prod
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
