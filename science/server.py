@@ -14,7 +14,7 @@ register(db)
 
 @app.route("/")
 def home():
-    readme_link = "<a href='https://github.com/polyapi/poly-alpha/blob/main/train/README.md'>README</a>"
+    readme_link = "<a href='https://github.com/polyapi/poly-alpha/blob/main/science/README.md'>README</a>"
     return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
 
 
