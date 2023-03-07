@@ -10,3 +10,16 @@ declare const poly: poly.Poly;
 declare namespace poly {
   interface Poly {}
 }
+
+interface ErrorEvent {
+  message: string;
+  data?: unknown;
+  status?: number;
+  statusText?: string;
+}
+
+interface ErrorHandler {
+  on: (path: string, handler: (error: ErrorEvent) => void) => void;
+  off: (path: string) => void;
+}
+export const errorHandler: ErrorHandler;

@@ -3,11 +3,13 @@ import { quicktype, jsonInputForTargetLanguage, InputData } from 'quicktype-core
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
-import { catchError, map } from 'rxjs';
+import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
 import { PolyFunction, Prisma, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { Body, ExecuteFunctionDto, FunctionArgument, FunctionDto, Headers, Method } from '@poly/common';
+import { EventService } from 'event/event.service';
+import { AxiosError } from 'axios';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -15,7 +17,7 @@ const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 export class PolyFunctionService {
   private logger: Logger = new Logger(PolyFunctionService.name);
 
-  constructor(private readonly prisma: PrismaService, private readonly httpService: HttpService) {
+  constructor(private readonly prisma: PrismaService, private readonly httpService: HttpService, private readonly eventService: EventService) {
   }
 
   create(data: Prisma.PolyFunctionCreateInput): Promise<PolyFunction> {
@@ -194,36 +196,48 @@ export class PolyFunctionService {
     const body = JSON.parse(mustache.render(polyFunction.body, args));
     const url = mustache.render(polyFunction.url, args);
     const method = polyFunction.method;
+    const functionPath = `${polyFunction.context ? `${polyFunction.context}.` : ''}${polyFunction.alias}`;
 
     this.logger.debug(`Performing HTTP request ${method} ${url} (id: ${polyFunction.id})...\nHeaders:\n${JSON.stringify(headers)}\nBody:\n${JSON.stringify(body)}`);
-    return this.httpService.request({
-      url,
-      method,
-      headers: headers
-        .reduce(
-          (headers, header) => Object.assign(headers, { [header.key]: header.value }),
-          this.getDefaultHeaders(body),
-        ),
-      data: this.getBodyData(body),
-    }).pipe(
-      map(response => response.data),
-      map(response => {
-        try {
-          this.logger.debug(`Response (id: ${polyFunction.id}):\n${JSON.stringify(response)}`);
-          const payloadResponse = this.getPayloadResponse(response, polyFunction.payload);
-          if (response !== payloadResponse) {
-            this.logger.debug(`Payload response (id: ${polyFunction.id}, payload: ${polyFunction.payload}):\n${JSON.stringify(payloadResponse)}`);
+    return lastValueFrom(
+      this.httpService.request({
+        url,
+        method,
+        headers: headers
+          .reduce(
+            (headers, header) => Object.assign(headers, { [header.key]: header.value }),
+            this.getDefaultHeaders(body),
+          ),
+        data: this.getBodyData(body),
+      }).pipe(
+        map(response => response.data),
+        map(response => {
+          try {
+            this.logger.debug(`Response (id: ${polyFunction.id}):\n${JSON.stringify(response)}`);
+            const payloadResponse = this.getPayloadResponse(response, polyFunction.payload);
+            if (response !== payloadResponse) {
+              this.logger.debug(`Payload response (id: ${polyFunction.id}, payload: ${polyFunction.payload}):\n${JSON.stringify(payloadResponse)}`);
+            }
+            return payloadResponse;
+          } catch (e) {
+            return response;
           }
-          return payloadResponse;
-        } catch (e) {
-          return response;
-        }
-      }),
-    ).pipe(
-      catchError(error => {
-        this.logger.error(`Error while performing HTTP request (id: ${polyFunction.id}): ${error}`);
-        throw new HttpException(error.response.data, error.response.status);
-      }),
+        }),
+      ).pipe(
+        catchError((error: AxiosError) => {
+          this.logger.error(`Error while performing HTTP request (id: ${polyFunction.id}): ${error}`);
+
+          if (this.eventService.sendErrorEvent(executeFunctionDto.clientID, functionPath, this.eventService.getEventError(error))) {
+            return of(null);
+          }
+
+          if (error.response) {
+            throw new HttpException(error.response.data, error.response.status);
+          } else {
+            throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+          }
+        }),
+      ),
     );
   }
 

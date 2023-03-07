@@ -1,5 +1,10 @@
 const axios = require('axios');
 const set = require('lodash/set');
+const { io } = require("socket.io-client");
+const { v4: uuidv4 } = require('uuid');
+
+const clientID = uuidv4();
+const socket = io('{{apiBaseUrl}}/events');
 
 const functions = [
 {{#each functions}}
@@ -11,7 +16,28 @@ const functions = [
 {{/each}}
 ];
 
-module.exports = functions.reduce(
-  (acc, [name, id]) => set(acc, name, (...args) => axios.post(`{{apiBaseUrl}}/function/execute/${id}`, { args }).then(({ data }) => data)),
-  {}
-);
+const errorHandler = {
+  on: (path, callback) => {
+    socket.emit('registerErrorHandler', {
+      clientID,
+      path,
+      apiKey: '{{apiKey}}'
+    });
+    socket.on(`handleError:${path}`, callback);
+  },
+  off: (path) => {
+    socket.emit('unregisterErrorHandler', {
+      clientID,
+      path,
+      apiKey: '{{apiKey}}'
+    });
+  }
+};
+
+module.exports = {
+  ...functions.reduce(
+    (acc, [name, id]) => set(acc, name, (...args) => axios.post(`{{apiBaseUrl}}/function/execute/${id}`, { clientID, args }).then(({ data }) => data)),
+    {}
+  ),
+  errorHandler
+};

@@ -1,11 +1,11 @@
-import { ArgumentType } from '../types';
+import { ArgumentType } from '..';
 
-export type FunctionArgument = {
+export interface FunctionArgument {
   name: string;
   type: ArgumentType;
 }
 
-export type FunctionDto = {
+export interface FunctionDto {
   id: string;
   context: string;
   name: string;

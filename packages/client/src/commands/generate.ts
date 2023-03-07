@@ -32,6 +32,7 @@ const generateJSFiles = async (functions: FunctionDto[]) => {
     template({
       functions,
       apiBaseUrl: process.env.POLY_API_BASE_URL,
+      apiKey: process.env.POLY_API_KEY,
     }),
   );
 };

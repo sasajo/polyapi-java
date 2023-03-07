@@ -1,8 +1,4 @@
-export type ExecuteFunctionArgument = {
-  name: string;
-  value: any;
-}
-
-export type ExecuteFunctionDto = {
+export interface ExecuteFunctionDto {
+  clientID: string;
   args: any[];
-};
+}

@@ -1,3 +1,3 @@
-export type TeachResponseDto = {
+export interface TeachResponseDto {
   functionId: number;
 }

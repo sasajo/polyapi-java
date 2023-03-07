@@ -6,3 +6,4 @@ export * from './execute-function.dto';
 export * from './update-function.dto';
 export * from './post-question.dto';
 export * from './post-question-response.dto';
+export * from './error-handler.dto';

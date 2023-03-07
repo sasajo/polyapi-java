@@ -1,4 +1,4 @@
-export type UpdateFunctionDto = {
+export interface UpdateFunctionDto {
   alias?: string;
   context?: string;
-};
+}

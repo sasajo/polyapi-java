@@ -1,4 +1,4 @@
-export type TeachDetailsDto = {
+export interface TeachDetailsDto {
 
   functionAlias: string;
   context: string;

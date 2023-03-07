@@ -1,6 +1,6 @@
 {
   "name": "polyapi",
-  "version": "0.0.61",
+  "version": "0.0.70",
   "description": "Poly is a CLI tool to help you create and manage your Poly definitions.",
   "files": [
     "build/**/*",
@@ -49,6 +49,8 @@
     "inquirer": "^8.2.5",
     "lodash": "^4.17.21",
     "shelljs": "^0.8.5",
+    "socket.io-client": "^4.6.1",
+    "uuid": "^9.0.0",
     "yargs": "^17.7.0"
   },
   "engines": {

@@ -1,5 +1,5 @@
-import { ChatText } from '../types';
+import { ChatText } from '..';
 
-export type PostQuestionResponseDto = {
+export interface PostQuestionResponseDto {
   texts: ChatText[];
 }
