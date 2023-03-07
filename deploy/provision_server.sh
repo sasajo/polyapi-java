@@ -8,10 +8,10 @@ sudo apt install -y nodejs python3-pip vim libcap2-bin
 sudo setcap cap_net_bind_service=+ep /usr/bin/node
 
 npm install yarn
-# maybe do this instead:
+# maybe do this instead for yarn install:
 # curl --compressed -o- -L https://yarnpkg.com/install.sh | bash
 yarn install
 
 sudo cp -v deploy/api.service /usr/lib/systemd/system/
-# TODO add OPENAI_API_KEY env variable
-# also add other variables?
+
+sudo systemctl enable api.service

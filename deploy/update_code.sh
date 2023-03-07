@@ -16,7 +16,7 @@ prisma generate
 cd ..
 
 yarn run build
-# sudo systemctl restart api.service
+sudo systemctl restart api.service
 # api.service will be `PORT=80 yarn run start:prod`
 # sudo systemctl restart ds-server.service
 # echo 'Waiting for BE...'
