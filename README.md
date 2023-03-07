@@ -8,7 +8,15 @@ Poly API.
 $ yarn install
 ```
 
-# Loading the DB
+## Setup the .env file
+
+```bash
+# just copy over the template for local development
+$ cp .env.dev .env
+```
+
+## Loading the DB
+
 ```bash
 $ prisma db push
 $ cd science
@@ -17,6 +25,7 @@ $ ./load_fixtures.py
 ```
 
 ## Running the app
+
 This will run the Python server on port 5000:
 
 ```bash
@@ -38,5 +47,6 @@ $ yarn run start:prod
 ```
 
 ## Endpoints
+
 `POST /teach`\ - prepares Poly API function
 `POST /teach/:functionId` - updated Poly API function with response and/or metadata
