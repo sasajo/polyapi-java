@@ -3,6 +3,7 @@ Description=science server
 After=network.target
 
 [Service]
+User=ubuntu
 EnvironmentFile=/home/ubuntu/poly-alpha/.env
 WorkingDirectory=/home/ubuntu/poly-alpha/science
 ExecStart=/home/ubuntu/poly-alpha/science/server.py
