@@ -43,6 +43,9 @@ def load_fixtures() -> None:
                     "alias": data["alias"],
                     "description": data["description"],
                     "userId": user.id,
+                    # TODO: fix the url and method setup
+                    "url": "https://baconipsum.com/api/?type=meat-and-filler",
+                    "method": "GET"
                 }
             )
             print(f"Created {full_func_path(func)}")

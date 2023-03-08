@@ -24,8 +24,8 @@ model PolyFunction {
   context      String
   description  String  @default("")
   payload      String?
-  method       String?
-  url          String?
+  method       String
+  url          String
   headers      String?
   body         String?
   response     String?

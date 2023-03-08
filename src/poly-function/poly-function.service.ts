@@ -178,8 +178,8 @@ export class PolyFunctionService {
     let args = [];
 
     args = args.concat(polyFunction.url.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
-    args = args.concat(polyFunction.headers.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
-    args = args.concat(polyFunction.body.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
+    args = args.concat(polyFunction.headers?.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
+    args = args.concat(polyFunction.body?.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
 
     return args || [];
   }
