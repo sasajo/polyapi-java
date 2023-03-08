@@ -24,6 +24,8 @@ $ ./load_fixtures.py
 
 ## Running the app
 
+This will run the server on port 8000 by default.
+
 This will run the Python server on port 5000:
 
 ```bash
@@ -46,6 +48,9 @@ $ yarn run start:prod
 
 ## Endpoints
 
-`POST /teach` - prepares Poly API function
-
-`POST /teach/:functionId` - updated Poly API function with response and/or metadata
+`POST /teach` - prepares Poly API function\
+`POST /teach/:functionId` - updated Poly API function with response and/or metadata\
+`PUT /webhook/:functionAlias` - creates a webhook handle to be used in an API with `functionAlias` as name of the
+listener function\
+`PUT /webhook/:context/:functionAlias` - creates a webhook handle to be used in an API with `context.functionAlias` as
+name of the listener function\

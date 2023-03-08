@@ -3,10 +3,10 @@ import handlebars from 'handlebars';
 import set from 'lodash/set';
 import chalk from 'chalk';
 import shell from 'shelljs';
-import { toPascalCase } from '@guanghechen/helper-string';
+import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 
-import { FunctionDto } from '@poly/common';
-import { getPolyFunctions } from '../api';
+import { FunctionDto, WebhookHandleDto } from '@poly/common';
+import { getPolyFunctions, getWebhookHandles } from '../api';
 import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
 
@@ -22,15 +22,15 @@ const prepareDir = () => {
   fs.mkdirSync(POLY_LIB_PATH, { recursive: true });
 };
 
-const loadTemplate = async (fileName: string) =>
-  fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
+const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
 
-const generateJSFiles = async (functions: FunctionDto[]) => {
+const generateJSFiles = async (functions: FunctionDto[], webhookHandles: WebhookHandleDto[]) => {
   const template = handlebars.compile(await loadTemplate('index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.js`,
     template({
       functions,
+      webhookHandles,
       apiBaseUrl: process.env.POLY_API_BASE_URL,
       apiKey: process.env.POLY_API_KEY,
     }),
@@ -43,15 +43,16 @@ const generateTSDeclarationFilesForContext = async (
   contextData: any,
   contextFilesCollector: string[] = [],
 ) => {
-  const contextPath = `${
-    parentContextPath ? `${parentContextPath}.` : ''
-  }${contextName}`;
+  const contextPath = `${parentContextPath ? `${parentContextPath}.` : ''}${contextName}`;
   const contextDataKeys = Object.keys(contextData);
   const contextDataFunctions = contextDataKeys
     .filter((key) => contextData[key].type === 'function')
     .map((key) => contextData[key]);
+  const contextDataWebhookHandles = contextDataKeys
+    .filter((key) => contextData[key].type === 'webhookHandle')
+    .map((key) => contextData[key]);
   const contextDataSubContexts = contextDataKeys
-    .filter((key) => contextData[key].type !== 'function')
+    .filter((key) => !contextData[key].type)
     .map((key) => ({
       name: key,
       interfaceName: toPascalCase(`${contextPath}.${key}`),
@@ -60,6 +61,7 @@ const generateTSDeclarationFilesForContext = async (
   const contextFiles = await generateTSContextDeclarationFile(
     contextPath,
     contextDataFunctions,
+    contextDataWebhookHandles,
     contextDataSubContexts,
   );
   contextFilesCollector = [...contextFilesCollector, contextFiles];
@@ -76,8 +78,8 @@ const generateTSDeclarationFilesForContext = async (
   return contextFilesCollector;
 };
 
-const generateTSDeclarationFiles = async (functions: FunctionDto[]) => {
-  const contextData = getContextData(functions);
+const generateTSDeclarationFiles = async (functions: FunctionDto[], webhookHandles: WebhookHandleDto[]) => {
+  const contextData = getContextData(functions, webhookHandles);
   const { default: defaultContext, ...otherContexts } = contextData;
   const contextFiles = await generateTSDeclarationFilesForContext(null, '', {
     ...otherContexts,
@@ -100,23 +102,29 @@ const generateTSIndexDeclarationFile = async (contextFiles: string[]) => {
 const generateTSContextDeclarationFile = async (
   context: string,
   functions: FunctionDto[],
+  webhookHandles: WebhookHandleDto[],
   subContexts: Context[],
 ) => {
-  const template = handlebars.compile(
-    await loadTemplate('{{context}}.d.ts.hbs'),
-  );
+  const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
   const fileName = `${context === '' ? 'default' : context}.d.ts`;
   const returnTypeDefinitions = functions.reduce((result, func) => {
     return `${result}${func.returnType}\n`;
   }, '');
+  const webhookHandlesEventTypeDefinitions = webhookHandles.reduce((result, handle) => {
+    return `${result}${handle.eventType}\n`;
+  }, '');
 
   const toFunctionData = (func: FunctionDto) => ({
     ...func,
-    returnType: func.returnType
-      ? 'Promise<' +
-        toPascalCase(`${context}.${func.name}`) +
-        "Type['response']>"
-      : 'Promise<any>',
+    arguments: func.arguments.map((arg) => ({
+      ...arg,
+      name: toCamelCase(arg.name),
+    })),
+    returnType: func.returnType ? `Promise<${toPascalCase(`${context}.${func.name}`)}Type['content']>` : 'Promise<any>',
+  });
+  const toWebhookHandleData = (handle: WebhookHandleDto) => ({
+    ...handle,
+    eventType: handle.eventType ? `${toPascalCase(`${context}.${handle.alias}`)}EventType['content']` : 'any',
   });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${fileName}`,
@@ -124,23 +132,38 @@ const generateTSContextDeclarationFile = async (
       interfaceName: context === '' ? 'Poly' : toPascalCase(context),
       context,
       functions: functions.map(toFunctionData),
+      webhookHandles: webhookHandles.map(toWebhookHandleData),
       subContexts,
       returnTypeDefinitions,
+      webhookHandlesEventTypeDefinitions,
     }),
   );
 
   return fileName;
 };
 
-const getContextData = (functions: FunctionDto[]) =>
-  functions.reduce((acc, func) => {
+const getContextData = (functions: FunctionDto[], webhookHandles: WebhookHandleDto[]) => {
+  const contextData = {} as Record<string, any>;
+
+  functions.forEach((func) => {
     const contextFunctionName = `${func.context || 'default'}.${func.name}`;
-    return set(acc, contextFunctionName, {
+    set(contextData, contextFunctionName, {
       ...func,
       type: 'function',
       name: func.name.split('.').pop(),
     });
-  }, {} as Record<string, any>);
+  });
+  webhookHandles.forEach((handle) => {
+    const contextFunctionName = `${handle.context || 'default'}.${handle.alias}`;
+    set(contextData, contextFunctionName, {
+      ...handle,
+      type: 'webhookHandle',
+      alias: handle.alias.split('.').pop(),
+    });
+  });
+
+  return contextData;
+};
 
 const generate = async () => {
   shell.echo('-n', chalk.rgb(255, 255, 255)(`Generating Poly functions...`));
@@ -149,9 +172,10 @@ const generate = async () => {
   loadConfig();
 
   const functions = await getPolyFunctions();
+  const webhookHandles = await getWebhookHandles();
 
-  await generateJSFiles(functions);
-  await generateTSDeclarationFiles(functions);
+  await generateJSFiles(functions, webhookHandles);
+  await generateTSDeclarationFiles(functions, webhookHandles);
 
   shell.echo(chalk.green('DONE'));
 };

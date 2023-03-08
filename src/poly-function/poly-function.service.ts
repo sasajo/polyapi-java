@@ -1,5 +1,3 @@
-import jsonpath from 'jsonpath';
-import { quicktype, jsonInputForTargetLanguage, InputData } from 'quicktype-core';
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
@@ -10,6 +8,9 @@ import { PrismaService } from 'prisma/prisma.service';
 import { Body, ExecuteFunctionDto, FunctionArgument, FunctionDto, Headers, Method } from '@poly/common';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
+import { CommonService } from 'common/common.service';
+import { PathError } from 'common/path-error';
+import { ConfigService } from 'config/config.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -17,7 +18,13 @@ const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 export class PolyFunctionService {
   private logger: Logger = new Logger(PolyFunctionService.name);
 
-  constructor(private readonly prisma: PrismaService, private readonly httpService: HttpService, private readonly eventService: EventService) {
+  constructor(
+    private readonly commonService: CommonService,
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService,
+    private readonly eventService: EventService
+  ) {
   }
 
   create(data: Prisma.PolyFunctionCreateInput): Promise<PolyFunction> {
@@ -38,7 +45,7 @@ export class PolyFunctionService {
     return this.prisma.polyFunction.findMany();
   }
 
-  private getDefaultAlias(method: Method, alias: string) {
+  private resolveAlias(method: Method, alias: string) {
     switch (method) {
       case 'GET':
         return toCamelCase(
@@ -76,7 +83,7 @@ export class PolyFunctionService {
   }
 
   async findOrCreate(user: User, url: string, method: Method, alias: string, headers: Headers, body: Body): Promise<PolyFunction> {
-    alias = this.getDefaultAlias(method, alias);
+    alias = this.resolveAlias(method, alias);
 
     const found = await this.prisma.polyFunction.findFirst({
       where: {
@@ -135,21 +142,29 @@ export class PolyFunctionService {
     payload = this.normalizePayload(payload, polyFunction);
     this.logger.debug(`Normalized: alias: ${alias}, context: ${context}, payload: ${payload}`);
 
-    const responseType = await this.generateResponseType(toPascalCase(`${context} ${alias} Type`), response, payload);
-    this.logger.debug(`Generated response type:\n${responseType}`);
+    try {
+      const responseType = await this.commonService.generateContentType(toPascalCase(`${context} ${alias} Type`), response, payload);
+      this.logger.debug(`Generated response type:\n${responseType}`);
 
-    await this.prisma.polyFunction.update({
-      where: {
-        id,
-      },
-      data: {
-        alias,
-        context,
-        payload,
-        response: JSON.stringify(response),
-        responseType: responseType,
-      },
-    });
+      await this.prisma.polyFunction.update({
+        where: {
+          id,
+        },
+        data: {
+          alias,
+          context,
+          payload,
+          response: JSON.stringify(response),
+          responseType: responseType,
+        },
+      });
+    } catch (e) {
+      if (e instanceof PathError) {
+        throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+      } else {
+        throw e;
+      }
+    }
   }
 
   private toArgument(argument: string): FunctionArgument {
@@ -214,7 +229,7 @@ export class PolyFunctionService {
         map(response => {
           try {
             this.logger.debug(`Response (id: ${polyFunction.id}):\n${JSON.stringify(response)}`);
-            const payloadResponse = this.getPayloadResponse(response, polyFunction.payload);
+            const payloadResponse = this.commonService.getPathContent(response, polyFunction.payload);
             if (response !== payloadResponse) {
               this.logger.debug(`Payload response (id: ${polyFunction.id}, payload: ${polyFunction.payload}):\n${JSON.stringify(payloadResponse)}`);
             }
@@ -333,62 +348,6 @@ export class PolyFunctionService {
     });
     if (found) {
       throw new HttpException(`Function with alias ${alias} and context ${context} already exists.`, HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  private async generateResponseType(typeName: string, response: unknown, payload: string | null) {
-    if (!response) {
-      return '';
-    }
-
-    try {
-      response = this.getPayloadResponse(response, payload);
-    } catch (e) {
-      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-    }
-
-    const jsonInput = jsonInputForTargetLanguage('ts');
-    await jsonInput.addSource({
-      name: typeName,
-      samples: [JSON.stringify({
-        response,
-      })],
-    });
-    const inputData = new InputData();
-    inputData.addInput(jsonInput);
-
-    const { lines } = await quicktype({
-      lang: 'ts',
-      inputData,
-      combineClasses: true,
-      rendererOptions: {
-        'just-types': 'true',
-      },
-    });
-
-    return lines
-      .map(line => line.replace('response: Response', `response: ${typeName}Response`))
-      .map(line => line.replace('export interface', 'interface'))
-      .map(line => line.replace('interface Response', `interface ${typeName}Response`))
-      .join('\n');
-  }
-
-  private getPayloadResponse(response: unknown, payload: string | null): unknown {
-    if (!payload) {
-      return response;
-    }
-
-    try {
-      const result = jsonpath.query(response, payload);
-      if (payload.includes('[*]')) {
-        return result;
-      } else if (result.length === 0) {
-        return null;
-      } else {
-        return result[0];
-      }
-    } catch (e) {
-      throw new Error(`Invalid payload ${payload}`);
     }
   }
 

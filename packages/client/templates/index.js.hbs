@@ -4,7 +4,13 @@ const { io } = require("socket.io-client");
 const { v4: uuidv4 } = require('uuid');
 
 const clientID = uuidv4();
-const socket = io('{{apiBaseUrl}}/events');
+let socket = null;
+const getSocket = () => {
+  if (!socket) {
+    socket = io('{{apiBaseUrl}}/events');
+  }
+  return socket;
+};
 
 const functions = [
 {{#each functions}}
@@ -16,8 +22,19 @@ const functions = [
 {{/each}}
 ];
 
+const webhookHandles = [
+{{#each webhookHandles}}
+  {{#if context}}
+    ['{{context}}.{{alias}}', '{{id}}'],
+  {{else}}
+    ['{{alias}}', '{{id}}'],
+  {{/if}}
+{{/each}}
+];
+
 const errorHandler = {
   on: (path, callback) => {
+    const socket = getSocket();
     socket.emit('registerErrorHandler', {
       clientID,
       path,
@@ -26,9 +43,28 @@ const errorHandler = {
     socket.on(`handleError:${path}`, callback);
   },
   off: (path) => {
+    const socket = getSocket();
     socket.emit('unregisterErrorHandler', {
       clientID,
       path,
+      apiKey: '{{apiKey}}'
+    });
+  }
+};
+
+const registerWebhookEventListener = (webhookHandleID, callback) => {
+  const socket = getSocket();
+  socket.emit('registerWebhookEventHandler', {
+    clientID,
+    webhookHandleID,
+    apiKey: '{{apiKey}}'
+  });
+  socket.on(`handleWebhookEvent:${webhookHandleID}`, callback);
+
+  return () => {
+    socket.emit('unregisterWebhookEventHandler', {
+      clientID,
+      webhookHandleID,
       apiKey: '{{apiKey}}'
     });
   }
@@ -39,5 +75,10 @@ module.exports = {
     (acc, [name, id]) => set(acc, name, (...args) => axios.post(`{{apiBaseUrl}}/function/execute/${id}`, { clientID, args }).then(({ data }) => data)),
     {}
   ),
+  ...webhookHandles.reduce(
+    (acc, [alias, id]) => set(acc, alias, (callback) => registerWebhookEventListener(id, callback)),
+    {}
+  ),
+
   errorHandler
 };

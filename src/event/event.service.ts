@@ -5,11 +5,13 @@ import { AxiosError } from 'axios';
 
 type ClientID = string;
 type Path = string;
+type WebhookHandleID = string;
 
 @Injectable()
 export class EventService {
   private logger: Logger = new Logger(EventService.name);
   private readonly errorHandlers: Record<ClientID, Record<Path, Socket[]>> = {};
+  private readonly webhookEventHandlers: Record<ClientID, Record<WebhookHandleID, Socket[]>> = {};
 
   registerErrorHandler(client: Socket, clientID: string, path: string) {
     this.logger.debug(`Registering error handler: ${clientID} '${path}'`);
@@ -21,8 +23,8 @@ export class EventService {
     }
     this.errorHandlers[clientID][path].push(client);
 
-    client.on("disconnect", () => {
-      this.logger.debug(`Client disconnected: ${clientID} '${path}'`);
+    client.on('disconnect', () => {
+      this.logger.debug(`Client for error handler disconnected: ${clientID} '${path}'`);
       this.unregisterErrorHandler(client, clientID, path);
     });
   }
@@ -69,5 +71,41 @@ export class EventService {
         message: error.message,
       };
     }
+  }
+
+  registerWebhookEventHandler(client: Socket, clientID: string, webhookHandleID: string) {
+    this.logger.debug(`Registering webhook handler for webhook handle ${webhookHandleID} on ${clientID}`);
+    if (!this.webhookEventHandlers[clientID]) {
+      this.webhookEventHandlers[clientID] = {};
+    }
+    if (!this.webhookEventHandlers[clientID][webhookHandleID]) {
+      this.webhookEventHandlers[clientID][webhookHandleID] = [];
+    }
+    this.webhookEventHandlers[clientID][webhookHandleID].push(client);
+
+    client.on('disconnect', () => {
+      this.logger.debug(`Client for webhook event handler disconnected: ${clientID} '${webhookHandleID}'`);
+      this.unregisterWebhookEventHandler(client, clientID, webhookHandleID);
+    });
+  }
+
+  unregisterWebhookEventHandler(client: Socket, clientID: string, webhookHandleID: string) {
+    this.logger.debug(`Unregistering webhook event handler: '${webhookHandleID}' on ${clientID}`);
+    if (!this.webhookEventHandlers[clientID]?.[webhookHandleID]) {
+      return;
+    }
+
+    this.webhookEventHandlers[clientID][webhookHandleID] = this.webhookEventHandlers[clientID][webhookHandleID].filter(socket => socket.id !== client.id);
+  }
+
+  sendWebhookEvent(webhookHandleID: string, eventPayload: any) {
+    this.logger.debug(`Sending webhook event: '${webhookHandleID}'`, eventPayload);
+
+    Object.values(this.webhookEventHandlers).forEach(clientHandlers => {
+      if (!clientHandlers[webhookHandleID]) {
+        return;
+      }
+      clientHandlers[webhookHandleID].forEach(socket => socket.emit(`handleWebhookEvent:${webhookHandleID}`, eventPayload));
+    });
   }
 }

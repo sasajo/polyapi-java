@@ -25,9 +25,7 @@ yargs
     async ({ argv: { exitWhenNoConfig } }: { argv: any }) => {
       if (!checkPolyConfig()) {
         if (exitWhenNoConfig) {
-          shell.echo(
-            'Poly is not configured. Please run `poly generate` manually.',
-          );
+          shell.echo('Poly is not configured. Please run `poly generate` manually.');
           return;
         }
 

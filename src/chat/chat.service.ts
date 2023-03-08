@@ -2,14 +2,13 @@ import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ChatText } from '@poly/common';
 import { catchError, lastValueFrom, map } from 'rxjs';
-
-const TRAIN_SERVER_BASE_URL = process.env.TRAIN_SERVER_BASE_URL;
+import { ConfigService } from 'config/config.service';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private readonly httpService: HttpService) {
+  constructor(private readonly httpService: HttpService, private readonly config: ConfigService) {
   }
 
   public async getMessageResponseTexts(message: string): Promise<ChatText[]> {
@@ -21,7 +20,7 @@ export class ChatService {
     };
 
     return await lastValueFrom(
-      this.httpService.post(`${TRAIN_SERVER_BASE_URL}/function-completion`, {
+      this.httpService.post(`${this.config.scienceServerBaseUrl}/function-completion`, {
         question: message,
       }).pipe(
         map(response => response.data),

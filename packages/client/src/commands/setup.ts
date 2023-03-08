@@ -2,8 +2,7 @@ import shell from 'shelljs';
 import inquirer from 'inquirer';
 import { saveConfig } from '../config';
 
-const URL_REGEX =
-  /https?:\/\/(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))/;
+const URL_REGEX = /https?:\/\/(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))/;
 
 const setup = async () => {
   await shell.echo('Please setup your connection to Poly service.');

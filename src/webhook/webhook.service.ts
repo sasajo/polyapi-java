@@ -1,0 +1,146 @@
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { User, WebhookHandle } from '@prisma/client';
+import { HttpService } from '@nestjs/axios';
+import { toPascalCase } from '@guanghechen/helper-string';
+import { CommonService } from 'common/common.service';
+import { PrismaService } from 'prisma/prisma.service';
+import { EventService } from 'event/event.service';
+import { UserService } from 'user/user.service';
+import { WebhookHandleDto } from '@poly/common';
+import { ConfigService } from 'config/config.service';
+
+@Injectable()
+export class WebhookService {
+  private readonly logger = new Logger(WebhookService.name);
+
+  constructor(
+    private readonly commonService: CommonService,
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService,
+    private readonly eventService: EventService,
+    private readonly userService: UserService,
+  ) {
+  }
+
+  public async getWebhookHandles(user: User): Promise<WebhookHandle[]> {
+    this.logger.debug(`Getting webhook handles for user ${user.name}...`);
+
+    const publicUser = await this.userService.getPublicUser();
+
+    return this.prisma.webhookHandle.findMany({
+      where: {
+        OR: [
+          {
+            userId: user.id,
+          },
+          {
+            userId: publicUser.id,
+          },
+        ],
+      },
+    });
+  }
+
+  public async registerWebhookContextFunction(user: User, context: string | null, functionAlias: string, eventPayload: unknown): Promise<WebhookHandle> {
+    const eventType = await this.commonService.generateContentType(toPascalCase(`${context} ${functionAlias} Event Type`), eventPayload);
+
+    this.logger.debug(`Registering webhook for ${context}/${functionAlias}...`);
+    this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
+    this.logger.debug(`Event type: ${eventType}`);
+
+    const webhookHandle = await this.prisma.webhookHandle.findFirst({
+      where: {
+        alias: functionAlias,
+        context: context || '',
+      },
+    });
+
+    if (webhookHandle) {
+      if (webhookHandle.userId !== user.id) {
+        throw new HttpException(`Webhook handle ${context}/${functionAlias} is already registered by another user.`, HttpStatus.BAD_REQUEST);
+      }
+
+      this.logger.debug(`Webhook handle found for ${context}/${functionAlias} - updating...`);
+      return this.prisma.webhookHandle.update({
+        where: {
+          id: webhookHandle.id,
+        },
+        data: {
+          eventPayload: JSON.stringify(eventPayload),
+          eventType,
+        },
+      });
+    } else {
+      this.logger.debug(`Creating new webhook handle for ${context}/${functionAlias}...`);
+      return this.prisma.webhookHandle.create({
+        data: {
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+          alias: functionAlias,
+          context: context || '',
+          eventPayload: JSON.stringify(eventPayload),
+          eventType: eventType,
+        },
+      });
+    }
+  }
+
+  async triggerWebhookContextFunction(context: string, functionAlias: string, eventPayload: any) {
+    this.logger.debug(`Triggering webhook for ${context}/${functionAlias}...`);
+    const webhookHandle = await this.prisma.webhookHandle.findFirst({
+      where: {
+        alias: functionAlias,
+        context,
+      },
+    });
+
+    if (!webhookHandle) {
+      if (this.config.autoRegisterWebhookHandle) {
+        this.logger.debug(`Webhook handle not found for ${context}/${functionAlias} - auto registering...`);
+        await this.registerWebhookContextFunction(await this.userService.getPublicUser(), context, functionAlias, eventPayload);
+        return;
+      } else {
+        this.logger.debug(`Webhook handle not found for ${context}/${functionAlias} - skipping...`);
+        return;
+      }
+    }
+
+    this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
+  }
+
+  async triggerWebhookContextFunctionByID(id: string, eventPayload: any) {
+    this.logger.debug(`Triggering webhook for ${id}...`);
+    const webhookHandle = await this.prisma.webhookHandle.findFirst({
+      where: {
+        id,
+      },
+    });
+
+    if (!webhookHandle) {
+      this.logger.debug(`Webhook handle not found for ${id} - skipping...`);
+      return;
+    }
+
+    this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
+  }
+
+  toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
+    return {
+      id: webhookHandle.id,
+      alias: webhookHandle.alias,
+      context: webhookHandle.context,
+      eventType: webhookHandle.eventType,
+      urls: [
+        `${this.config.hostUrl}/webhook/${webhookHandle.id}`,
+        webhookHandle.context
+          ? `${this.config.hostUrl}/webhook/${webhookHandle.context}/${webhookHandle.alias}`
+          : `${this.config.hostUrl}/webhook/${webhookHandle.alias}`,
+      ],
+    };
+  }
+
+}

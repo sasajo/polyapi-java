@@ -8,9 +8,31 @@ export class UserService {
   }
 
   public async findByApiKey(apiKey: string): Promise<User | null> {
+    if (!apiKey) {
+      return null;
+    }
+
     return this.prisma.user.findFirst({
       where: {
         apiKey,
+      },
+    });
+  }
+
+  public async getPublicUser(): Promise<User> {
+    const publicUser = await this.prisma.user.findFirst({
+      where: {
+        apiKey: '',
+      },
+    });
+    if (publicUser) {
+      return publicUser;
+    }
+
+    return this.prisma.user.create({
+      data: {
+        apiKey: '',
+        name: 'publicUser',
       },
     });
   }

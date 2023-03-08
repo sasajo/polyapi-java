@@ -22,7 +22,7 @@ const response = await poly.myContext.myFunction('param1', 'param2');
 ### Using error handler
 Poly functions can throw errors. You can catch them with try/catch or you can register an error handler for function path:
 ```
-import poly {errorHandler} from 'polyapi';
+import poly, {errorHandler} from 'polyapi';
 
 errorHandler.on('myContext.myFunction', (error) => {
   // handle error
@@ -38,4 +38,23 @@ errorHandler.on('myContext', (error) => {
 To remove error handler for function path:
 ```
 errorHandler.off('myContext.myFunction');
+```
+
+### Using Webhook handlers
+Similar to error handlers, you can register handlers for Webhooks:
+```
+import poly from 'polyapi';
+
+poly.myWebhookContext.paymentReceieved(event => {
+  // handle event
+});
+```
+
+Webhook handlers have their context and function alias. To remove a handler call the returned function:
+```
+const unregister = poly.myWebhookContext.paymentReceieved(event => {
+  // handle event
+});
+...
+unregister();
 ```

@@ -7,3 +7,6 @@ export * from './update-function.dto';
 export * from './post-question.dto';
 export * from './post-question-response.dto';
 export * from './error-handler.dto';
+export * from './webhook-handle.dto';
+export * from './webhook-event-handler.dto';
+export * from './register-webhook-handle.dto';
