@@ -2,17 +2,18 @@
   "name": "polyapi",
   "version": "0.1.0",
   "description": "Poly is a CLI tool to help you create and manage your Poly definitions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/polyapi/poly-alpha",
+    "directory": "packages/client"
+  },
   "files": [
     "build/**/*",
     "index.js",
     "index.d.ts"
   ],
   "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/polyapi/poly-alpha",
-    "directory": "packages/client"
-  },
   "bin": {
     "poly": "build/cli.js"
   },
@@ -29,8 +30,6 @@
     "version": "npm run format && git add -A src",
     "postversion": "git push && git push --tags"
   },
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/lodash": "^4.14.191",
     "copyfiles": "^2.4.1",

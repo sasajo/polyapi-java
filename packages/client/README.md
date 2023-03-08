@@ -1,8 +1,3 @@
-## Publishing
-Make sure you have set your npm registry in .npmrc file.
-
-Run `npm publish` to publish to the repository.
-
 ## Usage
 Make sure you have set your npm registry in .npmrc file.
 
