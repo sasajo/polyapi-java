@@ -1,4 +1,4 @@
-# poly-extension README
+# Poly VS Code Extension
 
 ## Development
 
@@ -13,4 +13,10 @@ Extension settings are configured in the `settings.json` file. You can access it
 * `poly.apiBaseUrl`: The base URL for the Poly API. Defaults to `https://api.polyapi.io`.
 * `poly.apiKey`: The API key to use when making requests to the Poly API.
 
-**Enjoy!**
+## Packaging
+
+Make sure you have Node.js installed. Then run:\
+`npm install -g @vscode/vsce`
+
+To create a `.vsix` file, run:\
+`vsce package`

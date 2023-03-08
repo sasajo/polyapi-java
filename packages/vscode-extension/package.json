@@ -1,14 +1,20 @@
 {
-  "name": "poly-vscode-extension",
-  "displayName": "poly-vscode-extension",
+  "name": "polyapi-vscode-extension",
+  "displayName": "Poly Assistant",
   "description": "Poly AI assistant in Visual Studio Code",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "publisher": "polyapi",
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/polyapi/poly-alpha",
+    "directory": "packages/vscode-extension"
+  },
   "activationEvents": [],
   "main": "./build/extension.js",
   "contributes": {
