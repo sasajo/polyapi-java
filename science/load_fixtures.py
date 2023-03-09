@@ -28,7 +28,7 @@ def _get_data_list():
 
 def load_fixtures() -> None:
     # create User
-    user = db.user.find_unique(where={"name": "admin"})
+    user = db.user.find_unique(where={"role": "ADMIN"})
     if not user:
         print("Admin user not found. Please run Poly server first for initialization.")
         return
