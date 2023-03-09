@@ -35,7 +35,7 @@ def function_completion():
 
 
 def get_functions_from_db() -> str:
-    preface = "Given the following functions,"
+    preface = "Given the following Poly functions,"
     parts: List[str] = [preface]
 
     # for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
