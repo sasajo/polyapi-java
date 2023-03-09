@@ -6,11 +6,6 @@ from prisma import Prisma, register
 from utils import full_func_path
 
 
-db = Prisma()
-db.connect()
-register(db)
-
-
 class FunctionDict(TypedDict):
     context: str
     alias: str
@@ -27,8 +22,12 @@ def _get_data_list():
 
 
 def load_fixtures() -> None:
+    db = Prisma()
+    db.connect()
+    register(db)
+
     # create User
-    user = db.user.find_unique(where={"role": "ADMIN"})
+    user = db.user.find_first(where={"role": "ADMIN"})
     if not user:
         print("Admin user not found. Please run Poly server first for initialization.")
         return
@@ -49,6 +48,8 @@ def load_fixtures() -> None:
                 }
             )
             print(f"Created {full_func_path(func)}")
+
+    db.disconnect()
 
 
 if __name__ == "__main__":

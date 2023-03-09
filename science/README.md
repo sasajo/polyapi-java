@@ -28,6 +28,18 @@ The server will build a query based on your question, send it to OpenAI, and ret
 
 NOTE: you must have an OPENAI_API_KEY in your environment. Contact Darko for a key if you don't have one yet!
 
+## Tests
+
+To run tests, run this:
+
+```
+python -m unittest discover
+```
+
+All tests are in the `/tests` directory.
+
+Follow the normal rules of naming for the [Python Unit testing framework](https://docs.python.org/3/library/unittest.html).
+
 
 ## Training
 
