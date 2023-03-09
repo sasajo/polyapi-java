@@ -3,11 +3,12 @@ from pathlib import Path
 import json
 import openai
 from prisma import Prisma, register
-from .server import get_base_prompt
+from server import get_base_prompt
 
 db = Prisma()
 db.connect()
-register(db)
+# HACK why this no work?
+# register(db)
 
 
 def transform_to_jsonl() -> str:
@@ -48,38 +49,5 @@ if __name__ == "__main__":
     # STEP 3
     # start_fine_tune()
 
-
-# TODO replace transforming the CSV to jsonl and uploading that
-# with transforming the contents of the DB to jsonl and uploading that?
-# async function main() {
-#   async function getUntrained(): Promise<PolyFunction[]> {
-#     const rv = prisma.polyFunction.findMany();
-#     return rv;
-#   }
-
-#   async function markAsTrained(id: number) {
-#     await prisma.polyFunction.update({
-#       where: {
-#         id: id,
-#       },
-#       data: {
-#         trained: false,
-#       },
-#     });
-#   }
-
-#   async function train() {
-#     const funcs = await getUntrained();
-#     console.log(`Now training on ${funcs.length} functions...`);
-#     for (const func of funcs) {
-#       //openai.Completion.create(
-#       // prompt=prompt,
-#       // engine="text-davinci-..."
-#       // send to chatGPT
-#       // on success:
-#       await markAsTrained(func.id);
-#     }
-#   }
-
-#   train();
-# }
+    # STEP 4
+    # mark all funcs as fine tuned?
