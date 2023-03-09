@@ -2,7 +2,7 @@
 import csv
 from typing import List, TypedDict
 from prisma import Prisma, register
-
+from prisma.models import User
 from utils import full_func_path
 
 
@@ -21,10 +21,19 @@ def _get_data_list():
     return rv
 
 
-def load_fixtures() -> None:
-    db = Prisma()
-    db.connect()
-    register(db)
+def test_user_get_or_create(db: Prisma) -> User:
+    user = db.user.find_first(where={"name": "test"})
+    if not user:
+        user = db.user.create(data={"name": "test", "apiKey": "asdf", "role": "ADMIN"})
+    return user
+
+
+def load_fixtures(db=None) -> None:
+    if not db:
+        # if no passed db, use default db
+        db = Prisma()
+        db.connect()
+        register(db)
 
     # create User
     user = db.user.find_first(where={"role": "ADMIN"})

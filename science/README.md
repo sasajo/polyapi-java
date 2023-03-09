@@ -30,9 +30,14 @@ NOTE: you must have an OPENAI_API_KEY in your environment. Contact Darko for a k
 
 ## Tests
 
+WARNING running the tests will modify your local db
+
+TODO at some point separate the local test db and the test db
+
 To run tests, run this:
 
 ```
+prisma generate  # only needed before first test run
 python -m unittest discover
 ```
 
