@@ -166,16 +166,33 @@ const getContextData = (functions: FunctionDto[], webhookHandles: WebhookHandleD
 };
 
 const generate = async () => {
+  let functions: FunctionDto[] = [];
+  let webhookHandles: WebhookHandleDto[] = [];
+
   shell.echo('-n', chalk.rgb(255, 255, 255)(`Generating Poly functions...`));
 
   prepareDir();
   loadConfig();
 
-  const functions = await getPolyFunctions();
-  const webhookHandles = await getWebhookHandles();
+  try {
+    functions = await getPolyFunctions();
+    webhookHandles = await getWebhookHandles();
+  } catch (error) {
+    shell.echo(chalk.red('ERROR'));
+    shell.echo('Error while getting data from Poly server. Make sure the version of library/server is up to date.');
+    shell.echo(chalk.red(error.message), chalk.red(JSON.stringify(error.response?.data)));
+    return;
+  }
 
-  await generateJSFiles(functions, webhookHandles);
-  await generateTSDeclarationFiles(functions, webhookHandles);
+  try {
+    await generateJSFiles(functions, webhookHandles);
+    await generateTSDeclarationFiles(functions, webhookHandles);
+  } catch (error) {
+    shell.echo(chalk.red('ERROR'));
+    shell.echo('Error while generating code files. Make sure the version of library/server is up to date.');
+    shell.echo(chalk.red(error.message));
+    return;
+  }
 
   shell.echo(chalk.green('DONE'));
 };
