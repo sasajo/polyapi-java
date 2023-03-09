@@ -3,13 +3,15 @@ import csv
 from typing import List, TypedDict
 from prisma import Prisma, register
 from prisma.models import User
-from utils import full_func_path
+from utils import func_path_with_args
 
 
 class FunctionDict(TypedDict):
     context: str
     alias: str
     description: str
+    method: str
+    url: str
 
 
 def _get_data_list():
@@ -28,22 +30,10 @@ def test_user_get_or_create(db: Prisma) -> User:
     return user
 
 
-def load_fixtures(db=None) -> None:
-    if not db:
-        # if no passed db, use default db
-        db = Prisma()
-        db.connect()
-        register(db)
-
-    # create User
-    user = db.user.find_first(where={"role": "ADMIN"})
-    if not user:
-        print("Admin user not found. Please run Poly server first for initialization.")
-        return
-
+def load_functions(db: Prisma, user: User) -> None:
     data_list: List[FunctionDict] = _get_data_list()
     for data in data_list:
-        func = db.polyfunction.find_first(where={"description": data['description']})
+        func = db.polyfunction.find_first(where={"alias": data['alias']})
         if not func:
             func = db.polyfunction.create(
                 data={
@@ -51,15 +41,24 @@ def load_fixtures(db=None) -> None:
                     "alias": data["alias"],
                     "description": data["description"],
                     "userId": user.id,
-                    # TODO: fix the url and method setup
-                    "url": "https://baconipsum.com/api/?type=meat-and-filler",
-                    "method": "GET"
+                    "url": data["url"],
+                    "method": data["method"],
                 }
             )
-            print(f"Created {full_func_path(func)}")
-
-    db.disconnect()
+            print(f"Created {func_path_with_args(func)}")
 
 
 if __name__ == "__main__":
-    load_fixtures()
+    # if no passed db, use default db
+    db = Prisma()
+    db.connect()
+    register(db)
+
+    # create User
+    user = db.user.find_first(where={"role": "ADMIN"})
+    if not user:
+        print("Admin user not found. Please run Poly server first for initialization.")
+        exit(1)
+
+    load_functions(db, user)
+    db.disconnect()

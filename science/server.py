@@ -3,8 +3,8 @@ from typing import List
 import openai
 from flask import Flask, request
 from prisma import Prisma, register
+from utils import func_path_with_args
 
-from utils import full_func_path
 
 app = Flask(__name__)
 db = Prisma()
@@ -40,10 +40,13 @@ def get_functions_from_db() -> str:
 
     # for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
     for func in db.polyfunction.find_many():  # type: ignore
-        parts.append(f"// {func.description}\n{full_func_path(func)}")
+        parts.append(f"// {func.description}\n{func_path_with_args(func)}")
 
     return "\n\n".join(parts)
 
 
 if __name__ == "__main__":
+    # handy for testing
+    # comment out app.run!
+    # print(get_functions_from_db())
     app.run(port=5000)
