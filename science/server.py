@@ -38,7 +38,8 @@ def get_functions_from_db() -> str:
     preface = "Given the following functions,"
     parts: List[str] = [preface]
 
-    for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
+    # for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
+    for func in db.polyfunction.find_many():  # type: ignore
         parts.append(f"// {func.description}\n{full_func_path(func)}")
 
     return "\n\n".join(parts)
