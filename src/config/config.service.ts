@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
-import {Injectable} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ConfigService {
@@ -17,7 +17,7 @@ export class ConfigService {
 
     this.envConfig = {
       ...process.env,
-      ...dotenvConfig
+      ...dotenvConfig,
     };
   }
 
@@ -54,5 +54,9 @@ export class ConfigService {
 
   get autoRegisterWebhookHandle() {
     return this.get('AUTO_REGISTER_WEBHOOK_HANDLE') === 'true';
+  }
+
+  get adminApiKey(): string {
+    return this.get('ADMIN_API_KEY');
   }
 }

@@ -1,10 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import crypto from 'crypto';
+import { HttpException, HttpStatus, Injectable, OnModuleInit } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
+import { ConfigService } from 'config/config.service';
+import { Role } from '@poly/common';
 
 @Injectable()
-export class UserService {
-  constructor(private readonly prisma: PrismaService) {
+export class UserService implements OnModuleInit {
+  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {
+  }
+
+  async onModuleInit() {
+    await this.checkAdmin();
+  }
+
+  private async checkAdmin() {
+    const admin = await this.prisma.user.findFirst({
+      where: {
+        role: 'ADMIN',
+      },
+    });
+
+    if (!admin) {
+      await this.prisma.user.create({
+        data: {
+          name: 'admin',
+          role: Role.Admin,
+          apiKey: this.config.adminApiKey,
+        },
+      });
+    } else if (admin.apiKey !== this.config.adminApiKey) {
+      await this.prisma.user.update({
+        where: {
+          id: admin.id,
+        },
+        data: {
+          apiKey: this.config.adminApiKey,
+        },
+      });
+    }
+  }
+
+  async createUser(name: string) {
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        name,
+      },
+    });
+    if (existingUser) {
+      throw new HttpException('User with such name already exists.', HttpStatus.BAD_REQUEST);
+    }
+
+    return this.prisma.user.create({
+      data: {
+        name,
+        role: Role.User,
+        apiKey: crypto.randomBytes(16).toString('hex'),
+      },
+    });
   }
 
   public async findByApiKey(apiKey: string): Promise<User | null> {
@@ -13,6 +66,14 @@ export class UserService {
     }
 
     return this.prisma.user.findFirst({
+      where: {
+        apiKey,
+      },
+    });
+  }
+
+  async deleteUserByApiKey(apiKey: string) {
+    await this.prisma.user.delete({
       where: {
         apiKey,
       },

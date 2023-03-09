@@ -28,10 +28,10 @@ def _get_data_list():
 
 def load_fixtures() -> None:
     # create User
-    user = db.user.find_unique(where={"apiKey": "ab4f62d3421bca3674hfd627"})
+    user = db.user.find_unique(where={"name": "admin"})
     if not user:
-        user = db.user.create(data={"name": "admin", "apiKey": "ab4f62d3421bca3674hfd627"})
-        print("Created dev admin user with api key ab4f62d3421bca3674hfd627")
+        print("Admin user not found. Please run Poly server first for initialization.")
+        return
 
     data_list: List[FunctionDict] = _get_data_list()
     for data in data_list:

@@ -10,3 +10,5 @@ export * from './error-handler.dto';
 export * from './webhook-handle.dto';
 export * from './webhook-event-handler.dto';
 export * from './register-webhook-handle.dto';
+export * from './create-api-key.dto';
+export * from './api-key.dto';
