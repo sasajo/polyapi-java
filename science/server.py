@@ -22,7 +22,7 @@ def home():
 def function_completion():
     # question = "how do I get a list of flights for a specific user?"
     question = "From the Poly API library, " + request.get_json(force=True)["question"]
-    functions = get_functions_from_db()
+    functions = get_base_prompt()
 
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -34,7 +34,7 @@ def function_completion():
     return resp["choices"][0]["message"]["content"]
 
 
-def get_functions_from_db() -> str:
+def get_base_prompt() -> str:
     preface = "Here are the functions in the Poly API library,"
     parts: List[str] = [preface]
 
@@ -48,5 +48,5 @@ def get_functions_from_db() -> str:
 if __name__ == "__main__":
     # handy for testing
     # comment out app.run!
-    # print(get_functions_from_db())
+    # print(get_base_prompt())
     app.run(port=5000)

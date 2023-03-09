@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import csv
 import json
 import openai
+from prisma import Prisma, register
+from .server import get_base_prompt
+
+db = Prisma()
+db.connect()
+register(db)
 
 
 def transform_to_jsonl() -> str:
-    prefix = "For Poly API, "
     data = []
-    with open("./data/examples.csv") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            answer = row[0]
-            prompt = row[1]
-
-            if answer == "Answer":
-                # skip the header
-                continue
-
-            data.append({"prompt": prefix + prompt, "completion": answer})
+    base_prompt = get_base_prompt()
+    for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
+        parts = [base_prompt, f"how do I {func.description}?"]
+        # TODO get completion
+        data.append({"prompt": "\n\n".join(parts), "completion": ""})
 
     abs_path = Path(__file__).parent
     jsonl_path = (abs_path / "data/examples.jsonl").resolve()
-
     with open(jsonl_path, "w") as f:
         for d in data:
             f.write(json.dumps(d))
