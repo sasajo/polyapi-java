@@ -21,7 +21,7 @@ def home():
 @app.route("/function-completion", methods=["POST"])  # type: ignore
 def function_completion():
     # question = "how do I get a list of flights for a specific user?"
-    question = request.get_json(force=True)["question"]
+    question = "From Poly, " + request.get_json(force=True)["question"]
     functions = get_functions_from_db()
 
     resp = openai.ChatCompletion.create(
