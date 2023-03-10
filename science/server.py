@@ -34,6 +34,8 @@ def function_completion():
     question = request.get_json(force=True)["question"]
     completion_question = get_function_completion_question(question)
 
+    # if we have a FINE_TUNE_MODEL set, use that
+    # otherwise default to base ChatGPT
     if FINE_TUNE_MODEL:
         return get_fine_tune_answer(completion_question)
     else:
