@@ -30,7 +30,8 @@ def get_fine_tune_answer(question: str):
         frequency_penalty=0.8,
         prompt=question)
 
-    return resp["choices"][0]["text"]
+    prefix = f"USING FINE TUNE MODEL: {FINE_TUNE_MODEL}\n\n"
+    return prefix + resp["choices"][0]["text"]
 
 
 @app.route("/function-completion", methods=["POST"])  # type: ignore
