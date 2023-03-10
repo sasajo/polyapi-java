@@ -23,7 +23,7 @@ export class PolyFunctionService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
-    private readonly eventService: EventService
+    private readonly eventService: EventService,
   ) {
   }
 
@@ -376,5 +376,25 @@ export class PolyFunctionService {
     }
 
     return payload;
+  }
+
+  async deleteAllByUser(userID: number) {
+    return this.prisma.polyFunction.deleteMany({
+      where: {
+        user: {
+          id: userID,
+        },
+      },
+    });
+  }
+
+  async deleteAllApiKey(apiKey: string) {
+    return this.prisma.polyFunction.deleteMany({
+      where: {
+        user: {
+          apiKey,
+        },
+      },
+    });
   }
 }

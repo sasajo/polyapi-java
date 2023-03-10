@@ -12,3 +12,4 @@ export * from './webhook-event-handler.dto';
 export * from './register-webhook-handle.dto';
 export * from './create-api-key.dto';
 export * from './api-key.dto';
+export * from './delete-all-functions.dto';
