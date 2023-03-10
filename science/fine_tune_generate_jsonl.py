@@ -35,7 +35,7 @@ def transform_to_jsonl() -> str:
             f.write(json.dumps(d))
             f.write("\n")
 
-    print(f"CSV processed and written to {jsonl_path}")
+    print(f"training data processed and written to {jsonl_path}")
     return str(jsonl_path)
 
 
