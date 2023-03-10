@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
+import os
 from typing import List
+import openai
 from flask import Flask, request
 from prisma import Prisma, register
 from utils import func_path_with_args, get_function_completion_answer, get_function_completion_question
+
+
+FINE_TUNE_MODEL = os.environ.get("FINE_TUNE_MODEL")
 
 
 app = Flask(__name__)
@@ -17,13 +22,23 @@ def home():
     return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
 
 
+def get_fine_tune_answer(question: str):
+    resp = openai.Completion.create(
+        model=FINE_TUNE_MODEL,
+        prompt=question)
+    return resp["choices"][0]["message"]["content"]
+
+
 @app.route("/function-completion", methods=["POST"])  # type: ignore
 def function_completion():
-    question = get_function_completion_question(
-        request.get_json(force=True)["question"]
-    )
-    base_prompt = get_base_prompt()
-    return get_function_completion_answer(base_prompt, question)
+    question = request.get_json(force=True)["question"]
+    completion_question = get_function_completion_question(question)
+
+    if FINE_TUNE_MODEL:
+        return get_fine_tune_answer(completion_question)
+    else:
+        base_prompt = get_base_prompt()
+        return get_function_completion_answer(base_prompt, completion_question)
 
 
 def get_base_prompt() -> str:
