@@ -45,45 +45,17 @@ export class PolyFunctionService {
     return this.prisma.polyFunction.findMany();
   }
 
-  private resolveAlias(method: Method, alias: string) {
-    switch (method) {
-      case 'GET':
-        return toCamelCase(
-          alias.toLowerCase().startsWith('get')
-            ? alias
-            : `get ${alias}`,
-        );
-      case 'POST':
-        return toCamelCase(
-          alias.toLowerCase().startsWith('post') || alias.toLowerCase().startsWith('set')
-            ? alias
-            : `set ${alias}`,
-        );
-      case 'PUT':
-        return toCamelCase(
-          alias.toLowerCase().startsWith('put') || alias.toLowerCase().startsWith('set') || alias.toLowerCase().startsWith('update')
-            ? alias
-            : `set ${alias}`,
-        );
-      case 'DELETE':
-        return toCamelCase(
-          alias.toLowerCase().startsWith('delete') || alias.toLowerCase().startsWith('remove')
-            ? alias
-            : `remove ${alias}`,
-        );
-      case 'PATCH':
-        return toCamelCase(
-          alias.toLowerCase().startsWith('update') || alias.toLowerCase().startsWith('set')
-            ? alias
-            : `update ${alias}`,
-        );
-      default:
-        return toCamelCase(alias);
+  private resolveAlias(alias: string | null) {
+    if (alias === null) {
+      return null;
     }
+    alias = alias.replace(/([\[\]{}()])/g, ' ');
+
+    return toCamelCase(alias);
   }
 
   async findOrCreate(user: User, url: string, method: Method, alias: string, headers: Headers, body: Body): Promise<PolyFunction> {
-    alias = this.resolveAlias(method, alias);
+    alias = this.resolveAlias(alias);
 
     const found = await this.prisma.polyFunction.findFirst({
       where: {
@@ -303,6 +275,7 @@ export class PolyFunctionService {
       throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
     }
 
+    alias = this.resolveAlias(alias);
     if (alias != null || context != null) {
       await this.checkAliasAndContextDuplicates(
         user,
