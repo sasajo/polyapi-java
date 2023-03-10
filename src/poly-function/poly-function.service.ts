@@ -124,7 +124,7 @@ export class PolyFunctionService {
     });
   }
 
-  async updateDetails(id: number, user: User, alias: string | null, context: string | null, payload: string | null, response: unknown) {
+  async updateDetails(id: number, user: User, alias: string | null, context: string | null, description: string | null, payload: string | null, response: unknown) {
     const polyFunction = await this.prisma.polyFunction.findFirst({
       where: {
         id,
@@ -139,8 +139,9 @@ export class PolyFunctionService {
 
     alias = this.normalizeAlias(alias, polyFunction);
     context = this.normalizeContext(context, polyFunction);
+    description = this.normalizeDescription(description, polyFunction);
     payload = this.normalizePayload(payload, polyFunction);
-    this.logger.debug(`Normalized: alias: ${alias}, context: ${context}, payload: ${payload}`);
+    this.logger.debug(`Normalized: alias: ${alias}, context: ${context}, description: ${description}, payload: ${payload}`);
 
     try {
       const responseType = await this.commonService.generateContentType(toPascalCase(`${context} ${alias} Type`), response, payload);
@@ -153,6 +154,7 @@ export class PolyFunctionService {
         data: {
           alias,
           context,
+          description,
           payload,
           response: JSON.stringify(response),
           responseType: responseType,
@@ -364,6 +366,14 @@ export class PolyFunctionService {
     }
 
     return context;
+  }
+
+  private normalizeDescription(description: string | null, polyFunction: PolyFunction) {
+    if (description == null) {
+      description = polyFunction.description;
+    }
+
+    return description;
   }
 
   private normalizePayload(payload: string | null, polyFunction: PolyFunction) {
