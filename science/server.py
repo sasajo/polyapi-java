@@ -24,9 +24,13 @@ def home():
 
 def get_fine_tune_answer(question: str):
     resp = openai.Completion.create(
+        temperature=0.2,
         model=FINE_TUNE_MODEL,
+        max_tokens=200,
+        frequency_penalty=0.8,
         prompt=question)
-    return resp["choices"][0]["message"]["content"]
+
+    return resp["choices"][0]["text"]
 
 
 @app.route("/function-completion", methods=["POST"])  # type: ignore
