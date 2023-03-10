@@ -290,8 +290,8 @@ export class PolyFunctionService {
     }
   }
 
-  async updateFunction(user: User, id: number, alias: string | null, context: string | null) {
-    const found = await this.prisma.polyFunction.findFirst({
+  async updateFunction(user: User, id: number, alias: string | null, context: string | null, description: string | null) {
+    const polyFunction = await this.prisma.polyFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -299,20 +299,29 @@ export class PolyFunctionService {
         id,
       },
     });
-    if (!found) {
+    if (!polyFunction) {
       throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
     }
 
-    this.checkAliasAndContextDuplicates(user, alias || found.alias, context == null ? found.context || '' : context);
+    if (alias != null || context != null) {
+      await this.checkAliasAndContextDuplicates(
+        user,
+        alias || polyFunction.alias,
+        context == null
+          ? polyFunction.context || ''
+          : context,
+      );
+    }
 
-    this.logger.debug(`Updating function ${id} with alias ${alias} and context ${context}`);
+    this.logger.debug(`Updating function ${id} with alias ${alias}, context ${context}, description ${description}`);
     return this.prisma.polyFunction.update({
       where: {
         id,
       },
       data: {
-        alias: alias || found.alias,
-        context: context == null ? found.context : context,
+        alias: alias || polyFunction.alias,
+        context: context == null ? polyFunction.context : context,
+        description: description == null ? polyFunction.description : description,
       },
     });
   }
@@ -338,8 +347,8 @@ export class PolyFunctionService {
     });
   }
 
-  private checkAliasAndContextDuplicates(user: User, alias: string, context: string) {
-    const found = this.prisma.polyFunction.findFirst({
+  private async checkAliasAndContextDuplicates(user: User, alias: string, context: string) {
+    const found = await this.prisma.polyFunction.findFirst({
       where: {
         user: {
           id: user.id,

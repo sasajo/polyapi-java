@@ -6,9 +6,10 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-  Param, ParseIntPipe,
+  Param,
+  Patch,
   Post,
-  Put, Query,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -36,15 +37,19 @@ export class PolyFunctionController {
     return await this.service.executeFunction(publicId, executeFunctionDto);
   }
 
-  @Put('/:id')
+  @Patch('/:id')
   @UseGuards(ApiKeyGuard)
-  async updateFunction(@Req() req, @Param('id', ParseIdPipe) id: number, @Body() updateFunctionDto: UpdateFunctionDto): Promise<any> {
-    return this.service.toDto(await this.service.updateFunction(req.user, id, updateFunctionDto.alias, updateFunctionDto.context));
+  async updateFunction(@Req() req, @Param('id', ParseIdPipe) id: number, @Body() {
+    alias = null,
+    context = null,
+    description = null,
+  }: UpdateFunctionDto): Promise<any> {
+    return this.service.toDto(await this.service.updateFunction(req.user, id, alias, context, description));
   }
 
   @Delete('/all')
   @UseGuards(new ApiKeyGuard([Role.Admin]))
-  async deleteAllFunctions(@Query() {userId, apiKey}: DeleteAllFunctionsDto): Promise<void> {
+  async deleteAllFunctions(@Query() { userId, apiKey }: DeleteAllFunctionsDto): Promise<void> {
     if (!Number.isNaN(Number(userId))) {
       await this.service.deleteAllByUser(Number(userId));
     } else if (apiKey) {
