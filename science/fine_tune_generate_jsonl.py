@@ -2,7 +2,7 @@
 from pathlib import Path
 import json
 from prisma import Prisma
-from science.utils import (
+from utils import (
     get_function_completion_answer,
     get_function_completion_question,
 )
