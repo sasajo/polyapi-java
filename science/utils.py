@@ -41,6 +41,7 @@ def get_function_completion_question(question: str) -> str:
 
 def get_function_completion_answer(base_prompt: str, question: str) -> str:
     resp = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "assistant", "content": base_prompt},
             {"role": "user", "content": question},
