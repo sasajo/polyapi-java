@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 from typing import List
-import openai
 from flask import Flask, request
 from prisma import Prisma, register
-from utils import func_path_with_args
+from utils import func_path_with_args, get_function_completion_answer, get_function_completion_question
 
 
 app = Flask(__name__)
@@ -20,18 +19,11 @@ def home():
 
 @app.route("/function-completion", methods=["POST"])  # type: ignore
 def function_completion():
-    # question = "how do I get a list of flights for a specific user?"
-    question = "From the Poly API library, " + request.get_json(force=True)["question"]
-    functions = get_base_prompt()
-
-    resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "assistant", "content": functions},
-            {"role": "user", "content": question},
-        ],
+    question = get_function_completion_question(
+        request.get_json(force=True)["question"]
     )
-    return resp["choices"][0]["message"]["content"]
+    base_prompt = get_base_prompt()
+    return get_function_completion_answer(base_prompt, question)
 
 
 def get_base_prompt() -> str:

@@ -2,7 +2,8 @@
 from pathlib import Path
 import json
 import openai
-from prisma import Prisma, register
+from prisma import Prisma
+from science.utils import get_function_completion_question
 from server import get_base_prompt
 
 db = Prisma()
@@ -15,9 +16,11 @@ def transform_to_jsonl() -> str:
     data = []
     base_prompt = get_base_prompt()
     for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
-        parts = [base_prompt, f"how do I {func.description}?"]
+        question = get_function_completion_question(f"how do I {func.description}?")
+        parts = [base_prompt, question]
         # TODO get completion
-        data.append({"prompt": "\n\n".join(parts), "completion": ""})
+        prompt = "\n\n".join(parts)
+        data.append({"prompt": prompt, "completion": ""})
 
     abs_path = Path(__file__).parent
     jsonl_path = (abs_path / "data/examples.jsonl").resolve()

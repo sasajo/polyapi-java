@@ -1,3 +1,4 @@
+import openai
 from typing import List
 from prisma.models import PolyFunction
 from urllib.parse import urlparse, parse_qs
@@ -32,3 +33,17 @@ def func_args(func: PolyFunction) -> List[str]:
 
 def func_path_with_args(func) -> str:
     return f"{func_path(func)}({', '.join(func_args(func))})"
+
+
+def get_function_completion_question(question: str) -> str:
+    return "From the Poly API library, " + question
+
+
+def get_function_completion_answer(base_prompt: str, question: str) -> str:
+    resp = openai.ChatCompletion.create(
+        messages=[
+            {"role": "assistant", "content": base_prompt},
+            {"role": "user", "content": question},
+        ],
+    )
+    return resp["choices"][0]["message"]["content"]
