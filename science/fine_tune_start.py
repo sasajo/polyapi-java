@@ -13,3 +13,7 @@ def start_fine_tune() -> None:
 
     # TODO
     # mark all funcs as trained (aka fine tuned)?
+
+
+if __name__ == "__main__":
+    start_fine_tune()
