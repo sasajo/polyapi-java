@@ -40,12 +40,12 @@ export class PolyFunctionController {
   @Patch('/:publicId')
   @UseGuards(ApiKeyGuard)
   async updateFunction(@Req() req, @Param('publicId') publicId: string, @Body() {
-    alias = null,
+    name = null,
     context = null,
     description = null,
     argumentTypes = null,
   }: UpdateFunctionDto): Promise<any> {
-    return this.service.toDto(await this.service.updateFunction(req.user, publicId, alias, context, description, argumentTypes));
+    return this.service.toDto(await this.service.updateFunction(req.user, publicId, name, context, description, argumentTypes));
   }
 
   @Delete('/all')

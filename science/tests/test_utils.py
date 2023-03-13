@@ -8,7 +8,7 @@ class T(DbTestCase):
         user = test_user_get_or_create(self.db)
         load_functions(self.db, user)
 
-        func = self.db.polyfunction.find_first(where={'alias': 'unitedAirlines.getFlights'})
+        func = self.db.polyfunction.find_first(where={'name': 'unitedAirlines.getFlights'})
         assert func
         args = func_args(func)
         self.assertEqual(len(args), 2)

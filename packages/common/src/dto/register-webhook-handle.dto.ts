@@ -1,5 +1,5 @@
 export interface RegisterWebhookHandleDto {
-  alias: string;
+  name: string;
   context: string;
   eventPayload: unknown;
 }

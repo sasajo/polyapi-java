@@ -124,7 +124,7 @@ const generateTSContextDeclarationFile = async (
   });
   const toWebhookHandleData = (handle: WebhookHandleDto) => ({
     ...handle,
-    eventType: handle.eventType ? `${toPascalCase(`${context}.${handle.alias}`)}EventType['content']` : 'any',
+    eventType: handle.eventType ? `${toPascalCase(`${context}.${handle.name}`)}EventType['content']` : 'any',
   });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${fileName}`,
@@ -154,11 +154,11 @@ const getContextData = (functions: FunctionDto[], webhookHandles: WebhookHandleD
     });
   });
   webhookHandles.forEach((handle) => {
-    const contextFunctionName = `${handle.context || 'default'}.${handle.alias}`;
+    const contextFunctionName = `${handle.context || 'default'}.${handle.name}`;
     set(contextData, contextFunctionName, {
       ...handle,
       type: 'webhookHandle',
-      alias: handle.alias.split('.').pop(),
+      name: handle.name.split('.').pop(),
     });
   });
 

@@ -1,6 +1,6 @@
 export interface TeachDetailsDto {
 
-  functionAlias?: string;
+  name?: string;
   context?: string;
   description?: string;
   payload?: string;

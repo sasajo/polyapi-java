@@ -1,7 +1,7 @@
 export interface WebhookHandleDto {
   id: string;
   context: string;
-  alias: string;
+  name: string;
   eventType: string;
   urls: string[];
 }

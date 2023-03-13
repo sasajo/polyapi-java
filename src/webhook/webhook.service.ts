@@ -42,26 +42,26 @@ export class WebhookService {
     });
   }
 
-  public async registerWebhookContextFunction(user: User, context: string | null, functionAlias: string, eventPayload: unknown): Promise<WebhookHandle> {
-    const eventType = await this.commonService.generateContentType(toPascalCase(`${context} ${functionAlias} Event Type`), eventPayload);
+  public async registerWebhookContextFunction(user: User, context: string | null, name: string, eventPayload: unknown): Promise<WebhookHandle> {
+    const eventType = await this.commonService.generateContentType(toPascalCase(`${context} ${name} Event Type`), eventPayload);
 
-    this.logger.debug(`Registering webhook for ${context}/${functionAlias}...`);
+    this.logger.debug(`Registering webhook for ${context}/${name}...`);
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
     this.logger.debug(`Event type: ${eventType}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
-        alias: functionAlias,
+        name,
         context: context || '',
       },
     });
 
     if (webhookHandle) {
       if (webhookHandle.userId !== user.id) {
-        throw new HttpException(`Webhook handle ${context}/${functionAlias} is already registered by another user.`, HttpStatus.BAD_REQUEST);
+        throw new HttpException(`Webhook handle ${context}/${name} is already registered by another user.`, HttpStatus.BAD_REQUEST);
       }
 
-      this.logger.debug(`Webhook handle found for ${context}/${functionAlias} - updating...`);
+      this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
       return this.prisma.webhookHandle.update({
         where: {
           id: webhookHandle.id,
@@ -72,7 +72,7 @@ export class WebhookService {
         },
       });
     } else {
-      this.logger.debug(`Creating new webhook handle for ${context}/${functionAlias}...`);
+      this.logger.debug(`Creating new webhook handle for ${context}/${name}...`);
       return this.prisma.webhookHandle.create({
         data: {
           user: {
@@ -80,7 +80,7 @@ export class WebhookService {
               id: user.id,
             },
           },
-          alias: functionAlias,
+          name,
           context: context || '',
           eventPayload: JSON.stringify(eventPayload),
           eventType: eventType,
@@ -89,22 +89,22 @@ export class WebhookService {
     }
   }
 
-  async triggerWebhookContextFunction(context: string, functionAlias: string, eventPayload: any) {
-    this.logger.debug(`Triggering webhook for ${context}/${functionAlias}...`);
+  async triggerWebhookContextFunction(context: string, name: string, eventPayload: any) {
+    this.logger.debug(`Triggering webhook for ${context}/${name}...`);
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
-        alias: functionAlias,
+        name,
         context,
       },
     });
 
     if (!webhookHandle) {
       if (this.config.autoRegisterWebhookHandle) {
-        this.logger.debug(`Webhook handle not found for ${context}/${functionAlias} - auto registering...`);
-        await this.registerWebhookContextFunction(await this.userService.getPublicUser(), context, functionAlias, eventPayload);
+        this.logger.debug(`Webhook handle not found for ${context}/${name} - auto registering...`);
+        await this.registerWebhookContextFunction(await this.userService.getPublicUser(), context, name, eventPayload);
         return;
       } else {
-        this.logger.debug(`Webhook handle not found for ${context}/${functionAlias} - skipping...`);
+        this.logger.debug(`Webhook handle not found for ${context}/${name} - skipping...`);
         return;
       }
     }
@@ -131,14 +131,14 @@ export class WebhookService {
   toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
     return {
       id: webhookHandle.id,
-      alias: webhookHandle.alias,
+      name: webhookHandle.name,
       context: webhookHandle.context,
       eventType: webhookHandle.eventType,
       urls: [
         `${this.config.hostUrl}/webhook/${webhookHandle.id}`,
         webhookHandle.context
-          ? `${this.config.hostUrl}/webhook/${webhookHandle.context}/${webhookHandle.alias}`
-          : `${this.config.hostUrl}/webhook/${webhookHandle.alias}`,
+          ? `${this.config.hostUrl}/webhook/${webhookHandle.context}/${webhookHandle.name}`
+          : `${this.config.hostUrl}/webhook/${webhookHandle.name}`,
       ],
     };
   }

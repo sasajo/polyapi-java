@@ -7,7 +7,7 @@ export class TeachDto {
   url: string;
   @IsNotEmpty()
   method: Method;
-  alias: string;
+  name: string;
   headers: Headers;
   body: Body;
 }

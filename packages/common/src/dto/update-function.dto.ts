@@ -1,7 +1,7 @@
 import { ArgumentTypes } from '../poly-function';
 
 export interface UpdateFunctionDto {
-  alias?: string;
+  name?: string;
   context?: string;
   description?: string;
   argumentTypes?: ArgumentTypes;

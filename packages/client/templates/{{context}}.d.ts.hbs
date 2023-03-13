@@ -13,7 +13,7 @@ declare module "./index" {
       {{name}}: ({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}) => {{{returnType}}};
     {{/each}}
     {{#each webhookHandles}}
-      {{alias}}: (callback: (event: {{{eventType}}}) => any) => UnregisterWebhookEventListenerType;
+      {{name}}: (callback: (event: {{{eventType}}}) => any) => UnregisterWebhookEventListenerType;
     {{/each}}
   }
 }

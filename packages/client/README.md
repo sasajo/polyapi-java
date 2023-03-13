@@ -45,7 +45,7 @@ poly.myWebhookContext.paymentReceieved(event => {
 });
 ```
 
-Webhook handlers have their context and function alias. To remove a handler call the returned function:
+Webhook handlers have their context and function name. To remove a handler call the returned function:
 ```
 const unregister = poly.myWebhookContext.paymentReceieved(event => {
   // handle event

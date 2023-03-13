@@ -13,10 +13,10 @@ CREATE TABLE "new_User" (
     "name" TEXT,
     "role" TEXT NOT NULL DEFAULT 'USER'
 );
-INSERT INTO User ("apiKey", "id", "name") SELECT "apiKey", "id", "name" FROM User;
-DROP TABLE User;
-ALTER TABLE User RENAME TO "User";
-CREATE UNIQUE INDEX "User_apiKey_key" ON User("apiKey");
+INSERT INTO "new_User" ("apiKey", "id", "name") SELECT "apiKey", "id", "name" FROM "User";
+DROP TABLE "User";
+ALTER TABLE "new_User" RENAME TO "User";
+CREATE UNIQUE INDEX "User_apiKey_key" ON "User"("apiKey");
 CREATE TABLE "new_PolyFunction" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "userId" INTEGER NOT NULL,

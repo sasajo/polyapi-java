@@ -24,7 +24,7 @@ model UrlFunction {
   id              Int            @id @default(autoincrement())
   user            User           @relation(fields: [userId], references: [id])
   userId          Int            @map("user_id")
-  alias           String
+  name            String
   context         String
   description     String         @default("")
   payload         String?
@@ -48,7 +48,7 @@ model WebhookHandle {
   user         User         @relation(fields: [userId], references: [id])
   userId       Int          @map("user_id")
   context      String
-  alias        String
+  name         String
   eventPayload String       @map("event_payload")
   eventType    String       @map("event_type")
   urlFunction  UrlFunction?

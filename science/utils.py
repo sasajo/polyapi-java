@@ -8,9 +8,9 @@ def func_path(func: UrlFunction) -> str:
     """ get the functions path as it will be exposed in the poly library
     """
     if func.context:
-        func_name = func.context + "." + func.alias
+        func_name = func.context + "." + func.name
     else:
-        func_name = func.alias
+        func_name = func.name
     return "poly." + func_name
 
 

@@ -8,7 +8,7 @@ from utils import func_path_with_args
 
 class FunctionDict(TypedDict):
     context: str
-    alias: str
+    name: str
     description: str
     method: str
     url: str
@@ -33,12 +33,12 @@ def test_user_get_or_create(db: Prisma) -> User:
 def load_functions(db: Prisma, user: User) -> None:
     data_list: List[FunctionDict] = _get_data_list()
     for data in data_list:
-        func = db.polyfunction.find_first(where={"alias": data['alias']})
+        func = db.polyfunction.find_first(where={"name": data['name']})
         if not func:
             func = db.polyfunction.create(
                 data={
                     "context": data["context"],
-                    "alias": data["alias"],
+                    "name": data["name"],
                     "description": data["description"],
                     "userId": user.id,
                     "url": data["url"],

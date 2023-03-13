@@ -9,7 +9,7 @@ const postRequest = {
   body: {
     mode: 'raw',
     raw: JSON.stringify({
-      alias: pm.info.requestName,
+      name: pm.info.requestName,
       url: `${url.protocol ? `${url.protocol}://` : ''}${url.getRemote()}${url.getPathWithQuery()}`,
       method,
       headers,
