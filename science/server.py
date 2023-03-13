@@ -51,8 +51,8 @@ def get_base_prompt() -> str:
     preface = "Here are the functions in the Poly API library,"
     parts: List[str] = [preface]
 
-    # for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
-    for func in db.polyfunction.find_many():  # type: ignore
+    # for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
+    for func in db.urlfunction.find_many():  # type: ignore
         parts.append(f"// {func.description}\n{func_path_with_args(func)}")
 
     return "\n\n".join(parts)

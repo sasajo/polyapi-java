@@ -1,10 +1,10 @@
 import openai
 from typing import List
-from prisma.models import PolyFunction
+from prisma.models import UrlFunction
 from urllib.parse import urlparse, parse_qs
 
 
-def func_path(func: PolyFunction) -> str:
+def func_path(func: UrlFunction) -> str:
     """ get the functions path as it will be exposed in the poly library
     """
     if func.context:
@@ -14,7 +14,7 @@ def func_path(func: PolyFunction) -> str:
     return "poly." + func_name
 
 
-def func_args(func: PolyFunction) -> List[str]:
+def func_args(func: UrlFunction) -> List[str]:
     """ get the args for a function from the url query params
     TODO also get args from the headers
     """
