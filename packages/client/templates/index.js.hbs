@@ -1,5 +1,6 @@
 const axios = require('axios');
 const set = require('lodash/set');
+const merge = require('lodash/merge');
 const { io } = require("socket.io-client");
 const { v4: uuidv4 } = require('uuid');
 
@@ -70,15 +71,17 @@ const registerWebhookEventListener = (webhookHandleID, callback) => {
   }
 };
 
-module.exports = {
-  ...functions.reduce(
-    (acc, [name, id]) => set(acc, name, (...args) => axios.post(`{{apiBaseUrl}}/function/execute/${id}`, { clientID, args }).then(({ data }) => data)),
+module.exports = merge(
+  {},
+  functions.reduce(
+    (acc, [name, id]) => set(acc, name, (...args) => axios.post(`https://staging.polyapi.io/function/execute/${id}`, { clientID, args }).then(({ data }) => data)),
     {}
   ),
-  ...webhookHandles.reduce(
+  webhookHandles.reduce(
     (acc, [alias, id]) => set(acc, alias, (callback) => registerWebhookEventListener(id, callback)),
     {}
   ),
-
-  errorHandler
-};
+  {
+    errorHandler
+  }
+);
