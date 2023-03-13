@@ -74,7 +74,7 @@ const registerWebhookEventListener = (webhookHandleID, callback) => {
 module.exports = merge(
   {},
   functions.reduce(
-    (acc, [name, id]) => set(acc, name, (...args) => axios.post(`https://staging.polyapi.io/function/execute/${id}`, { clientID, args }).then(({ data }) => data)),
+    (acc, [name, id]) => set(acc, name, (...args) => axios.post(`https://staging.polyapi.io/functions/execute/${id}`, { clientID, args }).then(({ data }) => data)),
     {}
   ),
   webhookHandles.reduce(
