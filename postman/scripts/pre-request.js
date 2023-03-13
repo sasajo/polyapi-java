@@ -1,6 +1,6 @@
 const {url, method, headers, body} = pm.request;
 const postRequest = {
-  url: 'http://localhost:8000/teach',
+  url: 'https://staging.polyapi.io/teach',
   method: 'POST',
   header: {
     'Content-Type': 'application/json',

@@ -5,7 +5,7 @@ pm.environment.unset('polyData');
 pm.environment.unset('polyFunctionId');
 
 const postRequest = {
-  url: `http://localhost:8000/teach/${functionId}`,
+  url: `https://staging.polyapi.io/teach/${functionId}`,
   method: 'POST',
   header: {
     'Content-Type': 'application/json',
