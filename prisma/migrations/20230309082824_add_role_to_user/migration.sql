@@ -13,10 +13,10 @@ CREATE TABLE "new_User" (
     "name" TEXT,
     "role" TEXT NOT NULL DEFAULT 'USER'
 );
-INSERT INTO "new_User" ("apiKey", "id", "name") SELECT "apiKey", "id", "name" FROM "User";
-DROP TABLE "User";
-ALTER TABLE "new_User" RENAME TO "User";
-CREATE UNIQUE INDEX "User_apiKey_key" ON "User"("apiKey");
+INSERT INTO User ("apiKey", "id", "name") SELECT "apiKey", "id", "name" FROM User;
+DROP TABLE User;
+ALTER TABLE User RENAME TO "User";
+CREATE UNIQUE INDEX "User_apiKey_key" ON User("apiKey");
 CREATE TABLE "new_PolyFunction" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "userId" INTEGER NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE "new_PolyFunction" (
     "trained" BOOLEAN NOT NULL DEFAULT false,
     "publicId" TEXT NOT NULL,
     "webhookHandleId" TEXT,
-    CONSTRAINT "PolyFunction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "PolyFunction_userId_fkey" FOREIGN KEY ("userId") REFERENCES User ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "PolyFunction_webhookHandleId_fkey" FOREIGN KEY ("webhookHandleId") REFERENCES "WebhookHandle" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 INSERT INTO "new_PolyFunction" ("alias", "body", "context", "headers", "id", "method", "payload", "publicId", "response", "responseType", "trained", "url", "userId", "webhookHandleId") SELECT "alias", "body", "context", "headers", "id", COALESCE("method", ''), "payload", "publicId", "response", "responseType", "trained", COALESCE("url", ''), "userId", "webhookHandleId" FROM "PolyFunction";

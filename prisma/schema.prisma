@@ -9,17 +9,19 @@ datasource db {
 
 model User {
   id             Int             @id @default(autoincrement())
-  apiKey         String          @unique
+  apiKey         String          @unique @map("api_key")
   name           String?
   role           String          @default("USER")
-  polyFunctions  PolyFunction[]
+  urlFunctions   UrlFunction[]
   webhookHandles WebhookHandle[]
+
+  @@map("user")
 }
 
-model PolyFunction {
+model UrlFunction {
   id              Int            @id @default(autoincrement())
   user            User           @relation(fields: [userId], references: [id])
-  userId          Int
+  userId          Int            @map("user_id")
   alias           String
   context         String
   description     String         @default("")
@@ -29,20 +31,25 @@ model PolyFunction {
   headers         String?
   body            String?
   response        String?
-  responseType    String?
+  responseType    String?        @map("response_type")
+  argumentTypes   String?        @map("argument_types")
   trained         Boolean        @default(false)
-  publicId        String         @default(uuid())
+  publicId        String         @unique @default(uuid()) @map("public_id")
   webhookHandle   WebhookHandle? @relation(fields: [webhookHandleId], references: [id])
-  webhookHandleId String?        @unique
+  webhookHandleId String?        @unique @map("webhook_handle_id")
+
+  @@map("url_function")
 }
 
 model WebhookHandle {
-  id           String        @id @default(uuid())
-  user         User          @relation(fields: [userId], references: [id])
-  userId       Int
+  id           String       @id @default(uuid())
+  user         User         @relation(fields: [userId], references: [id])
+  userId       Int          @map("user_id")
   context      String
   alias        String
-  eventPayload String
-  eventType    String
-  polyFunction PolyFunction?
+  eventPayload String       @map("event_payload")
+  eventType    String       @map("event_type")
+  urlFunction  UrlFunction?
+
+  @@map("webhook_handle")
 }

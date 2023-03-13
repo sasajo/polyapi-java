@@ -4,7 +4,7 @@ import { FunctionDto, WebhookHandleDto } from '@poly/common';
 
 export const getPolyFunctions = async () => {
   return (
-    await axios.get<FunctionDto[]>(`${process.env.POLY_API_BASE_URL}/function`, {
+    await axios.get<FunctionDto[]>(`${process.env.POLY_API_BASE_URL}/functions`, {
       headers: {
         'Content-Type': 'application/json',
         [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
@@ -15,7 +15,7 @@ export const getPolyFunctions = async () => {
 
 export const getWebhookHandles = async () => {
   return (
-    await axios.get<WebhookHandleDto[]>(`${process.env.POLY_API_BASE_URL}/webhook`, {
+    await axios.get<WebhookHandleDto[]>(`${process.env.POLY_API_BASE_URL}/webhooks`, {
       headers: {
         'Content-Type': 'application/json',
         [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',

@@ -3,7 +3,7 @@ import { WebhookService } from 'webhook/webhook.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import { RegisterWebhookHandleDto } from '@poly/common';
 
-@Controller('webhook')
+@Controller('webhooks')
 export class WebhookController {
   public constructor(private readonly webhookService: WebhookService) {
   }

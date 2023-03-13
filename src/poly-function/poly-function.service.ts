@@ -3,9 +3,9 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import { PolyFunction, Prisma, User } from '@prisma/client';
+import { UrlFunction, Prisma, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { Body, ExecuteFunctionDto, FunctionArgument, FunctionDto, Headers, Method } from '@poly/common';
+import { ArgumentTypes, Body, ExecuteFunctionDto, FunctionArgument, FunctionDto, Headers, Method } from '@poly/common';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
 import { CommonService } from 'common/common.service';
@@ -27,12 +27,12 @@ export class PolyFunctionService {
   ) {
   }
 
-  create(data: Prisma.PolyFunctionCreateInput): Promise<PolyFunction> {
-    return this.prisma.polyFunction.create({ data });
+  create(data: Prisma.UrlFunctionCreateInput): Promise<UrlFunction> {
+    return this.prisma.urlFunction.create({ data });
   }
 
   async getAllByUser(user: User) {
-    return this.prisma.polyFunction.findMany({
+    return this.prisma.urlFunction.findMany({
       where: {
         user: {
           id: user.id,
@@ -41,23 +41,35 @@ export class PolyFunctionService {
     });
   }
 
-  getAll(): Promise<PolyFunction[]> {
-    return this.prisma.polyFunction.findMany();
+  getAll(): Promise<UrlFunction[]> {
+    return this.prisma.urlFunction.findMany();
   }
 
-  private resolveAlias(alias: string | null) {
-    if (alias === null) {
+  private async resolveAlias(user: User, alias: string | null, context: string, fixDuplicate = false, excludedIds?: number[]) {
+    if (alias == null) {
       return null;
     }
     alias = alias.replace(/([\[\]{}()])/g, ' ');
+    alias = toCamelCase(alias);
 
-    return toCamelCase(alias);
+    if (!fixDuplicate) {
+      return alias;
+    }
+
+    const originalAlias = alias;
+    let nameIdentifier = 1;
+    while (!await this.checkAliasAndContextDuplicates(user, alias, context, excludedIds)) {
+      alias = `${originalAlias}-${nameIdentifier++}`;
+      if (nameIdentifier > 100) {
+        throw new HttpException(`Failed to create poly function: unambiguous function alias`, HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    return alias;
   }
 
-  async findOrCreate(user: User, url: string, method: Method, alias: string, headers: Headers, body: Body): Promise<PolyFunction> {
-    alias = this.resolveAlias(alias);
-
-    const found = await this.prisma.polyFunction.findFirst({
+  async findOrCreate(user: User, url: string, method: Method, alias: string, headers: Headers, body: Body): Promise<UrlFunction> {
+    const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -66,16 +78,16 @@ export class PolyFunctionService {
         method,
       },
     });
-    if (found) {
-      this.logger.debug(`Found existing poly function ${found.id}. Updating...`);
-      return this.prisma.polyFunction.update({
+    if (urlFunction) {
+      this.logger.debug(`Found existing poly function ${urlFunction.id}. Updating...`);
+      return this.prisma.urlFunction.update({
         where: {
-          id: found.id,
+          id: urlFunction.id,
         },
         data: {
           headers: JSON.stringify(headers),
           body: JSON.stringify(body),
-          alias,
+          alias: await this.resolveAlias(user, alias, urlFunction.context, true, [urlFunction.id]),
         },
       });
     }
@@ -89,7 +101,7 @@ export class PolyFunctionService {
       },
       url,
       method,
-      alias,
+      alias: await this.resolveAlias(user, alias, '', true),
       context: '',
       headers: JSON.stringify(headers),
       body: JSON.stringify(body),
@@ -97,7 +109,7 @@ export class PolyFunctionService {
   }
 
   async updateDetails(id: number, user: User, alias: string | null, context: string | null, description: string | null, payload: string | null, response: unknown) {
-    const polyFunction = await this.prisma.polyFunction.findFirst({
+    const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         id,
         user: {
@@ -105,21 +117,21 @@ export class PolyFunctionService {
         },
       },
     });
-    if (!polyFunction) {
+    if (!urlFunction) {
       throw new HttpException(`Poly function not found`, HttpStatus.NOT_FOUND);
     }
 
-    alias = this.normalizeAlias(alias, polyFunction);
-    context = this.normalizeContext(context, polyFunction);
-    description = this.normalizeDescription(description, polyFunction);
-    payload = this.normalizePayload(payload, polyFunction);
+    alias = this.normalizeAlias(alias, urlFunction);
+    context = this.normalizeContext(context, urlFunction);
+    description = this.normalizeDescription(description, urlFunction);
+    payload = this.normalizePayload(payload, urlFunction);
     this.logger.debug(`Normalized: alias: ${alias}, context: ${context}, description: ${description}, payload: ${payload}`);
 
     try {
       const responseType = await this.commonService.generateContentType(toPascalCase(`${context} ${alias} Type`), response, payload);
       this.logger.debug(`Generated response type:\n${responseType}`);
 
-      await this.prisma.polyFunction.update({
+      await this.prisma.urlFunction.update({
         where: {
           id,
         },
@@ -141,53 +153,54 @@ export class PolyFunctionService {
     }
   }
 
-  private toArgument(argument: string): FunctionArgument {
+  private toArgument(argument: string, argumentTypes: ArgumentTypes): FunctionArgument {
     return {
       name: argument,
-      type: 'string', // TODO: support other types
+      type: argumentTypes[argument] || 'string',
     };
   }
 
-  getArguments(polyFunction: PolyFunction): FunctionArgument[] {
+  getArguments(urlFunction: UrlFunction): FunctionArgument[] {
+    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentTypes || '{}'));
     let args = [];
 
-    args = args.concat(polyFunction.url.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
-    args = args.concat(polyFunction.headers?.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
-    args = args.concat(polyFunction.body?.match(ARGUMENT_PATTERN)?.map(this.toArgument) || []);
+    args = args.concat(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
+    args = args.concat(urlFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
+    args = args.concat(urlFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
 
     return args || [];
   }
 
-  toDto(polyFunction: PolyFunction): FunctionDto {
+  toDto(urlFunction: UrlFunction): FunctionDto {
     return {
-      id: polyFunction.publicId,
-      name: polyFunction.alias,
-      context: polyFunction.context,
-      arguments: this.getArguments(polyFunction),
-      returnType: polyFunction.responseType,
+      id: urlFunction.publicId,
+      name: urlFunction.alias,
+      context: urlFunction.context,
+      arguments: this.getArguments(urlFunction),
+      returnType: urlFunction.responseType,
     };
   }
 
   async executeFunction(publicId: string, executeFunctionDto: ExecuteFunctionDto) {
-    const polyFunction = await this.prisma.polyFunction.findFirst({
+    const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         publicId,
       },
     });
-    if (!polyFunction) {
+    if (!urlFunction) {
       throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
     }
-    this.logger.debug(`Executing function ${polyFunction.id} with arguments ${JSON.stringify(executeFunctionDto.args)}`);
+    this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(executeFunctionDto.args)}`);
 
-    const args = this.getArguments(polyFunction)
+    const args = this.getArguments(urlFunction)
       .reduce((args, arg, index) => Object.assign(args, { [arg.name]: executeFunctionDto.args[index] }), {});
-    const headers = JSON.parse(mustache.render(polyFunction.headers, args));
-    const body = JSON.parse(mustache.render(polyFunction.body, args));
-    const url = mustache.render(polyFunction.url, args);
-    const method = polyFunction.method;
-    const functionPath = `${polyFunction.context ? `${polyFunction.context}.` : ''}${polyFunction.alias}`;
+    const headers = JSON.parse(mustache.render(urlFunction.headers, args));
+    const body = JSON.parse(mustache.render(urlFunction.body, args));
+    const url = mustache.render(urlFunction.url, args);
+    const method = urlFunction.method;
+    const functionPath = `${urlFunction.context ? `${urlFunction.context}.` : ''}${urlFunction.alias}`;
 
-    this.logger.debug(`Performing HTTP request ${method} ${url} (id: ${polyFunction.id})...\nHeaders:\n${JSON.stringify(headers)}\nBody:\n${JSON.stringify(body)}`);
+    this.logger.debug(`Performing HTTP request ${method} ${url} (id: ${urlFunction.id})...\nHeaders:\n${JSON.stringify(headers)}\nBody:\n${JSON.stringify(body)}`);
     return lastValueFrom(
       this.httpService.request({
         url,
@@ -202,10 +215,10 @@ export class PolyFunctionService {
         map(response => response.data),
         map(response => {
           try {
-            this.logger.debug(`Response (id: ${polyFunction.id}):\n${JSON.stringify(response)}`);
-            const payloadResponse = this.commonService.getPathContent(response, polyFunction.payload);
+            this.logger.debug(`Response (id: ${urlFunction.id}):\n${JSON.stringify(response)}`);
+            const payloadResponse = this.commonService.getPathContent(response, urlFunction.payload);
             if (response !== payloadResponse) {
-              this.logger.debug(`Payload response (id: ${polyFunction.id}, payload: ${polyFunction.payload}):\n${JSON.stringify(payloadResponse)}`);
+              this.logger.debug(`Payload response (id: ${urlFunction.id}, payload: ${urlFunction.payload}):\n${JSON.stringify(payloadResponse)}`);
             }
             return payloadResponse;
           } catch (e) {
@@ -214,7 +227,7 @@ export class PolyFunctionService {
         }),
       ).pipe(
         catchError((error: AxiosError) => {
-          this.logger.error(`Error while performing HTTP request (id: ${polyFunction.id}): ${error}`);
+          this.logger.error(`Error while performing HTTP request (id: ${urlFunction.id}): ${error}`);
 
           if (this.eventService.sendErrorEvent(executeFunctionDto.clientID, functionPath, this.eventService.getEventError(error))) {
             return of(null);
@@ -262,45 +275,51 @@ export class PolyFunctionService {
     }
   }
 
-  async updateFunction(user: User, id: number, alias: string | null, context: string | null, description: string | null) {
-    const polyFunction = await this.prisma.polyFunction.findFirst({
+  async updateFunction(user: User, publicId: string, alias: string | null, context: string | null, description: string | null, argumentTypes: ArgumentTypes | null) {
+    const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
         },
-        id,
+        publicId,
       },
     });
-    if (!polyFunction) {
+    if (!urlFunction) {
       throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
     }
 
-    alias = this.resolveAlias(alias);
     if (alias != null || context != null) {
-      await this.checkAliasAndContextDuplicates(
+      alias = await this.resolveAlias(user, alias, urlFunction.context);
+      console.log('%c RESOLVED', 'background: yellow; color: black', alias);
+
+      if (!await this.checkAliasAndContextDuplicates(
         user,
-        alias || polyFunction.alias,
+        alias || urlFunction.alias,
         context == null
-          ? polyFunction.context || ''
+          ? urlFunction.context || ''
           : context,
-      );
+        [urlFunction.id],
+      )) {
+        throw new HttpException(`Function with alias ${alias} and context ${context} already exists.`, HttpStatus.CONFLICT);
+      }
     }
 
-    this.logger.debug(`Updating function ${id} with alias ${alias}, context ${context}, description ${description}`);
-    return this.prisma.polyFunction.update({
+    this.logger.debug(`Updating function ${urlFunction.id} with alias ${alias}, context ${context}, description ${description}`);
+    return this.prisma.urlFunction.update({
       where: {
-        id,
+        id: urlFunction.id,
       },
       data: {
-        alias: alias || polyFunction.alias,
-        context: context == null ? polyFunction.context : context,
-        description: description == null ? polyFunction.description : description,
+        alias: alias || urlFunction.alias,
+        context: context == null ? urlFunction.context : context,
+        description: description == null ? urlFunction.description : description,
+        argumentTypes: JSON.stringify(this.resolveArgumentTypes(urlFunction.argumentTypes, argumentTypes)),
       },
     });
   }
 
   async deleteFunction(user: User, id: number) {
-    const found = await this.prisma.polyFunction.findFirst({
+    const found = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -313,54 +332,60 @@ export class PolyFunctionService {
     }
 
     this.logger.debug(`Deleting function ${id}`);
-    await this.prisma.polyFunction.delete({
+    await this.prisma.urlFunction.delete({
       where: {
         id,
       },
     });
   }
 
-  private async checkAliasAndContextDuplicates(user: User, alias: string, context: string) {
-    const found = await this.prisma.polyFunction.findFirst({
+  private async checkAliasAndContextDuplicates(user: User, alias: string, context: string, excludedIds?: number[]) {
+    const found = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
         },
         alias,
         context,
+        AND: excludedIds == null
+          ? undefined
+          : {
+            id: {
+              notIn: excludedIds,
+            },
+          },
       },
     });
-    if (found) {
-      throw new HttpException(`Function with alias ${alias} and context ${context} already exists.`, HttpStatus.BAD_REQUEST);
-    }
+
+    return !found;
   }
 
-  private normalizeAlias(alias: string | null, polyFunction: PolyFunction) {
+  private normalizeAlias(alias: string | null, urlFunction: UrlFunction) {
     if (alias == null) {
-      alias = polyFunction.alias;
+      alias = urlFunction.alias;
     }
     return alias;
   }
 
-  private normalizeContext(context: string | null, polyFunction: PolyFunction) {
+  private normalizeContext(context: string | null, urlFunction: UrlFunction) {
     if (context == null) {
-      context = polyFunction.context;
+      context = urlFunction.context;
     }
 
     return context;
   }
 
-  private normalizeDescription(description: string | null, polyFunction: PolyFunction) {
+  private normalizeDescription(description: string | null, urlFunction: UrlFunction) {
     if (description == null) {
-      description = polyFunction.description;
+      description = urlFunction.description;
     }
 
     return description;
   }
 
-  private normalizePayload(payload: string | null, polyFunction: PolyFunction) {
+  private normalizePayload(payload: string | null, urlFunction: UrlFunction) {
     if (payload == null) {
-      payload = polyFunction.payload;
+      payload = urlFunction.payload;
     } else {
       if (!payload.startsWith('$')) {
         payload = `$${payload.startsWith('[') ? '' : '.'}${payload}`;
@@ -371,7 +396,7 @@ export class PolyFunctionService {
   }
 
   async deleteAllByUser(userID: number) {
-    return this.prisma.polyFunction.deleteMany({
+    return this.prisma.urlFunction.deleteMany({
       where: {
         user: {
           id: userID,
@@ -381,12 +406,19 @@ export class PolyFunctionService {
   }
 
   async deleteAllApiKey(apiKey: string) {
-    return this.prisma.polyFunction.deleteMany({
+    return this.prisma.urlFunction.deleteMany({
       where: {
         user: {
           apiKey,
         },
       },
     });
+  }
+
+  private resolveArgumentTypes(argumentTypes: string | null, updatedArgumentTypes: ArgumentTypes | null) {
+    return {
+      ...JSON.parse(argumentTypes || '{}'),
+      ...updatedArgumentTypes,
+    };
   }
 }

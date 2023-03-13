@@ -18,7 +18,7 @@ import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import { DeleteAllFunctionsDto, ExecuteFunctionDto, FunctionDto, Role, UpdateFunctionDto } from '@poly/common';
 import { ParseIdPipe } from 'pipe/parse-id.pipe';
 
-@Controller('function')
+@Controller('functions')
 export class PolyFunctionController {
   private logger: Logger = new Logger(PolyFunctionController.name);
 
@@ -37,14 +37,15 @@ export class PolyFunctionController {
     return await this.service.executeFunction(publicId, executeFunctionDto);
   }
 
-  @Patch('/:id')
+  @Patch('/:publicId')
   @UseGuards(ApiKeyGuard)
-  async updateFunction(@Req() req, @Param('id', ParseIdPipe) id: number, @Body() {
+  async updateFunction(@Req() req, @Param('publicId') publicId: string, @Body() {
     alias = null,
     context = null,
     description = null,
+    argumentTypes = null,
   }: UpdateFunctionDto): Promise<any> {
-    return this.service.toDto(await this.service.updateFunction(req.user, id, alias, context, description));
+    return this.service.toDto(await this.service.updateFunction(req.user, publicId, alias, context, description, argumentTypes));
   }
 
   @Delete('/all')
