@@ -16,27 +16,27 @@ export class WebhookController {
   }
 
   @UseGuards(ApiKeyGuard)
-  @Put(':context/:functionAlias')
-  public async registerWebhookContextFunction(@Req() req, @Param('context') context: string, @Param('functionAlias') functionAlias: string, @Body() payload: any) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, context, functionAlias, payload);
+  @Put(':context/:name')
+  public async registerWebhookContextFunction(@Req() req, @Param('context') context: string, @Param('name') name: string, @Body() payload: any) {
+    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, context, name, payload);
     return this.webhookService.toDto(webhookHandle);
   }
 
   @UseGuards(ApiKeyGuard)
-  @Put(':functionAlias')
-  public async registerWebhookFunction(@Req() req, @Param('functionAlias') functionAlias: string, @Body() payload: any) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, null, functionAlias, payload);
+  @Put(':name')
+  public async registerWebhookFunction(@Req() req, @Param('name') name: string, @Body() payload: any) {
+    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, null, name, payload);
     return this.webhookService.toDto(webhookHandle);
   }
 
-  @Post(':context/:functionAlias')
-  public async triggerWebhookContextFunction(@Param('context') context: string, @Param('functionAlias') functionAlias: string, @Body() payload: any) {
-    return await this.webhookService.triggerWebhookContextFunction(context, functionAlias, payload);
+  @Post(':context/:name')
+  public async triggerWebhookContextFunction(@Param('context') context: string, @Param('name') name: string, @Body() payload: any) {
+    return await this.webhookService.triggerWebhookContextFunction(context, name, payload);
   }
 
-  @Post(':functionAlias')
-  public async triggerWebhookFunction(@Param('functionAlias') functionAlias: string, @Body() payload: any) {
-    return await this.webhookService.triggerWebhookContextFunction(null, functionAlias, payload);
+  @Post(':name')
+  public async triggerWebhookFunction(@Param('name') name: string, @Body() payload: any) {
+    return await this.webhookService.triggerWebhookContextFunction(null, name, payload);
   }
 
   @Post(':id')

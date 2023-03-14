@@ -14,6 +14,8 @@ import { ConfigService } from 'config/config.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
+mustache.escape = (text) => text.replace(/"/g, `\\"`);
+
 @Injectable()
 export class PolyFunctionService {
   private logger: Logger = new Logger(PolyFunctionService.name);
@@ -201,7 +203,9 @@ export class PolyFunctionService {
     const args = this.getArguments(urlFunction)
       .reduce((args, arg, index) => Object.assign(args, { [arg.name]: executeFunctionDto.args[index] }), {});
     const headers = JSON.parse(mustache.render(urlFunction.headers, args));
-    const body = JSON.parse(mustache.render(urlFunction.body, args));
+    const bodyText = mustache.render(urlFunction.body, args);
+    console.log('%c BODY', 'background: yellow; color: black', bodyText);
+    const body = JSON.parse(bodyText);
     const url = mustache.render(urlFunction.url, args);
     const method = urlFunction.method;
     const functionPath = `${urlFunction.context ? `${urlFunction.context}.` : ''}${urlFunction.name}`;
@@ -425,5 +429,13 @@ export class PolyFunctionService {
       ...JSON.parse(argumentTypes || '{}'),
       ...updatedArgumentTypes,
     };
+  }
+
+  private tryJSONParse(value: string) {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return value;
+    }
   }
 }
