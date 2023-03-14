@@ -59,7 +59,7 @@ def get_completion_answer(functions: str, webhooks: str, question: str) -> str:
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "assistant", "content": "Include argument types. Be concise."},
+            {"role": "system", "content": "Include argument types. Be concise."},
             {"role": "assistant", "content": functions},
             {"role": "assistant", "content": webhooks},
             {"role": "user", "content": question},
