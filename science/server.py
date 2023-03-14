@@ -44,11 +44,12 @@ def function_completion():
     if False and FINE_TUNE_MODEL:
         return get_fine_tune_answer(completion_question)
     else:
-        base_prompt = get_base_prompt()
-        return get_function_completion_answer(base_prompt, completion_question)
+        functions = get_function_prompt()
+        webhooks = get_webhook_prompt()
+        return get_function_completion_answer(functions, webhooks, completion_question)
 
 
-def get_base_prompt() -> str:
+def get_function_prompt() -> str:
     preface = "Here are the functions in the Poly API library,"
     parts: List[str] = [preface]
 
@@ -65,6 +66,26 @@ def get_base_prompt() -> str:
         parts.append(f"// {func['description']}\n{func_path_with_args(func)}")
 
     return "\n\n".join(parts)
+
+
+def get_webhook_prompt() -> str:
+    return ""
+    # preface = "Here are the webhooks in the Poly API library,"
+    # parts: List[str] = [preface]
+
+    # # for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
+    # user = db.user.find_first(where={"role": "ADMIN"})
+    # if not user:
+    #     raise NotImplementedError("ERROR: no admin user, cannot access Node API")
+
+    # headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
+    # resp = requests.get("http://localhost/webhooks/", headers=headers)
+    # assert resp.status_code == 200, resp.content
+    # webhooks: List[WebhookDto] = resp.json()
+    # for webhook in webhooks:
+    #     parts.append(webhook_prompt(webhook))
+
+    # return "\n\n".join(parts)
 
 
 if __name__ == "__main__":

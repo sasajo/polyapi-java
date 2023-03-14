@@ -6,7 +6,7 @@ from utils import (
     get_function_completion_answer,
     get_function_completion_question,
 )
-from server import get_base_prompt
+from server import get_function_prompt
 
 db = Prisma()
 db.connect()
@@ -16,7 +16,7 @@ db.connect()
 
 def transform_to_jsonl() -> str:
     data = []
-    base_prompt = get_base_prompt()
+    base_prompt = get_function_prompt()
     for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
         question = get_function_completion_question(f"how do I {func.description}?")
         parts = [base_prompt, question]
