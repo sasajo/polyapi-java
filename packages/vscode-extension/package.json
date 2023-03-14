@@ -2,7 +2,7 @@
   "name": "polyapi-vscode-extension",
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant in Visual Studio Code",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "polyapi",
   "engines": {
     "vscode": "^1.75.0"
@@ -18,6 +18,12 @@
   "activationEvents": [],
   "main": "./build/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "poly.focusMessageInput",
+        "title": "Focus Poly input"
+      }
+    ],
     "configuration": {
       "title": "Poly",
       "properties": {
@@ -33,6 +39,9 @@
         }
       }
     },
+    "activationEvents": [
+      "onCommand:poly.focusMessageInput"
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -50,7 +59,14 @@
           "name": "Chat"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "poly.focusMessageInput",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",

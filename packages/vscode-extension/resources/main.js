@@ -20,11 +20,27 @@
   const polySvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 512 512'><path fill='currentColor' d='M160 140.8c14.111 0 25.595 11.482 25.6 25.6 0 14.116-11.483 25.6-25.597 25.6H160c-14.116 0-25.6-11.484-25.6-25.6 0-14.116 11.484-25.6 25.6-25.6z'/><path fill='currentColor' d='M160 70.4c52.934 0 96 43.066 96 96s-43.066 96-96 96-96-43.066-96-96 43.066-96 96-96zm0 153.6c31.761 0 57.6-25.839 57.6-57.6 0-31.761-25.839-57.6-57.6-57.6-31.761 0-57.6 25.839-57.6 57.6 0 31.761 25.839 57.6 57.6 57.6z'/><path fill='currentColor' d='M320 7.282C427.492 17.015 512 107.616 512 217.6v19.2h-78.177c-8.489 59.081-55.543 105.869-114.752 113.953C310.061 437.63 236.421 505.6 147.2 505.6H0V6.4Zm0 304.386c37.56-7.654 67.213-37.308 74.868-74.868H320Zm0-113.268h152.54C463.658 118.428 399.972 54.742 320 45.86ZM38.4 467.2h108.8c74.108 0 134.4-60.292 134.4-134.4v-288H38.4Z'/></svg>`;
   const copySvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linejoin='round' stroke-width='2' d='M15 3c1.886 0 2.828 0 3.414.586C19 4.172 19 5.114 19 7v10c0 1.886 0 2.828-.586 3.414C17.828 21 16.886 21 15 21H9c-1.886 0-2.828 0-3.414-.586C5 19.828 5 18.886 5 17V7c0-1.886 0-2.828.586-3.414C6.172 3 7.114 3 9 3h6Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V3'/></svg>`;
   const copyCheckSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linejoin='round' stroke-width='2' d='M15 3c1.886 0 2.828 0 3.414.586C19 4.172 19 5.114 19 7v10c0 1.886 0 2.828-.586 3.414C17.828 21 16.886 21 15 21H9c-1.886 0-2.828 0-3.414-.586C5 19.828 5 18.886 5 17V7c0-1.886 0-2.828.586-3.414C6.172 3 7.114 3 9 3h6Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V3M9 15l1.5 1.5v0a.707.707 0 0 0 1 0v0L15 13'/></svg>`;
+  const cancelSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 32 32'><path d='m7 7 18 18M7 25 25 7' style='fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2px'/></svg>`;
+  const actionBar = document.getElementById('action-bar');
+  const messageInput = document.getElementById('message-input');
+  const conversationList = document.getElementById('conversation-list');
 
-  // Handle messages sent from the extension to the webview
+  const setInitialMessageInputHeight = () => {
+    messageInput.style.height = '38px';
+  };
+
+  const setActionBarVisibility = (isVisible) => {
+    if (isVisible) {
+      actionBar.classList.remove('hidden');
+    } else {
+      actionBar.classList.add('hidden');
+    }
+  };
+
+  setInitialMessageInputHeight();
+
   window.addEventListener('message', (event) => {
     const message = event.data;
-    const conversationList = document.getElementById('conversation-list');
 
     const getHtmlWithCodeCopy = (text) => {
       const html = new DOMParser().parseFromString(text, 'text/html');
@@ -55,6 +71,8 @@
       switch (text.type) {
         case 'plain':
           return `<div>${text.value}</div>`;
+        case 'error':
+          return `<div class='response-text-error'>${text.value}</div>`;
         case 'js':
           return getHtmlWithCodeCopy(marked.parse(`\`\`\`\n${text.value}\n\`\`\``));
         case 'markdown':
@@ -64,6 +82,13 @@
       }
     };
 
+    const scrollToLastMessage = () => {
+      conversationList.scrollTo({
+        top: conversationList.scrollHeight,
+        behavior: 'smooth',
+      });
+    };
+
     switch (message.type) {
       case 'addQuestion': {
         conversationList.innerHTML +=
@@ -71,7 +96,8 @@
             <h2 class='font-bold mb-3 flex items-center'>${userSvg}<span class='ml-1'>You</span></h2>
             <div class='overflow-y-auto'>${message.value}</div>
           </div>`;
-        conversationList.lastChild?.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+        scrollToLastMessage();
+        setActionBarVisibility(true);
         break;
       }
       case 'setLoading': {
@@ -79,11 +105,14 @@
 
         if (!loadingContainer) {
           conversationList.innerHTML +=
-            `<div class='loading-container p-4 self-end'>
+            `<div class='loading-container p-4 self-end flex justify-between'>
               ${loadingSvg}
+              <button id='cancel-request-button' class='rounded-lg p-1.5'>
+                ${cancelSvg}
+              </button>
             </div>`;
         }
-
+        scrollToLastMessage();
         break;
       }
       case 'addResponseTexts': {
@@ -97,11 +126,15 @@
             <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
             ${texts.map(text => getResponseTextHtml(text)).join('')}
           </div>`;
-        conversationList.lastChild?.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+        scrollToLastMessage();
         break;
       }
       case 'clearConversation':
         clearConversation();
+        setActionBarVisibility(false);
+        break;
+      case 'focusMessageInput':
+        messageInput?.focus();
         break;
       default:
         break;
@@ -109,26 +142,43 @@
   });
 
   const postQuestionMessage = () => {
-    const input = document.getElementById('message-input');
-    if (input.value?.length > 0) {
+    if (messageInput.value?.length > 0) {
       vscode.postMessage({
         type: 'sendQuestion',
-        value: input.value,
+        value: messageInput.value,
       });
 
-      input.value = '';
+      messageInput.value = '';
+      setInitialMessageInputHeight();
     }
+  };
+
+  const postCancelRequestMessage = () => {
+    vscode.postMessage({
+      type: 'cancelRequest',
+    });
   };
 
   const clearConversation = () => {
     document.getElementById('conversation-list').innerHTML = '';
+    messageInput.value = '';
+    setInitialMessageInputHeight();
   };
 
-  document.getElementById('message-input').addEventListener('keydown', function(event) {
+  messageInput.addEventListener('keydown', function(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       postQuestionMessage();
     }
+  });
+  messageInput.addEventListener('input', function(event) {
+    this.style.height = '0';
+    this.style.height = `${this.scrollHeight + 2}px`;
+  }, false);
+
+  document.getElementById('clear-conversation-button').addEventListener('click', (e) => {
+    e.preventDefault();
+    clearConversation();
   });
 
   document.getElementById('send-message-button').addEventListener('click', (e) => {
@@ -139,7 +189,12 @@
   document.addEventListener('click', e => {
     const targetButton = e.target.closest('button');
 
-    if (targetButton?.classList?.contains('code-copy-button')) {
+    if (!targetButton) {
+      return;
+    }
+    if (targetButton.id === 'cancel-request-button') {
+      postCancelRequestMessage();
+    } else if (targetButton.classList?.contains('code-copy-button')) {
       const preElement = targetButton.closest('pre');
       const code = preElement.querySelector('code').innerText;
 
