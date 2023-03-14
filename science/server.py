@@ -100,7 +100,7 @@ def get_function_prompt() -> str:
 
 
 def get_webhook_prompt() -> str:
-    preface = "Here are the webhooks in the Poly API library,"
+    preface = "Here are the event handlers in the Poly API library,"
     parts: List[str] = [preface]
 
     user = db.user.find_first(where={"role": "ADMIN"})
