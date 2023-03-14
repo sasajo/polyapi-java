@@ -35,7 +35,7 @@ def func_path_with_args(func: FunctionDto) -> str:
 
 
 def get_function_completion_question(question: str) -> str:
-    return "From the Poly API library, " + question
+    return "From the Poly API library, " + question + ". Include argument types."
 
 
 def get_function_completion_answer(functions: str, question: str) -> str:
@@ -43,7 +43,7 @@ def get_function_completion_answer(functions: str, question: str) -> str:
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "assistant", "content": "Include argument types. Don't produce an example unless user requests."},
+            {"role": "assistant", "content": "Don't produce an example unless user requests."},
             {"role": "assistant", "content": functions},
             {"role": "assistant", "content": webhooks},
             {"role": "user", "content": question},
