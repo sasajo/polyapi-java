@@ -2,7 +2,7 @@
 git pull
 curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt update
-sudo apt install -y nodejs python3-pip vim libcap2-bin
+sudo apt install -y nodejs python3-pip vim libcap2-bin redis
 
 # enable node to run on port 80
 sudo setcap cap_net_bind_service=+ep /usr/bin/node
