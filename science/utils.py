@@ -1,7 +1,10 @@
+import re
 import openai
 from typing import List
 from prisma.models import UrlFunction
-from urllib.parse import urlparse, parse_qs
+
+
+RE_CURLY = re.compile("{{(.*?)}}")
 
 
 def func_path(func: UrlFunction) -> str:
@@ -15,20 +18,11 @@ def func_path(func: UrlFunction) -> str:
 
 
 def func_args(func: UrlFunction) -> List[str]:
-    """ get the args for a function from the url query params
-    TODO also get args from the headers
+    """ get the args for a function from the headers and url
     """
-    parsed = urlparse(func.url)
-    qs = parse_qs(parsed.query)
-    rv = []
-    for value_list in qs.values():
-        value = value_list[0]
-        if value.startswith("{{") and value.endswith("}}"):
-            rv.append(value[2:-2])
-        else:
-            # this is a static query param, NOT one we want to expose as a variable
-            pass
-    return rv
+    header_args = RE_CURLY.findall(func.headers) if func.headers else []
+    url_args = RE_CURLY.findall(func.url)
+    return header_args + url_args
 
 
 def func_path_with_args(func) -> str:

@@ -17,7 +17,7 @@ db.connect()
 def transform_to_jsonl() -> str:
     data = []
     base_prompt = get_base_prompt()
-    for func in db.polyfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
+    for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
         question = get_function_completion_question(f"how do I {func.description}?")
         parts = [base_prompt, question]
         prompt = "\n\n".join(parts)

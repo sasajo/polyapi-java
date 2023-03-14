@@ -37,6 +37,7 @@ TODO at some point separate the local test db and the test db
 To run tests, run this:
 
 ```
+cd science
 prisma generate  # only needed before first test run
 python -m unittest discover
 ```

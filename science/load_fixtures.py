@@ -12,6 +12,7 @@ class FunctionDict(TypedDict):
     description: str
     method: str
     url: str
+    headers: str
 
 
 def _get_data_list():
@@ -33,15 +34,21 @@ def test_user_get_or_create(db: Prisma) -> User:
 def load_functions(db: Prisma, user: User) -> None:
     data_list: List[FunctionDict] = _get_data_list()
     for data in data_list:
-        func = db.polyfunction.find_first(where={"name": data['name']})
+        headers = data["headers"]
+        if "'" in headers:
+            # replace single quotes with double to make this valid json
+            headers = headers.replace("'", '"')
+
+        func = db.urlfunction.find_first(where={"name": data['name']})
         if not func:
-            func = db.polyfunction.create(
+            func = db.urlfunction.create(
                 data={
                     "context": data["context"],
                     "name": data["name"],
                     "description": data["description"],
                     "userId": user.id,
                     "url": data["url"],
+                    "headers": headers,
                     "method": data["method"],
                 }
             )
