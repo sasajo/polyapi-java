@@ -9,6 +9,7 @@ export interface FunctionDto {
   id: string;
   context: string;
   name: string;
+  description: string;
   arguments: FunctionArgument[];
   returnType: string;
 }
