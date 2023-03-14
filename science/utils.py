@@ -38,11 +38,14 @@ def get_function_completion_question(question: str) -> str:
     return "From the Poly API library, " + question
 
 
-def get_function_completion_answer(base_prompt: str, question: str) -> str:
+def get_function_completion_answer(functions: str, question: str) -> str:
+    webhooks = ""
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "assistant", "content": base_prompt},
+            {"role": "assistant", "content": "Include argument types. Don't produce an example unless user requests."},
+            {"role": "assistant", "content": functions},
+            {"role": "assistant", "content": webhooks},
             {"role": "user", "content": question},
         ],
     )
