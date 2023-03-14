@@ -323,23 +323,23 @@ export class PolyFunctionService {
     });
   }
 
-  async deleteFunction(user: User, id: number) {
+  async deleteFunction(user: User, publicId: string) {
     const found = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
         },
-        id,
+        publicId,
       },
     });
     if (!found) {
       throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
     }
 
-    this.logger.debug(`Deleting function ${id}`);
+    this.logger.debug(`Deleting function ${publicId}`);
     await this.prisma.urlFunction.delete({
       where: {
-        id,
+        publicId,
       },
     });
   }

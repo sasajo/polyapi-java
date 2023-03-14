@@ -60,9 +60,9 @@ export class PolyFunctionController {
     }
   }
 
-  @Delete('/:id')
+  @Delete('/:publicId')
   @UseGuards(ApiKeyGuard)
-  async deleteFunction(@Req() req, @Param('id', ParseIdPipe) id: number): Promise<void> {
-    await this.service.deleteFunction(req.user, id);
+  async deleteFunction(@Req() req, @Param('publicId') publicId: string): Promise<void> {
+    await this.service.deleteFunction(req.user, publicId);
   }
 }
