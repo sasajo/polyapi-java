@@ -1,31 +1,36 @@
-import re
 import openai
-from typing import List
-from prisma.models import UrlFunction
+from typing import Dict, List, TypedDict, Optional
 
 
-RE_CURLY = re.compile("{{(.*?)}}")
+class FunctionDto(TypedDict):
+    id: str
+    name: str
+    context: str
+    description: str
+    arguments: List[Dict[str, str]]
+    returnType: Optional[str]
 
 
-def func_path(func: UrlFunction) -> str:
+def func_path(func: FunctionDto) -> str:
     """ get the functions path as it will be exposed in the poly library
     """
-    if func.context:
-        func_name = func.context + "." + func.name
+    if func['context']:
+        path = func['context'] + "." + func['name']
     else:
-        func_name = func.name
-    return "poly." + func_name
+        path = func['name']
+    return "poly." + path
 
 
-def func_args(func: UrlFunction) -> List[str]:
+def func_args(func: FunctionDto) -> List[str]:
     """ get the args for a function from the headers and url
     """
-    header_args = RE_CURLY.findall(func.headers) if func.headers else []
-    url_args = RE_CURLY.findall(func.url)
-    return header_args + url_args
+    rv = []
+    for arg in func['arguments']:
+        rv.append(arg['name'] + ": " + arg['type'])
+    return rv
 
 
-def func_path_with_args(func) -> str:
+def func_path_with_args(func: FunctionDto) -> str:
     return f"{func_path(func)}({', '.join(func_args(func))})"
 
 

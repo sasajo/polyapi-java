@@ -1,28 +1,26 @@
 from .testing import DbTestCase
 from load_fixtures import load_functions, test_user_get_or_create
-from utils import func_args
+from utils import FunctionDto, func_args
+
+FUNC: FunctionDto = {
+    "id": "60062c03-dcfd-437d-832c-6cba9543f683",
+    "name": "gMapsGetXy",
+    "context": "shipping",
+    "description": "",
+    "arguments": [
+        {"name": "location", "type": "string"},
+        {"name": "GAPIKey", "type": "string"},
+    ],
+    "returnType": None,
+}
 
 
 class T(DbTestCase):
-    def test_func_args_basic(self):
+    def test_func_args(self):
         user = test_user_get_or_create(self.db)
         load_functions(self.db, user)
 
-        func = self.db.urlfunction.find_first(where={'name': 'unitedAirlines.getFlights'})
-        assert func
-        args = func_args(func)
+        args = func_args(FUNC)
         self.assertEqual(len(args), 2)
-        self.assertEqual(args[0], "guestID")
-        self.assertEqual(args[1], "status")
-
-    def test_func_args_advanced(self):
-        user = test_user_get_or_create(self.db)
-        load_functions(self.db, user)
-
-        func = self.db.urlfunction.find_first(where={'name': 'unitedAirlines.getStatus'})
-        assert func
-        args = func_args(func)
-        self.assertEqual(len(args), 3)
-        self.assertEqual(args[0], "shopToken")
-        self.assertEqual(args[1], "tenant")
-        self.assertEqual(args[2], "flightID")
+        self.assertEqual(args[0], "location: string")
+        self.assertEqual(args[1], "GAPIKey: string")

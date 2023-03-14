@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import os
 from typing import List
+import requests
 import openai
 from flask import Flask, request
 from prisma import Prisma, register
-from utils import func_path_with_args, get_function_completion_answer, get_function_completion_question
+from utils import FunctionDto, func_path_with_args, get_function_completion_answer, get_function_completion_question
 
 
 FINE_TUNE_MODEL = os.environ.get("FINE_TUNE_MODEL")
@@ -52,8 +53,16 @@ def get_base_prompt() -> str:
     parts: List[str] = [preface]
 
     # for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
-    for func in db.urlfunction.find_many():  # type: ignore
-        parts.append(f"// {func.description}\n{func_path_with_args(func)}")
+    user = db.user.find_first(where={"role": "ADMIN"})
+    if not user:
+        raise NotImplementedError("ERROR: no admin user, cannot access Node API")
+
+    headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
+    resp = requests.get("http://localhost/functions/", headers=headers)
+    assert resp.status_code == 200, resp.content
+    funcs: List[FunctionDto] = resp.json()
+    for func in funcs:
+        parts.append(f"// {func['description']}\n{func_path_with_args(func)}")
 
     return "\n\n".join(parts)
 
