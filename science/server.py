@@ -15,6 +15,8 @@ from utils import (
     webhook_prompt,
 )
 
+# port of the nestjs server
+PORT = os.environ.get("PORT", "80")
 
 # Fine tune model sucks for now, just use ChatGPT
 FINE_TUNE_MODEL = os.environ.get("FINE_TUNE_MODEL")
@@ -88,7 +90,7 @@ def get_function_prompt() -> str:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
     headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
-    resp = requests.get("http://localhost/functions/", headers=headers)
+    resp = requests.get(f"http://localhost:{PORT}/functions/", headers=headers)
     assert resp.status_code == 200, resp.content
     funcs: List[FunctionDto] = resp.json()
     for func in funcs:
@@ -106,7 +108,7 @@ def get_webhook_prompt() -> str:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
     headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
-    resp = requests.get("http://localhost/webhooks/", headers=headers)
+    resp = requests.get(f"http://localhost:{PORT}/webhooks/", headers=headers)
     assert resp.status_code == 200, resp.content
     webhooks: List[WebhookDto] = resp.json()
     for webhook in webhooks:
