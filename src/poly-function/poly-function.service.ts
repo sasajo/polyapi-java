@@ -184,6 +184,7 @@ export class PolyFunctionService {
       id: urlFunction.publicId,
       name: urlFunction.name,
       context: urlFunction.context,
+      description: urlFunction.description,
       arguments: this.getArguments(urlFunction),
       returnType: urlFunction.responseType,
     };
