@@ -6,8 +6,7 @@ git pull
 yarn install
 
 # regenerate the hooks for the npm client
-# TODO switch to prisma db migrate?
-yarn run prisma db push
+yarn run prisma migrate deploy
 
 # regenerate the hooks for the python client
 cd science
