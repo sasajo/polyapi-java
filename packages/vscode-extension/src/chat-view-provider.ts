@@ -64,10 +64,6 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     this.requestAbortController = new AbortController();
     try {
       const {data} = await axios.post(`${apiBaseUrl}/chat/question`, {
-        headers: {
-          // HARDCODED FOR NOW, vlad fixme?
-          "X-PolyApiKey": "ab4f62d3421bca3674hfd627",
-        },
         message
       }, {
         signal: this.requestAbortController.signal,
