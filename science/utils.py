@@ -1,5 +1,5 @@
 import openai
-from typing import Dict, List, TypedDict, Optional
+from typing import Dict, List, TypedDict, Optional, Union
 
 
 class FunctionDto(TypedDict):
@@ -11,7 +11,15 @@ class FunctionDto(TypedDict):
     returnType: Optional[str]
 
 
-def func_path(func: FunctionDto) -> str:
+class WebhookDto(TypedDict):
+    id: str
+    name: str
+    context: str
+    urls: List[str]
+
+
+# HACK should have better name
+def func_path(func: Union[FunctionDto, WebhookDto]) -> str:
     """ get the functions path as it will be exposed in the poly library
     """
     if func['context']:
@@ -34,11 +42,20 @@ def func_path_with_args(func: FunctionDto) -> str:
     return f"{func_path(func)}({', '.join(func_args(func))})"
 
 
-def get_function_completion_question(question: str) -> str:
+def webhook_prompt(hook: WebhookDto) -> str:
+    parts = [func_path(hook)]
+    for url in hook["urls"]:
+        if hook['id'] in url:
+            continue
+        parts.append(f"url: {url}")
+    return "\n".join(parts)
+
+
+def get_completion_question(question: str) -> str:
     return "From the Poly API library, " + question
 
 
-def get_function_completion_answer(functions: str, webhooks: str, question: str) -> str:
+def get_completion_answer(functions: str, webhooks: str, question: str) -> str:
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[

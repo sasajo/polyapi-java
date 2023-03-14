@@ -5,7 +5,7 @@ import requests
 import openai
 from flask import Flask, request
 from prisma import Prisma, register
-from utils import FunctionDto, func_path_with_args, get_function_completion_answer, get_function_completion_question
+from utils import FunctionDto, WebhookDto, func_path_with_args, get_completion_answer, get_completion_question, webhook_prompt
 
 
 FINE_TUNE_MODEL = os.environ.get("FINE_TUNE_MODEL")
@@ -38,7 +38,7 @@ def get_fine_tune_answer(question: str):
 @app.route("/function-completion", methods=["POST"])  # type: ignore
 def function_completion():
     question = request.get_json(force=True)["question"]
-    completion_question = get_function_completion_question(question)
+    completion_question = get_completion_question(question)
 
     # Fine tune model sucks for now, just use ChatGPT
     if False and FINE_TUNE_MODEL:
@@ -46,14 +46,13 @@ def function_completion():
     else:
         functions = get_function_prompt()
         webhooks = get_webhook_prompt()
-        return get_function_completion_answer(functions, webhooks, completion_question)
+        return get_completion_answer(functions, webhooks, completion_question)
 
 
 def get_function_prompt() -> str:
     preface = "Here are the functions in the Poly API library,"
     parts: List[str] = [preface]
 
-    # for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
     user = db.user.find_first(where={"role": "ADMIN"})
     if not user:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
@@ -69,23 +68,21 @@ def get_function_prompt() -> str:
 
 
 def get_webhook_prompt() -> str:
-    return ""
-    # preface = "Here are the webhooks in the Poly API library,"
-    # parts: List[str] = [preface]
+    preface = "Here are the webhooks in the Poly API library,"
+    parts: List[str] = [preface]
 
-    # # for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
-    # user = db.user.find_first(where={"role": "ADMIN"})
-    # if not user:
-    #     raise NotImplementedError("ERROR: no admin user, cannot access Node API")
+    user = db.user.find_first(where={"role": "ADMIN"})
+    if not user:
+        raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
-    # headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
-    # resp = requests.get("http://localhost/webhooks/", headers=headers)
-    # assert resp.status_code == 200, resp.content
-    # webhooks: List[WebhookDto] = resp.json()
-    # for webhook in webhooks:
-    #     parts.append(webhook_prompt(webhook))
+    headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
+    resp = requests.get("http://localhost/webhooks/", headers=headers)
+    assert resp.status_code == 200, resp.content
+    webhooks: List[WebhookDto] = resp.json()
+    for webhook in webhooks:
+        parts.append(webhook_prompt(webhook))
 
-    # return "\n\n".join(parts)
+    return "\n\n".join(parts)
 
 
 if __name__ == "__main__":
