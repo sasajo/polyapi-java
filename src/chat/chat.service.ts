@@ -11,7 +11,7 @@ export class ChatService {
   constructor(private readonly httpService: HttpService, private readonly config: ConfigService) {
   }
 
-  public async getMessageResponseTexts(message: string): Promise<ChatText[]> {
+  public async getMessageResponseTexts(userId: number, message: string): Promise<ChatText[]> {
     const toResponseTexts = (response: string): ChatText[] => {
       return [{
         type: 'markdown',
@@ -21,6 +21,7 @@ export class ChatService {
 
     return await lastValueFrom(
       this.httpService.post(`${this.config.scienceServerBaseUrl}/function-completion`, {
+        user_id: userId,
         question: message,
       }).pipe(
         map(response => response.data),

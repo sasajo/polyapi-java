@@ -67,14 +67,9 @@ def store_message(
 def get_conversation_answer(
     db: Prisma, user_id: int, messages: List[ConversationMessage], question: str
 ):
-    user = None
     priors: List[Dict[str, str]] = []
     for message in messages:
         priors.append({"role": message.role, "content": message.content})
-        if not user:
-            user = message.user
-
-    assert user
 
     question_message = {"role": "user", "content": question}
     resp = openai.ChatCompletion.create(
