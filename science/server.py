@@ -49,6 +49,13 @@ def function_completion():
         return get_completion_answer(functions, webhooks, completion_question)
 
 
+@app.route("/clear-conversation", methods=["POST"])
+def clear_conversation():
+    user_id = request.get_json(force=True)["user_id"]
+    assert user_id
+    return "Conversation Cleared"
+
+
 def get_function_prompt() -> str:
     preface = "Here are the functions in the Poly API library,"
     parts: List[str] = [preface]
