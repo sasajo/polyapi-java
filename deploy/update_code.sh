@@ -5,8 +5,9 @@ cd $HOME/poly-alpha/
 git pull
 yarn install
 
-# regenerate the hooks for the npm client
+# migrate and regenerate the hooks for the npm client
 yarn run prisma migrate deploy
+yarn run prisma generate
 
 # regenerate the hooks for the python client
 cd science
