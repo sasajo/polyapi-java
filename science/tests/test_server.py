@@ -1,6 +1,6 @@
 import mock
 from .testing import DbTestCase
-from server import get_webhook_prompt
+from server import _clear_conversation, get_webhook_prompt
 from load_fixtures import test_user_get_or_create
 
 GET_FUNCTIONS = [
@@ -50,10 +50,29 @@ class T(DbTestCase):
 
     @mock.patch("server.requests.get")
     def test_get_webhook_prompt(self, requests_get) -> None:
-        requests_get.return_value = mock.Mock(status_code=200, json=lambda: GET_WEBHOOKS)
+        requests_get.return_value = mock.Mock(
+            status_code=200, json=lambda: GET_WEBHOOKS
+        )
 
         prompt = get_webhook_prompt()
         self.assertEqual(requests_get.call_count, 1)
         self.assertTrue(prompt.startswith("Here are the webhooks"))
         self.assertIn("poly.shipping.packageDelivered", prompt)
         print(prompt)
+
+    def test_clear_conversation(self):
+        user = test_user_get_or_create(self.db)
+        data = {
+            "userId": user.id,
+            "role": "user",
+            "content": "how do I get the status of a united flight?",
+        }
+        msg = self.db.conversationmessage.create(data=data)
+
+        # clearing other user id shouldn't delete this msg
+        _clear_conversation(-1)
+        self.assertTrue(self.db.conversationmessage.find_first(where={"id": msg.id}))
+
+        # clearing this user id should clear it
+        _clear_conversation(user.id)
+        self.assertFalse(self.db.conversationmessage.find_first(where={"id": msg.id}))

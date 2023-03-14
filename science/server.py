@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 import os
-from typing import List
+from typing import Dict, List, Optional
 import requests
 import openai
 from flask import Flask, request
 from prisma import Prisma, register
-from utils import FunctionDto, WebhookDto, func_path_with_args, get_completion_answer, get_completion_question, webhook_prompt
+from utils import (
+    FunctionDto,
+    WebhookDto,
+    func_path_with_args,
+    get_completion_answer,
+    get_completion_question,
+    get_conversation_answer,
+    webhook_prompt,
+)
 
 
+# Fine tune model sucks for now, just use ChatGPT
 FINE_TUNE_MODEL = os.environ.get("FINE_TUNE_MODEL")
 
 
@@ -24,36 +33,50 @@ def home():
 
 
 def get_fine_tune_answer(question: str):
+    # Fine tune model sucks for now, just use ChatGPT
     resp = openai.Completion.create(
         temperature=0.2,
         model=FINE_TUNE_MODEL,
         max_tokens=200,
         frequency_penalty=0.8,
-        prompt=question)
+        prompt=question,
+    )
 
     prefix = f"USING FINE TUNE MODEL: {FINE_TUNE_MODEL}\n\n"
     return prefix + resp["choices"][0]["text"]
 
 
 @app.route("/function-completion", methods=["POST"])  # type: ignore
-def function_completion():
-    question = request.get_json(force=True)["question"]
+def function_completion() -> str:
+    data: Dict = request.get_json(force=True)
+    question: str = data["question"].strip()
     completion_question = get_completion_question(question)
 
-    # Fine tune model sucks for now, just use ChatGPT
-    if False and FINE_TUNE_MODEL:
-        return get_fine_tune_answer(completion_question)
+    user_id: Optional[int] = data.get("user_id")
+    if user_id and question == "clear":
+        _clear_conversation(user_id)
+        return "Conversation cleared"
+
+    messages = (
+        db.conversationmessage.find_many(where={"userId": user_id}) if user_id else None
+    )
+    if messages:
+        return get_conversation_answer(db, user_id, messages, completion_question)
     else:
         functions = get_function_prompt()
         webhooks = get_webhook_prompt()
-        return get_completion_answer(functions, webhooks, completion_question)
+        return get_completion_answer(db, user_id, functions, webhooks, completion_question)
 
 
 @app.route("/clear-conversation", methods=["POST"])
-def clear_conversation():
+def clear_conversation() -> str:
     user_id = request.get_json(force=True)["user_id"]
-    assert user_id
+    _clear_conversation(user_id)
     return "Conversation Cleared"
+
+
+def _clear_conversation(user_id: int):
+    db.conversationmessage.delete_many(where={"userId": user_id})
 
 
 def get_function_prompt() -> str:

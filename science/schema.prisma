@@ -10,12 +10,13 @@ datasource db {
 }
 
 model User {
-  id             Int             @id @default(autoincrement())
-  apiKey         String          @unique @map("api_key")
-  name           String?
-  role           String          @default("USER")
-  urlFunctions   UrlFunction[]
-  webhookHandles WebhookHandle[]
+  id                  Int                   @id @default(autoincrement())
+  apiKey              String                @unique @map("api_key")
+  name                String?
+  role                String                @default("USER")
+  urlFunctions        UrlFunction[]
+  webhookHandles      WebhookHandle[]
+  ConversationMessage ConversationMessage[]
 
   @@map("user")
 }
@@ -54,4 +55,15 @@ model WebhookHandle {
   urlFunction  UrlFunction?
 
   @@map("webhook_handle")
+}
+
+// store all the messages in a conversation
+model ConversationMessage {
+  id      String   @id @default(uuid())
+  user    User     @relation(fields: [userId], references: [id])
+  userId  Int      @map("user_id")
+  name    String   @default("") // not used for now. in future, will allow the user to have multiple conversations
+  created DateTime @default(now())
+  role    String // assistant or user
+  content String
 }
