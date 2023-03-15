@@ -1,6 +1,6 @@
 import { IsNotEmpty } from 'class-validator';
 
-export class PostQuestionDto {
+export class SendCommandDto {
   @IsNotEmpty()
-  message: string;
+  command: string;
 }

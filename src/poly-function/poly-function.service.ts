@@ -227,8 +227,8 @@ export class PolyFunctionService {
           {},
         ),
       ...this.getContentTypeHeaders(body),
-      ...this.getAuthorizationHeaders(auth)
-    }
+      ...this.getAuthorizationHeaders(auth),
+    };
 
     this.logger.debug(`Performing HTTP request ${method} ${url} (id: ${urlFunction.id})...\nHeaders:\n${JSON.stringify(headers)}\nBody:\n${JSON.stringify(body)}`);
     return lastValueFrom(

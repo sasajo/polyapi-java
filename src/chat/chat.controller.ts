@@ -1,7 +1,7 @@
-import { Req, Body, Controller, Logger, Post } from '@nestjs/common';
-// import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { PostQuestionDto, PostQuestionResponseDto } from '@poly/common';
+import { Req, Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
+import { SendQuestionDto, PostQuestionResponseDto, SendCommandDto } from '@poly/common';
 import { ChatService } from 'chat/chat.service';
+import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 
 @Controller('chat')
 export class ChatController {
@@ -11,13 +11,17 @@ export class ChatController {
   }
 
   @Post('/question')
-  // @UseGuards(ApiKeyGuard)
-  public async postQuestion(@Req() req, @Body() body: PostQuestionDto): Promise<PostQuestionResponseDto> {
-    const hardcoded_user_id = 2;
-    const responseTexts = await this.service.getMessageResponseTexts(hardcoded_user_id, body.message);
-    this.logger.debug(responseTexts);
+  @UseGuards(ApiKeyGuard)
+  public async sendQuestion(@Req() req, @Body() body: SendQuestionDto): Promise<PostQuestionResponseDto> {
+    const responseTexts = await this.service.getMessageResponseTexts(req.user.id, body.message);
     return {
       texts: responseTexts,
     };
+  }
+
+  @Post('/command')
+  @UseGuards(ApiKeyGuard)
+  public async sendCommand(@Req() req, @Body() body: SendCommandDto) {
+    await this.service.processCommand(req.user.id, body.command);
   }
 }

@@ -12,6 +12,7 @@ export class ChatService {
   }
 
   public async getMessageResponseTexts(userId: number, message: string): Promise<ChatText[]> {
+    this.logger.debug(`Sending message to Science server: ${message}`);
     const toResponseTexts = (response: string): ChatText[] => {
       return [{
         type: 'markdown',
@@ -28,10 +29,30 @@ export class ChatService {
         map(toResponseTexts),
       ).pipe(
         catchError(error => {
-          this.logger.error(`Error while communicating with Train server: ${error}`);
+          this.logger.error(`Error while communicating with Science server: ${error}`);
           throw new HttpException(error.response.data, error.response.status);
         }),
       ),
     );
+  }
+
+  async processCommand(userId: string, command: string) {
+    this.logger.debug(`Processing chat command: ${command}`);
+    const [commandName] = command.split(' ');
+
+    switch (commandName) {
+      case 'clear':
+        await lastValueFrom(
+          this.httpService.post(`${this.config.scienceServerBaseUrl}/clear-conversation`, {
+            user_id: userId,
+          }).pipe(
+            catchError(error => {
+              this.logger.error(`Error while communicating with Science server: ${error}`);
+              throw new HttpException(error.response.data, error.response.status);
+            }),
+          ),
+        );
+        break;
+    }
   }
 }

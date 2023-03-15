@@ -1,3 +1,5 @@
+const COMMANDS = ['clear'];
+
 (function() {
   const vscode = acquireVsCodeApi();
 
@@ -21,20 +23,11 @@
   const copySvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linejoin='round' stroke-width='2' d='M15 3c1.886 0 2.828 0 3.414.586C19 4.172 19 5.114 19 7v10c0 1.886 0 2.828-.586 3.414C17.828 21 16.886 21 15 21H9c-1.886 0-2.828 0-3.414-.586C5 19.828 5 18.886 5 17V7c0-1.886 0-2.828.586-3.414C6.172 3 7.114 3 9 3h6Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V3'/></svg>`;
   const copyCheckSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linejoin='round' stroke-width='2' d='M15 3c1.886 0 2.828 0 3.414.586C19 4.172 19 5.114 19 7v10c0 1.886 0 2.828-.586 3.414C17.828 21 16.886 21 15 21H9c-1.886 0-2.828 0-3.414-.586C5 19.828 5 18.886 5 17V7c0-1.886 0-2.828.586-3.414C6.172 3 7.114 3 9 3h6Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V3M9 15l1.5 1.5v0a.707.707 0 0 0 1 0v0L15 13'/></svg>`;
   const cancelSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 32 32'><path d='m7 7 18 18M7 25 25 7' style='fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2px'/></svg>`;
-  const actionBar = document.getElementById('action-bar');
   const messageInput = document.getElementById('message-input');
   const conversationList = document.getElementById('conversation-list');
 
   const setInitialMessageInputHeight = () => {
     messageInput.style.height = '38px';
-  };
-
-  const setActionBarVisibility = (isVisible) => {
-    if (isVisible) {
-      actionBar.classList.remove('hidden');
-    } else {
-      actionBar.classList.add('hidden');
-    }
   };
 
   setInitialMessageInputHeight();
@@ -97,7 +90,6 @@
             <div class='overflow-y-auto'>${message.value}</div>
           </div>`;
         scrollToLastMessage();
-        setActionBarVisibility(true);
         break;
       }
       case 'setLoading': {
@@ -131,7 +123,6 @@
       }
       case 'clearConversation':
         clearConversation();
-        setActionBarVisibility(false);
         break;
       case 'focusMessageInput':
         messageInput?.focus();
@@ -141,12 +132,22 @@
     }
   });
 
-  const postQuestionMessage = () => {
-    if (messageInput.value?.length > 0) {
-      vscode.postMessage({
-        type: 'sendQuestion',
-        value: messageInput.value,
-      });
+  const isCommand = value => COMMANDS.includes(value.substring(1).split(' ')[0]);
+
+  const processMessageInputValue = () => {
+    const value = messageInput.value;
+    if (value?.length > 0) {
+      if (isCommand(value)) {
+        vscode.postMessage({
+          type: 'sendCommand',
+          value: value.substring(1),
+        });
+      } else {
+        vscode.postMessage({
+          type: 'sendQuestion',
+          value,
+        });
+      }
 
       messageInput.value = '';
       setInitialMessageInputHeight();
@@ -168,7 +169,7 @@
   messageInput.addEventListener('keydown', function(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      postQuestionMessage();
+      processMessageInputValue();
     }
   });
   messageInput.addEventListener('input', function(event) {
@@ -176,14 +177,9 @@
     this.style.height = `${this.scrollHeight + 2}px`;
   }, false);
 
-  document.getElementById('clear-conversation-button').addEventListener('click', (e) => {
-    e.preventDefault();
-    clearConversation();
-  });
-
   document.getElementById('send-message-button').addEventListener('click', (e) => {
     e.preventDefault();
-    postQuestionMessage();
+    processMessageInputValue();
   });
 
   document.addEventListener('click', e => {

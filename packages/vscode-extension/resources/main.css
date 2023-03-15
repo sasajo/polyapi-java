@@ -1,15 +1,3 @@
-#action-bar.hidden {
-  display: none !important;
-}
-
-#action-bar button:not(:hover) {
-  background: none !important;
-}
-
-#action-bar button:focus {
-  outline: none !important;
-}
-
 #cancel-request-button:not(:hover) {
   background: none !important;
 }

@@ -1,3 +1,7 @@
+### 0.1.3
+* Restart TS server when Poly library is changed
+* Changed placeholder for message input
+
 ### 0.1.2
 * Added shortcut to open Poly
 * Message input grows height

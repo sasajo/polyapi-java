@@ -2,7 +2,7 @@
   "name": "polyapi-vscode-extension",
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant in Visual Studio Code",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "polyapi",
   "engines": {
     "vscode": "^1.75.0"
