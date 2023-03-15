@@ -3,7 +3,7 @@ Make sure you have set your npm registry in .npmrc file.
 
 Install the package with `npm install polyapi`.
 
-Run `npx poly generate` to setup your Poly connection (only for the first time) and generate Poly functions.
+Run `npx poly generate` to set up your Poly connection (only for the first time) and generate Poly functions.
 Whenever you update your Poly functions, run `npx poly generate` again to update your local functions.
 
 ### Using Poly functions

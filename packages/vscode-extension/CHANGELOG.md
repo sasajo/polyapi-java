@@ -1,3 +1,9 @@
+### 0.1.4
+* Added extension icon
+* Updated extension "developer"
+* Updated extension "description"
+* Updated README with Poly API client library usage
+
 ### 0.1.3
 * Restart TS server when Poly library is changed
 * Changed placeholder for message input
