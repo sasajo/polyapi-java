@@ -14,9 +14,9 @@ export class TeachController {
   @UseGuards(ApiKeyGuard)
   @Post()
   async teach(@Req() req, @Body() teachDto: TeachDto): Promise<TeachResponseDto> {
-    const { url, method, name, headers, body } = teachDto;
+    const { url, method, name, headers, body, auth } = teachDto;
     this.logger.debug(`Teaching ${method} ${url} with name '${name}' for user ${req.user.id}...`);
-    const polyFunction = await this.polyFunctionService.findOrCreate(req.user, url, method, name, headers, body);
+    const polyFunction = await this.polyFunctionService.findOrCreate(req.user, url, method, name, headers, body, auth);
 
     return {
       functionId: polyFunction.id,

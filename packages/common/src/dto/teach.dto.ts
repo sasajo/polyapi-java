@@ -1,5 +1,5 @@
 import { IsNotEmpty } from 'class-validator';
-import { Body, Method, Headers } from '..';
+import { Body, Method, Headers, Auth } from '..';
 
 export class TeachDto {
 
@@ -10,4 +10,5 @@ export class TeachDto {
   name: string;
   headers: Headers;
   body: Body;
+  auth?: Auth;
 }

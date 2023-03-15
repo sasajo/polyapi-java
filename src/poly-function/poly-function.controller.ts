@@ -34,7 +34,12 @@ export class PolyFunctionController {
 
   @Post('/execute/:publicId')
   async executeFunction(@Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteFunctionDto): Promise<any> {
-    return await this.service.executeFunction(publicId, executeFunctionDto);
+    const urlFunction = await this.service.findByPublicId(publicId);
+    if (!urlFunction) {
+      throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
+    }
+
+    return await this.service.executeFunction(urlFunction, executeFunctionDto.args, executeFunctionDto.clientID);
   }
 
   @Patch('/:publicId')

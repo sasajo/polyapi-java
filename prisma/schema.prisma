@@ -31,6 +31,7 @@ model UrlFunction {
   url             String
   headers         String?
   body            String?
+  auth            String?
   response        String?
   responseType    String?        @map("response_type")
   argumentTypes   String?        @map("argument_types")

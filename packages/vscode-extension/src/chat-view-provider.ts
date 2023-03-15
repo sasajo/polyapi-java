@@ -47,6 +47,9 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     const apiBaseUrl = vscode.workspace.getConfiguration('poly').get('apiBaseUrl');
     const apiKey = vscode.workspace.getConfiguration('poly').get('apiKey');
 
+    console.log('Restarting TS server...');
+    vscode.commands.executeCommand('typescript.restartTsServer');
+
     if (!apiBaseUrl || !apiKey) {
       vscode.window.showErrorMessage('Please set the API base URL and API key in the extension settings.');
       return;

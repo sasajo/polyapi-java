@@ -3,9 +3,19 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import { UrlFunction, Prisma, User } from '@prisma/client';
+import { Prisma, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { ArgumentTypes, Body, ExecuteFunctionDto, FunctionArgument, FunctionDto, Headers, Method } from '@poly/common';
+import {
+  ArgumentTypes,
+  Auth,
+  BasicAuth,
+  BearerAuth,
+  Body,
+  FunctionArgument,
+  FunctionDto,
+  Headers,
+  Method,
+} from '@poly/common';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
 import { CommonService } from 'common/common.service';
@@ -42,7 +52,7 @@ export class PolyFunctionService {
       },
       orderBy: {
         id: 'desc',
-      }
+      },
     });
   }
 
@@ -76,7 +86,7 @@ export class PolyFunctionService {
     return name;
   }
 
-  async findOrCreate(user: User, url: string, method: Method, name: string, headers: Headers, body: Body): Promise<UrlFunction> {
+  async findOrCreate(user: User, url: string, method: Method, name: string, headers: Headers, body: Body, auth?: Auth): Promise<UrlFunction> {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
@@ -95,6 +105,7 @@ export class PolyFunctionService {
         data: {
           headers: JSON.stringify(headers),
           body: JSON.stringify(body),
+          auth: auth ? JSON.stringify(auth) : null,
           name: await this.resolveFunctionName(user, name, urlFunction.context, true, true, [urlFunction.id]),
         },
       });
@@ -113,6 +124,7 @@ export class PolyFunctionService {
       context: '',
       headers: JSON.stringify(headers),
       body: JSON.stringify(body),
+      auth: auth ? JSON.stringify(auth) : null,
     });
   }
 
@@ -175,6 +187,7 @@ export class PolyFunctionService {
     args = args.concat(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
     args = args.concat(urlFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
     args = args.concat(urlFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
+    args = args.concat(urlFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
 
     return args || [];
   }
@@ -190,37 +203,39 @@ export class PolyFunctionService {
     };
   }
 
-  async executeFunction(publicId: string, executeFunctionDto: ExecuteFunctionDto) {
-    const urlFunction = await this.prisma.urlFunction.findFirst({
+  findByPublicId(publicId: string): Promise<UrlFunction | null> {
+    return this.prisma.urlFunction.findFirst({
       where: {
         publicId,
       },
     });
-    if (!urlFunction) {
-      throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
-    }
-    this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(executeFunctionDto.args)}`);
+  }
 
-    const args = this.getArguments(urlFunction)
-      .reduce((args, arg, index) => Object.assign(args, { [arg.name]: executeFunctionDto.args[index] }), {});
-    const headers = JSON.parse(mustache.render(urlFunction.headers, args));
-    const bodyText = mustache.render(urlFunction.body, args);
-    console.log('%c BODY', 'background: yellow; color: black', bodyText);
-    const body = JSON.parse(bodyText);
-    const url = mustache.render(urlFunction.url, args);
-    const method = urlFunction.method;
+  async executeFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
+    this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(args)}`);
+
     const functionPath = `${urlFunction.context ? `${urlFunction.context}.` : ''}${urlFunction.name}`;
+    const argumentsMap = this.getArgumentsMap(urlFunction, args);
+    const url = mustache.render(urlFunction.url, argumentsMap);
+    const method = urlFunction.method;
+    const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
+    const body = JSON.parse(mustache.render(urlFunction.body, argumentsMap));
+    const headers = {
+      ...JSON.parse(mustache.render(urlFunction.headers, argumentsMap))
+        .reduce(
+          (headers, header) => Object.assign(headers, { [header.key]: header.value }),
+          {},
+        ),
+      ...this.getContentTypeHeaders(body),
+      ...this.getAuthorizationHeaders(auth)
+    }
 
     this.logger.debug(`Performing HTTP request ${method} ${url} (id: ${urlFunction.id})...\nHeaders:\n${JSON.stringify(headers)}\nBody:\n${JSON.stringify(body)}`);
     return lastValueFrom(
       this.httpService.request({
         url,
         method,
-        headers: headers
-          .reduce(
-            (headers, header) => Object.assign(headers, { [header.key]: header.value }),
-            this.getDefaultHeaders(body),
-          ),
+        headers,
         data: this.getBodyData(body),
       }).pipe(
         map(response => response.data),
@@ -240,7 +255,7 @@ export class PolyFunctionService {
         catchError((error: AxiosError) => {
           this.logger.error(`Error while performing HTTP request (id: ${urlFunction.id}): ${error}`);
 
-          if (this.eventService.sendErrorEvent(executeFunctionDto.clientID, functionPath, this.eventService.getEventError(error))) {
+          if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
             return of(null);
           }
 
@@ -252,6 +267,38 @@ export class PolyFunctionService {
         }),
       ),
     );
+  }
+
+  private getArgumentsMap(urlFunction: UrlFunction, args: any[]) {
+    return this.getArguments(urlFunction)
+      .reduce((result, arg, index) => Object.assign(result, { [arg.name]: args[index] }), {});
+  }
+
+  private getAuthorizationHeaders(auth: BasicAuth | BearerAuth | null) {
+    if (!auth) {
+      return {};
+    }
+
+    switch (auth.type) {
+      case 'basic': {
+        const username = auth.basic.find(item => item.key === 'username')?.value;
+        const password = auth.basic.find(item => item.key === 'password')?.value;
+
+        return {
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+        };
+      }
+      case 'bearer': {
+        const token = auth.bearer.find(item => item.key === 'token')?.value;
+
+        return {
+          Authorization: `Bearer ${token}`,
+        };
+      }
+      default:
+        this.logger.debug(`Unknown auth type:`, auth);
+        return {};
+    }
   }
 
   private getBodyData(body: Body): Record<string, any> | undefined {
@@ -267,7 +314,7 @@ export class PolyFunctionService {
     }
   }
 
-  private getDefaultHeaders(body: Body) {
+  private getContentTypeHeaders(body: Body) {
     switch (body.mode) {
       case 'raw':
         return {
