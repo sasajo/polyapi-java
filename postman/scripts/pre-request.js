@@ -1,4 +1,4 @@
-const {url, method, headers, body} = pm.request;
+const {url, method, headers, body, auth} = pm.request;
 const postRequest = {
   url: 'https://staging.polyapi.io/teach',
   method: 'POST',
@@ -14,6 +14,7 @@ const postRequest = {
       method,
       headers,
       body,
+      auth
     })
   }
 };
