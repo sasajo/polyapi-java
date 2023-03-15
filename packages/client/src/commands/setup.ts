@@ -12,7 +12,7 @@ const setup = async () => {
       type: 'input',
       name: 'polyApiBaseUrl',
       message: 'Poly API Base URL:',
-      default: process.env.POLY_API_BASE_URL || 'https://staging.poly.io',
+      default: process.env.POLY_API_BASE_URL || 'https://staging.polyapi.io',
       filter: (value) => value.trim(),
       validate: (url) => {
         if (!URL_REGEX.test(url)) {
