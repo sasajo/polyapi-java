@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { User, WebhookHandle } from '@prisma/client';
+import { Prisma, User, WebhookHandle } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { toPascalCase } from '@guanghechen/helper-string';
 import { CommonService } from 'common/common.service';
@@ -23,6 +23,15 @@ export class WebhookService {
   ) {
   }
 
+  private create(data: Prisma.WebhookHandleCreateInput): Promise<WebhookHandle> {
+    return this.prisma.webhookHandle.create({
+      data: {
+        createdAt: new Date(),
+        ...data,
+      },
+    });
+  }
+
   public async getWebhookHandles(user: User): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for user ${user.name}...`);
 
@@ -38,6 +47,9 @@ export class WebhookService {
             userId: publicUser.id,
           },
         ],
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
@@ -73,18 +85,16 @@ export class WebhookService {
       });
     } else {
       this.logger.debug(`Creating new webhook handle for ${context}/${name}...`);
-      return this.prisma.webhookHandle.create({
-        data: {
-          user: {
-            connect: {
-              id: user.id,
-            },
+      return this.create({
+        user: {
+          connect: {
+            id: user.id,
           },
-          name,
-          context: context || '',
-          eventPayload: JSON.stringify(eventPayload),
-          eventType: eventType,
         },
+        name,
+        context: context || '',
+        eventPayload: JSON.stringify(eventPayload),
+        eventType: eventType,
       });
     }
   }
@@ -142,5 +152,4 @@ export class WebhookService {
       ],
     };
   }
-
 }

@@ -40,7 +40,12 @@ export class PolyFunctionService {
   }
 
   create(data: Prisma.UrlFunctionCreateInput): Promise<UrlFunction> {
-    return this.prisma.urlFunction.create({ data });
+    return this.prisma.urlFunction.create({
+      data: {
+        createdAt: new Date(),
+        ...data,
+      },
+    });
   }
 
   async getAllByUser(user: User) {
@@ -50,9 +55,10 @@ export class PolyFunctionService {
           id: user.id,
         },
       },
-      orderBy: {
-        id: 'desc',
-      },
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
     });
   }
 

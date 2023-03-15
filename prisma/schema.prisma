@@ -14,13 +14,14 @@ model User {
   role                 String                @default("USER")
   urlFunctions         UrlFunction[]
   webhookHandles       WebhookHandle[]
-  ConversationMessages ConversationMessage[]
+  conversationMessages ConversationMessage[]
 
   @@map("user")
 }
 
 model UrlFunction {
   id              Int            @id @default(autoincrement())
+  createdAt       DateTime       @map("created_at")
   user            User           @relation(fields: [userId], references: [id])
   userId          Int            @map("user_id")
   name            String
@@ -45,6 +46,7 @@ model UrlFunction {
 
 model WebhookHandle {
   id           String       @id @default(uuid())
+  createdAt    DateTime     @default(now()) @map("created_at")
   user         User         @relation(fields: [userId], references: [id])
   userId       Int          @map("user_id")
   context      String
@@ -65,4 +67,6 @@ model ConversationMessage {
   created DateTime @default(now())
   role    String // assistant or user
   content String
+
+  @@map("conversation_message")
 }
