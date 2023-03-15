@@ -39,7 +39,7 @@ export class PolyFunctionService {
   ) {
   }
 
-  create(data: Prisma.UrlFunctionCreateInput): Promise<UrlFunction> {
+  create(data: Omit<Prisma.UrlFunctionCreateInput, 'createdAt'>): Promise<UrlFunction> {
     return this.prisma.urlFunction.create({
       data: {
         createdAt: new Date(),

@@ -23,7 +23,7 @@ export class WebhookService {
   ) {
   }
 
-  private create(data: Prisma.WebhookHandleCreateInput): Promise<WebhookHandle> {
+  private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>): Promise<WebhookHandle> {
     return this.prisma.webhookHandle.create({
       data: {
         createdAt: new Date(),
