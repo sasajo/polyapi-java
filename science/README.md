@@ -13,7 +13,10 @@ To start the server, run the following:
 > cd science
 > pip install -r requirements.txt
 > prisma generate  # generates the library for python to access the db
-> ./server.py
+
+// local dev default port of node server is 8000
+// replace with your port if you customize
+> NODE_API_URL=http://localhost:8000 ./server.py
 < * Running on http://127.0.0.1:5000
 ```
 
