@@ -82,8 +82,9 @@ def _clear_conversation(user_id: int):
 
 
 def get_function_prompt() -> str:
+    how_to_import = "To import the Poly API library, use `import poly from 'polyapi';`"
     preface = "Here are the functions in the Poly API library,"
-    parts: List[str] = [preface]
+    parts: List[str] = [how_to_import, preface]
 
     user = db.user.find_first(where={"role": "ADMIN"})
     if not user:
