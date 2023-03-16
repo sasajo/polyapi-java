@@ -2,11 +2,11 @@
 from pathlib import Path
 import json
 from prisma import Prisma
-from utils import (
+from ..utils import (
     get_completion_answer,
     get_completion_question,
 )
-from server import get_function_prompt
+from ..server import get_function_prompt
 
 db = Prisma()
 db.connect()
@@ -16,6 +16,7 @@ db.connect()
 
 def transform_to_jsonl() -> str:
     data = []
+    # TODO add webhooks
     base_prompt = get_function_prompt()
     for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
         question = get_completion_question(f"how do I {func.description}?")
@@ -24,12 +25,14 @@ def transform_to_jsonl() -> str:
         data.append(
             {
                 "prompt": prompt,
+                # TODO make a `converation_get_completion_answer`
+                # and make this base one not require db/user_id
                 "completion": get_completion_answer(base_prompt, question),
             }
         )
 
     abs_path = Path(__file__).parent
-    jsonl_path = (abs_path / "data/examples.jsonl").resolve()
+    jsonl_path = (abs_path / "../data/examples.jsonl").resolve()
     with open(jsonl_path, "w") as f:
         for d in data:
             f.write(json.dumps(d))

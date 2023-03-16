@@ -47,35 +47,15 @@ All tests are in the `/tests` directory.
 Follow the normal rules of naming for the [Python Unit testing framework](https://docs.python.org/3/library/unittest.html).
 
 
-## Training
-
-IN THE FUTURE:
-
-This library will have a script to generate new training data, upload it to OpenAI, and kick off the creation (aka fine tune) of a new model
-
-Once we are sure we want to roll out a new model, we simply update the environment variables for the OpenAI model and restart the NodeJS server:
-
-```bash
-OPENAI_MODEL="davinci:ft-poly-api-2023-02-25-01-33-45"
-OPENAI_TEMPERATURE=0
-OPENAI_TOP_P=1
-```
-
-## Need Data?
+## Fine Tunes
 
 Ok so you have a new hypothesis for how to create a hot new model?
 
 How do you train it?
 
-Our training data currently lives in this Google Sheet
-
-https://docs.google.com/spreadsheets/d/1TwV1uSw3cDrRf8BOBfXMhCd-Wm-m2U8ilhZSuUHKo3s/edit#gid=0
-
-To train using this data:
-
 1. `cd poly-alpha/science`
-2. Download as CSV
-3. Put the CSV here: `./data/examples.csv`
-4. Run `./train_new_model.py`
+2. Load training data into db
+4. Run `./fine_tunes/fine_tune_generate_jsonl.py`
+4. Run `./fine_tunes/fine_tune_start.py`
 5. Wait for OpenAI to finish creating the new model:
 `openai api fine_tunes.follow -i <fine_tune_id_printed_by_train_new_model.py>`

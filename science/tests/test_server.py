@@ -56,7 +56,7 @@ class T(DbTestCase):
 
         prompt = get_webhook_prompt()
         self.assertEqual(requests_get.call_count, 1)
-        self.assertTrue(prompt.startswith("Here are the webhooks"))
+        self.assertTrue(prompt.startswith("Here are the event handlers"))
         self.assertIn("poly.shipping.packageDelivered", prompt)
         print(prompt)
 
