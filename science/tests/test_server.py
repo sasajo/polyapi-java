@@ -1,4 +1,3 @@
-import json
 from mock import patch, Mock
 
 from .testing import DbTestCase
@@ -84,12 +83,10 @@ class T(DbTestCase):
     @patch("description.openai.ChatCompletion.create")
     def test_function_description(self, chat_create: Mock) -> None:
         # setup
-        mock_output = {
-            "name": "namify",
-            "context": "weather",
-            "description": "super detailed description",
+        mock_output = "Context: booking.reservations\nName: createReservation\nDescription: This API call..."
+        chat_create.return_value = {
+            "choices": [{"message": {"content": mock_output}}]
         }
-        chat_create.return_value = {"choices": [{"message": {"content": json.dumps(mock_output)}}]}
         mock_input: DescInputDto = {
             "url": "http://example.com",
             "method": "GET",
@@ -104,4 +101,6 @@ class T(DbTestCase):
         # test
         self.assertEqual(chat_create.call_count, 1)
         output = resp.get_json()
-        self.assertEqual(output["context"], "weather")
+        self.assertEqual(output["context"], "booking.reservations")
+        self.assertEqual(output["name"], "createReservation")
+        self.assertEqual(output["description"], "This API call...")

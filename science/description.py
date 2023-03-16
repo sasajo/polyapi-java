@@ -15,24 +15,62 @@ class DescOutputDto(TypedDict):
     name: str
     context: str
     description: str
+    openai_response: str
 
 
 class ErrorDto(TypedDict):
     error: str
 
 
-prompt = "FOOBAR"
+prompt_template = """
+For each of the following prompts, I will provide you information about an API call. I want you to help me name, classify and describe it.
+
+I want your response to include three properties:
+context:
+name:
+description:
+
+context (classification) can use '.' notation, for example comms.messaging, but they cannot have any spaces. It should be standard words that most people would understand, and represent a hierarchical directory. It can be one word if the industry is small, but can be two words if the industry is large.
+
+The name can use '.' notation, for example twilio.sendSMS , but they cannot have any spaces. The name should allow me to understand if I am doing a get, post, delete, it should include a verb and the object. It should use the name of the system that it's for follow a convention of product.verbObject if possible. It should be as concise as possible and can use common product acronyms such as MS for microsoft, SFDC for salesforce etc... The name should be as short as possible and ideally only consist of two words and one "." Lastly dont use the same word for the name as found in the context, default to only one word if that is the case.
+
+The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
+
+Here is the API call:
+
+User Given Name: {short_description}
+{method} {url}
+
+Request Payload:
+{payload}
+
+Response Payload:
+{response}
+"""
 
 
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
+    prompt = prompt_template.format(**data)
+    # print(prompt)
     system_msg = {"role": "system", "content": "Include argument types. Be concise."}
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[system_msg, prompt_msg]
     )
-    first_choice = resp["choices"][0]["message"]["content"]
-    try:
-        return json.loads(first_choice)
-    except json.JSONDecodeError:
-        return {"error": f"Here's what the Science server returned: {first_choice}"}
+    completion = resp["choices"][0]["message"]["content"]
+    return _parse_function_description(completion)
+
+
+def _parse_function_description(completion: str) -> DescOutputDto:
+    rv = DescOutputDto(context="", name="", description="", openai_response=completion)
+    parts = completion.split("\n")
+    for part in parts:
+        part = part.strip()
+        if part.startswith("Context:"):
+            rv["context"] = part.split(":")[1].strip()
+        elif part.startswith("Name:"):
+            rv["name"] = part.split(":")[1].strip()
+        elif part.startswith("Description:"):
+            rv["description"] = part.split(":")[1].strip()
+    return rv
