@@ -1,6 +1,7 @@
 import mock
 from .testing import DbTestCase
-from server import _clear_conversation, get_webhook_prompt
+from server import _clear_conversation
+from completion import get_webhook_prompt
 from load_fixtures import test_user_get_or_create
 
 GET_FUNCTIONS = [
@@ -48,7 +49,7 @@ class T(DbTestCase):
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
 
-    @mock.patch("server.requests.get")
+    @mock.patch("completion.requests.get")
     def test_get_webhook_prompt(self, requests_get) -> None:
         requests_get.return_value = mock.Mock(
             status_code=200, json=lambda: GET_WEBHOOKS
