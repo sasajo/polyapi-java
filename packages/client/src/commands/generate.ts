@@ -78,7 +78,10 @@ const generateTSDeclarationFilesForContext = async (
   return contextFilesCollector;
 };
 
-const generateTSDeclarationFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
+const generateTSDeclarationFiles = async (
+  functions: FunctionDefinitionDto[],
+  webhookHandles: WebhookHandleDefinitionDto[],
+) => {
   const contextData = getContextData(functions, webhookHandles);
   const { default: defaultContext, ...otherContexts } = contextData;
   const contextFiles = await generateTSDeclarationFilesForContext(null, '', {
@@ -108,10 +111,10 @@ const generateTSContextDeclarationFile = async (
   const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
   const fileName = `${context === '' ? 'default' : context}.d.ts`;
   const returnTypeDefinitions = functions
-    .filter(func => func.returnType)
+    .filter((func) => func.returnType)
     .reduce((result, func) => `${result}${func.returnType}\n`, '');
   const webhookHandlesEventTypeDefinitions = webhookHandles
-    .filter(handle => handle.eventType)
+    .filter((handle) => handle.eventType)
     .reduce((result, handle) => `${result}${handle.eventType}\n`, '');
 
   const toFunctionData = (func: FunctionDefinitionDto) => ({
