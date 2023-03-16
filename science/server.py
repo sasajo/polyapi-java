@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from typing import Dict, Optional
-from flask import Flask, request
+from flask import Flask, Response, request, jsonify
 from prisma import Prisma, register
 from completion import get_function_completion_answer
 from description import get_function_description
@@ -33,9 +33,9 @@ def function_completion() -> str:
 
 
 @app.route("/function-description", methods=["POST"])
-def function_description() -> str:
+def function_description() -> Response:
     data: FunctionDto = request.get_json(force=True)
-    return get_function_description(data)
+    return jsonify(get_function_description(data))
 
 
 @app.route("/clear-conversation", methods=["POST"])

@@ -1,5 +1,10 @@
-import mock
+import json
+from mock import patch, Mock
+
 from .testing import DbTestCase
+
+# TODO make relative?
+from description import DescInputDto
 from server import _clear_conversation
 from completion import get_webhook_prompt
 from load_fixtures import test_user_get_or_create
@@ -49,11 +54,9 @@ class T(DbTestCase):
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
 
-    @mock.patch("completion.requests.get")
-    def test_get_webhook_prompt(self, requests_get) -> None:
-        requests_get.return_value = mock.Mock(
-            status_code=200, json=lambda: GET_WEBHOOKS
-        )
+    @patch("completion.requests.get")
+    def test_get_webhook_prompt(self, requests_get: Mock) -> None:
+        requests_get.return_value = Mock(status_code=200, json=lambda: GET_WEBHOOKS)
 
         prompt = get_webhook_prompt()
         self.assertEqual(requests_get.call_count, 1)
@@ -77,3 +80,28 @@ class T(DbTestCase):
         # clearing this user id should clear it
         _clear_conversation(user.id)
         self.assertFalse(self.db.conversationmessage.find_first(where={"id": msg.id}))
+
+    @patch("description.openai.ChatCompletion.create")
+    def test_function_description(self, chat_create: Mock) -> None:
+        # setup
+        mock_output = {
+            "name": "namify",
+            "context": "weather",
+            "description": "super detailed description",
+        }
+        chat_create.return_value = {"choices": [{"message": {"content": json.dumps(mock_output)}}]}
+        mock_input: DescInputDto = {
+            "url": "http://example.com",
+            "method": "GET",
+            "short_description": "I am the description",
+            "payload": "I am the payload",
+            "response": "I am the response",
+        }
+
+        # execute
+        resp = self.client.post("/function-description", json=mock_input)
+
+        # test
+        self.assertEqual(chat_create.call_count, 1)
+        output = resp.get_json()
+        self.assertEqual(output["context"], "weather")
