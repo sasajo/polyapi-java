@@ -66,10 +66,11 @@ def _parse_function_description(completion: str) -> DescOutputDto:
     parts = completion.split("\n")
     for part in parts:
         part = part.strip()
-        if part.startswith("Context:"):
+        part_lowered = part.lower()  # sometimes OpenAI returns "context:", sometimes "Context:"
+        if part_lowered.startswith("context:"):
             rv["context"] = part.split(":")[1].strip()
-        elif part.startswith("Name:"):
+        elif part_lowered.startswith("name:"):
             rv["name"] = part.split(":")[1].strip()
-        elif part.startswith("Description:"):
+        elif part_lowered.startswith("description:"):
             rv["description"] = part.split(":")[1].strip()
     return rv
