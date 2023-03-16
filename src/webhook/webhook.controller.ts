@@ -1,11 +1,26 @@
-import { Body, Controller, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { WebhookService } from 'webhook/webhook.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import { RegisterWebhookHandleDto } from '@poly/common';
 
+export const HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION = 'application/poly.webhook-handle-definition+json';
+
 @Controller('webhooks')
 export class WebhookController {
   public constructor(private readonly webhookService: WebhookService) {
+  }
+
+  @UseGuards(ApiKeyGuard)
+  @Get()
+  public async getWebhookHandles(@Req() req, @Headers('Accept') acceptHeader: string) {
+    const useDefinitionDto = acceptHeader === HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION;
+    const webhookHandles = await this.webhookService.getWebhookHandles(req.user);
+
+    if (useDefinitionDto) {
+      return webhookHandles.map(handle => this.webhookService.toDefinitionDto(handle));
+    } else {
+      return webhookHandles.map(handle => this.webhookService.toDto(handle));
+    }
   }
 
   @UseGuards(ApiKeyGuard)
@@ -42,12 +57,5 @@ export class WebhookController {
   @Post(':id')
   public async triggerWebhookFunctionByID(@Param('id') id: string, @Body() payload: any) {
     return await this.webhookService.triggerWebhookContextFunctionByID(id, payload);
-  }
-
-  @UseGuards(ApiKeyGuard)
-  @Get()
-  public async getWebhookHandles(@Req() req) {
-    return (await this.webhookService.getWebhookHandles(req.user))
-      .map(handle => this.webhookService.toDto(handle));
   }
 }

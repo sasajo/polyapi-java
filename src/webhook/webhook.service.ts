@@ -6,7 +6,7 @@ import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
-import { WebhookHandleDto } from '@poly/common';
+import { WebhookHandleDefinitionDto, WebhookHandleDto } from '@poly/common';
 import { ConfigService } from 'config/config.service';
 
 @Injectable()
@@ -143,13 +143,21 @@ export class WebhookService {
       id: webhookHandle.id,
       name: webhookHandle.name,
       context: webhookHandle.context,
-      eventType: webhookHandle.eventType,
       urls: [
         `${this.config.hostUrl}/webhook/${webhookHandle.id}`,
         webhookHandle.context
           ? `${this.config.hostUrl}/webhook/${webhookHandle.context}/${webhookHandle.name}`
           : `${this.config.hostUrl}/webhook/${webhookHandle.name}`,
       ],
+    };
+  }
+
+  toDefinitionDto(webhookHandle: WebhookHandle): WebhookHandleDefinitionDto {
+    return {
+      id: webhookHandle.id,
+      name: webhookHandle.name,
+      context: webhookHandle.context,
+      eventType: webhookHandle.eventType,
     };
   }
 }

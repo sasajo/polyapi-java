@@ -11,7 +11,7 @@ import {
   BasicAuth,
   BearerAuth,
   Body,
-  FunctionArgument,
+  FunctionArgument, FunctionDefinitionDto,
   FunctionDto,
   Headers,
   Method,
@@ -205,8 +205,17 @@ export class PolyFunctionService {
       context: urlFunction.context,
       description: urlFunction.description,
       arguments: this.getArguments(urlFunction),
-      returnType: urlFunction.responseType,
     };
+  }
+
+  toDefinitionDto(urlFunction: UrlFunction): FunctionDefinitionDto {
+    return {
+      id: urlFunction.publicId,
+      name: urlFunction.name,
+      context: urlFunction.context,
+      arguments: this.getArguments(urlFunction),
+      returnType: urlFunction.responseType,
+    }
   }
 
   findByPublicId(publicId: string): Promise<UrlFunction | null> {

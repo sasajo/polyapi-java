@@ -12,11 +12,20 @@ import {
   Query,
   Req,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { PolyFunctionService } from 'poly-function/poly-function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { DeleteAllFunctionsDto, ExecuteFunctionDto, FunctionDto, Role, UpdateFunctionDto } from '@poly/common';
-import { ParseIdPipe } from 'pipe/parse-id.pipe';
+import {
+  DeleteAllFunctionsDto,
+  ExecuteFunctionDto,
+  FunctionDefinitionDto,
+  FunctionDto,
+  Role,
+  UpdateFunctionDto,
+} from '@poly/common';
+
+export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
 
 @Controller('functions')
 export class PolyFunctionController {
@@ -27,9 +36,15 @@ export class PolyFunctionController {
 
   @Get()
   @UseGuards(ApiKeyGuard)
-  async getAll(@Req() req): Promise<FunctionDto[]> {
+  async getAll(@Req() req, @Headers('Accept') acceptHeader: string): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
+    const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
     const polyFunctions = await this.service.getAllByUser(req.user);
-    return polyFunctions.map(polyFunction => this.service.toDto(polyFunction));
+
+    if (useDefinitionDto) {
+      return polyFunctions.map(polyFunction => this.service.toDefinitionDto(polyFunction));
+    } else {
+      return polyFunctions.map(polyFunction => this.service.toDto(polyFunction));
+    }
   }
 
   @Post('/execute/:publicId')

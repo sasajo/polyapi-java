@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import shell from 'shelljs';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 
-import { FunctionDto, WebhookHandleDto } from '@poly/common';
+import { FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
 import { getPolyFunctions, getWebhookHandles } from '../api';
 import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
@@ -24,7 +24,7 @@ const prepareDir = () => {
 
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
 
-const generateJSFiles = async (functions: FunctionDto[], webhookHandles: WebhookHandleDto[]) => {
+const generateJSFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
   const template = handlebars.compile(await loadTemplate('index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.js`,
@@ -78,7 +78,7 @@ const generateTSDeclarationFilesForContext = async (
   return contextFilesCollector;
 };
 
-const generateTSDeclarationFiles = async (functions: FunctionDto[], webhookHandles: WebhookHandleDto[]) => {
+const generateTSDeclarationFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
   const contextData = getContextData(functions, webhookHandles);
   const { default: defaultContext, ...otherContexts } = contextData;
   const contextFiles = await generateTSDeclarationFilesForContext(null, '', {
@@ -101,20 +101,20 @@ const generateTSIndexDeclarationFile = async (contextFiles: string[]) => {
 
 const generateTSContextDeclarationFile = async (
   context: string,
-  functions: FunctionDto[],
-  webhookHandles: WebhookHandleDto[],
+  functions: FunctionDefinitionDto[],
+  webhookHandles: WebhookHandleDefinitionDto[],
   subContexts: Context[],
 ) => {
   const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
   const fileName = `${context === '' ? 'default' : context}.d.ts`;
-  const returnTypeDefinitions = functions.reduce((result, func) => {
-    return `${result}${func.returnType}\n`;
-  }, '');
-  const webhookHandlesEventTypeDefinitions = webhookHandles.reduce((result, handle) => {
-    return `${result}${handle.eventType}\n`;
-  }, '');
+  const returnTypeDefinitions = functions
+    .filter(func => func.returnType)
+    .reduce((result, func) => `${result}${func.returnType}\n`, '');
+  const webhookHandlesEventTypeDefinitions = webhookHandles
+    .filter(handle => handle.eventType)
+    .reduce((result, handle) => `${result}${handle.eventType}\n`, '');
 
-  const toFunctionData = (func: FunctionDto) => ({
+  const toFunctionData = (func: FunctionDefinitionDto) => ({
     ...func,
     arguments: func.arguments.map((arg) => ({
       ...arg,
@@ -122,7 +122,7 @@ const generateTSContextDeclarationFile = async (
     })),
     returnType: func.returnType ? `Promise<${toPascalCase(`${context}.${func.name}`)}Type['content']>` : 'Promise<any>',
   });
-  const toWebhookHandleData = (handle: WebhookHandleDto) => ({
+  const toWebhookHandleData = (handle: WebhookHandleDefinitionDto) => ({
     ...handle,
     eventType: handle.eventType ? `${toPascalCase(`${context}.${handle.name}`)}EventType['content']` : 'any',
   });
@@ -142,7 +142,7 @@ const generateTSContextDeclarationFile = async (
   return fileName;
 };
 
-const getContextData = (functions: FunctionDto[], webhookHandles: WebhookHandleDto[]) => {
+const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
   const contextData = {} as Record<string, any>;
 
   functions.forEach((func) => {
@@ -166,8 +166,8 @@ const getContextData = (functions: FunctionDto[], webhookHandles: WebhookHandleD
 };
 
 const generate = async () => {
-  let functions: FunctionDto[] = [];
-  let webhookHandles: WebhookHandleDto[] = [];
+  let functions: FunctionDefinitionDto[] = [];
+  let webhookHandles: WebhookHandleDefinitionDto[] = [];
 
   shell.echo('-n', chalk.rgb(255, 255, 255)(`Generating Poly functions...`));
 

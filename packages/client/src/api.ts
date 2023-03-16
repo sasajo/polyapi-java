@@ -1,12 +1,16 @@
 import axios from 'axios';
-import { POLY_HEADER_API_KEY } from './constants';
-import { FunctionDto, WebhookHandleDto } from '@poly/common';
+import {
+  HEADER_ACCEPT_FUNCTION_DEFINITION,
+  HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION,
+  POLY_HEADER_API_KEY,
+} from './constants';
+import { FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
 
 export const getPolyFunctions = async () => {
   return (
-    await axios.get<FunctionDto[]>(`${process.env.POLY_API_BASE_URL}/functions`, {
+    await axios.get<FunctionDefinitionDto[]>(`${process.env.POLY_API_BASE_URL}/functions`, {
       headers: {
-        'Content-Type': 'application/json',
+        Accept: HEADER_ACCEPT_FUNCTION_DEFINITION,
         [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
       },
     })
@@ -15,9 +19,9 @@ export const getPolyFunctions = async () => {
 
 export const getWebhookHandles = async () => {
   return (
-    await axios.get<WebhookHandleDto[]>(`${process.env.POLY_API_BASE_URL}/webhooks`, {
+    await axios.get<WebhookHandleDefinitionDto[]>(`${process.env.POLY_API_BASE_URL}/webhooks`, {
       headers: {
-        'Content-Type': 'application/json',
+        Accept: HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION,
         [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
       },
     })
