@@ -6,6 +6,7 @@ import mustache from 'mustache';
 import { Prisma, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
+  ApiKeyAuth,
   ArgumentTypes,
   Auth,
   BasicAuth,
@@ -167,7 +168,7 @@ export class PolyFunctionService {
           description,
           payload,
           response: JSON.stringify(response),
-          responseType: responseType,
+          responseType,
         },
       });
     } catch (e) {
@@ -215,7 +216,7 @@ export class PolyFunctionService {
       context: urlFunction.context,
       arguments: this.getArguments(urlFunction),
       returnType: urlFunction.responseType,
-    }
+    };
   }
 
   findByPublicId(publicId: string): Promise<UrlFunction | null> {
@@ -235,6 +236,9 @@ export class PolyFunctionService {
     const method = urlFunction.method;
     const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
     const body = JSON.parse(mustache.render(urlFunction.body, argumentsMap));
+    const params = {
+      ...this.getAuthorizationQueryParams(auth),
+    };
     const headers = {
       ...JSON.parse(mustache.render(urlFunction.headers, argumentsMap))
         .reduce(
@@ -251,6 +255,7 @@ export class PolyFunctionService {
         url,
         method,
         headers,
+        params,
         data: this.getBodyData(body),
       }).pipe(
         map(response => response.data),
@@ -289,7 +294,7 @@ export class PolyFunctionService {
       .reduce((result, arg, index) => Object.assign(result, { [arg.name]: args[index] }), {});
   }
 
-  private getAuthorizationHeaders(auth: BasicAuth | BearerAuth | null) {
+  private getAuthorizationHeaders(auth: BasicAuth | BearerAuth | ApiKeyAuth | null) {
     if (!auth) {
       return {};
     }
@@ -310,8 +315,45 @@ export class PolyFunctionService {
           Authorization: `Bearer ${token}`,
         };
       }
+      case 'apikey': {
+        const inHeader = auth.apikey.find(item => item.key === 'in')?.value === 'header';
+        if (!inHeader) {
+          return {};
+        }
+
+        const key = auth.apikey.find(item => item.key === 'key')?.value;
+        const value = auth.apikey.find(item => item.key === 'value')?.value;
+
+        return {
+          [key]: value,
+        };
+      }
       default:
         this.logger.debug(`Unknown auth type:`, auth);
+        return {};
+    }
+  }
+
+  private getAuthorizationQueryParams(auth: BasicAuth | BearerAuth | ApiKeyAuth | null) {
+    if (!auth) {
+      return {};
+    }
+
+    switch (auth.type) {
+      case 'apikey': {
+        const inQuery = auth.apikey.find(item => item.key === 'in')?.value === 'query';
+        if (!inQuery) {
+          return {};
+        }
+
+        const key = auth.apikey.find(item => item.key === 'key')?.value;
+        const value = auth.apikey.find(item => item.key === 'value')?.value;
+
+        return {
+          [key]: value,
+        };
+      }
+      default:
         return {};
     }
   }
@@ -376,6 +418,12 @@ export class PolyFunctionService {
       }
     }
 
+    let responseType = null;
+    if (urlFunction.response) {
+      responseType = await this.commonService.generateContentType(toPascalCase(`${context} ${name} Type`), JSON.parse(urlFunction.response), urlFunction.payload);
+      this.logger.debug(`Generated response type:\n${responseType}`);
+    }
+
     this.logger.debug(`Updating function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`);
     return this.prisma.urlFunction.update({
       where: {
@@ -386,6 +434,7 @@ export class PolyFunctionService {
         context: context == null ? urlFunction.context : context,
         description: description == null ? urlFunction.description : description,
         argumentTypes: JSON.stringify(this.resolveArgumentTypes(urlFunction.argumentTypes, argumentTypes)),
+        responseType,
       },
     });
   }
