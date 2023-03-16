@@ -1,4 +1,4 @@
-import { ArgumentType } from '..';
+import { ArgumentType } from '../..';
 
 export interface FunctionArgument {
   name: string;

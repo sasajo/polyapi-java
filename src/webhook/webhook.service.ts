@@ -54,8 +54,11 @@ export class WebhookService {
     });
   }
 
-  public async registerWebhookContextFunction(user: User, context: string | null, name: string, eventPayload: unknown): Promise<WebhookHandle> {
+  public async registerWebhookContextFunction(user: User, context: string | null, name: string, eventPayload: any): Promise<WebhookHandle> {
     const eventType = await this.commonService.generateContentType(toPascalCase(`${context} ${name} Event Type`), eventPayload);
+
+    name = this.normalizeName(name);
+    context = this.normalizeContext(context);
 
     this.logger.debug(`Registering webhook for ${context}/${name}...`);
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
@@ -64,7 +67,7 @@ export class WebhookService {
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
         name,
-        context: context || '',
+        context,
       },
     });
 
@@ -92,7 +95,7 @@ export class WebhookService {
           },
         },
         name,
-        context: context || '',
+        context,
         eventPayload: JSON.stringify(eventPayload),
         eventType: eventType,
       });
@@ -159,5 +162,73 @@ export class WebhookService {
       context: webhookHandle.context,
       eventType: webhookHandle.eventType,
     };
+  }
+
+  async updateWebhookHandle(user: User, id: string, context: string | null, name: string | null) {
+    const webhookHandle = await this.prisma.webhookHandle.findFirst({
+      where: {
+        id,
+        user: {
+          id: user.id,
+        },
+      },
+    });
+    if (!webhookHandle) {
+      throw new HttpException(`Webhook handle ${id} not found.`, HttpStatus.NOT_FOUND);
+    }
+    if (name === '') {
+      throw new HttpException(`Webhook handle name cannot be empty.`, HttpStatus.BAD_REQUEST);
+    }
+
+    name = this.normalizeName(name, webhookHandle);
+    context = this.normalizeContext(context, webhookHandle);
+
+    this.logger.debug(`Updating webhook for ${webhookHandle.context}/${webhookHandle.name} with context:${context}/name:${name}...`);
+
+    return this.prisma.webhookHandle.update({
+      where: {
+        id: webhookHandle.id,
+      },
+      data: {
+        context,
+        name,
+      },
+    });
+  }
+
+  private normalizeName(name: string | null, webhookHandle?: WebhookHandle) {
+    if (name == null) {
+      name = webhookHandle?.name || null;
+    }
+    return name.replace(/[^a-zA-Z0-9.]/g, '');
+  }
+
+  private normalizeContext(context: string | null, webhookHandle?: WebhookHandle) {
+    if (context == null) {
+      context = webhookHandle?.context || '';
+    }
+
+    return context.replace(/[^a-zA-Z0-9.]/g, '');
+  }
+
+  async deleteWebhookHandle(user: User, id: string) {
+    const webhookHandle = await this.prisma.webhookHandle.findFirst({
+      where: {
+        id,
+        user: {
+          id: user.id,
+        }
+      }
+    });
+    if (!webhookHandle) {
+      throw new HttpException(`Webhook handle ${id} not found.`, HttpStatus.NOT_FOUND);
+    }
+
+    this.logger.debug(`Deleting webhook for ${webhookHandle.context}/${webhookHandle.name}...`);
+    await this.prisma.webhookHandle.delete({
+      where: {
+        id: webhookHandle.id,
+      }
+    });
   }
 }

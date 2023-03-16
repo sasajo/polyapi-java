@@ -4,5 +4,5 @@ export interface TeachDetailsDto {
   context?: string;
   description?: string;
   payload?: string;
-  response: unknown;
+  response: any;
 }

@@ -1,6 +1,6 @@
 export interface ErrorEvent {
   message: string;
-  data?: unknown;
+  data?: any;
   status?: number;
   statusText?: string;
 }

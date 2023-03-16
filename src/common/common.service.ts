@@ -5,7 +5,7 @@ import { PathError } from 'common/path-error';
 
 @Injectable()
 export class CommonService {
-  public async generateContentType(typeName: string, content: unknown, path?: string) {
+  public async generateContentType(typeName: string, content: any, path?: string) {
     if (!content) {
       return '';
     }
@@ -38,7 +38,7 @@ export class CommonService {
       .join('\n');
   }
 
-  public getPathContent(response: unknown, path: string | null): unknown {
+  public getPathContent(response: any, path: string | null): unknown {
     if (!path) {
       return response;
     }

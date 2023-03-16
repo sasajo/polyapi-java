@@ -1,4 +1,4 @@
-import { ArgumentTypes } from '../poly-function';
+import { ArgumentTypes } from '../../poly-function';
 
 export interface UpdateFunctionDto {
   name?: string;

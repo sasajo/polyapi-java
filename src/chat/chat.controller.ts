@@ -1,5 +1,5 @@
 import { Req, Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
-import { SendQuestionDto, PostQuestionResponseDto, SendCommandDto } from '@poly/common';
+import { SendQuestionDto, SendQuestionResponseDto, SendCommandDto } from '@poly/common';
 import { ChatService } from 'chat/chat.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 
@@ -12,7 +12,7 @@ export class ChatController {
 
   @Post('/question')
   @UseGuards(ApiKeyGuard)
-  public async sendQuestion(@Req() req, @Body() body: SendQuestionDto): Promise<PostQuestionResponseDto> {
+  public async sendQuestion(@Req() req, @Body() body: SendQuestionDto): Promise<SendQuestionResponseDto> {
     const responseTexts = await this.service.getMessageResponseTexts(req.user.id, body.message);
     return {
       texts: responseTexts,

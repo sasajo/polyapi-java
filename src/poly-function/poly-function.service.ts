@@ -72,7 +72,7 @@ export class PolyFunctionService {
     }
 
     if (transformTextCase) {
-      name = name.replace(/([\[\]{}()])/g, ' ');
+      name = name.replace(/([\[\]\\/{}()])/g, ' ');
       name = toCamelCase(name);
     }
 
@@ -134,7 +134,7 @@ export class PolyFunctionService {
     });
   }
 
-  async updateDetails(id: number, user: User, name: string | null, context: string | null, description: string | null, payload: string | null, response: unknown) {
+  async updateDetails(id: number, user: User, name: string | null, context: string | null, description: string | null, payload: string | null, response: any) {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         id,
@@ -492,13 +492,5 @@ export class PolyFunctionService {
       ...JSON.parse(argumentTypes || '{}'),
       ...updatedArgumentTypes,
     };
-  }
-
-  private tryJSONParse(value: string) {
-    try {
-      return JSON.parse(value);
-    } catch (e) {
-      return value;
-    }
   }
 }
