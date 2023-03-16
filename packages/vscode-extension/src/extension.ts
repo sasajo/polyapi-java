@@ -35,6 +35,9 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(vscode.commands.registerCommand('poly.focusMessageInput', () => {
     provider.focusMessageInput();
   }));
+  context.subscriptions.push(vscode.commands.registerCommand('poly.copySelection', () => {
+    vscode.commands.executeCommand('editor.action.clipboardCopyAction');
+  }));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(
     'poly.chat-view',
     provider,

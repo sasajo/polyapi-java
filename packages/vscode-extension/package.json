@@ -3,7 +3,7 @@
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant for VS Code",
   "icon": "resources/poly-logo.png",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "Poly API Corp",
   "engines": {
     "vscode": "^1.75.0"
@@ -19,7 +19,19 @@
   "activationEvents": [],
   "main": "./build/extension.js",
   "contributes": {
+    "menus": {
+      "webview/context": [
+        {
+          "command": "poly.copySelection",
+          "when": "webviewSection == 'conversationList'"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "poly.copySelection",
+        "title": "Copy"
+      },
       {
         "command": "poly.focusMessageInput",
         "title": "Focus Poly input"
@@ -48,7 +60,7 @@
         {
           "id": "poly-view-container",
           "title": "Poly",
-          "icon": "resources/poly.svg"
+          "icon": "resources/poly-icon.png"
         }
       ]
     },

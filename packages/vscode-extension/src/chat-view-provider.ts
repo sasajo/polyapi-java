@@ -151,7 +151,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       </head>
       <body class='overflow-hidden'>
         <div class='flex flex-col h-screen'>
-          <div class='flex-1 overflow-y-auto' id='conversation-list'></div>
+          <div class='flex-1 overflow-y-auto' id='conversation-list' data-vscode-context='{"webviewSection": "conversationList", "preventDefaultContextMenuItems": true}'></div>
           <div class='p-2 flex items-center pb-4'>
             <div class='flex-1 message-input-wrapper'>
               <textarea
@@ -168,7 +168,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
             </button>
           </div>
         </div>
-		<script src='${mainJs}'></script>
+		    <script src='${mainJs}'></script>
       </body>
       </html>`
     );

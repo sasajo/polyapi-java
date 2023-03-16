@@ -1,3 +1,7 @@
+### 0.1.5
+* Updated extension activity bar icon
+* Only Copy action in context menu
+
 ### 0.1.4
 * Added extension icon
 * Updated extension "developer"
