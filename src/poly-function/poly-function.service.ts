@@ -360,7 +360,15 @@ export class PolyFunctionService {
   private getBodyData(body: Body): Record<string, any> | undefined {
     switch (body.mode) {
       case 'raw':
-        return JSON.parse(body.raw);
+        if (!body.raw?.trim()) {
+          return undefined;
+        }
+        try {
+          return JSON.parse(body.raw);
+        } catch (e) {
+          this.logger.debug(`Error while parsing body: ${e}`);
+          return undefined;
+        }
       case 'formdata':
         return body.formdata.reduce((data, item) => Object.assign(data, { [item.key]: item.value }), {});
       case 'urlencoded':
