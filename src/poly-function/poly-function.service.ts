@@ -6,13 +6,11 @@ import mustache from 'mustache';
 import { Prisma, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
-  ApiKeyAuth,
   ArgumentTypes,
   Auth,
-  BasicAuth,
-  BearerAuth,
   Body,
-  FunctionArgument, FunctionDefinitionDto,
+  FunctionArgument,
+  FunctionDefinitionDto,
   FunctionDto,
   Headers,
   Method,

@@ -1,5 +1,6 @@
 const polyData = pm.environment.get('polyData');
 const functionId = pm.environment.get('polyFunctionId');
+const {url, body} = pm.request;
 
 pm.environment.unset('polyData');
 pm.environment.unset('polyFunctionId');
@@ -15,6 +16,8 @@ const postRequest = {
     mode: 'raw',
     raw: JSON.stringify({
       ...polyData,
+      url,
+      body,
       response: pm.response.json()
     })
   }
