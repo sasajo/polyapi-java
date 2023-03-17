@@ -113,7 +113,6 @@ export class PolyFunctionService {
           headers: JSON.stringify(headers),
           body: JSON.stringify(body),
           auth: auth ? JSON.stringify(auth) : null,
-          name: await this.resolveFunctionName(user, name, urlFunction.context, true, true, [urlFunction.id]),
         },
       });
     }
