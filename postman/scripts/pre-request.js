@@ -1,4 +1,4 @@
-const {url, method, headers, body, auth} = pm.request;
+const {description, url, method, headers, body, auth} = pm.request;
 const postRequest = {
   url: 'https://staging.polyapi.io/teach',
   method: 'POST',
@@ -10,6 +10,7 @@ const postRequest = {
     mode: 'raw',
     raw: JSON.stringify({
       name: pm.info.requestName,
+      description: description?.content || '',
       url: `${url.protocol ? `${url.protocol}://` : ''}${url.getRemote()}${url.getPathWithQuery()}`,
       method,
       headers,

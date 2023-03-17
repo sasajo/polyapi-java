@@ -14,9 +14,9 @@ export class TeachController {
   @UseGuards(ApiKeyGuard)
   @Post()
   async teach(@Req() req, @Body() teachDto: TeachDto): Promise<TeachResponseDto> {
-    const { url, method, name, headers, body, auth } = teachDto;
+    const { url, method, name, description, headers, body, auth } = teachDto;
     this.logger.debug(`Teaching ${method} ${url} with name '${name}' for user ${req.user.id}...`);
-    const polyFunction = await this.polyFunctionService.findOrCreate(req.user, url, method, name, headers, body, auth);
+    const polyFunction = await this.polyFunctionService.findOrCreate(req.user, url, method, name, description, headers, body, auth);
 
     return {
       functionId: polyFunction.id,
@@ -26,9 +26,9 @@ export class TeachController {
   @UseGuards(ApiKeyGuard)
   @Post('/:functionId')
   async teachDetails(@Req() req, @Param('functionId', ParseIdPipe) id: number, @Body() teachDetailsDto: TeachDetailsDto): Promise<void> {
-    const { name = null, context = null, description = null, payload = null, response } = teachDetailsDto;
+    const { url, body, name = null, context = null, description = null, payload = null, response } = teachDetailsDto;
     this.logger.debug(`Teaching details of function ${id} for user ${req.user.id}...`);
     this.logger.debug(`name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}`);
-    await this.polyFunctionService.updateDetails(id, req.user, name, context, description, payload, response);
+    await this.polyFunctionService.updateDetails(id, req.user, url, body, name, context, description, payload, response);
   }
 }

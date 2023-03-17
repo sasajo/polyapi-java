@@ -1,8 +1,14 @@
-export interface TeachDetailsDto {
+import { Body } from '../..';
+import { IsNotEmpty } from 'class-validator';
+
+export class TeachDetailsDto {
 
   name?: string;
   context?: string;
   description?: string;
   payload?: string;
+  @IsNotEmpty()
+  url: string;
+  body: Body;
   response: any;
 }

@@ -22,6 +22,7 @@ import { AxiosError } from 'axios';
 import { CommonService } from 'common/common.service';
 import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
+import { AiService } from 'ai/ai.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -37,6 +38,7 @@ export class PolyFunctionService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly eventService: EventService,
+    private readonly aiService: AiService,
   ) {
   }
 
@@ -93,7 +95,7 @@ export class PolyFunctionService {
     return name;
   }
 
-  async findOrCreate(user: User, url: string, method: Method, name: string, headers: Headers, body: Body, auth?: Auth): Promise<UrlFunction> {
+  async findOrCreate(user: User, url: string, method: Method, name: string, description: string, headers: Headers, body: Body, auth?: Auth): Promise<UrlFunction> {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
@@ -127,6 +129,7 @@ export class PolyFunctionService {
       url,
       method,
       name: await this.resolveFunctionName(user, name, '', true, true),
+      description,
       context: '',
       headers: JSON.stringify(headers),
       body: JSON.stringify(body),
@@ -134,7 +137,7 @@ export class PolyFunctionService {
     });
   }
 
-  async updateDetails(id: number, user: User, name: string | null, context: string | null, description: string | null, payload: string | null, response: any) {
+  async updateDetails(id: number, user: User, url: string, body: Body, name: string | null, context: string | null, description: string | null, payload: string | null, response: any) {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         id,
@@ -147,9 +150,34 @@ export class PolyFunctionService {
       throw new HttpException(`Poly function not found`, HttpStatus.NOT_FOUND);
     }
 
-    name = this.normalizeName(name, urlFunction);
-    context = this.normalizeContext(context, urlFunction);
-    description = this.normalizeDescription(description, urlFunction);
+    if (!name || !context || !description) {
+      const {
+        name: aiName,
+        description: aiDescription,
+        context: aiContext,
+      } = await this.aiService.getFunctionDescription(
+        url,
+        urlFunction.method,
+        urlFunction.description,
+        JSON.stringify(body),
+        JSON.stringify(response),
+      );
+
+      if (!name) {
+        name = aiName;
+      }
+      if (!context && !urlFunction.context) {
+        context = aiContext;
+      }
+      if (!description && !urlFunction.description) {
+        description = aiDescription;
+      }
+    } else {
+      name = this.normalizeName(name, urlFunction);
+      context = this.normalizeContext(context, urlFunction);
+      description = this.normalizeDescription(description, urlFunction);
+    }
+
     payload = this.normalizePayload(payload, urlFunction);
     this.logger.debug(`Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`);
 
@@ -293,7 +321,7 @@ export class PolyFunctionService {
       .reduce((result, arg, index) => Object.assign(result, { [arg.name]: args[index] }), {});
   }
 
-  private getAuthorizationHeaders(auth: BasicAuth | BearerAuth | ApiKeyAuth | null) {
+  private getAuthorizationHeaders(auth: Auth | null) {
     if (!auth) {
       return {};
     }
@@ -333,7 +361,7 @@ export class PolyFunctionService {
     }
   }
 
-  private getAuthorizationQueryParams(auth: BasicAuth | BearerAuth | ApiKeyAuth | null) {
+  private getAuthorizationQueryParams(auth: Auth | null) {
     if (!auth) {
       return {};
     }

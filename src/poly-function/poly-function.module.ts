@@ -5,9 +5,10 @@ import { PrismaModule } from 'prisma/prisma.module';
 import { PolyFunctionController } from './poly-function.controller';
 import { EventModule } from 'event/event.module';
 import { CommonModule } from 'common/common.module';
+import { AiModule } from 'ai/ai.module';
 
 @Module({
-  imports: [PrismaModule, HttpModule, EventModule, CommonModule],
+  imports: [PrismaModule, HttpModule, EventModule, CommonModule, AiModule],
   providers: [PolyFunctionService],
   exports: [PolyFunctionService],
   controllers: [PolyFunctionController]

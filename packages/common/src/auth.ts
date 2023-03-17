@@ -1,8 +1,6 @@
-export class Auth {
-  type: 'basic' | 'bearer' | 'apikey';
-}
+export type Auth = BasicAuth | BearerAuth | ApiKeyAuth;
 
-export class BasicAuth extends Auth {
+export class BasicAuth {
   type: 'basic';
   basic: [
     {
@@ -16,7 +14,7 @@ export class BasicAuth extends Auth {
   ];
 }
 
-export class BearerAuth extends Auth {
+export class BearerAuth {
   type: 'bearer';
   bearer: [
     {
@@ -26,7 +24,7 @@ export class BearerAuth extends Auth {
   ];
 }
 
-export class ApiKeyAuth extends Auth {
+export class ApiKeyAuth {
   type: 'apikey';
   apikey: [
     {

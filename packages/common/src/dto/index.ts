@@ -1,3 +1,4 @@
+export * from './ai';
 export * from './auth';
 export * from './chat';
 export * from './function';

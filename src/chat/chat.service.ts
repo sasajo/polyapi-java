@@ -3,37 +3,22 @@ import { HttpService } from '@nestjs/axios';
 import { ChatText } from '@poly/common';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { ConfigService } from 'config/config.service';
+import { AiService } from 'ai/ai.service';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private readonly httpService: HttpService, private readonly config: ConfigService) {
+  constructor(private readonly aiService: AiService) {
   }
 
   public async getMessageResponseTexts(userId: number, message: string): Promise<ChatText[]> {
-    this.logger.debug(`Sending message to Science server: ${message}`);
-    const toResponseTexts = (response: string): ChatText[] => {
-      return [{
-        type: 'markdown',
-        value: response,
-      }];
-    };
+    const value = await this.aiService.getFunctionCompletion(userId, message);
 
-    return await lastValueFrom(
-      this.httpService.post(`${this.config.scienceServerBaseUrl}/function-completion`, {
-        user_id: userId,
-        question: message,
-      }).pipe(
-        map(response => response.data),
-        map(toResponseTexts),
-      ).pipe(
-        catchError(error => {
-          this.logger.error(`Error while communicating with Science server: ${error}`);
-          throw new HttpException(error.response.data, error.response.status);
-        }),
-      ),
-    );
+    return [{
+      type: 'markdown',
+      value,
+    }];
   }
 
   async processCommand(userId: string, command: string) {
@@ -42,16 +27,7 @@ export class ChatService {
 
     switch (commandName) {
       case 'clear':
-        await lastValueFrom(
-          this.httpService.post(`${this.config.scienceServerBaseUrl}/clear-conversation`, {
-            user_id: userId,
-          }).pipe(
-            catchError(error => {
-              this.logger.error(`Error while communicating with Science server: ${error}`);
-              throw new HttpException(error.response.data, error.response.status);
-            }),
-          ),
-        );
+        await this.aiService.clearConversation(userId);
         break;
     }
   }

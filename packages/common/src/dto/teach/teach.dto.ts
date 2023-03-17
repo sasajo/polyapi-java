@@ -8,6 +8,7 @@ export class TeachDto {
   @IsNotEmpty()
   method: Method;
   name: string;
+  description: string;
   headers: Headers;
   body: Body;
   auth?: Auth;
