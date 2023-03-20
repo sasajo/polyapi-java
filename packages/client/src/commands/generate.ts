@@ -47,22 +47,22 @@ const generateTSDeclarationFilesForContext = async (
 ) => {
   const contextDataKeys = Object.keys(contextData);
   const contextDataFunctions = contextDataKeys
-    .filter(key => contextData[key].type === 'function')
-    .map(key => contextData[key]);
+    .filter((key) => contextData[key].type === 'function')
+    .map((key) => contextData[key]);
   const contextDataWebhookHandles = contextDataKeys
-    .filter(key => contextData[key].type === 'webhookHandle')
-    .map(key => contextData[key]);
+    .filter((key) => contextData[key].type === 'webhookHandle')
+    .map((key) => contextData[key]);
   const contextDataSubContexts = contextDataKeys
-    .filter(key => !contextData[key].type)
-    .map(key => {
+    .filter((key) => !contextData[key].type)
+    .map((key) => {
       const path = `${context.path ? `${context.path}.` : ''}${key}`;
-      return ({
+      return {
         name: key,
         path,
         fileName: `${path}.d.ts`,
         interfaceName: toPascalCase(path),
         level: context.level + 1,
-      });
+      };
     });
 
   await generateTSContextDeclarationFile(
@@ -112,11 +112,10 @@ const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.d.ts`,
     template({
-      contexts: contexts.map(context => ({
-          ...context,
-          firstLevel: context.level === 1,
-        }),
-      ),
+      contexts: contexts.map((context) => ({
+        ...context,
+        firstLevel: context.level === 1,
+      })),
     }),
   );
 };
@@ -213,6 +212,7 @@ const generate = async () => {
   }
 
   shell.echo(chalk.green('DONE'));
+  shell.echo(chalk.rgb(255, 255, 255)(`\nPlease, restart your TS server to see the changes.`));
 };
 
 export default generate;
