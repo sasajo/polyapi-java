@@ -170,12 +170,11 @@ export class PolyFunctionService {
       if (!description && !urlFunction.description) {
         description = aiDescription;
       }
-    } else {
-      name = this.normalizeName(name, urlFunction);
-      context = this.normalizeContext(context, urlFunction);
-      description = this.normalizeDescription(description, urlFunction);
     }
 
+    name = this.normalizeName(name, urlFunction);
+    context = this.normalizeContext(context, urlFunction);
+    description = this.normalizeDescription(description, urlFunction);
     payload = this.normalizePayload(payload, urlFunction);
     this.logger.debug(`Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`);
 
@@ -260,7 +259,9 @@ export class PolyFunctionService {
     const url = mustache.render(urlFunction.url, argumentsMap);
     const method = urlFunction.method;
     const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
-    const body = JSON.parse(mustache.render(urlFunction.body, argumentsMap));
+    const text = mustache.render(urlFunction.body, argumentsMap);
+    console.log('%c TEXT', 'background: yellow; color: black', text);
+    const body = JSON.parse(text);
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
@@ -315,8 +316,14 @@ export class PolyFunctionService {
   }
 
   private getArgumentsMap(urlFunction: UrlFunction, args: any[]) {
+    const normalizeArg = arg => {
+      return arg
+        .replaceAll('\r\n', '\n')
+        .trim();
+    };
+
     return this.getArguments(urlFunction)
-      .reduce((result, arg, index) => Object.assign(result, { [arg.name]: args[index] }), {});
+      .reduce((result, arg, index) => Object.assign(result, { [arg.name]: normalizeArg(args[index]) }), {});
   }
 
   private getAuthorizationHeaders(auth: Auth | null) {
