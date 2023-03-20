@@ -1,5 +1,6 @@
 const polyData = pm.environment.get('polyData');
 const functionId = pm.environment.get('polyFunctionId');
+const apiKey = pm.environment.get('X-PolyApiKey');
 const {url, body} = pm.request;
 
 pm.environment.unset('polyData');
@@ -10,7 +11,7 @@ const postRequest = {
   method: 'POST',
   header: {
     'Content-Type': 'application/json',
-    'X-PolyApiKey': 'ab4f62d3421bca3674hfd627'  // default dev key
+    'X-PolyApiKey': apiKey
   },
   body: {
     mode: 'raw',

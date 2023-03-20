@@ -1,10 +1,12 @@
 const {description, url, method, headers, body, auth} = pm.request;
+const apiKey = pm.environment.get('X-PolyApiKey');
+
 const postRequest = {
   url: 'https://staging.polyapi.io/teach',
   method: 'POST',
   header: {
     'Content-Type': 'application/json',
-    'X-PolyApiKey': 'ab4f62d3421bca3674hfd627'  // default dev key
+    'X-PolyApiKey': apiKey
   },
   body: {
     mode: 'raw',
