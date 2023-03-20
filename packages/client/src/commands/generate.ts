@@ -14,7 +14,10 @@ const POLY_LIB_PATH = `${__dirname}/../../../${POLY_USER_FOLDER_NAME}/lib`;
 
 interface Context {
   name: string;
+  path: string;
   interfaceName: string;
+  fileName?: string;
+  level?: number;
 }
 
 const prepareDir = () => {
@@ -38,44 +41,47 @@ const generateJSFiles = async (functions: FunctionDefinitionDto[], webhookHandle
 };
 
 const generateTSDeclarationFilesForContext = async (
-  parentContextPath: string | null,
-  contextName: string,
+  context: Context,
   contextData: any,
-  contextFilesCollector: string[] = [],
+  contextCollector: Context[] = [],
 ) => {
-  const contextPath = `${parentContextPath ? `${parentContextPath}.` : ''}${contextName}`;
   const contextDataKeys = Object.keys(contextData);
   const contextDataFunctions = contextDataKeys
-    .filter((key) => contextData[key].type === 'function')
-    .map((key) => contextData[key]);
+    .filter(key => contextData[key].type === 'function')
+    .map(key => contextData[key]);
   const contextDataWebhookHandles = contextDataKeys
-    .filter((key) => contextData[key].type === 'webhookHandle')
-    .map((key) => contextData[key]);
+    .filter(key => contextData[key].type === 'webhookHandle')
+    .map(key => contextData[key]);
   const contextDataSubContexts = contextDataKeys
-    .filter((key) => !contextData[key].type)
-    .map((key) => ({
-      name: key,
-      interfaceName: toPascalCase(`${contextPath}.${key}`),
-    }));
+    .filter(key => !contextData[key].type)
+    .map(key => {
+      const path = `${context.path ? `${context.path}.` : ''}${key}`;
+      return ({
+        name: key,
+        path,
+        fileName: `${path}.d.ts`,
+        interfaceName: toPascalCase(path),
+        level: context.level + 1,
+      });
+    });
 
-  const contextFiles = await generateTSContextDeclarationFile(
-    contextPath,
+  await generateTSContextDeclarationFile(
+    context,
     contextDataFunctions,
     contextDataWebhookHandles,
     contextDataSubContexts,
   );
-  contextFilesCollector = [...contextFilesCollector, contextFiles];
+  contextCollector = [...contextCollector, context];
 
   for await (const subContext of contextDataSubContexts) {
-    contextFilesCollector = await generateTSDeclarationFilesForContext(
-      contextPath,
-      subContext.name,
+    contextCollector = await generateTSDeclarationFilesForContext(
+      subContext,
       contextData[subContext.name],
-      contextFilesCollector,
+      contextCollector,
     );
   }
 
-  return contextFilesCollector;
+  return contextCollector;
 };
 
 const generateTSDeclarationFiles = async (
@@ -84,32 +90,44 @@ const generateTSDeclarationFiles = async (
 ) => {
   const contextData = getContextData(functions, webhookHandles);
   const { default: defaultContext, ...otherContexts } = contextData;
-  const contextFiles = await generateTSDeclarationFilesForContext(null, '', {
-    ...otherContexts,
-    ...defaultContext,
-  });
+  const contexts = await generateTSDeclarationFilesForContext(
+    {
+      name: '',
+      path: '',
+      interfaceName: 'Poly',
+      fileName: 'default.d.ts',
+      level: 0,
+    },
+    {
+      ...otherContexts,
+      ...defaultContext,
+    },
+  );
 
-  await generateTSIndexDeclarationFile(contextFiles);
+  await generateTSIndexDeclarationFile(contexts);
 };
 
-const generateTSIndexDeclarationFile = async (contextFiles: string[]) => {
+const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
   const template = handlebars.compile(await loadTemplate('index.d.ts.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.d.ts`,
     template({
-      contextFiles,
+      contexts: contexts.map(context => ({
+          ...context,
+          firstLevel: context.level === 1,
+        }),
+      ),
     }),
   );
 };
 
 const generateTSContextDeclarationFile = async (
-  context: string,
+  context: Context,
   functions: FunctionDefinitionDto[],
   webhookHandles: WebhookHandleDefinitionDto[],
   subContexts: Context[],
 ) => {
   const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
-  const fileName = `${context === '' ? 'default' : context}.d.ts`;
   const returnTypeDefinitions = functions
     .filter((func) => func.returnType)
     .reduce((result, func) => `${result}${func.returnType}\n`, '');
@@ -130,10 +148,9 @@ const generateTSContextDeclarationFile = async (
     eventType: handle.eventType ? `${toPascalCase(`${context}.${handle.name}`)}EventType['content']` : 'any',
   });
   fs.writeFileSync(
-    `${POLY_LIB_PATH}/${fileName}`,
+    `${POLY_LIB_PATH}/${context.fileName}`,
     template({
-      interfaceName: context === '' ? 'Poly' : toPascalCase(context),
-      context,
+      interfaceName: context.interfaceName,
       functions: functions.map(toFunctionData),
       webhookHandles: webhookHandles.map(toWebhookHandleData),
       subContexts,
@@ -141,8 +158,6 @@ const generateTSContextDeclarationFile = async (
       webhookHandlesEventTypeDefinitions,
     }),
   );
-
-  return fileName;
 };
 
 const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {

@@ -1,5 +1,11 @@
-{{#each contextFiles}}
-/// <reference path="./{{this}}" />
+{{#each contexts}}
+/// <reference path="./{{fileName}}" />
+{{/each}}
+
+{{#each contexts}}
+{{#if firstLevel}}
+export const {{name}}: poly.{{interfaceName}};
+{{/if}}
 {{/each}}
 
 export = poly;

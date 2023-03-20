@@ -156,7 +156,7 @@ export class PolyFunctionService {
       } = await this.aiService.getFunctionDescription(
         url,
         urlFunction.method,
-        urlFunction.description,
+        description || urlFunction.description,
         JSON.stringify(body),
         JSON.stringify(response),
       );
