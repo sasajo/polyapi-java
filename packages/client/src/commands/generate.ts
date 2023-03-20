@@ -4,9 +4,10 @@ import set from 'lodash/set';
 import chalk from 'chalk';
 import shell from 'shelljs';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
+import prettier from 'prettier';
 
 import { FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
-import { getPolyFunctions, getWebhookHandles } from '../api';
+import { getFunctions, getWebhookHandles } from '../api';
 import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
 
@@ -23,21 +24,61 @@ interface Context {
 const prepareDir = () => {
   fs.rmSync(POLY_LIB_PATH, { recursive: true, force: true });
   fs.mkdirSync(POLY_LIB_PATH, { recursive: true });
+  fs.mkdirSync(`${POLY_LIB_PATH}/custom`);
 };
 
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
 
 const generateJSFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
-  const template = handlebars.compile(await loadTemplate('index.js.hbs'));
+  const urlFunctions = functions.filter((func) => !func.customCode);
+  const customFunctions = functions.filter((func) => func.customCode);
+
+  await generateIndexJSFile(urlFunctions, webhookHandles);
+  await generateCustomFunctionJSFiles(customFunctions);
+};
+
+const generateIndexJSFile = async (
+  functions: FunctionDefinitionDto[],
+  webhookHandles: WebhookHandleDefinitionDto[],
+) => {
+  const indexJSTemplate = handlebars.compile(await loadTemplate('index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.js`,
-    template({
+    indexJSTemplate({
       functions,
       webhookHandles,
       apiBaseUrl: process.env.POLY_API_BASE_URL,
       apiKey: process.env.POLY_API_KEY,
     }),
   );
+};
+
+const generateCustomFunctionJSFiles = async (customFunctions: FunctionDefinitionDto[]) => {
+  const customIndexJSTemplate = handlebars.compile(await loadTemplate('custom-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/custom/index.js`,
+    customIndexJSTemplate({
+      customFunctions,
+    }),
+  );
+
+  if (customFunctions.length === 0) {
+    return;
+  }
+  const customFunctionJSTemplate = handlebars.compile(await loadTemplate('custom-function.js.hbs'));
+  customFunctions.forEach((customFunction) => {
+    fs.writeFileSync(
+      `${POLY_LIB_PATH}/custom/${customFunction.context ? `${customFunction.context}-` : ''}${customFunction.name}.js`,
+      prettier.format(
+        customFunctionJSTemplate({
+          ...customFunction,
+        }),
+        {
+          parser: 'babel',
+        },
+      ),
+    );
+  });
 };
 
 const generateTSDeclarationFilesForContext = async (
@@ -128,7 +169,7 @@ const generateTSContextDeclarationFile = async (
 ) => {
   const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
   const returnTypeDefinitions = functions
-    .filter((func) => func.returnType)
+    .filter((func) => func.returnType && !func.customCode)
     .reduce((result, func) => `${result}${func.returnType}\n`, '');
   const webhookHandlesEventTypeDefinitions = webhookHandles
     .filter((handle) => handle.eventType)
@@ -140,7 +181,11 @@ const generateTSContextDeclarationFile = async (
       ...arg,
       name: toCamelCase(arg.name),
     })),
-    returnType: func.returnType ? `Promise<${toPascalCase(`${context}.${func.name}`)}Type['content']>` : 'Promise<any>',
+    returnType: func.customCode
+      ? func.returnType
+      : func.returnType
+      ? `Promise<${toPascalCase(`${context}.${func.name}`)}Type['content']>`
+      : 'Promise<any>',
   });
   const toWebhookHandleData = (handle: WebhookHandleDefinitionDto) => ({
     ...handle,
@@ -192,7 +237,7 @@ const generate = async () => {
   loadConfig();
 
   try {
-    functions = await getPolyFunctions();
+    functions = await getFunctions();
     webhookHandles = await getWebhookHandles();
   } catch (error) {
     shell.echo(chalk.red('ERROR'));

@@ -17,6 +17,7 @@ import {
 import { PolyFunctionService } from 'poly-function/poly-function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import {
+  CreateCustomFunctionDto,
   DeleteAllFunctionsDto,
   ExecuteFunctionDto,
   FunctionDefinitionDto,
@@ -38,12 +39,15 @@ export class PolyFunctionController {
   @UseGuards(ApiKeyGuard)
   async getAll(@Req() req, @Headers('Accept') acceptHeader: string): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
-    const polyFunctions = await this.service.getAllByUser(req.user);
+    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user);
+    const customFunctions = await this.service.getCustomFunctionsByUser(req.user);
 
     if (useDefinitionDto) {
-      return polyFunctions.map(polyFunction => this.service.toDefinitionDto(polyFunction));
+      return urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))
+        .concat(...customFunctions.map(customFunction => this.service.customFunctionToDefinitionDto(customFunction)));
     } else {
-      return polyFunctions.map(polyFunction => this.service.toDto(polyFunction));
+      return urlFunctions.map(urlFunction => this.service.urlFunctionToDto(urlFunction))
+        .concat(...customFunctions.map(customFunction => this.service.customFunctionToDto(customFunction)));
     }
   }
 
@@ -65,7 +69,7 @@ export class PolyFunctionController {
     description = null,
     argumentTypes = null,
   }: UpdateFunctionDto): Promise<any> {
-    return this.service.toDto(await this.service.updateFunction(req.user, publicId, name, context, description, argumentTypes));
+    return this.service.urlFunctionToDto(await this.service.updateFunction(req.user, publicId, name, context, description, argumentTypes));
   }
 
   @Delete('/all')
@@ -84,5 +88,15 @@ export class PolyFunctionController {
   @UseGuards(ApiKeyGuard)
   async deleteFunction(@Req() req, @Param('publicId') publicId: string): Promise<void> {
     await this.service.deleteFunction(req.user, publicId);
+  }
+
+  @Post('/custom')
+  @UseGuards(ApiKeyGuard)
+  async createCustomFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+    try {
+      return await this.service.createCustomFunction(req.user, createCustomFunctionDto.context, createCustomFunctionDto.name, createCustomFunctionDto.code);
+    } catch (e) {
+      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+    }
   }
 }

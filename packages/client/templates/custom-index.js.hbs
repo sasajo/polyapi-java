@@ -1,0 +1,20 @@
+const set = require('lodash/set');
+const merge = require('lodash/merge');
+
+const customFunctions = [
+{{#each customFunctions}}
+  {{#if context}}
+    ['{{context}}.{{name}}', require('./{{context}}-{{name}}')],
+  {{else}}
+    ['{{name}}', require('./{{name}}')],
+  {{/if}}
+{{/each}}
+];
+
+module.exports = (poly) => merge(
+  {},
+  customFunctions.reduce(
+    (acc, [name, fn]) => set(acc, name, (...args) => fn(poly, ...args)),
+    {}
+  )
+);

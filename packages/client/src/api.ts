@@ -6,7 +6,7 @@ import {
 } from './constants';
 import { FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
 
-export const getPolyFunctions = async () => {
+export const getFunctions = async () => {
   return (
     await axios.get<FunctionDefinitionDto[]>(`${process.env.POLY_API_BASE_URL}/functions`, {
       headers: {
@@ -25,5 +25,24 @@ export const getWebhookHandles = async () => {
         [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
       },
     })
+  ).data;
+};
+
+export const createCustomFunction = async (context: string | null, name: string, code: string) => {
+  return (
+    await axios.post(
+      `${process.env.POLY_API_BASE_URL}/functions/custom`,
+      {
+        context,
+        name,
+        code,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+        },
+      },
+    )
   ).data;
 };

@@ -38,13 +38,13 @@ export class CommonService {
       .join('\n');
   }
 
-  public getPathContent(response: any, path: string | null): unknown {
+  public getPathContent(content: any, path: string | null): unknown {
     if (!path) {
-      return response;
+      return content;
     }
 
     try {
-      const result = jsonpath.query(response, path);
+      const result = jsonpath.query(content, path);
       if (path.includes('[*]')) {
         return result;
       } else if (result.length === 0) {

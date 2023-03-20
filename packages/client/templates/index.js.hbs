@@ -3,6 +3,7 @@ const set = require('lodash/set');
 const merge = require('lodash/merge');
 const { io } = require("socket.io-client");
 const { v4: uuidv4 } = require('uuid');
+const customFunctions = require('./custom');
 
 const clientID = uuidv4();
 let socket = null;
@@ -71,12 +72,14 @@ const registerWebhookEventListener = (webhookHandleID, callback) => {
   }
 };
 
+const poly = {};
 module.exports = merge(
-  {},
+  poly,
   functions.reduce(
     (acc, [path, id]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/functions/execute/${id}`, { clientID, args }).then(({ data }) => data)),
     {}
   ),
+  customFunctions(poly),
   webhookHandles.reduce(
     (acc, [path, id]) => set(acc, path, (callback) => registerWebhookEventListener(id, callback)),
     {}

@@ -1,9 +1,10 @@
+import ts from 'typescript';
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import { Prisma, UrlFunction, User } from '@prisma/client';
+import { CustomFunction, UrlFunction, Prisma, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentTypes,
@@ -49,7 +50,7 @@ export class PolyFunctionService {
     });
   }
 
-  async getAllByUser(user: User) {
+  async getUrlFunctionsByUser(user: User) {
     return this.prisma.urlFunction.findMany({
       where: {
         user: {
@@ -63,8 +64,14 @@ export class PolyFunctionService {
     });
   }
 
-  getAll(): Promise<UrlFunction[]> {
-    return this.prisma.urlFunction.findMany();
+  async getCustomFunctionsByUser(user: User) {
+    return this.prisma.customFunction.findMany({
+      where: {
+        user: {
+          id: user.id,
+        },
+      },
+    });
   }
 
   private async resolveFunctionName(user: User, name: string | null, context: string, transformTextCase = true, fixDuplicate = false, excludedIds?: number[]) {
@@ -223,23 +230,46 @@ export class PolyFunctionService {
     return args || [];
   }
 
-  toDto(urlFunction: UrlFunction): FunctionDto {
+  urlFunctionToDto(urlFunction: UrlFunction): FunctionDto {
     return {
       id: urlFunction.publicId,
       name: urlFunction.name,
       context: urlFunction.context,
       description: urlFunction.description,
       arguments: this.getArguments(urlFunction),
+      type: 'url',
     };
   }
 
-  toDefinitionDto(urlFunction: UrlFunction): FunctionDefinitionDto {
+  urlFunctionToDefinitionDto(urlFunction: UrlFunction): FunctionDefinitionDto {
     return {
       id: urlFunction.publicId,
       name: urlFunction.name,
       context: urlFunction.context,
       arguments: this.getArguments(urlFunction),
       returnType: urlFunction.responseType,
+    };
+  }
+
+  customFunctionToDto(customFunction: CustomFunction): FunctionDto {
+    return {
+      id: customFunction.publicId,
+      name: customFunction.name,
+      description: customFunction.description,
+      context: customFunction.context,
+      arguments: JSON.parse(customFunction.arguments),
+      type: 'url',
+    };
+  }
+
+  customFunctionToDefinitionDto(customFunction: CustomFunction): FunctionDefinitionDto {
+    return {
+      id: customFunction.publicId,
+      name: customFunction.name,
+      context: customFunction.context,
+      arguments: JSON.parse(customFunction.arguments),
+      returnType: customFunction.returnType,
+      customCode: customFunction.code,
     };
   }
 
@@ -480,7 +510,7 @@ export class PolyFunctionService {
   }
 
   async deleteFunction(user: User, publicId: string) {
-    const found = await this.prisma.urlFunction.findFirst({
+    const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -488,20 +518,37 @@ export class PolyFunctionService {
         publicId,
       },
     });
-    if (!found) {
-      throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
+    if (urlFunction) {
+      this.logger.debug(`Deleting URL function ${publicId}`);
+      await this.prisma.urlFunction.delete({
+        where: {
+          publicId,
+        },
+      });
     }
 
-    this.logger.debug(`Deleting function ${publicId}`);
-    await this.prisma.urlFunction.delete({
+    const customFunction = await this.prisma.customFunction.findFirst({
       where: {
+        user: {
+          id: user.id,
+        },
         publicId,
       },
     });
+    if (customFunction) {
+      this.logger.debug(`Deleting custom function ${publicId}`);
+      await this.prisma.customFunction.delete({
+        where: {
+          publicId,
+        },
+      });
+    }
+
+    throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
   }
 
   private async checkNameAndContextDuplicates(user: User, name: string, context: string, excludedIds?: number[]) {
-    const found = await this.prisma.urlFunction.findFirst({
+    const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -517,8 +564,31 @@ export class PolyFunctionService {
           },
       },
     });
+    if (urlFunction) {
+      return false;
+    }
 
-    return !found;
+    const customFunction = await this.prisma.customFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        name,
+        context,
+        AND: excludedIds == null
+          ? undefined
+          : {
+            id: {
+              notIn: excludedIds,
+            },
+          },
+      },
+    });
+    if (customFunction) {
+      return false;
+    }
+
+    return true;
   }
 
   private normalizeName(name: string | null, urlFunction: UrlFunction) {
@@ -557,7 +627,14 @@ export class PolyFunctionService {
   }
 
   async deleteAllByUser(userID: number) {
-    return this.prisma.urlFunction.deleteMany({
+    await this.prisma.urlFunction.deleteMany({
+      where: {
+        user: {
+          id: userID,
+        },
+      },
+    });
+    await this.prisma.customFunction.deleteMany({
       where: {
         user: {
           id: userID,
@@ -567,13 +644,107 @@ export class PolyFunctionService {
   }
 
   async deleteAllApiKey(apiKey: string) {
-    return this.prisma.urlFunction.deleteMany({
+    await this.prisma.urlFunction.deleteMany({
       where: {
         user: {
           apiKey,
         },
       },
     });
+    await this.prisma.customFunction.deleteMany({
+      where: {
+        user: {
+          apiKey,
+        },
+      },
+    });
+  }
+
+  async createCustomFunction(user: User, context: string | null, name: string, code: string) {
+    let functionArguments: FunctionArgument[] | null = null;
+    let returnType: string | null = null;
+
+    const result = ts.transpileModule(code, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        esModuleInterop: true,
+        noImplicitUseStrict: true,
+      },
+      fileName: 'customFunction.ts',
+      transformers: {
+        before: [
+          (context) => {
+            return (sourceFile) => {
+              const visitor = (node: ts.Node): ts.Node => {
+                if (ts.isFunctionDeclaration(node)) {
+                  if (node.name?.getText() === name) {
+                    functionArguments = node.parameters.map(param => ({
+                      name: param.name.getText(),
+                      type: param.type?.getText() || 'any',
+                    }));
+                    returnType = node.type?.getText();
+
+                    return ts.visitEachChild(node, visitor, context);
+                  }
+                }
+
+                return node;
+              };
+
+              return ts.visitEachChild(sourceFile, visitor, context);
+            };
+          },
+        ],
+      },
+    });
+
+    if (!functionArguments) {
+      throw new Error(`Function ${name} not found.`);
+    }
+    if (!returnType) {
+      throw new Error(`Return type not specified. Please add return type explicitly to function ${name}.`);
+    }
+
+    code = result.outputText;
+
+    const found = await this.prisma.customFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        name,
+        context: context || '',
+      },
+    });
+    if (found) {
+      this.logger.debug(`Updating custom function ${name} with context ${context} and code:\n${code}`);
+      return this.prisma.customFunction.update({
+        where: {
+          id: found.id,
+        },
+        data: {
+          code,
+          arguments: JSON.stringify(functionArguments),
+          returnType,
+        },
+      });
+    } else {
+      this.logger.debug(`Creating custom function ${name} with context ${context} and code:\n${code}`);
+      return this.prisma.customFunction.create({
+        data: {
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+          context: context || '',
+          name,
+          code,
+          arguments: JSON.stringify(functionArguments),
+          returnType,
+        },
+      });
+    }
   }
 
   private resolveArgumentTypes(argumentTypes: string | null, updatedArgumentTypes: ArgumentTypes | null) {

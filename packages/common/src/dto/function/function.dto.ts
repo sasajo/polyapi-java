@@ -11,6 +11,7 @@ export interface FunctionDto {
   name: string;
   description: string;
   arguments: FunctionArgument[];
+  type: 'url' | 'custom';
 }
 
 export interface FunctionDefinitionDto {
@@ -19,4 +20,5 @@ export interface FunctionDefinitionDto {
   name: string;
   arguments: FunctionArgument[];
   returnType: string;
+  customCode?: string;
 }
