@@ -23,12 +23,7 @@ def home():
 def function_completion() -> str:
     data: Dict = request.get_json(force=True)
     question: str = data["question"].strip()
-
     user_id: Optional[int] = data.get("user_id")
-    if user_id and question == "clear":
-        _clear_conversation(user_id)
-        return "Conversation cleared"
-
     return get_function_completion_answer(user_id, question)
 
 
