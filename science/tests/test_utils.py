@@ -16,6 +16,11 @@ FUNC: FunctionDto = {
 
 
 class T(DbTestCase):
+    def test_load_fixtures(self) -> None:
+        # smoke test to make sure this works
+        user = test_user_get_or_create(self.db)
+        load_functions(self.db, user)
+
     def test_func_path(self) -> None:
         user = test_user_get_or_create(self.db)
         data = {
@@ -29,9 +34,6 @@ class T(DbTestCase):
         self.assertEqual(func_path(data), "poly.messaging.twilio.sendSMS")
 
     def test_func_args(self):
-        user = test_user_get_or_create(self.db)
-        load_functions(self.db, user)
-
         args = func_args(FUNC)
         self.assertEqual(len(args), 2)
         self.assertEqual(args[0], "location: string")
