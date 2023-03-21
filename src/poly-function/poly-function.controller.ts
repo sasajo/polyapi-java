@@ -21,7 +21,7 @@ import {
   DeleteAllFunctionsDto,
   ExecuteFunctionDto,
   FunctionDefinitionDto,
-  FunctionDto,
+  FunctionDto, GetAllFunctionsDto,
   Role,
   UpdateFunctionDto,
 } from '@poly/common';
@@ -37,10 +37,12 @@ export class PolyFunctionController {
 
   @Get()
   @UseGuards(ApiKeyGuard)
-  async getAll(@Req() req, @Headers('Accept') acceptHeader: string): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
+  async getAll(@Req() req, @Headers('Accept') acceptHeader: string, @Query(){ contexts, names, ids }: GetAllFunctionsDto): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
+    this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${contexts}, names ${names}, ids ${ids}`);
+
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
-    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user);
-    const customFunctions = await this.service.getCustomFunctionsByUser(req.user);
+    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user, contexts, names, ids);
+    const customFunctions = await this.service.getCustomFunctionsByUser(req.user, contexts, names, ids);
 
     if (useDefinitionDto) {
       return urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))

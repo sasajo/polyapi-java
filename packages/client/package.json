@@ -1,6 +1,6 @@
 {
   "name": "polyapi",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Poly is a CLI tool to help you create and manage your Poly definitions.",
   "license": "MIT",
   "repository": {

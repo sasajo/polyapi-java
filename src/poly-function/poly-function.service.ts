@@ -50,12 +50,17 @@ export class PolyFunctionService {
     });
   }
 
-  async getUrlFunctionsByUser(user: User) {
+  async getUrlFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.urlFunction.findMany({
       where: {
         user: {
           id: user.id,
         },
+        OR: [
+          { ...(contexts?.length > 0 ? { context: { in: contexts } } : {}) },
+          { ...(names?.length > 0 ? { name: { in: names } } : {}) },
+          { ...(ids?.length > 0 ? { publicId: { in: ids } } : {}) },
+        ],
       },
       orderBy: [
         { createdAt: 'desc' },
@@ -64,12 +69,17 @@ export class PolyFunctionService {
     });
   }
 
-  async getCustomFunctionsByUser(user: User) {
+  async getCustomFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
         user: {
           id: user.id,
         },
+        OR: [
+          { ...(contexts?.length > 0 ? { context: { in: contexts } } : {}) },
+          { ...(names?.length > 0 ? { name: { in: names } } : {}) },
+          { ...(ids?.length > 0 ? { publicId: { in: ids } } : {}) },
+        ],
       },
     });
   }

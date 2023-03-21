@@ -227,7 +227,7 @@ const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: Webh
   return contextData;
 };
 
-const generate = async () => {
+const generate = async (contexts?: string[], names?: string[], functionIds?: string[]) => {
   let functions: FunctionDefinitionDto[] = [];
   let webhookHandles: WebhookHandleDefinitionDto[] = [];
 
@@ -237,7 +237,7 @@ const generate = async () => {
   loadConfig();
 
   try {
-    functions = await getFunctions();
+    functions = await getFunctions(contexts, names, functionIds);
     webhookHandles = await getWebhookHandles();
   } catch (error) {
     shell.echo(chalk.red('ERROR'));

@@ -22,9 +22,26 @@ yargs
   .usage('$0 <cmd> [args]')
   .command('setup', 'Setups your Poly connection', setup)
   .command(
-    'generate',
-    'Generates client types for Poly service',
-    async ({ argv: { exitWhenNoConfig } }: { argv: any }) => {
+    'generate [options]',
+    'Generates Poly library',
+    {
+      contexts: {
+        describe: 'Contexts to generate',
+        demandOption: false,
+        type: 'string',
+      },
+      names: {
+        describe: 'Names to generate',
+        demandOption: false,
+        type: 'string',
+      },
+      functionIds: {
+        describe: 'Function IDs to generate',
+        demandOption: false,
+        type: 'string',
+      },
+    },
+    async ({ exitWhenNoConfig, contexts, names, functionIds }) => {
       if (!checkPolyConfig()) {
         if (exitWhenNoConfig) {
           shell.echo('Poly is not configured. Please run `poly generate` manually.');
@@ -34,12 +51,12 @@ yargs
         await setup();
       }
 
-      await generate();
+      await generate(contexts?.split(','), names?.split(','), functionIds?.split(','));
     },
   )
   .command('function <command>', 'Manages functions', (yargs) => {
     yargs.command(
-      'add <name> <file> [context]',
+      'add <name> <file> [options]',
       'Adds a custom function',
       (yargs) =>
         yargs
