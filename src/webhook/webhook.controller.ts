@@ -14,7 +14,10 @@ export class WebhookController {
   @Get()
   public async getWebhookHandles(@Req() req, @Headers('Accept') acceptHeader: string) {
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION;
-    const webhookHandles = await this.webhookService.getWebhookHandles(req.user);
+
+    // TODO: temporarily disabled to allow all users to see all webhooks
+    // const webhookHandles = await this.webhookService.getWebhookHandles(req.user);
+    const webhookHandles = await this.webhookService.getAllWebhookHandles();
 
     if (useDefinitionDto) {
       return webhookHandles.map(handle => this.webhookService.toDefinitionDto(handle));
