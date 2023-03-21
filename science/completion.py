@@ -26,6 +26,7 @@ BAD_ANSWERS = {
     "there is no direct function",
     "there is no specific function",
     "the poly api library does not have a dedicated function",
+    "the poly api library does not provide a function",
 }
 
 
