@@ -42,7 +42,7 @@ def get_function_prompt() -> str:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
     headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
-    resp = requests.get(f"{NODE_API_URL}/functions/", headers=headers)
+    resp = requests.get(f"{NODE_API_URL}/functions", headers=headers)
     assert resp.status_code == 200, resp.content
     funcs: List[FunctionDto] = resp.json()
     for func in funcs:
