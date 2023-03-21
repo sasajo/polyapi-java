@@ -32,6 +32,16 @@ export class WebhookService {
     });
   }
 
+  public async getAllWebhookHandles(): Promise<WebhookHandle[]> {
+    this.logger.debug(`Getting all webhook handles...`);
+
+    return this.prisma.webhookHandle.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   public async getWebhookHandles(user: User): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for user ${user.name}...`);
 

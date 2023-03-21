@@ -38,7 +38,10 @@ export class PolyFunctionController {
   @UseGuards(ApiKeyGuard)
   async getAll(@Req() req, @Headers('Accept') acceptHeader: string): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
-    const polyFunctions = await this.service.getAllByUser(req.user);
+
+    // TODO: temporarily disabled to allow all users to see all functions
+    // const polyFunctions = await this.service.getAllByUser(req.user);
+    const polyFunctions = await this.service.getAll();
 
     if (useDefinitionDto) {
       return polyFunctions.map(polyFunction => this.service.toDefinitionDto(polyFunction));

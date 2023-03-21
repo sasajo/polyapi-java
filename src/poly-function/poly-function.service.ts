@@ -64,7 +64,12 @@ export class PolyFunctionService {
   }
 
   getAll(): Promise<UrlFunction[]> {
-    return this.prisma.urlFunction.findMany();
+    return this.prisma.urlFunction.findMany({
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+    });
   }
 
   private async resolveFunctionName(user: User, name: string | null, context: string, transformTextCase = true, fixDuplicate = false, excludedIds?: number[]) {
