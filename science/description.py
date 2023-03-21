@@ -35,6 +35,8 @@ The name can use '.' notation, for example twilio.sendSMS , but they cannot have
 
 The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
 
+Don't repeat words in both the name and the context. For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
+
 Here is the API call:
 
 User Given Name: {short_description}
