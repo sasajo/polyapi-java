@@ -33,6 +33,7 @@ def test_user_get_or_create(db: Prisma) -> User:
 
 def load_functions(db: Prisma, user: User) -> None:
     data_list: List[FunctionDict] = _get_data_list()
+
     for data in data_list:
         headers = data["headers"]
         if "'" in headers:
@@ -40,7 +41,9 @@ def load_functions(db: Prisma, user: User) -> None:
             headers = headers.replace("'", '"')
 
         func = db.urlfunction.find_first(where={"name": data['name']})
-        if not func:
+        if func:
+            print(f"{url_function_path(func)} already exists.")
+        else:
             func = db.urlfunction.create(
                 data={
                     "context": data["context"],
@@ -53,6 +56,9 @@ def load_functions(db: Prisma, user: User) -> None:
                 }
             )
             print(f"Created {url_function_path(func)}")
+
+    conversations_deleted = db.conversationmessage.delete_many()
+    print(f"Deleted {conversations_deleted} conversations.")
 
 
 if __name__ == "__main__":
