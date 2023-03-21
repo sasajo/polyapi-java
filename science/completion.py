@@ -119,7 +119,7 @@ def get_completion_prompt_messages(
     functions: str, webhooks: str, question: str
 ) -> List[Dict]:
     return [
-        {"role": "system", "content": "Include argument types. Be concise. Do not make up functions or webhooks."},
+        {"role": "system", "content": "Include argument types. Be concise. Only include functions and event handlers explicitly defined by the Poly API library."},
         {"role": "assistant", "content": functions},
         {"role": "assistant", "content": webhooks},
         {"role": "user", "content": question},
