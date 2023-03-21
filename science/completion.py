@@ -24,6 +24,7 @@ from utils import (
 
 BAD_ANSWERS = {
     "there is no direct function",
+    "there is no specific function",
 }
 
 
