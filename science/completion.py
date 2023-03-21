@@ -1,7 +1,8 @@
 import requests
 import openai
-from typing import List, Optional
-from prisma import get_client
+from typing import List, Dict, Optional
+from prisma import get_client, Prisma
+from prisma.models import ConversationMessage
 
 # TODO change to relative imports
 from constants import FINE_TUNE_MODEL, NODE_API_URL
@@ -10,10 +11,8 @@ from utils import (
     FunctionDto,
     WebhookDto,
     func_path_with_args,
-    get_completion_answer,
-    get_completion_question,
-    get_conversation_answer,
-    webhook_prompt,
+    func_path,
+    store_message,
 )
 
 
@@ -83,3 +82,62 @@ def get_fine_tune_answer(question: str):
 
     prefix = f"USING FINE TUNE MODEL: {FINE_TUNE_MODEL}\n\n"
     return prefix + resp["choices"][0]["text"]
+
+
+def webhook_prompt(hook: WebhookDto) -> str:
+    parts = [func_path(hook)]
+    for url in hook["urls"]:
+        if hook["id"] in url:
+            continue
+        parts.append(f"url: {url}")
+    return "\n".join(parts)
+
+
+def get_completion_question(question: str) -> str:
+    return "From the Poly API library, " + question
+
+
+def get_conversation_answer(
+    db: Prisma, user_id: int, messages: List[ConversationMessage], question: str
+):
+    priors: List[Dict[str, str]] = []
+    for message in messages:
+        priors.append({"role": message.role, "content": message.content})
+
+    question_message = {"role": "user", "content": question}
+    resp = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=priors + [question_message],
+    )
+    store_message(db, user_id, question_message)
+    answer = resp["choices"][0]["message"]["content"]
+    store_message(db, user_id, {"role": "assistant", "content": answer})
+    return answer
+
+
+def get_completion_prompt_messages(
+    functions: str, webhooks: str, question: str
+) -> List[Dict]:
+    return [
+        {"role": "system", "content": "Include argument types. Be concise. Do not make up functions or webhooks."},
+        {"role": "assistant", "content": functions},
+        {"role": "assistant", "content": webhooks},
+        {"role": "user", "content": question},
+    ]
+
+
+def get_completion_answer(
+    db: Prisma, user_id: int, functions: str, webhooks: str, question: str
+) -> str:
+    messages = get_completion_prompt_messages(functions, webhooks, question)
+
+    model = "gpt-3.5-turbo"
+    # print(f"Using model: {model}")
+    resp = openai.ChatCompletion.create(model=model, messages=messages)
+    answer = resp["choices"][0]["message"]["content"]
+
+    for message in messages:
+        store_message(db, user_id, message)
+    store_message(db, user_id, {"role": "assistant", "content": answer})
+
+    return answer
