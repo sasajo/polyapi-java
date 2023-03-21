@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from typing import Dict, Optional
 from flask import Flask, Response, request, jsonify
+from openai import OpenAIError
 from prisma import Prisma, register
 from completion import get_function_completion_answer
 from description import get_function_description
@@ -42,6 +43,13 @@ def clear_conversation() -> str:
 
 def _clear_conversation(user_id: int):
     db.conversationmessage.delete_many(where={"userId": user_id})
+
+
+@app.errorhandler(OpenAIError)
+def handle_exception(e):
+    # now you're handling non-HTTP exceptions only
+    msg = f"Sadly, OpenAI appears to be down. Please try again later.\n\n{e.__class__.__name__}: {e}"
+    return msg, 500
 
 
 if __name__ == "__main__":

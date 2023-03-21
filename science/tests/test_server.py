@@ -1,4 +1,5 @@
 from mock import patch, Mock
+from openai.error import ServiceUnavailableError
 
 from .testing import DbTestCase
 
@@ -79,6 +80,22 @@ class T(DbTestCase):
         # clearing this user id should clear it
         _clear_conversation(user.id)
         self.assertFalse(self.db.conversationmessage.find_first(where={"id": msg.id}))
+
+    @patch("server.get_function_completion_answer")
+    def test_function_completion_error(self, get_answer: Mock) -> None:
+        # setup
+        get_answer.side_effect = ServiceUnavailableError("The server is overloaded or not ready yet.")
+        mock_input: DescInputDto = {
+            "question": "hi world",
+        }
+
+        # execute
+        resp = self.client.post("/function-completion", json=mock_input)
+
+        # test
+        self.assertEqual(get_answer.call_count, 1)
+        self.assertEqual(resp.status_code, 500)
+        print(resp.text)
 
     @patch("description.openai.ChatCompletion.create")
     def test_function_description(self, chat_create: Mock) -> None:

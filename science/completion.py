@@ -143,6 +143,7 @@ def get_conversation_answer(
         model="gpt-3.5-turbo",
         messages=priors + [question_message],
     )
+
     answer = answer_processing(resp["choices"][0]["message"]["content"])
     store_message(db, user_id, question_message)
     store_message(db, user_id, {"role": "assistant", "content": answer})
