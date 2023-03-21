@@ -41,7 +41,7 @@ export class PolyFunctionController {
     this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${contexts}, names ${names}, ids ${ids}`);
 
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
-    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user, contexts, names, ids);
+    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user);
     const customFunctions = await this.service.getCustomFunctionsByUser(req.user, contexts, names, ids);
 
     if (useDefinitionDto) {

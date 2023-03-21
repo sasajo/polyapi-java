@@ -55,12 +55,7 @@ export class PolyFunctionService {
       where: {
         user: {
           id: user.id,
-        },
-        OR: [
-          { ...(contexts?.length > 0 ? { context: { in: contexts } } : {}) },
-          { ...(names?.length > 0 ? { name: { in: names } } : {}) },
-          { ...(ids?.length > 0 ? { publicId: { in: ids } } : {}) },
-        ],
+        }
       },
       orderBy: [
         { createdAt: 'desc' },
