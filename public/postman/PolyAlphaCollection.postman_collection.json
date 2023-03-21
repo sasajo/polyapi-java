@@ -1,0 +1,202 @@
+{
+	"info": {
+		"_postman_id": "614cc224-778e-4fc0-bf2d-4fef81e13eff",
+		"name": "Poly Alpha Collection",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1022384"
+	},
+	"item": [
+		{
+			"name": "1. Tinker (get it working)",
+			"item": []
+		},
+		{
+			"name": "2. Train (move in here when ready to train Poly)",
+			"item": [],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const {description, url, method, headers, body, auth} = pm.request;",
+							"const apiKey = pm.environment.get('X-PolyApiKey');",
+							"",
+							"const postRequest = {",
+							"  url: 'https://staging.polyapi.io/teach',",
+							"  method: 'POST',",
+							"  header: {",
+							"    'Content-Type': 'application/json',",
+							"    'X-PolyApiKey': apiKey",
+							"  },",
+							"  body: {",
+							"    mode: 'raw',",
+							"    raw: JSON.stringify({",
+							"      name: pm.info.requestName,",
+							"      description: description?.content || '',",
+							"      url: `${url.protocol ? `${url.protocol}://` : ''}${url.getRemote()}${url.getPathWithQuery()}`,",
+							"      method,",
+							"      headers,",
+							"      body,",
+							"      auth",
+							"    })",
+							"  }",
+							"};",
+							"",
+							"pm.sendRequest(postRequest, (error, response) => {",
+							"  if (error) {",
+							"    console.log(error);",
+							"  } else {",
+							"    pm.environment.set(\"polyFunctionId\", response.json().functionId);",
+							"  }",
+							"});"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const polyData = pm.environment.get('polyData');",
+							"const functionId = pm.environment.get('polyFunctionId');",
+							"const apiKey = pm.environment.get('X-PolyApiKey');",
+							"const {url, body} = pm.request;",
+							"",
+							"pm.environment.unset('polyData');",
+							"pm.environment.unset('polyFunctionId');",
+							"",
+							"const postRequest = {",
+							"  url: `https://staging.polyapi.io/teach/${functionId}`,",
+							"  method: 'POST',",
+							"  header: {",
+							"    'Content-Type': 'application/json',",
+							"    'X-PolyApiKey': apiKey",
+							"  },",
+							"  body: {",
+							"    mode: 'raw',",
+							"    raw: JSON.stringify({",
+							"      ...polyData,",
+							"      url,",
+							"      body,",
+							"      response: pm.response.json()",
+							"    })",
+							"  }",
+							"};",
+							"",
+							"pm.sendRequest(postRequest, (error) => {",
+							"  if (error) {",
+							"    console.log(error);",
+							"  }",
+							"});"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Get a List of Poly Functions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-PolyApiKey",
+								"value": "{{apiKey}}",
+								"description": "This is your Poly key from the email.",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "https://staging.polyapi.io/functions",
+							"protocol": "https",
+							"host": [
+								"staging",
+								"polyapi",
+								"io"
+							],
+							"path": [
+								"functions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Poly Function Name, Context, and Description",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-PolyApiKey",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"someService.someAction\",\r\n    \"context\": \"someDomain.classification\",\r\n    \"description\": \"my Descripton, all fields are not needed for patch. \"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://staging.polyapi.io/functions/1c74d770-7bd3-4303-9345-e015e0fb561",
+							"protocol": "https",
+							"host": [
+								"staging",
+								"polyapi",
+								"io"
+							],
+							"path": [
+								"functions",
+								"1c74d770-7bd3-4303-9345-e015e0fb561"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Argument Types",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-PolyApiKey",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"argumentTypes\": {\r\n    \"FirstArgumentName\": \"number\",\r\n    \"SecondArgumentName\": \"string\"\r\n  }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://staging.polyapi.io/functions/1c74d770-7bd3-4303-9345-e015e0fb561",
+							"protocol": "https",
+							"host": [
+								"staging",
+								"polyapi",
+								"io"
+							],
+							"path": [
+								"functions",
+								"1c74d770-7bd3-4303-9345-e015e0fb561"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
