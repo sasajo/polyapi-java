@@ -48,7 +48,7 @@ def _clear_conversation(user_id: int):
 @app.errorhandler(OpenAIError)
 def handle_exception(e):
     # now you're handling non-HTTP exceptions only
-    msg = f"Sadly, OpenAI appears to be down. Please try again later.\n\n{e.__class__.__name__}: {e}"
+    msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
     return msg, 500
 
 
