@@ -122,7 +122,7 @@ def get_completion_prompt_messages(
         {"role": "system", "content": "Include argument types. Be concise."},
         {"role": "assistant", "content": functions},
         {"role": "assistant", "content": webhooks},
-        {"role": "assistant", "content": "Only respond with functions and event handlers explicitly listed as part of the Poly API library."},
+        {"role": "assistant", "content": "Only respond with functions and event handlers explicitly listed as part of the Poly API library. Do not use external APIs."},
         {"role": "user", "content": question},
     ]
 
