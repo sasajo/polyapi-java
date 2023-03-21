@@ -25,6 +25,9 @@ from utils import (
 BAD_ANSWERS = {
     "there is currently no function",  # maybe replace currently with a regex?
     "there is not currently a function",
+    "there isn't currently a function",
+    "there is no function",
+    "there isn't a function",
     "there is no direct function",
     "there isn't a direct function",
     "there is no specific function",
