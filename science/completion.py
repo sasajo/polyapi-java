@@ -23,8 +23,12 @@ from utils import (
 
 
 BAD_ANSWERS = {
+    "there is currently no function",  # maybe replace currently with a regex?
+    "there is not currently a function",
     "there is no direct function",
+    "there isn't a direct function",
     "there is no specific function",
+    "there isn't a specific function",
     "the poly api library does not have",
     "the poly api library doesn't have",
     "the poly api library does not provide",
