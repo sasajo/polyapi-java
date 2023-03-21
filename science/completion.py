@@ -25,7 +25,7 @@ from utils import (
 BAD_ANSWERS = {
     "there is no direct function",
     "there is no specific function",
-    "The Poly API library does not have a dedicated function",
+    "the poly api library does not have a dedicated function",
 }
 
 
