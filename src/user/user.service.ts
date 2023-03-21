@@ -5,6 +5,8 @@ import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from 'config/config.service';
 import { Role } from '@poly/common';
 
+const PUBLIC_USER_NAME = 'publicUser';
+
 @Injectable()
 export class UserService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {
@@ -93,7 +95,17 @@ export class UserService implements OnModuleInit {
     return this.prisma.user.create({
       data: {
         apiKey: '',
-        name: 'publicUser',
+        name: PUBLIC_USER_NAME,
+      },
+    });
+  }
+
+  async getUsers() {
+    return this.prisma.user.findMany({
+      where: {
+        name: {
+          not: PUBLIC_USER_NAME,
+        },
       },
     });
   }

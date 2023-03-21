@@ -11,12 +11,13 @@ import { EventModule } from 'event/event.module';
 import { WebhookModule } from 'webhook/webhook.module';
 import { CommonModule } from 'common/common.module';
 import { ConfigModule } from 'config/config.module';
-import { AiModule } from './ai/ai.module';
+import { AiModule } from 'ai/ai.module';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'public')
+      rootPath: join(__dirname, '..', '..', 'public'),
+      renderPath: '/'
     }),
     AuthModule,
     UserModule,
