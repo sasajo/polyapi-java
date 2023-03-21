@@ -16,19 +16,45 @@ from utils import (
 )
 
 
+# There are three main steps in our completion pipeline:
+# 1. Question Processing - process the question to make it more suitable for the model
+# 2. Send to OpenAI
+# 3. Answer Processing - process the answer to see if it's suitable to send back to the user
+
+
+BAD_ANSWERS = {
+    "there is no direct function",
+}
+
+
+def question_processing(question: str) -> str:
+    return "From the Poly API library, " + question
+
+
+def answer_processing(from_openai: str):
+    lowered = from_openai.lower()
+    for bad in BAD_ANSWERS:
+        if lowered.startswith(bad):
+            return "Poly doesn't know any functions to do that yet. But Poly would love to be taught!"
+
+    # ok! if we make it here we don't detect any "bad answers" coming back
+    # so we can just return what openai sent us
+    return from_openai
+
+
 def get_function_completion_answer(user_id: Optional[int], question: str) -> str:
     db = get_client()
-    completion_question = get_completion_question(question)
+    question = question_processing(question)
 
     messages = (
         db.conversationmessage.find_many(where={"userId": user_id}) if user_id else None
     )
     if messages:
-        return get_conversation_answer(db, user_id, messages, completion_question)
+        return get_conversation_answer(db, user_id, messages, question)
     else:
         functions = get_function_prompt()
         webhooks = get_webhook_prompt()
-        return get_completion_answer(db, user_id, functions, webhooks, completion_question)
+        return get_completion_answer(db, user_id, functions, webhooks, question)
 
 
 def get_function_prompt() -> str:
@@ -93,10 +119,6 @@ def webhook_prompt(hook: WebhookDto) -> str:
     return "\n".join(parts)
 
 
-def get_completion_question(question: str) -> str:
-    return "From the Poly API library, " + question
-
-
 def get_conversation_answer(
     db: Prisma, user_id: int, messages: List[ConversationMessage], question: str
 ):
@@ -109,8 +131,8 @@ def get_conversation_answer(
         model="gpt-3.5-turbo",
         messages=priors + [question_message],
     )
+    answer = answer_processing(resp["choices"][0]["message"]["content"])
     store_message(db, user_id, question_message)
-    answer = resp["choices"][0]["message"]["content"]
     store_message(db, user_id, {"role": "assistant", "content": answer})
     return answer
 
@@ -122,7 +144,9 @@ def get_completion_prompt_messages(
         {"role": "system", "content": "Include argument types. Be concise."},
         {"role": "assistant", "content": functions},
         {"role": "assistant", "content": webhooks},
-        {"role": "assistant", "content": "Only respond with functions and event handlers explicitly listed as part of the Poly API library. Do not use external APIs."},
+        # HACK To try to prevent Poly hallucinating functions we don't have
+        # https://github.com/polyapi/poly-alpha/issues/96
+        # {"role": "assistant", "content": "Only respond with functions and event handlers explicitly listed as part of the Poly API library. Do not use external APIs."},
         {"role": "user", "content": question},
     ]
 
@@ -135,7 +159,7 @@ def get_completion_answer(
     model = "gpt-3.5-turbo"
     # print(f"Using model: {model}")
     resp = openai.ChatCompletion.create(model=model, messages=messages)
-    answer = resp["choices"][0]["message"]["content"]
+    answer = answer_processing(resp["choices"][0]["message"]["content"])
 
     for message in messages:
         store_message(db, user_id, message)

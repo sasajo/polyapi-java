@@ -4,7 +4,7 @@ import json
 from prisma import Prisma
 from ..completion import (
     get_completion_answer,
-    get_completion_question,
+    question_processing,
 )
 from ..server import get_function_prompt
 
@@ -19,7 +19,7 @@ def transform_to_jsonl() -> str:
     # TODO add webhooks
     base_prompt = get_function_prompt()
     for func in db.urlfunction.find_many(where={"NOT": {"description": ""}}):  # type: ignore
-        question = get_completion_question(f"how do I {func.description}?")
+        question = question_processing(f"how do I {func.description}?")
         parts = [base_prompt, question]
         prompt = "\n\n".join(parts)
         data.append(
