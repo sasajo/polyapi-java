@@ -3,7 +3,7 @@ import csv
 from typing import List, TypedDict
 from prisma import Prisma, register
 from prisma.models import User
-from utils import func_path_with_args
+from utils import url_function_path
 
 
 class FunctionDict(TypedDict):
@@ -52,7 +52,7 @@ def load_functions(db: Prisma, user: User) -> None:
                     "method": data["method"],
                 }
             )
-            print(f"Created {func_path_with_args(func)}")
+            print(f"Created {url_function_path(func)}")
 
 
 if __name__ == "__main__":

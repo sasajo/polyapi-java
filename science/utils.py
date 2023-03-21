@@ -1,7 +1,7 @@
 import openai
 from typing import Dict, List, TypedDict, Optional, Union
 from prisma import Prisma
-from prisma.models import ConversationMessage
+from prisma.models import ConversationMessage, UrlFunction
 
 
 class FunctionDto(TypedDict):
@@ -40,6 +40,10 @@ def func_args(func: FunctionDto) -> List[str]:
 
 def func_path_with_args(func: FunctionDto) -> str:
     return f"{func_path(func)}({', '.join(func_args(func))})"
+
+
+def url_function_path(func: UrlFunction) -> str:
+    return f"{func.context}.{func.name}"
 
 
 def webhook_prompt(hook: WebhookDto) -> str:
@@ -82,15 +86,21 @@ def get_conversation_answer(
     return answer
 
 
-def get_completion_answer(
-    db: Prisma, user_id: int, functions: str, webhooks: str, question: str
-) -> str:
-    messages = [
+def get_completion_prompt_messages(
+    functions: str, webhooks: str, question: str
+) -> List[Dict]:
+    return [
         {"role": "system", "content": "Include argument types. Be concise."},
         {"role": "assistant", "content": functions},
         {"role": "assistant", "content": webhooks},
         {"role": "user", "content": question},
     ]
+
+
+def get_completion_answer(
+    db: Prisma, user_id: int, functions: str, webhooks: str, question: str
+) -> str:
+    messages = get_completion_prompt_messages(functions, webhooks, question)
 
     resp = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
     answer = resp["choices"][0]["message"]["content"]
