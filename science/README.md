@@ -7,15 +7,30 @@ This Python library contains the code for:
 
 ## Server
 
+### Prerequisites
+
+Please start the Node server first before trying to install/run the DS server.
+
+See the `../README.md` for instructions on how to start the Node server.
+
+### Run Server Locally
+
 To start the server, run the following:
 
-```
+```bash
+# requirements
 > cd science
 > pip install -r requirements.txt
-> prisma generate  # generates the library for python to access the db
 
-// local dev default port of node server is 8000
-// replace with your port if you customize
+# prisma
+> prisma generate  # generates the library for python to access the db
+# if you do not have CLI access to prisma, try adding this to your path in your bashrc:
+# export PATH=$PATH:$HOME/.local/bin
+# and then reopen a new terminal
+> ./load_fixtures.py
+
+# server
+# local dev default port of node server is 8000
 > NODE_API_URL=http://localhost:8000 ./server.py
 < * Running on http://127.0.0.1:5000
 ```
