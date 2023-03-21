@@ -103,7 +103,7 @@ def get_completion_answer(
     messages = get_completion_prompt_messages(functions, webhooks, question)
 
     model = "gpt-3.5-turbo"
-    print(f"Using model: {model}")
+    # print(f"Using model: {model}")
     resp = openai.ChatCompletion.create(model=model, messages=messages)
     answer = resp["choices"][0]["message"]["content"]
 
