@@ -347,9 +347,13 @@ export class PolyFunctionService {
 
   private getArgumentsMap(urlFunction: UrlFunction, args: any[]) {
     const normalizeArg = arg => {
-      return arg
-        .replaceAll('\r\n', '\n')
-        .trim();
+      if (typeof arg === 'string') {
+        return arg
+          .replaceAll('\r\n', '\n')
+          .trim();
+      } else {
+        return arg;
+      }
     };
 
     return this.getArguments(urlFunction)
