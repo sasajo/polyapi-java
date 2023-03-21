@@ -27,6 +27,7 @@ To start the server, run the following:
 # if you do not have CLI access to prisma, try adding this to your path in your bashrc:
 # export PATH=$PATH:$HOME/.local/bin
 # and then reopen a new terminal
+
 > ./load_fixtures.py
 
 # server

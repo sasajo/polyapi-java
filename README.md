@@ -17,21 +17,9 @@ $ cp .env.template .env
 
 ```bash
 $ prisma db push
-$ cd science
-$ prisma generate
-$ ./load_fixtures.py
 ```
 
-## Running the app
-
-This will run the server on port 8000 by default.
-
-This will run the Python server on port 5000:
-
-```bash
-$ cd science
-$ ./server.py
-```
+## Running the Node Server
 
 This will run the Node server on port 8000:
 
@@ -45,6 +33,10 @@ $ yarn run start:dev
 # production mode
 $ yarn run start:prod
 ```
+
+## Running the Science Server
+
+Head to the [Science Server README](https://github.com/polyapi/poly-alpha/blob/develop/science/README.md) for instructions on how to start your science server!
 
 ## Endpoints
 
