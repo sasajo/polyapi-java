@@ -13,7 +13,7 @@ import {
   FunctionDefinitionDto,
   FunctionDto,
   Headers,
-  Method,
+  Method, Role,
 } from '@poly/common';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -491,14 +491,14 @@ export class PolyFunctionService {
   async deleteFunction(user: User, publicId: string) {
     const found = await this.prisma.urlFunction.findFirst({
       where: {
-        user: {
-          id: user.id,
-        },
         publicId,
       },
     });
     if (!found) {
       throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
+    }
+    if (user.role !== Role.Admin && found.userId !== user.id) {
+      throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
     }
 
     this.logger.debug(`Deleting function ${publicId}`);
