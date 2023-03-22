@@ -51,12 +51,27 @@ export class PolyFunctionService {
     });
   }
 
+  private getFunctionFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
+    const filterConditions = [
+      contexts?.length ? { context: { in: contexts } } : undefined,
+      names?.length ? { name: { in: names } } : undefined,
+      ids?.length ? { publicId: { in: ids } } : undefined,
+    ].filter(Boolean);
+
+    this.logger.debug(`filterConditions: ${JSON.stringify(filterConditions)}`);
+
+    return filterConditions.length > 0 ? { OR: filterConditions } : undefined;
+  }
+
   async getUrlFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
+
     return this.prisma.urlFunction.findMany({
       where: {
-        user: {
-          id: user.id,
-        }
+        // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
+        // user: {
+        //   id: user.id,
+        // },
+        ...this.getFunctionFilterConditions(contexts, names, ids),
       },
       orderBy: [
         { createdAt: 'desc' },
@@ -68,14 +83,11 @@ export class PolyFunctionService {
   async getCustomFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
-        user: {
-          id: user.id,
-        },
-        OR: [
-          { ...(contexts?.length > 0 ? { context: { in: contexts } } : {}) },
-          { ...(names?.length > 0 ? { name: { in: names } } : {}) },
-          { ...(ids?.length > 0 ? { publicId: { in: ids } } : {}) },
-        ],
+        // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
+        // user: {
+        //   id: user.id,
+        // },
+        ...this.getFunctionFilterConditions(contexts, names, ids),
       },
     });
   }

@@ -13,6 +13,8 @@ import {
   Req,
   UseGuards,
   Headers,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { PolyFunctionService } from 'poly-function/poly-function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
@@ -37,11 +39,12 @@ export class PolyFunctionController {
 
   @Get()
   @UseGuards(ApiKeyGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
   async getAll(@Req() req, @Headers('Accept') acceptHeader: string, @Query(){ contexts, names, ids }: GetAllFunctionsDto): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
-    this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${contexts}, names ${names}, ids ${ids}`);
+    this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${JSON.stringify(contexts)}, names ${JSON.stringify(names)}, ids ${JSON.stringify(ids)}`);
 
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
-    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user);
+    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user, contexts, names, ids);
     const customFunctions = await this.service.getCustomFunctionsByUser(req.user, contexts, names, ids);
 
     if (useDefinitionDto) {
