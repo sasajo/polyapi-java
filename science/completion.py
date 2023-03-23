@@ -81,14 +81,15 @@ def get_function_completion_answer(user_id: Optional[int], question: str) -> str
         return get_completion_answer(user_id, functions, webhooks, question)
 
 
-def get_conversations_for_user(user_id: int) -> List[ConversationMessage]:
+def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessage]:
+    if not user_id:
+        return []
+
     db = get_client()
     return list(
         db.conversationmessage.find_many(
             where={"userId": user_id}, order={"createdAt": "asc"}
         )
-        if user_id
-        else None
     )
 
 
@@ -155,7 +156,7 @@ def webhook_prompt(hook: WebhookDto) -> str:
 
 
 def get_conversation_answer(
-    user_id: int, messages: List[ConversationMessage], question: str
+    user_id: Optional[int], messages: List[ConversationMessage], question: str
 ):
     priors: List[Dict[str, str]] = []
     for message in messages:
@@ -201,7 +202,7 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 
 
 def get_completion_answer(
-    user_id: int, functions: str, webhooks: str, question: str
+    user_id: Optional[int], functions: str, webhooks: str, question: str
 ) -> str:
     messages = get_completion_prompt_messages(functions, webhooks, question)
 
