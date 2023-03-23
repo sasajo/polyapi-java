@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AuthModule } from 'auth/auth.module';
 import { UserModule } from 'user/user.module';
-import { PolyFunctionModule } from 'poly-function/poly-function.module';
+import { FunctionModule } from 'function/function.module';
 import { TeachModule } from 'teach/teach.module';
 import { PrismaModule } from 'prisma/prisma.module';
 import { ChatModule } from 'chat/chat.module';
@@ -21,7 +21,7 @@ import { AiModule } from 'ai/ai.module';
     }),
     AuthModule,
     UserModule,
-    PolyFunctionModule,
+    FunctionModule,
     TeachModule,
     PrismaModule,
     ChatModule,

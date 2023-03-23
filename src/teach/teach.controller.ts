@@ -1,5 +1,5 @@
 import { Body, Controller, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { PolyFunctionService } from 'poly-function/poly-function.service';
+import { FunctionService } from 'function/function.service';
 import { TeachDetailsDto, TeachDto, TeachResponseDto } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import { ParseIdPipe } from 'pipe/parse-id.pipe';
@@ -8,7 +8,7 @@ import { ParseIdPipe } from 'pipe/parse-id.pipe';
 export class TeachController {
   private logger: Logger = new Logger(TeachController.name);
 
-  public constructor(private readonly polyFunctionService: PolyFunctionService) {
+  public constructor(private readonly polyFunctionService: FunctionService) {
   }
 
   @UseGuards(ApiKeyGuard)

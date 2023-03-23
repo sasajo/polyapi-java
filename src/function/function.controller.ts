@@ -16,7 +16,7 @@ import {
   ValidationPipe,
   UsePipes,
 } from '@nestjs/common';
-import { PolyFunctionService } from 'poly-function/poly-function.service';
+import { FunctionService } from 'function/function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import {
   CreateCustomFunctionDto,
@@ -31,16 +31,20 @@ import {
 export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
 
 @Controller('functions')
-export class PolyFunctionController {
-  private logger: Logger = new Logger(PolyFunctionController.name);
+export class FunctionController {
+  private logger: Logger = new Logger(FunctionController.name);
 
-  constructor(private readonly service: PolyFunctionService) {
+  constructor(private readonly service: FunctionService) {
   }
 
   @Get()
   @UseGuards(ApiKeyGuard)
   @UsePipes(new ValidationPipe({ transform: true }))
-  async getAll(@Req() req, @Headers('Accept') acceptHeader: string, @Query(){ contexts, names, ids }: GetAllFunctionsDto): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
+  async getAll(@Req() req, @Headers('Accept') acceptHeader: string, @Query() {
+    contexts,
+    names,
+    ids,
+  }: GetAllFunctionsDto): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
     this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${JSON.stringify(contexts)}, names ${JSON.stringify(names)}, ids ${JSON.stringify(ids)}`);
 
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
@@ -58,7 +62,7 @@ export class PolyFunctionController {
 
   @Post('/execute/:publicId')
   async executeFunction(@Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteFunctionDto): Promise<any> {
-    const urlFunction = await this.service.findByPublicId(publicId);
+    const urlFunction = await this.service.findUrlFunctionByPublicId(publicId);
     if (!urlFunction) {
       throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
     }
@@ -74,7 +78,23 @@ export class PolyFunctionController {
     description = null,
     argumentTypes = null,
   }: UpdateFunctionDto): Promise<any> {
-    return this.service.urlFunctionToDto(await this.service.updateFunction(req.user, publicId, name, context, description, argumentTypes));
+    const urlFunction = await this.service.findUrlFunction(req.user, publicId);
+    if (urlFunction) {
+      return this.service.urlFunctionToDto(await this.service.updateUrlFunction(req.user, urlFunction, name, context, description, argumentTypes));
+    }
+
+    const customFunction = await this.service.findCustomFunction(req.user, publicId);
+    if (customFunction) {
+      if (argumentTypes) {
+        throw new HttpException('Argument types cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
+      }
+      if (name != null) {
+        throw new HttpException('Name cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
+      }
+      return this.service.customFunctionToDto(await this.service.updateCustomFunction(req.user, customFunction, context, description));
+    }
+
+    throw new HttpException('Function not found', HttpStatus.NOT_FOUND);
   }
 
   @Delete('/all')

@@ -4,7 +4,7 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import { CustomFunction, UrlFunction, Prisma, User } from '@prisma/client';
+import { CustomFunction, Prisma, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentTypes,
@@ -29,8 +29,8 @@ const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 mustache.escape = (text) => text.replace(/"/g, `\\"`);
 
 @Injectable()
-export class PolyFunctionService {
-  private logger: Logger = new Logger(PolyFunctionService.name);
+export class FunctionService {
+  private logger: Logger = new Logger(FunctionService.name);
 
   constructor(
     private readonly commonService: CommonService,
@@ -291,7 +291,7 @@ export class PolyFunctionService {
     };
   }
 
-  findByPublicId(publicId: string): Promise<UrlFunction | null> {
+  findUrlFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
     return this.prisma.urlFunction.findFirst({
       where: {
         publicId,
@@ -482,8 +482,8 @@ export class PolyFunctionService {
     }
   }
 
-  async updateFunction(user: User, publicId: string, name: string | null, context: string | null, description: string | null, argumentTypes: ArgumentTypes | null) {
-    const urlFunction = await this.prisma.urlFunction.findFirst({
+  async findUrlFunction(user: User, publicId: string) {
+    return this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -491,10 +491,20 @@ export class PolyFunctionService {
         publicId,
       },
     });
-    if (!urlFunction) {
-      throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
-    }
+  }
 
+  async findCustomFunction(user: User, publicId: string) {
+    return this.prisma.customFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        publicId,
+      },
+    });
+  }
+
+  async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentTypes: ArgumentTypes | null) {
     if (name != null || context != null) {
       name = await this.resolveFunctionName(user, name, urlFunction.context, false);
 
@@ -516,7 +526,7 @@ export class PolyFunctionService {
       this.logger.debug(`Generated response type:\n${responseType}`);
     }
 
-    this.logger.debug(`Updating function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`);
+    this.logger.debug(`Updating URL function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`);
     return this.prisma.urlFunction.update({
       where: {
         id: urlFunction.id,
@@ -527,6 +537,32 @@ export class PolyFunctionService {
         description: description == null ? urlFunction.description : description,
         argumentTypes: JSON.stringify(this.resolveArgumentTypes(urlFunction.argumentTypes, argumentTypes)),
         responseType,
+      },
+    });
+  }
+
+  async updateCustomFunction(user: User, customFunction: CustomFunction, context: string | null, description: string | null) {
+    const { id, name } = customFunction;
+
+    if (context != null) {
+      if (!await this.checkNameAndContextDuplicates(
+        user,
+        name,
+        context,
+        [id],
+      )) {
+        throw new HttpException(`Function with name ${name} and context ${context} already exists.`, HttpStatus.CONFLICT);
+      }
+    }
+
+    this.logger.debug(`Updating custom function ${id} with name ${name}, context ${context}, description ${description}`);
+    return this.prisma.customFunction.update({
+      where: {
+        id,
+      },
+      data: {
+        context: context == null ? customFunction.context : context,
+        description: description == null ? customFunction.description : description,
       },
     });
   }
