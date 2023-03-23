@@ -1,4 +1,4 @@
-from typing import Dict, List, TypedDict, Optional, Union
+from typing import Any, Dict, List, TypedDict, Optional, Union
 from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
 
@@ -45,6 +45,10 @@ def url_function_path(func: UrlFunction) -> str:
     return f"{func.context}.{func.name}"
 
 
+def log(message: Any) -> None:
+    print(str(message), flush=True)
+
+
 def store_message(
     user_id: Optional[int], data: Dict[str, str]
 ) -> Optional[ConversationMessage]:
@@ -53,5 +57,5 @@ def store_message(
 
     db = get_client()
     create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
-    print(create_input)
+    log(create_input)
     return db.conversationmessage.create(data=create_input)  # type: ignore
