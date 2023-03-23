@@ -5,7 +5,7 @@ from prisma import Prisma, register, get_client
 
 def show_conversation(user_id: int):
     db = get_client()
-    return list(
+    msgs = list(
         db.conversationmessage.find_many(
             where={"userId": user_id}, order={"createdAt": "asc"}
         )
