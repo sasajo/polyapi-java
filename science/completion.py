@@ -46,8 +46,8 @@ ADVERBS = {
 
 
 def question_processing(question: str) -> str:
-    # return "From the Poly API library, " + question
-    return question
+    return "From the Poly API library, " + question
+    # return question
 
 
 def answer_processing(from_openai: str):
