@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 import sys
-from prisma import Prisma
+from science.completion import get_conversations_for_user
 
 
 def show_conversation(user_id: int):
-    db = Prisma()
-    db.connect()
-    msgs = db.conversationmessage.find_many(
-        where={"userId": user_id}, order={"created": "asc"}
-    )
+    msgs = get_conversations_for_user(user_id)
     for msg in msgs:
         print(msg.content)
         print()
