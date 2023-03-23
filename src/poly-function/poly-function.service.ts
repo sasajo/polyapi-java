@@ -276,7 +276,7 @@ export class PolyFunctionService {
       description: customFunction.description,
       context: customFunction.context,
       arguments: JSON.parse(customFunction.arguments),
-      type: 'url',
+      type: 'custom',
     };
   }
 
