@@ -16,6 +16,7 @@ model User {
   webhookHandles       WebhookHandle[]
   customFunctions      CustomFunction[]
   conversationMessages ConversationMessage[]
+  systemPrompts        SystemPrompt[]
 
   @@map("user")
 }
@@ -78,12 +79,23 @@ model WebhookHandle {
 // store all the messages in a conversation
 model ConversationMessage {
   id      String   @id @default(uuid())
+  createdAt DateTime @default(now())
   user    User     @relation(fields: [userId], references: [id])
   userId  Int      @map("user_id")
   name    String   @default("") // not used for now. in future, will allow the user to have multiple conversations
-  created DateTime @default(now())
   role    String // assistant or user
   content String
 
   @@map("conversation_message")
+}
+
+// customizable prompt per user
+model SystemPrompt {
+  id      String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id])
+  userId  Int      @map("user_id")
+  content String
+
+  @@map("system_prompt")
 }

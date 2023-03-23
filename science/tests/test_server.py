@@ -50,7 +50,7 @@ GET_WEBHOOKS = [
 
 class T(DbTestCase):
     def test_user_get_or_create(self) -> None:
-        user = test_user_get_or_create(self.db)
+        user = test_user_get_or_create()
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
 
@@ -65,7 +65,7 @@ class T(DbTestCase):
         print(prompt)
 
     def test_clear_conversation(self):
-        user = test_user_get_or_create(self.db)
+        user = test_user_get_or_create()
         data = {
             "userId": user.id,
             "role": "user",

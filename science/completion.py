@@ -1,8 +1,8 @@
 import requests
 import openai
 from typing import List, Dict, Optional
-from prisma import get_client, Prisma
-from prisma.models import ConversationMessage
+from prisma import get_client
+from prisma.models import ConversationMessage, SystemPrompt
 
 # TODO change to relative imports
 from constants import FINE_TUNE_MODEL, NODE_API_URL
@@ -55,18 +55,26 @@ def answer_processing(from_openai: str):
 
 
 def get_function_completion_answer(user_id: Optional[int], question: str) -> str:
-    db = get_client()
     question = question_processing(question)
 
-    messages = (
-        db.conversationmessage.find_many(where={"userId": user_id}) if user_id else None
-    )
+    messages = get_conversations_for_user(user_id)
     if messages:
-        return get_conversation_answer(db, user_id, messages, question)
+        return get_conversation_answer(user_id, messages, question)
     else:
         functions = get_function_prompt()
         webhooks = get_webhook_prompt()
-        return get_completion_answer(db, user_id, functions, webhooks, question)
+        return get_completion_answer(user_id, functions, webhooks, question)
+
+
+def get_conversations_for_user(user_id: int) -> List[ConversationMessage]:
+    db = get_client()
+    return list(
+        db.conversationmessage.find_many(
+            where={"userId": user_id}, order={"createdAt": "asc"}
+        )
+        if user_id
+        else None
+    )
 
 
 def get_function_prompt() -> str:
@@ -132,7 +140,7 @@ def webhook_prompt(hook: WebhookDto) -> str:
 
 
 def get_conversation_answer(
-    db: Prisma, user_id: int, messages: List[ConversationMessage], question: str
+    user_id: int, messages: List[ConversationMessage], question: str
 ):
     priors: List[Dict[str, str]] = []
     for message in messages:
@@ -145,15 +153,15 @@ def get_conversation_answer(
     )
 
     answer = answer_processing(resp["choices"][0]["message"]["content"])
-    store_message(db, user_id, question_message)
-    store_message(db, user_id, {"role": "assistant", "content": answer})
+    store_message(user_id, question_message)
+    store_message(user_id, {"role": "assistant", "content": answer})
     return answer
 
 
 def get_completion_prompt_messages(
     functions: str, webhooks: str, question: str
 ) -> List[Dict]:
-    return [
+    rv = [
         {"role": "system", "content": "Include argument types. Be concise."},
         {"role": "assistant", "content": functions},
         {"role": "assistant", "content": webhooks},
@@ -163,9 +171,22 @@ def get_completion_prompt_messages(
         {"role": "user", "content": question},
     ]
 
+    system_prompt = get_system_prompt()
+    if system_prompt:
+        rv.insert(0, {"role": "system", "content": system_prompt.content})
+    return rv
+
+
+def get_system_prompt() -> Optional[SystemPrompt]:
+    # HACK for now this is just one system-wide
+    # but in future there will be multiple types, multiple orgs, etc
+    db = get_client()
+    system_prompt = db.systemprompt.find_first(order={"createdAt": "desc"})
+    return system_prompt
+
 
 def get_completion_answer(
-    db: Prisma, user_id: int, functions: str, webhooks: str, question: str
+    user_id: int, functions: str, webhooks: str, question: str
 ) -> str:
     messages = get_completion_prompt_messages(functions, webhooks, question)
 
@@ -175,7 +196,7 @@ def get_completion_answer(
     answer = answer_processing(resp["choices"][0]["message"]["content"])
 
     for message in messages:
-        store_message(db, user_id, message)
-    store_message(db, user_id, {"role": "assistant", "content": answer})
+        store_message(user_id, message)
+    store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer

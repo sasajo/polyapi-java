@@ -18,11 +18,11 @@ FUNC: FunctionDto = {
 class T(DbTestCase):
     def test_load_fixtures(self) -> None:
         # smoke test to make sure this works
-        user = test_user_get_or_create(self.db)
-        load_functions(self.db, user)
+        user = test_user_get_or_create()
+        load_functions(user)
 
     def test_func_path(self) -> None:
-        user = test_user_get_or_create(self.db)
+        user = test_user_get_or_create()
         data = {
             "userId": user.id,
             "name": "twilio.sendSMS",
@@ -40,9 +40,9 @@ class T(DbTestCase):
         self.assertEqual(args[1], "GAPIKey: string")
 
     def test_store_message(self):
-        user = test_user_get_or_create(self.db)
+        user = test_user_get_or_create()
         msg = store_message(
-            self.db, user.id, {"role": "user", "content": "profound question"}
+            user.id, {"role": "user", "content": "profound question"}
         )
         self.assertEqual(msg.userId, user.id)
         self.assertEqual(msg.content, "profound question")

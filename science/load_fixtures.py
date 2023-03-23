@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import csv
 from typing import List, TypedDict
-from prisma import Prisma, register
+from prisma import Prisma, register, get_client
 from prisma.models import User
 from utils import url_function_path
 
@@ -24,14 +24,16 @@ def _get_data_list():
     return rv
 
 
-def test_user_get_or_create(db: Prisma) -> User:
+def test_user_get_or_create() -> User:
+    db = get_client()
     user = db.user.find_first(where={"name": "test"})
     if not user:
         user = db.user.create(data={"name": "test", "apiKey": "asdf", "role": "ADMIN"})
     return user
 
 
-def load_functions(db: Prisma, user: User) -> None:
+def load_functions(user: User) -> None:
+    db = get_client()
     data_list: List[FunctionDict] = _get_data_list()
 
     for data in data_list:
@@ -73,5 +75,5 @@ if __name__ == "__main__":
         print("Admin user not found. Please run Poly server first for initialization.")
         exit(1)
 
-    load_functions(db, user)
+    load_functions(user)
     db.disconnect()

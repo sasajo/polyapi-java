@@ -1,5 +1,5 @@
 from typing import Dict, List, TypedDict, Optional, Union
-from prisma import Prisma
+from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
 
 
@@ -46,9 +46,11 @@ def url_function_path(func: UrlFunction) -> str:
 
 
 def store_message(
-    db: Prisma, user_id: Optional[int], data: Dict[str, str]
+    user_id: Optional[int], data: Dict[str, str]
 ) -> Optional[ConversationMessage]:
     if not user_id:
         return None
+
+    db = get_client()
     create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
     return db.conversationmessage.create(data=create_input)  # type: ignore
