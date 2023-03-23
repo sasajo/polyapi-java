@@ -190,7 +190,7 @@ def get_completion_prompt_messages(
 
     system_prompt = get_system_prompt()
     if system_prompt and system_prompt.content:
-        rv.insert(0, {"role": "system", "content": system_prompt.content})
+        rv.insert(0, {"role": "assistant", "content": system_prompt.content})
     return rv
 
 
