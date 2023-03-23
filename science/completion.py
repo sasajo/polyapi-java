@@ -22,7 +22,7 @@ from utils import (
 # 3. Answer Processing - process the answer to see if it's suitable to send back to the user
 
 
-BAD_ANSWERS = {
+NO_FUNCTION_RESPONSE = {
     "there is currently no function",  # maybe replace currently with a regex?
     "there is not currently a function",
     "there isn't currently a function",
@@ -37,6 +37,12 @@ BAD_ANSWERS = {
     "the poly api library does not provide",
     "the poly api library doesn't provide",
 }
+NO_FUNCTION_ANSWER = "Poly doesn't know any functions to do that yet. But Poly would love to be taught!"
+
+
+ADVERBS = {
+    "unfortunately",
+}
 
 
 def question_processing(question: str) -> str:
@@ -44,10 +50,19 @@ def question_processing(question: str) -> str:
 
 
 def answer_processing(from_openai: str):
-    lowered = from_openai.lower()
-    for bad in BAD_ANSWERS:
+    lowered = from_openai.strip().lower()
+
+    # first strip off any common adverbs
+    for adverb in ADVERBS:
+        if lowered.startswith(adverb):
+            lowered = lowered.lstrip(adverb)
+            lowered = lowered.lstrip(",")
+            lowered = lowered.strip()
+
+    # now lets detect bad answers
+    for bad in NO_FUNCTION_ANSWER:
         if lowered.startswith(bad):
-            return "Poly doesn't know any functions to do that yet. But Poly would love to be taught!"
+            return NO_FUNCTION_RESPONSE
 
     # ok! if we make it here we don't detect any "bad answers" coming back
     # so we can just return what openai sent us

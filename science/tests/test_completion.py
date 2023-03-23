@@ -1,5 +1,5 @@
 from load_fixtures import test_user_get_or_create
-from completion import get_conversations_for_user
+from completion import NO_FUNCTION_RESPONSE, answer_processing, get_conversations_for_user
 from .testing import DbTestCase
 
 
@@ -16,3 +16,8 @@ class T(DbTestCase):
         )
         messages = get_conversations_for_user(user.id)
         self.assertEqual(messages, [msg])
+
+    def test_answer_processing(self) -> None:
+        answer = "Unfortunately, the Poly API library doesn't have a function specifically for getting a list of draft orders in Shopify."
+        resp = answer_processing(answer)
+        self.assertEqual(resp, NO_FUNCTION_RESPONSE)
