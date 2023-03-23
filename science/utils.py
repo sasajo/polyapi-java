@@ -57,5 +57,5 @@ def store_message(
 
     db = get_client()
     create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
-    log(create_input)
+    # log(create_input)
     return db.conversationmessage.create(data=create_input)  # type: ignore

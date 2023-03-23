@@ -60,9 +60,9 @@ def answer_processing(from_openai: str):
             lowered = lowered.strip()
 
     # now lets detect bad answers
-    for bad in NO_FUNCTION_ANSWER:
+    for bad in NO_FUNCTION_RESPONSE:
         if lowered.startswith(bad):
-            return NO_FUNCTION_RESPONSE
+            return NO_FUNCTION_ANSWER
 
     # ok! if we make it here we don't detect any "bad answers" coming back
     # so we can just return what openai sent us
