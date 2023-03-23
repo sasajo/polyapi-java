@@ -7,8 +7,7 @@ import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly service: ChatService) {
-  }
+  constructor(private readonly service: ChatService) {}
 
   @Post('/question')
   @UseGuards(ApiKeyGuard)

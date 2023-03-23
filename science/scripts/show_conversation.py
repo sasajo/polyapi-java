@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
-from science.completion import get_conversations_for_user
+from prisma import Prisma, register
+from completion import get_conversations_for_user
 
 
 def show_conversation(user_id: int):
@@ -11,4 +12,7 @@ def show_conversation(user_id: int):
 
 
 if __name__ == "__main__":
+    db = Prisma()
+    db.connect()
+    register(db)
     show_conversation(int(sys.argv[1]))

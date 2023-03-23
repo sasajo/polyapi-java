@@ -37,6 +37,7 @@ def function_description() -> Response:
 @app.route("/clear-conversation", methods=["POST"])
 def clear_conversation() -> str:
     user_id = request.get_json(force=True)["user_id"]
+    user_id = int(user_id)
     _clear_conversation(user_id)
     return "Conversation Cleared"
 
