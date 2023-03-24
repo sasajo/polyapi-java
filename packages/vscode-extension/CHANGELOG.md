@@ -1,3 +1,7 @@
+### 0.1.6
+* Fixed issue with Poly not showing when no workspace is open
+* Updated auto restart of TS server
+
 ### 0.1.5
 * Updated extension activity bar icon
 * Only Copy action in context menu
