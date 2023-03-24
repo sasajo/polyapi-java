@@ -54,7 +54,7 @@ export class WebhookController {
 
   @Post(':name')
   public async triggerWebhookFunction(@Param('name') name: string, @Body() payload: any) {
-    return await this.webhookService.triggerWebhookContextFunction(null, name, payload);
+    return await this.webhookService.triggerWebhookContextFunction('', name, payload);
   }
 
   @Patch(':id')

@@ -157,10 +157,10 @@ export class WebhookService {
       name: webhookHandle.name,
       context: webhookHandle.context,
       urls: [
-        `${this.config.hostUrl}/webhook/${webhookHandle.id}`,
+        `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
         webhookHandle.context
-          ? `${this.config.hostUrl}/webhook/${webhookHandle.context}/${webhookHandle.name}`
-          : `${this.config.hostUrl}/webhook/${webhookHandle.name}`,
+          ? `${this.config.hostUrl}/webhooks/${webhookHandle.context}/${webhookHandle.name}`
+          : `${this.config.hostUrl}/webhooks/${webhookHandle.name}`,
       ],
     };
   }
