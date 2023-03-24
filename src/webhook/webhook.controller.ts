@@ -52,11 +52,6 @@ export class WebhookController {
     return await this.webhookService.triggerWebhookContextFunction(context, name, payload);
   }
 
-  @Post(':name')
-  public async triggerWebhookFunction(@Param('name') name: string, @Body() payload: any) {
-    return await this.webhookService.triggerWebhookContextFunction('', name, payload);
-  }
-
   @Patch(':id')
   @UseGuards(ApiKeyGuard)
   public async updateWebhookHandle(@Req() req, @Param('id') id: string, @Body() updateWebhookHandleDto: UpdateWebhookHandleDto) {
