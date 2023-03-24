@@ -4,3 +4,4 @@ prisma==0.8.1
 # https://github.com/pyinstaller/pyinstaller/issues/5432
 pydantic==1.9.2
 openai==0.27.2
+uwsgi==2.0.21
