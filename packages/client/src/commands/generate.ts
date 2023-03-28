@@ -174,10 +174,14 @@ const generateTSContextDeclarationFile = async (
 
   const toFunctionData = (func: FunctionDefinitionDto) => ({
     ...func,
-    arguments: func.arguments.map((arg) => ({
-      ...arg,
-      name: toCamelCase(arg.name),
-    })),
+    arguments: func.arguments
+      .filter((arg) => !arg.payload)
+      .map((arg) => ({
+        ...arg,
+        name: toCamelCase(arg.name),
+      })),
+    payloadArguments: func.arguments.filter((arg) => arg.payload),
+    hasPayloadArguments: func.arguments.some((arg) => arg.payload),
     returnType: func.customCode
       ? func.returnType
       : func.returnType

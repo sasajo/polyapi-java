@@ -3,6 +3,7 @@ import { ArgumentType } from '../..';
 export interface FunctionArgument {
   name: string;
   type: ArgumentType;
+  payload?: boolean;
 }
 
 export interface FunctionDto {

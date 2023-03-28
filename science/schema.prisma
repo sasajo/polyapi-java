@@ -24,26 +24,26 @@ model User {
 }
 
 model UrlFunction {
-  id              Int            @id @default(autoincrement())
-  createdAt       DateTime       @map("created_at")
-  user            User           @relation(fields: [userId], references: [id])
-  userId          Int            @map("user_id")
-  name            String
-  context         String
-  description     String         @default("")
-  payload         String?
-  method          String
-  url             String
-  headers         String?
-  body            String?
-  auth            String?
-  response        String?
-  responseType    String?        @map("response_type")
-  argumentTypes   String?        @map("argument_types")
-  trained         Boolean        @default(false)
-  publicId        String         @unique @default(uuid()) @map("public_id")
-  webhookHandle   WebhookHandle? @relation(fields: [webhookHandleId], references: [id])
-  webhookHandleId String?        @unique @map("webhook_handle_id")
+  id                Int            @id @default(autoincrement())
+  createdAt         DateTime       @map("created_at")
+  user              User           @relation(fields: [userId], references: [id])
+  userId            Int            @map("user_id")
+  name              String
+  context           String
+  description       String         @default("")
+  payload           String?
+  method            String
+  url               String
+  headers           String?
+  body              String?
+  auth              String?
+  response          String?
+  responseType      String?        @map("response_type")
+  argumentsMetadata String?        @map("arguments_metadata")
+  trained           Boolean        @default(false)
+  publicId          String         @unique @default(uuid()) @map("public_id")
+  webhookHandle     WebhookHandle? @relation(fields: [webhookHandleId], references: [id])
+  webhookHandleId   String?        @unique @map("webhook_handle_id")
 
   @@map("url_function")
 }

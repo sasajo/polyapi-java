@@ -76,17 +76,17 @@ export class FunctionController {
     name = null,
     context = null,
     description = null,
-    argumentTypes = null,
+    arguments: argumentsMetadata = null,
   }: UpdateFunctionDto): Promise<any> {
     const urlFunction = await this.service.findUrlFunction(req.user, publicId);
     if (urlFunction) {
-      return this.service.urlFunctionToDto(await this.service.updateUrlFunction(req.user, urlFunction, name, context, description, argumentTypes));
+      return this.service.urlFunctionToDto(await this.service.updateUrlFunction(req.user, urlFunction, name, context, description, argumentsMetadata));
     }
 
     const customFunction = await this.service.findCustomFunction(req.user, publicId);
     if (customFunction) {
-      if (argumentTypes) {
-        throw new HttpException('Argument types cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
+      if (argumentsMetadata) {
+        throw new HttpException('Arguments cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
       }
       if (name != null) {
         throw new HttpException('Name cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);

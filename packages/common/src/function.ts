@@ -29,6 +29,9 @@ export type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
 
 export type ArgumentType = string;
 
-export type ArgumentTypes = {
-  [key: string]: ArgumentType;
+export type ArgumentsMetadata = {
+  [key: string]: {
+    type: ArgumentType;
+    payload: boolean;
+  };
 };

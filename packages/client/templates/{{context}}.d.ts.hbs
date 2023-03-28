@@ -10,7 +10,15 @@ declare module "./index" {
       {{name}}: {{interfaceName}};
     {{/each}}
     {{#each functions}}
-      {{name}}({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnType}}};
+      {{#if hasPayloadArguments}}
+        {{name}}({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}, payload: {
+          {{#each payloadArguments}}
+            {{name}}: {{type}},
+          {{/each}}
+        }): {{{returnType}}};
+      {{else}}
+        {{name}}({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnType}}};
+      {{/if}}
     {{/each}}
     {{#each webhookHandles}}
       {{name}}(callback: (event: {{{eventType}}}) => any): UnregisterWebhookEventListenerType;
