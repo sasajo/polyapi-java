@@ -7,7 +7,7 @@ import mustache from 'mustache';
 import { CustomFunction, UrlFunction, Prisma, User, SystemPrompt } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
-  ArgumentTypes,
+  ArgumentsMetadata,
   Auth,
   Body,
   FunctionArgument,
@@ -39,7 +39,8 @@ export class FunctionService {
     private readonly httpService: HttpService,
     private readonly eventService: EventService,
     private readonly aiService: AiService,
-  ) {}
+  ) {
+  }
 
   create(data: Omit<Prisma.UrlFunctionCreateInput, 'createdAt'>): Promise<UrlFunction> {
     return this.prisma.urlFunction.create({
@@ -256,15 +257,16 @@ export class FunctionService {
     }
   }
 
-  private toArgument(argument: string, argumentTypes: ArgumentTypes): FunctionArgument {
+  private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata): FunctionArgument {
     return {
       name: argument,
-      type: argumentTypes[argument] || 'string',
+      type: argumentsMetadata[argument]?.type || 'string',
+      payload: argumentsMetadata[argument]?.payload || false,
     };
   }
 
   getArguments(urlFunction: UrlFunction): FunctionArgument[] {
-    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentTypes || '{}'));
+    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentsMetadata || '{}'));
     let args = [];
 
     args = args.concat(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
@@ -401,7 +403,7 @@ export class FunctionService {
   }
 
   private getArgumentsMap(urlFunction: UrlFunction, args: any[]) {
-    const normalizeArg = (arg) => {
+    const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
         return arg.replaceAll('\r\n', '\n').trim();
       } else {
@@ -409,10 +411,32 @@ export class FunctionService {
       }
     };
 
-    return this.getArguments(urlFunction).reduce(
-      (result, arg, index) => Object.assign(result, { [arg.name]: normalizeArg(args[index]) }),
-      {},
-    );
+    const functionArgs = this.getArguments(urlFunction);
+    const getPayloadArgs = () => {
+      const payloadArgs = functionArgs.filter((arg) => arg.payload);
+      if (payloadArgs.length === 0) {
+        return {};
+      }
+      const payload = args[args.length - 1];
+      if (typeof payload !== 'object') {
+        this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
+        return {};
+      }
+      return payloadArgs.reduce(
+        (result, arg) => Object.assign(result, { [arg.name]: normalizeArg(payload[toCamelCase(arg.name)]) }),
+        {},
+      );
+    };
+
+    return {
+      ...functionArgs
+        .filter((arg) => !arg.payload)
+        .reduce(
+          (result, arg, index) => Object.assign(result, { [arg.name]: normalizeArg(args[index]) }),
+          {},
+        ),
+      ...getPayloadArgs(),
+    };
   }
 
   private getAuthorizationHeaders(auth: Auth | null) {
@@ -541,7 +565,7 @@ export class FunctionService {
     });
   }
 
-  async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentTypes: ArgumentTypes | null) {
+  async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
     if (name != null || context != null) {
       name = await this.resolveFunctionName(user, name, urlFunction.context, false);
 
@@ -579,7 +603,7 @@ export class FunctionService {
         name: name || urlFunction.name,
         context: context == null ? urlFunction.context : context,
         description: description == null ? urlFunction.description : description,
-        argumentTypes: JSON.stringify(this.resolveArgumentTypes(urlFunction.argumentTypes, argumentTypes)),
+        argumentsMetadata: JSON.stringify(this.resolveArgumentTypes(urlFunction.argumentsMetadata, argumentsMetadata)),
         responseType,
       },
     });
@@ -666,10 +690,10 @@ export class FunctionService {
           excludedIds == null
             ? undefined
             : {
-                id: {
-                  notIn: excludedIds,
-                },
+              id: {
+                notIn: excludedIds,
               },
+            },
       },
     });
     if (urlFunction) {
@@ -687,10 +711,10 @@ export class FunctionService {
           excludedIds == null
             ? undefined
             : {
-                id: {
-                  notIn: excludedIds,
-                },
+              id: {
+                notIn: excludedIds,
               },
+            },
       },
     });
     if (customFunction) {
@@ -856,10 +880,10 @@ export class FunctionService {
     }
   }
 
-  private resolveArgumentTypes(argumentTypes: string | null, updatedArgumentTypes: ArgumentTypes | null) {
+  private resolveArgumentTypes(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
     return {
-      ...JSON.parse(argumentTypes || '{}'),
-      ...updatedArgumentTypes,
+      ...JSON.parse(argumentsMetadata || '{}'),
+      ...updatedArgumentsMetadata,
     };
   }
 
@@ -881,11 +905,11 @@ export class FunctionService {
     }
 
     this.logger.debug(`Creating new SystemPrompt...`);
-      return this.prisma.systemPrompt.create({
-        data: {
-          userId: userId,
-          content: prompt,
-        },
-      });
+    return this.prisma.systemPrompt.create({
+      data: {
+        userId: userId,
+        content: prompt,
+      },
+    });
   }
 }
