@@ -42,19 +42,20 @@ def clear_conversation() -> str:
     return "Conversation Cleared"
 
 
+def _clear_conversation(user_id: int):
+    db.conversationmessage.delete_many(where={"userId": user_id})
+
+
 @app.route("/error")
 def error():
     raise Exception("This is an error")
-
-
-def _clear_conversation(user_id: int):
-    db.conversationmessage.delete_many(where={"userId": user_id})
 
 
 @app.errorhandler(OpenAIError)
 def handle_exception(e):
     # now you're handling non-HTTP exceptions only
     msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
+    app.logger.error(msg)
     return msg, 500
 
 
