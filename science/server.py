@@ -48,7 +48,7 @@ def _clear_conversation(user_id: int):
 
 @app.route("/error")
 def error():
-    raise Exception("This is an error")
+    raise OpenAIError("This is an error")
 
 
 @app.errorhandler(OpenAIError)
