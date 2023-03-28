@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, TypedDict, Optional, Union
+import json
+from typing import Any, Dict, List, Tuple, TypedDict, Optional, Union
 from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
 
@@ -36,16 +37,24 @@ def func_path(func: Union[FunctionDto, WebhookDto]) -> str:
     return "poly." + path
 
 
-def func_args(func: FunctionDto) -> List[str]:
+def func_args(func: FunctionDto) -> Tuple[List[str], Dict[str, str]]:
     """get the args for a function from the headers and url"""
-    rv = []
+    arg_strings = []
+    payload = {}
     for arg in func["arguments"]:
-        rv.append(arg["name"] + ": " + arg["type"])
-    return rv
+        if arg["payload"]:
+            payload[arg["name"]] = arg["type"]
+        else:
+            arg_strings.append(arg["name"] + ": " + arg["type"])
+    return arg_strings, payload
 
 
 def func_path_with_args(func: FunctionDto) -> str:
-    return f"{func_path(func)}({', '.join(func_args(func))})"
+    args, payload = func_args(func)
+    if payload:
+        return f"const payload = {json.dumps(payload)}\n{func_path(func)}({', '.join(args)}, payload)"
+    else:
+        return f"{func_path(func)}({', '.join(args)})"
 
 
 def url_function_path(func: UrlFunction) -> str:
@@ -67,17 +76,11 @@ def store_message(
 
     if data.get("function_ids"):
         create_input["functions"] = {
-            "create": [
-                {"functionPublicId": fid}
-                for fid in data["function_ids"]
-            ]
+            "create": [{"functionPublicId": fid} for fid in data["function_ids"]]
         }
     if data.get("webhook_ids"):
         create_input["webhooks"] = {
-            "create": [
-                {"webhookPublicId": wid}
-                for wid in data["webhook_ids"]
-            ]
+            "create": [{"webhookPublicId": wid} for wid in data["webhook_ids"]]
         }
 
     rv = db.conversationmessage.create(data=create_input)  # type: ignore

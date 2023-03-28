@@ -16,8 +16,8 @@ GET_FUNCTIONS = [
         "context": "",
         "description": "I am the description",
         "arguments": [
-            {"name": "locationId", "type": "string"},
-            {"name": "AAPIKey", "type": "string"},
+            {"name": "locationId", "type": "string", "payload": False},
+            {"name": "AAPIKey", "type": "string", "payload": False},
         ],
         "returnType": None,
     },
@@ -25,10 +25,10 @@ GET_FUNCTIONS = [
         "id": "60062c03-dcfd-437d-832c-6cba9543f683",
         "name": "gMapsGetXy",
         "context": "shipping",
-        "description": "",
+        "description": "get the X and Y coordinates of a location from Google Maps",
         "arguments": [
-            {"name": "location", "type": "string"},
-            {"name": "GAPIKey", "type": "string"},
+            {"name": "location", "type": "string", "payload": True},
+            {"name": "GAPIKey", "type": "string", "payload": False},
         ],
         "returnType": None,
     },
@@ -76,6 +76,7 @@ class T(DbTestCase):
         d = get_function_message_dict()
         self.assertEqual(requests_get.call_count, 1)
         self.assertIn("Here are some functions", d['content'])
+        print(d['content'])
         self.assertEqual(
             d['function_ids'],
             [

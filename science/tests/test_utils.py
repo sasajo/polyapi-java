@@ -9,8 +9,8 @@ FUNC: FunctionDto = {
     "context": "shipping",
     "description": "",
     "arguments": [
-        {"name": "location", "type": "string"},
-        {"name": "GAPIKey", "type": "string"},
+        {"name": "location", "type": "string", "payload": True},
+        {"name": "GAPIKey", "type": "string", "payload": False},
     ],
     "returnType": None,
 }
@@ -35,10 +35,10 @@ class T(DbTestCase):
         self.assertEqual(func_path(data), "poly.messaging.twilio.sendSMS")
 
     def test_func_args(self):
-        args = func_args(FUNC)
-        self.assertEqual(len(args), 2)
-        self.assertEqual(args[0], "location: string")
-        self.assertEqual(args[1], "GAPIKey: string")
+        args, payload = func_args(FUNC)
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0], "GAPIKey: string")
+        self.assertEqual(payload, {"location": "string"})
 
     def test_store_message(self):
         user = test_user_get_or_create()
