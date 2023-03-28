@@ -42,7 +42,7 @@ def func_args(func: FunctionDto) -> Tuple[List[str], Dict[str, str]]:
     arg_strings = []
     payload = {}
     for arg in func["arguments"]:
-        if arg["payload"]:
+        if arg.get("payload"):
             payload[arg["name"]] = arg["type"]
         else:
             arg_strings.append(arg["name"] + ": " + arg["type"])
