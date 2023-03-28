@@ -127,6 +127,11 @@ def get_function_message_dict(
         parts.append(f"// {func['description']}\n{func_path_with_args(func)}")
         public_ids.append(func["id"])
 
+    if not public_ids:
+        # all the webhooks are already defined!
+        # let's go ahead and skip
+        return None
+
     content = "\n\n".join(parts)
     return {"role": "assistant", "content": content, "function_ids": public_ids}
 
