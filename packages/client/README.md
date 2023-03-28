@@ -6,23 +6,18 @@ Install the package with `npm install polyapi`.
 Run `npx poly generate` to set up your Poly connection (only for the first time) and generate Poly functions.
 Whenever you update your Poly functions, run `npx poly generate` again to update your local functions.
 
+You will need an API Key to to access Poly. Please head to https://polyapi.io to request an API key!
+
 ### Using Poly functions
 After that you can use your Poly client in your code:
 ```
 import poly from 'polyapi';
 
-const lat = ' 36.014287';
-const lon = '-75.667895';
-const OWkey = 'your-OpenWeatherMap-API-key';
+const location = 'Eiffel Tower, Paris';
 
-poly.weather.weatherXy(lat, lon, OWkey)
-  .then(response => {
-    console.log(response);
-    // handle the weather data
-  })
-  .catch(error => {
-    console.error(error);
-  });
+poly.maps.google.getXY(location)
+  .then(res => console.log(res))
+  .catch(err => console.error(err));
 ```
 
 ### Using error handler
