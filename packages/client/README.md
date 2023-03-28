@@ -1,3 +1,5 @@
+# Poly API
+
 ## Usage
 Make sure you have set your npm registry in .npmrc file.
 
