@@ -76,7 +76,6 @@ class T(DbTestCase):
         d = get_function_message_dict()
         self.assertEqual(requests_get.call_count, 1)
         self.assertIn("Here are some functions", d['content'])
-        print(d['content'])
         self.assertEqual(
             d['function_ids'],
             [
