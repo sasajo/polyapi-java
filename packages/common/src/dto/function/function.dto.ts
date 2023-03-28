@@ -19,6 +19,7 @@ export interface FunctionDefinitionDto {
   id: string;
   context: string;
   name: string;
+  description: string;
   arguments: FunctionArgument[];
   returnType: string;
   customCode?: string;

@@ -1,3 +1,6 @@
+### 0.1.8
+* Some library index tree related improvements
+
 ### 0.1.7
 * Added library index tree
 

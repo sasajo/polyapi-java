@@ -11,13 +11,22 @@ class LibraryTreeItem extends vscode.TreeItem {
     super(label, collapsibleState);
     switch (data.type) {
       case 'function':
-        this.tooltip = new vscode.MarkdownString(`**Function**  \n${data.name}(${data.arguments.map(arg => `${arg.name}: ${arg.type}`).join(', ')})`);
+        const title = data.customCode ? 'Custom function' : 'Function';
+        this.tooltip = new vscode.MarkdownString(
+          `**${title}**\n\n---\n\n${data.description
+            ? `${data.description}\n\n---\n\n`
+            : ''}${data.name}(${data.arguments.map(arg => `${arg.name}: ${arg.type}`).join(', ')})`,
+        );
         break;
       case 'webhookHandle':
-        this.tooltip = new vscode.MarkdownString(`**Webhook listener**  \n${data.name}()`);
+        this.tooltip = new vscode.MarkdownString(
+          `**Webhook listener**\n\n---\n\n${data.name}()`,
+        );
         break;
       default:
-        this.tooltip = new vscode.MarkdownString(`**Context**  \n${label}`);
+        this.tooltip = new vscode.MarkdownString(
+          `**Context**\n\n---\n\n${label}`,
+        );
         break;
     }
   }
@@ -55,13 +64,11 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
   }
 
   getTreeItem(element: LibraryTreeItem): TreeItem | Thenable<TreeItem> {
-    if (element.data.type === 'function' || element.data.type === 'webhookHandle') {
-      element.command = {
-        title: 'Copy to clipboard',
-        command: 'poly.copyLibraryItem',
-        arguments: [element],
-      };
-    }
+    element.command = {
+      title: 'Copy to clipboard',
+      command: 'poly.copyLibraryItem',
+      arguments: [element],
+    };
     return element;
   }
 
@@ -72,7 +79,7 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
   }
 
   static copyLibraryItem(item: LibraryTreeItem) {
-    const { parentPath, data } = item;
+    const { parentPath, data, label } = item;
     switch (data.type) {
       case 'function':
         vscode.env.clipboard.writeText(`await ${parentPath}.${data.name}(${data.arguments.map(arg => `${arg.name}`).join(', ')});`);
@@ -81,7 +88,10 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
         vscode.env.clipboard.writeText(`${parentPath}.${data.name}(data => {\n\n});`);
         break;
       default:
+        console.log('%c ', 'background: yellow; color: black', item);
+        vscode.env.clipboard.writeText(`await ${parentPath}.${label}.`);
         break;
     }
+    vscode.window.showInformationMessage('Copied');
   }
 }

@@ -3,7 +3,7 @@
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant for VS Code",
   "icon": "resources/poly-logo.png",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "Poly API Corp",
   "engines": {
     "vscode": "^1.75.0"
@@ -76,12 +76,14 @@
         {
           "type": "tree",
           "id": "poly.library-index-view",
-          "name": "Library",
+          "icon": "resources/poly-library-index.png",
+          "name": "poly",
           "when": "polyLibraryInstalled == true"
         },
         {
           "id": "poly.library-info",
-          "name": "Library",
+          "name": "poly",
+          "icon": "resources/poly-library-index.png",
           "when": "polyLibraryInstalled == false"
         }
       ]

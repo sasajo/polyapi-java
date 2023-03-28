@@ -292,6 +292,7 @@ export class FunctionService {
     return {
       id: urlFunction.publicId,
       name: urlFunction.name,
+      description: urlFunction.description,
       context: urlFunction.context,
       arguments: this.getArguments(urlFunction),
       returnType: urlFunction.responseType,
@@ -313,6 +314,7 @@ export class FunctionService {
     return {
       id: customFunction.publicId,
       name: customFunction.name,
+      description: customFunction.description,
       context: customFunction.context,
       arguments: JSON.parse(customFunction.arguments),
       returnType: customFunction.returnType,
