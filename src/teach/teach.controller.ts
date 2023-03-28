@@ -27,7 +27,7 @@ export class TeachController {
   @Post('/system-prompt')
   async teachSystemPrompt(@Req() req, @Body() body: TeachSystemPromptDto) {
     await this.polyFunctionService.setSystemPrompt(req.user.id, body.prompt);
-    return "Conversation cleared and new system prompt set!"
+    return {"response": "Conversation cleared and new system prompt set!"}
   }
 
   @UseGuards(ApiKeyGuard)
