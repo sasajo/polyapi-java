@@ -42,6 +42,11 @@ def clear_conversation() -> str:
     return "Conversation Cleared"
 
 
+@app.route("/error")
+def error():
+    raise Exception("This is an error")
+
+
 def _clear_conversation(user_id: int):
     db.conversationmessage.delete_many(where={"userId": user_id})
 
