@@ -302,8 +302,6 @@ def get_completion_answer(user_id: Optional[int], question: str) -> str:
         store_message(
             user_id,
             message,
-            function_ids=message.get("function_ids", []),
-            webhook_ids=message.get("webhook_ids", []),
         )
     store_message(user_id, {"role": "assistant", "content": answer})
 

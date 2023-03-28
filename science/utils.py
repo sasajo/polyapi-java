@@ -65,14 +65,14 @@ def store_message(
     db = get_client()
     create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
 
-    if data["function_ids"]:
+    if data.get("function_ids"):
         create_input["functions"] = {
             "create": [
                 {"functionPublicId": fid}
                 for fid in data["function_ids"]
             ]
         }
-    if data["webhook_ids"]:
+    if data.get("webhook_ids"):
         create_input["webhooks"] = {
             "create": [
                 {"webhookPublicId": wid}
