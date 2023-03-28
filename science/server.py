@@ -55,7 +55,7 @@ def error():
 def handle_exception(e):
     # now you're handling non-HTTP exceptions only
     msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
-    app.logger.error(msg)
+    app.log_exception(msg)
     return msg, 500
 
 
