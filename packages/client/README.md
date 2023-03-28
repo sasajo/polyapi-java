@@ -9,7 +9,7 @@ Whenever you update your Poly functions, run `npx poly generate` again to update
 You will need an API Key to to access Poly. Please head to https://polyapi.io to request an API key!
 
 ### Using Poly functions
-After that you can use your Poly client in your code:
+After you have run `npx poly generate` you can use your Poly client in your code:
 ```
 import poly from 'polyapi';
 
