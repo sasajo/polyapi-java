@@ -236,7 +236,7 @@ def get_new_conversation_messages(old_messages: List[ConversationMessage], quest
     old_function_ids = {f.functionPublicId for f in db.functiondefined.find_many(where={"messageId": {"in": old_msg_ids}})}
     old_webhook_ids = {w.webhookPublicId for w in db.webhookdefined.find_many(where={"messageId": {"in": old_msg_ids}})}
 
-    new_functions = get_webhook_message_dict(old_function_ids)
+    new_functions = get_function_message_dict(old_function_ids)
     if new_functions:
         rv.append(new_functions)
 
