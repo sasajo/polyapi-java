@@ -1,5 +1,3 @@
-# Poly API
-
 ## Usage
 Make sure you have set your npm registry in .npmrc file.
 
@@ -25,7 +23,7 @@ errorHandler.on('myContext.myFunction', (error) => {
   // handle error
 });
 ```
-or you can register an error handler for all functions in context:
+Or you can register an error handler for all functions in context:
 ```
 errorHandler.on('myContext', (error) => {
   // handle error
