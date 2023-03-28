@@ -1,5 +1,5 @@
 import { Body, Controller, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { TeachDetailsDto, TeachDto, TeachResponseDto, TeachSystemPromptDto, Role } from '@poly/common';
+import { TeachDetailsDto, TeachDto, TeachResponseDto, TeachSystemPromptDto, TeachSystemPromptResponseDto, Role} from '@poly/common';
 import { FunctionService } from 'function/function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 import { ParseIdPipe } from 'pipe/parse-id.pipe';
@@ -25,9 +25,9 @@ export class TeachController {
 
   @UseGuards(new ApiKeyGuard([Role.Admin]))
   @Post('/system-prompt')
-  async teachSystemPrompt(@Req() req, @Body() body: TeachSystemPromptDto) {
+  async teachSystemPrompt(@Req() req, @Body() body: TeachSystemPromptDto): Promise<TeachSystemPromptResponseDto> {
     await this.polyFunctionService.setSystemPrompt(req.user.id, body.prompt);
-    return {"response": "Conversation cleared and new system prompt set!"}
+    return {response: "Conversation cleared and new system prompt set!"}
   }
 
   @UseGuards(ApiKeyGuard)
