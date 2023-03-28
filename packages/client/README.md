@@ -11,7 +11,18 @@ After that you can use your Poly client in your code:
 ```
 import poly from 'polyapi';
 
-const response = await poly.myContext.myFunction('param1', 'param2');
+const lat = ' 36.014287';
+const lon = '-75.667895';
+const OWkey = 'your-OpenWeatherMap-API-key';
+
+poly.weather.weatherXy(lat, lon, OWkey)
+  .then(response => {
+    console.log(response);
+    // handle the weather data
+  })
+  .catch(error => {
+    console.error(error);
+  });
 ```
 
 ### Using error handler
