@@ -80,13 +80,34 @@ model WebhookHandle {
 model ConversationMessage {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int      @map("user_id")
-  name      String   @default("") // not used for now. in future, will allow the user to have multiple conversations
-  role      String // assistant or user
-  content   String
+  user    User     @relation(fields: [userId], references: [id])
+  userId  Int      @map("user_id")
+  name    String   @default("") // not used for now. in future, will allow the user to have multiple conversations
+  role    String // assistant or user
+  content String
+  functions FunctionDefined[]
+  webhooks  WebhookDefined[]
 
   @@map("conversation_message")
+}
+
+model FunctionDefined {
+  id          Int         @id @default(autoincrement())
+  message     ConversationMessage @relation(fields: [messageId], references: [id])
+  messageId   String      @map("message_id")
+  functionPublicId  String  // could be a relation but isn't currently
+
+  @@map("function_defined")
+}
+
+
+model WebhookDefined {
+  id          Int         @id @default(autoincrement())
+  message     ConversationMessage @relation(fields: [messageId], references: [id])
+  messageId   String      @map("message_id")
+  webhookPublicId String  // could be a relation but isn't currently
+
+  @@map("webhook_defined")
 }
 
 // customizable prompt per user

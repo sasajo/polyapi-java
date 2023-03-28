@@ -19,6 +19,13 @@ class WebhookDto(TypedDict):
     urls: List[str]
 
 
+class MessageDict(TypedDict, total=False):
+    role: str
+    content: str
+    function_ids: List[str]  # not required
+    webhook_ids: List[str]  # not required
+
+
 # HACK should have better name
 def func_path(func: Union[FunctionDto, WebhookDto]) -> str:
     """get the functions path as it will be exposed in the poly library"""
@@ -50,12 +57,35 @@ def log(message: Any) -> None:
 
 
 def store_message(
-    user_id: Optional[int], data: Dict[str, str]
+    user_id: Optional[int], data: MessageDict
 ) -> Optional[ConversationMessage]:
     if not user_id:
         return None
 
     db = get_client()
     create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
-    # log(create_input)
-    return db.conversationmessage.create(data=create_input)  # type: ignore
+
+    if data["function_ids"]:
+        create_input["functions"] = {
+            "create": [
+                {"functionPublicId": fid}
+                for fid in data["function_ids"]
+            ]
+        }
+    if data["webhook_ids"]:
+        create_input["webhooks"] = {
+            "create": [
+                {"webhookPublicId": wid}
+                for wid in data["webhook_ids"]
+            ]
+        }
+
+    rv = db.conversationmessage.create(data=create_input)  # type: ignore
+    return rv
+
+
+def clear_conversation(user_id: int):
+    db = get_client()
+    db.functiondefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
+    db.webhookdefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
+    db.conversationmessage.delete_many(where={"userId": user_id})

@@ -55,10 +55,12 @@ def load_functions(user: User) -> None:
                     "url": data["url"],
                     "headers": headers,
                     "method": data["method"],
-                }
+                }  # type: ignore
             )
             print(f"Created {url_function_path(func)}")
 
+    db.functiondefined.delete_many()
+    db.webhookdefined.delete_many()
     conversations_deleted = db.conversationmessage.delete_many()
     print(f"Deleted {conversations_deleted} conversations.")
 

@@ -87,8 +87,29 @@ model ConversationMessage {
   name    String   @default("") // not used for now. in future, will allow the user to have multiple conversations
   role    String // assistant or user
   content String
+  functions FunctionDefined[]
+  webhooks  WebhookDefined[]
 
   @@map("conversation_message")
+}
+
+model FunctionDefined {
+  id          Int         @id @default(autoincrement())
+  message     ConversationMessage @relation(fields: [messageId], references: [id])
+  messageId   String      @map("message_id")
+  functionPublicId  String
+
+  @@map("function_defined")
+}
+
+
+model WebhookDefined {
+  id          Int         @id @default(autoincrement())
+  message     ConversationMessage @relation(fields: [messageId], references: [id])
+  messageId   String      @map("message_id")
+  webhookPublicId String
+
+  @@map("webhook_defined")
 }
 
 // customizable prompt per user

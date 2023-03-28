@@ -1,6 +1,8 @@
+import copy
 import requests
 import openai
-from typing import List, Dict, Optional
+import flask
+from typing import List, Dict, Optional, Set
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
 
@@ -9,7 +11,9 @@ from constants import FINE_TUNE_MODEL, NODE_API_URL
 
 from utils import (
     FunctionDto,
+    MessageDict,
     WebhookDto,
+    clear_conversation,
     func_path_with_args,
     func_path,
     store_message,
@@ -37,7 +41,9 @@ NO_FUNCTION_RESPONSE = {
     "the poly api library does not provide",
     "the poly api library doesn't provide",
 }
-NO_FUNCTION_ANSWER = "Poly doesn't know any functions to do that yet. But Poly would love to be taught!"
+NO_FUNCTION_ANSWER = (
+    "Poly doesn't know any functions to do that yet. But Poly would love to be taught!"
+)
 
 
 ADVERBS = {
@@ -50,7 +56,7 @@ def question_processing(question: str) -> str:
     # return question
 
 
-def answer_processing(from_openai: str):
+def answer_processing(from_openai: str) -> str:
     lowered = from_openai.strip().lower()
 
     # first strip off any common adverbs
@@ -77,9 +83,7 @@ def get_function_completion_answer(user_id: Optional[int], question: str) -> str
     if messages:
         return get_conversation_answer(user_id, messages, question)
     else:
-        functions = get_function_prompt()
-        webhooks = get_webhook_prompt()
-        return get_completion_answer(user_id, functions, webhooks, question)
+        return get_completion_answer(user_id, question)
 
 
 def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessage]:
@@ -94,10 +98,16 @@ def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessa
     )
 
 
-def get_function_prompt() -> str:
-    how_to_import = "To import the Poly API library, use `import poly from 'polyapi';`"
-    preface = "Here are the functions in the Poly API library,"
-    parts: List[str] = [how_to_import, preface]
+def get_function_message_dict(
+    already_defined: Optional[Set[str]] = None,
+) -> Optional[MessageDict]:
+    """get all functions (if any) that are not yet defined in the prompt
+    :param already_defined: a list of function public ids that are already defined
+    """
+    already_defined = already_defined or set()
+
+    preface = "Here are some functions in the Poly API library,"
+    parts: List[str] = [preface]
 
     db = get_client()
     user = db.user.find_first(where={"role": "ADMIN"})
@@ -108,14 +118,28 @@ def get_function_prompt() -> str:
     resp = requests.get(f"{NODE_API_URL}/functions", headers=headers)
     assert resp.status_code == 200, resp.content
     funcs: List[FunctionDto] = resp.json()
+
+    public_ids = []
     for func in funcs:
+        if func["id"] in already_defined:
+            continue
+
         parts.append(f"// {func['description']}\n{func_path_with_args(func)}")
+        public_ids.append(func["id"])
 
-    return "\n\n".join(parts)
+    content = "\n\n".join(parts)
+    return {"role": "assistant", "content": content, "function_ids": public_ids}
 
 
-def get_webhook_prompt() -> str:
-    preface = "Here are the event handlers in the Poly API library,"
+def get_webhook_message_dict(
+    already_defined: Optional[Set[str]] = None,
+) -> Optional[MessageDict]:
+    """get all webhooks (if any) that are not yet defined in the prompt
+    :param already_defined: a list of webhook public ids that are already defined
+    """
+    already_defined = already_defined or set()
+
+    preface = "Here are some event handlers in the Poly API library,"
     parts: List[str] = [preface]
 
     db = get_client()
@@ -126,11 +150,27 @@ def get_webhook_prompt() -> str:
     headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
     resp = requests.get(f"{NODE_API_URL}/webhooks/", headers=headers)
     assert resp.status_code == 200, resp.content
-    webhooks: List[WebhookDto] = resp.json()
-    for webhook in webhooks:
-        parts.append(webhook_prompt(webhook))
 
-    return "\n\n".join(parts)
+    public_ids = []
+    webhooks: List[WebhookDto] = resp.json()
+
+    for webhook in webhooks:
+        if webhook["id"] in already_defined:
+            continue
+
+        parts.append(webhook_prompt(webhook))
+        public_ids.append(webhook["id"])
+
+    if not public_ids:
+        # all the webhooks are already defined!
+        # let's go ahead and skip
+        return None
+
+    return {
+        "role": "assistant",
+        "content": "\n\n".join(parts),
+        "webhook_ids": public_ids,
+    }
 
 
 def get_fine_tune_answer(question: str):
@@ -159,33 +199,84 @@ def webhook_prompt(hook: WebhookDto) -> str:
 def get_conversation_answer(
     user_id: Optional[int], messages: List[ConversationMessage], question: str
 ):
-    priors: List[Dict[str, str]] = []
+    # prepare payload
+    priors: List[MessageDict] = []
     for message in messages:
         priors.append({"role": message.role, "content": message.content})
 
-    question_message = {"role": "user", "content": question}
-    resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=priors + [question_message],
-    )
+    new_messages = get_new_conversation_messages(messages, question)
+
+    # get
+    try:
+        resp = get_chat_completion(priors + new_messages)
+    except openai.InvalidRequestError as e:
+        # our conversation is probably too long! let's transparently nuke it and start again
+        flask.current_app.log_exception(e)  # type: ignore
+        clear_conversation(user_id)
+        return get_completion_answer(user_id, question)
 
     answer = answer_processing(resp["choices"][0]["message"]["content"])
-    store_message(user_id, question_message)
+
+    # store
+    for message in new_messages:
+        store_message(user_id, message)
     store_message(user_id, {"role": "assistant", "content": answer})
+
     return answer
 
 
-def get_completion_prompt_messages(
-    functions: str, webhooks: str, question: str
-) -> List[Dict]:
+def get_new_conversation_messages(old_messages: List[ConversationMessage], question: str) -> List[MessageDict]:
+    """ get all the new messages that should be added to an existing conversation
+    """
+    rv = []
+
+    old_msg_ids = [m.id for m in old_messages]
+
+    db = get_client()
+    old_function_ids = {f.functionPublicId for f in db.functiondefined.find_many(where={"messageId": {"in": old_msg_ids}})}
+    old_webhook_ids = {w.webhookPublicId for w in db.webhookdefined.find_many(where={"messageId": {"in": old_msg_ids}})}
+
+    new_functions = get_webhook_message_dict(old_function_ids)
+    if new_functions:
+        rv.append(new_functions)
+
+    new_webhooks = get_webhook_message_dict(old_webhook_ids)
+    if new_webhooks:
+        rv.append(new_webhooks)
+
+    question_msg = MessageDict(role="user", content=question)
+    rv.append(question_msg)
+    return rv
+
+
+def get_chat_completion(messages: List[MessageDict]) -> Dict:
+    """ send the messages to OpenAI and get a response
+    """
+    stripped = copy.deepcopy(messages)
+    for s in stripped:
+        # pop off all the data we use internally before sending the messages to OpenAI
+        s.pop("function_ids", None)
+        s.pop("webhook_ids", None)
+
+    return openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=stripped,
+    )
+
+
+def get_completion_prompt_messages(question: str) -> List[MessageDict]:
+    function_message = get_function_message_dict()
+    webhook_message = get_webhook_message_dict()
+
     rv = [
-        {"role": "system", "content": "Include argument types. Be concise."},
-        {"role": "assistant", "content": functions},
-        {"role": "assistant", "content": webhooks},
-        # HACK To try to prevent Poly hallucinating functions we don't have
-        # https://github.com/polyapi/poly-alpha/issues/96
-        # {"role": "assistant", "content": "Only respond with functions and event handlers explicitly listed as part of the Poly API library. Do not use external APIs."},
-        {"role": "user", "content": question},
+        MessageDict(role="system", content="Include argument types. Be concise."),
+        MessageDict(
+            role="assistant",
+            content="To import the Poly API library, use `import poly from 'polyapi';`",
+        ),
+        function_message,
+        webhook_message,
+        MessageDict(role="user", content=question),
     ]
 
     system_prompt = get_system_prompt()
@@ -202,18 +293,18 @@ def get_system_prompt() -> Optional[SystemPrompt]:
     return system_prompt
 
 
-def get_completion_answer(
-    user_id: Optional[int], functions: str, webhooks: str, question: str
-) -> str:
-    messages = get_completion_prompt_messages(functions, webhooks, question)
-
-    model = "gpt-3.5-turbo"
-    # print(f"Using model: {model}")
-    resp = openai.ChatCompletion.create(model=model, messages=messages)
+def get_completion_answer(user_id: Optional[int], question: str) -> str:
+    messages = get_completion_prompt_messages(question)
+    resp = get_chat_completion(messages)
     answer = answer_processing(resp["choices"][0]["message"]["content"])
 
     for message in messages:
-        store_message(user_id, message)
+        store_message(
+            user_id,
+            message,
+            function_ids=message.get("function_ids", []),
+            webhook_ids=message.get("webhook_ids", []),
+        )
     store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer

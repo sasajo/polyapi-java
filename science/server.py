@@ -5,7 +5,7 @@ from openai import OpenAIError
 from prisma import Prisma, register
 from completion import get_function_completion_answer
 from description import get_function_description
-from utils import FunctionDto
+from utils import FunctionDto, clear_conversation
 
 
 app = Flask(__name__)
@@ -35,15 +35,11 @@ def function_description() -> Response:
 
 
 @app.route("/clear-conversation", methods=["POST"])
-def clear_conversation() -> str:
+def clear_conversation_view() -> str:
     user_id = request.get_json(force=True)["user_id"]
     user_id = int(user_id)
-    _clear_conversation(user_id)
+    clear_conversation(user_id)
     return "Conversation Cleared"
-
-
-def _clear_conversation(user_id: int):
-    db.conversationmessage.delete_many(where={"userId": user_id})
 
 
 @app.route("/error")

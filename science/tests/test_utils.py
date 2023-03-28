@@ -1,3 +1,4 @@
+import uuid
 from .testing import DbTestCase
 from load_fixtures import load_functions, test_user_get_or_create
 from utils import FunctionDto, func_args, func_path, store_message
@@ -41,8 +42,23 @@ class T(DbTestCase):
 
     def test_store_message(self):
         user = test_user_get_or_create()
+
+        function_ids = [uuid.uuid4().hex]
+        webhook_ids = [uuid.uuid4().hex]
         msg = store_message(
-            user.id, {"role": "user", "content": "profound question"}
+            user.id,
+            {
+                "role": "user",
+                "content": "profound question",
+                "function_ids": function_ids,
+                "webhook_ids": webhook_ids,
+            },
         )
         self.assertEqual(msg.userId, user.id)
         self.assertEqual(msg.content, "profound question")
+
+        msg = self.db.conversationmessage.find_first(
+            where={"id": msg.id}, include={"functions": True, "webhooks": True}
+        )
+        self.assertEqual(function_ids, [f.functionPublicId for f in msg.functions])
+        self.assertEqual(webhook_ids, [w.webhookPublicId for w in msg.webhooks])
