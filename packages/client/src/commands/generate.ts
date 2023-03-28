@@ -130,7 +130,6 @@ const generateTSDeclarationFiles = async (
   webhookHandles: WebhookHandleDefinitionDto[],
 ) => {
   const contextData = getContextData(functions, webhookHandles);
-  const { default: defaultContext, ...otherContexts } = contextData;
   const contexts = await generateTSDeclarationFilesForContext(
     {
       name: '',
@@ -139,13 +138,11 @@ const generateTSDeclarationFiles = async (
       fileName: 'default.d.ts',
       level: 0,
     },
-    {
-      ...otherContexts,
-      ...defaultContext,
-    },
+    contextData,
   );
 
   await generateTSIndexDeclarationFile(contexts);
+  await generateContextDataFile(contextData);
 };
 
 const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
@@ -204,20 +201,28 @@ const generateTSContextDeclarationFile = async (
   );
 };
 
+const generateContextDataFile = async (contextData: Record<string, any>) => {
+  fs.writeFileSync(`${POLY_LIB_PATH}/context-data.json`, JSON.stringify(contextData, null, 2));
+};
+
 const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
   const contextData = {} as Record<string, any>;
 
   functions.forEach((func) => {
-    const contextFunctionName = `${func.context || 'default'}.${func.name}`;
-    set(contextData, contextFunctionName, {
+    const path = func.context ? `${func.context}.${func.name}` : func.name;
+    set(contextData, path, {
       ...func,
       type: 'function',
       name: func.name.split('.').pop(),
+      arguments: func.arguments.map((arg) => ({
+        ...arg,
+        name: toCamelCase(arg.name),
+      })),
     });
   });
   webhookHandles.forEach((handle) => {
-    const contextFunctionName = `${handle.context || 'default'}.${handle.name}`;
-    set(contextData, contextFunctionName, {
+    const path = handle.context ? `${handle.context}.${handle.name}` : handle.name;
+    set(contextData, path, {
       ...handle,
       type: 'webhookHandle',
       name: handle.name.split('.').pop(),

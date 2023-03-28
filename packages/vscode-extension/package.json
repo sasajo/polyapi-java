@@ -3,7 +3,7 @@
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant for VS Code",
   "icon": "resources/poly-logo.png",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "Poly API Corp",
   "engines": {
     "vscode": "^1.75.0"
@@ -32,7 +32,7 @@
     "commands": [
       {
         "command": "poly.copySelection",
-        "title": "Copy"
+        "title": "Copy selection to Poly"
       },
       {
         "command": "poly.focusMessageInput",
@@ -70,11 +70,28 @@
       "poly-view-container": [
         {
           "type": "webview",
-          "id": "poly.chat-view",
-          "name": "Chat"
+          "id": "poly.ai-view",
+          "name": "AI"
+        },
+        {
+          "type": "tree",
+          "id": "poly.library-index-view",
+          "name": "Library",
+          "when": "polyLibraryInstalled == true"
+        },
+        {
+          "id": "poly.library-info",
+          "name": "Library",
+          "when": "polyLibraryInstalled == false"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "poly.library-info",
+        "contents": "No Poly library present.\nTo install the Poly library:\n1. Open a terminal\n2. Run `npm install polyapi`\n3. Run `npx poly generate` to generate code.\n\nMore information about usage can be found in node_modules/polyapi/README.md after the installation."
+      }
+    ],
     "keybindings": [
       {
         "command": "poly.focusMessageInput",

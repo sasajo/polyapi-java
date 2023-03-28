@@ -1,3 +1,6 @@
+### 0.1.7
+* Added library index tree
+
 ### 0.1.6
 * Fixed issue with Poly not showing when no workspace is open
 * Updated auto restart of TS server
