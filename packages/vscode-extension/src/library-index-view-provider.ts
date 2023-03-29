@@ -88,8 +88,7 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
         vscode.env.clipboard.writeText(`${parentPath}.${data.name}(data => {\n\n});`);
         break;
       default:
-        console.log('%c ', 'background: yellow; color: black', item);
-        vscode.env.clipboard.writeText(`await ${parentPath}.${label}.`);
+        vscode.env.clipboard.writeText(`${parentPath}.${label}`);
         break;
     }
     vscode.window.showInformationMessage('Copied');

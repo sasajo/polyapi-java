@@ -1,3 +1,7 @@
+### 0.1.9
+* Updated icon for library index tree
+* Updated copied text for context
+
 ### 0.1.8
 * Some library index tree related improvements
 
