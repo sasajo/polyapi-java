@@ -87,7 +87,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         type: 'addResponseTexts',
         value: [{
           type: 'error',
-          value: error.message,
+          value: error.response?.data?.message || error.message,
         }],
       });
     }
@@ -112,7 +112,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       }, {
         headers: {
           'X-PolyApiKey': apiKey,
-        } as RawAxiosRequestHeaders
+        } as RawAxiosRequestHeaders,
       });
     } catch (error) {
       console.error(error);

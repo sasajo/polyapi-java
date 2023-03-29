@@ -1,3 +1,6 @@
+### 0.1.10
+* Updated error message from Poly chat
+
 ### 0.1.9
 * Updated icon for library index tree
 * Updated copied text for context
