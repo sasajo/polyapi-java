@@ -4,7 +4,8 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import { CustomFunction, UrlFunction, Prisma, User, SystemPrompt } from '@prisma/client';
+import merge from 'lodash/merge';
+import { CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentsMetadata,
@@ -259,7 +260,8 @@ export class FunctionService {
 
   private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata): FunctionArgument {
     return {
-      name: argument,
+      key: argument,
+      name: argumentsMetadata[argument]?.name || argument,
       type: argumentsMetadata[argument]?.type || 'string',
       payload: argumentsMetadata[argument]?.payload || false,
     };
@@ -425,7 +427,7 @@ export class FunctionService {
         return {};
       }
       return payloadArgs.reduce(
-        (result, arg) => Object.assign(result, { [arg.name]: normalizeArg(payload[toCamelCase(arg.name)]) }),
+        (result, arg) => Object.assign(result, { [arg.key]: normalizeArg(payload[toCamelCase(arg.name)]) }),
         {},
       );
     };
@@ -434,7 +436,7 @@ export class FunctionService {
       ...functionArgs
         .filter((arg) => !arg.payload)
         .reduce(
-          (result, arg, index) => Object.assign(result, { [arg.name]: normalizeArg(args[index]) }),
+          (result, arg, index) => Object.assign(result, { [arg.key]: normalizeArg(args[index]) }),
           {},
         ),
       ...getPayloadArgs(),
@@ -595,6 +597,18 @@ export class FunctionService {
       );
       this.logger.debug(`Generated response type:\n${responseType}`);
     }
+    argumentsMetadata = this.resolveArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
+
+    const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getArguments({
+      ...urlFunction,
+      argumentsMetadata: JSON.stringify(argumentsMetadata),
+    }));
+    if (duplicatedArgumentName) {
+      throw new HttpException(
+        `Function has duplicated arguments: ${duplicatedArgumentName}`,
+        HttpStatus.CONFLICT,
+      );
+    }
 
     this.logger.debug(`Updating URL function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`);
     return this.prisma.urlFunction.update({
@@ -605,7 +619,7 @@ export class FunctionService {
         name: name || urlFunction.name,
         context: context == null ? urlFunction.context : context,
         description: description == null ? urlFunction.description : description,
-        argumentsMetadata: JSON.stringify(this.resolveArgumentTypes(urlFunction.argumentsMetadata, argumentsMetadata)),
+        argumentsMetadata: JSON.stringify(argumentsMetadata),
         responseType,
       },
     });
@@ -814,6 +828,7 @@ export class FunctionService {
                 if (ts.isFunctionDeclaration(node)) {
                   if (node.name?.getText() === name) {
                     functionArguments = node.parameters.map((param) => ({
+                      key: param.name.getText(),
                       name: param.name.getText(),
                       type: param.type?.getText() || 'any',
                     }));
@@ -882,11 +897,28 @@ export class FunctionService {
     }
   }
 
-  private resolveArgumentTypes(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
-    return {
-      ...JSON.parse(argumentsMetadata || '{}'),
-      ...updatedArgumentsMetadata,
+  private resolveArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
+    const resolvedArgumentsMetadata: ArgumentsMetadata = merge(
+      JSON.parse(argumentsMetadata || '{}'),
+      updatedArgumentsMetadata,
+    );
+    const checkNameDuplicates = () => {
+      const names = new Set<string>();
+      Object.entries(resolvedArgumentsMetadata).forEach(([key, data]) => {
+        const name = toCamelCase(data.name || key);
+        if (names.has(name)) {
+          throw new HttpException(
+            `Duplicate argument name ${name} in function arguments. Please use unique names.`,
+            HttpStatus.CONFLICT,
+          );
+        }
+        names.add(name);
+      });
     };
+
+    checkNameDuplicates();
+
+    return resolvedArgumentsMetadata;
   }
 
   async setSystemPrompt(userId: number, prompt: string): Promise<SystemPrompt> {
@@ -913,5 +945,18 @@ export class FunctionService {
         content: prompt,
       },
     });
+  }
+
+  private findDuplicatedArgumentName(args: FunctionArgument[]) {
+    const names = new Set<string>();
+
+    for (const argument of args) {
+      const name = toCamelCase(argument.name);
+      if (names.has(name)) {
+        return name;
+      }
+      names.add(name);
+    }
+    return null;
   }
 }

@@ -31,7 +31,8 @@ export type ArgumentType = string;
 
 export type ArgumentsMetadata = {
   [key: string]: {
-    type: ArgumentType;
-    payload: boolean;
+    name?: string;
+    type?: ArgumentType;
+    payload?: boolean;
   };
 };

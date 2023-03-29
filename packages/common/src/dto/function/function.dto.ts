@@ -1,6 +1,7 @@
 import { ArgumentType } from '../..';
 
 export interface FunctionArgument {
+  key: string;
   name: string;
   type: ArgumentType;
   payload?: boolean;
