@@ -52,7 +52,7 @@ export class FunctionController {
     const customFunctions = await this.service.getCustomFunctionsByUser(req.user, contexts, names, ids);
 
     if (useDefinitionDto) {
-      return urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))
+      return (await Promise.all(urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))))
         .concat(...customFunctions.map(customFunction => this.service.customFunctionToDefinitionDto(customFunction)));
     } else {
       return urlFunctions.map(urlFunction => this.service.urlFunctionToDto(urlFunction))

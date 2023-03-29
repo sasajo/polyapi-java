@@ -12,7 +12,6 @@ FUNC: FunctionDto = {
         {"name": "location", "type": "string", "payload": True},
         {"name": "GAPIKey", "type": "string", "payload": False},
     ],
-    "returnType": None,
 }
 
 

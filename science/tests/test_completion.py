@@ -19,7 +19,6 @@ GET_FUNCTIONS = [
             {"name": "locationId", "type": "string", "payload": False},
             {"name": "AAPIKey", "type": "string", "payload": False},
         ],
-        "returnType": None,
     },
     {
         "id": "60062c03-dcfd-437d-832c-6cba9543f683",
@@ -30,7 +29,6 @@ GET_FUNCTIONS = [
             {"name": "location", "type": "string", "payload": True},
             {"name": "GAPIKey", "type": "string", "payload": False},
         ],
-        "returnType": None,
     },
 ]
 

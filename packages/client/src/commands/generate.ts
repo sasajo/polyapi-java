@@ -185,12 +185,12 @@ const generateTSContextDeclarationFile = async (
     returnType: func.customCode
       ? func.returnType
       : func.returnType
-      ? `Promise<${toPascalCase(`${context}.${func.name}`)}Type['content']>`
+      ? `Promise<${func.returnTypeName || `${toPascalCase(`${context.path}.${func.name}`)}Type`}['content']>`
       : 'Promise<any>',
   });
   const toWebhookHandleData = (handle: WebhookHandleDefinitionDto) => ({
     ...handle,
-    eventType: handle.eventType ? `${toPascalCase(`${context}.${handle.name}`)}EventType['content']` : 'any',
+    eventType: handle.eventType ? `${toPascalCase(`${context.path}.${handle.name}`)}EventType['content']` : 'any',
   });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${context.fileName}`,

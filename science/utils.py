@@ -10,7 +10,6 @@ class FunctionDto(TypedDict):
     context: str
     description: str
     arguments: List[Dict[str, str]]
-    returnType: Optional[str]
 
 
 class WebhookDto(TypedDict):

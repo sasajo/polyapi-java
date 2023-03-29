@@ -36,7 +36,6 @@ model UrlFunction {
   body              String?
   auth              String?
   response          String?
-  responseType      String?        @map("response_type")
   argumentsMetadata String?        @map("arguments_metadata")
   trained           Boolean        @default(false)
   publicId          String         @unique @default(uuid()) @map("public_id")

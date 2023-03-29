@@ -246,7 +246,6 @@ export class FunctionService {
           description,
           payload,
           response: JSON.stringify(response),
-          responseType,
         },
       });
     } catch (e) {
@@ -290,14 +289,22 @@ export class FunctionService {
     };
   }
 
-  urlFunctionToDefinitionDto(urlFunction: UrlFunction): FunctionDefinitionDto {
+  async urlFunctionToDefinitionDto(urlFunction: UrlFunction): Promise<FunctionDefinitionDto> {
+    const returnTypeName = toPascalCase(`${urlFunction.context}.${urlFunction.name}Type`);
+    const returnType = await this.commonService.generateContentType(
+      returnTypeName,
+      JSON.parse(urlFunction.response),
+      urlFunction.payload,
+    );
+
     return {
       id: urlFunction.publicId,
       name: urlFunction.name,
       description: urlFunction.description,
       context: urlFunction.context,
       arguments: this.getArguments(urlFunction),
-      returnType: urlFunction.responseType,
+      returnTypeName,
+      returnType,
     };
   }
 
@@ -588,15 +595,6 @@ export class FunctionService {
       }
     }
 
-    let responseType = null;
-    if (urlFunction.response) {
-      responseType = await this.commonService.generateContentType(
-        toPascalCase(`${context} ${name} Type`),
-        JSON.parse(urlFunction.response),
-        urlFunction.payload,
-      );
-      this.logger.debug(`Generated response type:\n${responseType}`);
-    }
     argumentsMetadata = this.resolveArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
 
     const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getArguments({
@@ -620,7 +618,6 @@ export class FunctionService {
         context: context == null ? urlFunction.context : context,
         description: description == null ? urlFunction.description : description,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
-        responseType,
       },
     });
   }

@@ -12,9 +12,10 @@ export class CommonService {
 
     content = this.getPathContent(content, path);
 
+    const name = 'TemporaryUniqueHardToGuessType';
     const jsonInput = jsonInputForTargetLanguage('ts');
     await jsonInput.addSource({
-      name: typeName,
+      name,
       samples: [JSON.stringify({
         content,
       })],
@@ -32,6 +33,7 @@ export class CommonService {
     });
 
     return lines
+      .map(line => line.replace(name, typeName))
       .map(line => line.replace('content: Content', `content: ${typeName}Content`))
       .map(line => line.replace('export interface', 'interface'))
       .map(line => line.replace('interface Content', `interface ${typeName}Content`))
