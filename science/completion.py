@@ -333,9 +333,12 @@ def get_completion_prompt_messages(question: str) -> List[MessageDict]:
     webhook_message = get_webhook_message_dict(keywords=keywords)
 
     rv = [
-        MessageDict(role="system", content="Include argument types. Be concise."),
+        # from the OpenAI docs:
+        # gpt-3.5-turbo-0301 does not always pay strong attention to system messages. Future models will be trained to pay stronger attention to system messages.
+        # let's try user!
+        MessageDict(role="user", content="Only include actual payload elements and function arguments in the example. Be concise."),
         MessageDict(
-            role="assistant",
+            role="user",
             content="To import the Poly API library, use `import poly from 'polyapi';`",
         ),
     ]
