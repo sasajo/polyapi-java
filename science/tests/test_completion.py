@@ -6,6 +6,7 @@ from completion import (
     get_conversations_for_user,
     get_function_message_dict,
     get_webhook_message_dict,
+    get_completion_prompt_messages,
 )
 from .testing import DbTestCase
 
@@ -84,7 +85,6 @@ class T(DbTestCase):
         self.assertFalse(hit_token_limit)
         self.assertTrue(answer.startswith("We weren't able "))
         self.assertTrue(answer.endswith(content))
-        print(answer)
 
     @patch("completion.requests.get")
     def test_get_function_message_dict(self, requests_get: Mock) -> None:
@@ -128,3 +128,12 @@ class T(DbTestCase):
         self.assertTrue(d["content"].startswith("Here are some event handlers"))
         self.assertIn("poly.shipping.packageDelivered", d["content"])
         self.assertEqual(d["webhook_ids"], ["4005e0b5-6071-4d67-96a5-405b4d09492f"])
+
+    @patch("completion.requests.get")
+    def test_get_completion_prompt_messages(self, requests_get: Mock) -> None:
+        requests_get.return_value = Mock(status_code=200, json=lambda: GET_FUNCTIONS)
+
+        messages, match_count = get_completion_prompt_messages("foobar")
+        self.assertEqual(requests_get.call_count, 2)
+        self.assertEqual(match_count, 0)
+        self.assertEqual(len(messages), 4)

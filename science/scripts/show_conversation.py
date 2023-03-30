@@ -11,6 +11,8 @@ def show_conversation(user_id: int):
         )
     )
     for msg in msgs:
+        print(msg.role.upper())
+        print()
         print(msg.content)
         print()
 
