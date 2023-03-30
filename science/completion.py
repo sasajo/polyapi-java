@@ -104,7 +104,9 @@ def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessa
     )
 
 
-def keywords_similar(keywords: Optional[List[str]], func: Union[FunctionDto, WebhookDto]):
+def keywords_similar(
+    keywords: Optional[List[str]], func: Union[FunctionDto, WebhookDto]
+):
     if not keywords:
         # when we have no keywords, just assume everything matches for now
         return True
@@ -112,11 +114,11 @@ def keywords_similar(keywords: Optional[List[str]], func: Union[FunctionDto, Web
     keyword_str = " ".join(keywords).lower()
     func_parts = []
     if func.get("context"):
-        func_parts.append(func['context'])
+        func_parts.append(func["context"])
     if func.get("name"):
-        func_parts.append(func['name'])
+        func_parts.append(func["name"])
     if func.get("description"):
-        func_parts.append(func['description'])
+        func_parts.append(func["description"])
 
     func_str = " ".join(func_parts).lower()
     ratio = fuzz.ratio(keyword_str, func_str)
@@ -128,6 +130,7 @@ def log_matches(question: str, type: str, matches: int, total: int):
 
 
 def get_function_message_dict(
+    *,
     already_defined: Optional[Set[str]] = None,
     keywords: Optional[List[str]] = None,
 ) -> Optional[MessageDict]:
@@ -168,6 +171,7 @@ def get_function_message_dict(
 
 
 def get_webhook_message_dict(
+    *,
     already_defined: Optional[Set[str]] = None,
     keywords: Optional[List[str]] = None,
 ) -> Optional[MessageDict]:
@@ -263,22 +267,35 @@ def get_conversation_answer(
     return answer
 
 
-def get_new_conversation_messages(old_messages: List[ConversationMessage], question: str) -> List[MessageDict]:
-    """ get all the new messages that should be added to an existing conversation
-    """
+def get_new_conversation_messages(
+    old_messages: List[ConversationMessage], question: str
+) -> List[MessageDict]:
+    """get all the new messages that should be added to an existing conversation"""
     rv = []
 
     old_msg_ids = [m.id for m in old_messages]
 
     db = get_client()
-    old_function_ids = {f.functionPublicId for f in db.functiondefined.find_many(where={"messageId": {"in": old_msg_ids}})}
-    old_webhook_ids = {w.webhookPublicId for w in db.webhookdefined.find_many(where={"messageId": {"in": old_msg_ids}})}
+    old_function_ids = {
+        f.functionPublicId
+        for f in db.functiondefined.find_many(where={"messageId": {"in": old_msg_ids}})
+    }
+    old_webhook_ids = {
+        w.webhookPublicId
+        for w in db.webhookdefined.find_many(where={"messageId": {"in": old_msg_ids}})
+    }
 
-    new_functions = get_function_message_dict(old_function_ids)
+    keywords = extract_keywords(question)
+
+    new_functions = get_function_message_dict(
+        already_defined=old_function_ids, keywords=keywords
+    )
     if new_functions:
         rv.append(new_functions)
 
-    new_webhooks = get_webhook_message_dict(old_webhook_ids)
+    new_webhooks = get_webhook_message_dict(
+        already_defined=old_webhook_ids, keywords=keywords
+    )
     if new_webhooks:
         rv.append(new_webhooks)
 
@@ -288,8 +305,7 @@ def get_new_conversation_messages(old_messages: List[ConversationMessage], quest
 
 
 def get_chat_completion(messages: List[MessageDict]) -> Dict:
-    """ send the messages to OpenAI and get a response
-    """
+    """send the messages to OpenAI and get a response"""
     stripped = copy.deepcopy(messages)
     for s in stripped:
         # pop off all the data we use internally before sending the messages to OpenAI
