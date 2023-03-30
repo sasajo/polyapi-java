@@ -8,10 +8,6 @@ from prisma.models import ConversationMessage, SystemPrompt
 from utils import log
 from thefuzz import fuzz
 
-# how similar does a function or webhook have to be to be considered a match?
-# scale is 0-100
-SIMILARITY_RATIO = 40
-
 # TODO change to relative imports
 from constants import FINE_TUNE_MODEL, NODE_API_URL
 
@@ -24,6 +20,10 @@ from utils import (
     func_path,
     store_message,
 )
+
+# how similar does a function or webhook have to be to be considered a match?
+# scale is 0-100
+SIMILARITY_RATIO = 40
 
 
 # There are three main steps in our completion pipeline:
@@ -59,7 +59,11 @@ ADVERBS = {
 
 def question_processing(question: str) -> str:
     return "From the Poly API library, " + question
-    # return question
+
+
+def question_unprocessing(question: str) -> str:
+    # the inverse of question processing!
+    return question.replace("From the Poly API library, ", "", 1)
 
 
 def answer_processing(from_openai: str) -> str:
@@ -84,7 +88,6 @@ def answer_processing(from_openai: str) -> str:
 
 def get_function_completion_answer(user_id: Optional[int], question: str) -> str:
     question = question_processing(question)
-
     messages = get_conversations_for_user(user_id)
     if messages:
         return get_conversation_answer(user_id, messages, question)
@@ -111,7 +114,12 @@ def keywords_similar(
         # when we have no keywords, just assume everything matches for now
         return True
 
-    keyword_str = " ".join(keywords).lower()
+    keyword_str = " ".join(keywords)
+    # HACK for now keywords and question are identical
+    # let's remove "From the Poly API library, " from the matching
+    keyword_string = question_unprocessing(keyword_str)
+    keyword_string = keyword_string.lower()
+
     func_parts = []
     if func.get("context"):
         func_parts.append(func["context"])
@@ -329,10 +337,15 @@ def get_completion_prompt_messages(question: str) -> List[MessageDict]:
             role="assistant",
             content="To import the Poly API library, use `import poly from 'polyapi';`",
         ),
-        function_message,
-        webhook_message,
-        MessageDict(role="user", content=question),
     ]
+
+    if function_message:
+        rv.append(function_message)
+
+    if webhook_message:
+        rv.append(webhook_message)
+
+    rv.append(MessageDict(role="user", content=question))
 
     system_prompt = get_system_prompt()
     if system_prompt and system_prompt.content:
