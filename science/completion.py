@@ -23,7 +23,7 @@ from utils import (
 
 # how similar does a function or webhook have to be to be considered a match?
 # scale is 0-100
-SIMILARITY_RATIO = 40
+SIMILARITY_RATIO = 35
 
 
 # There are three main steps in our completion pipeline:
@@ -107,6 +107,11 @@ def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessa
     )
 
 
+def get_keyword_string(keywords: List[str]) -> str:
+    keyword_str = " ".join(keywords)
+    return keyword_str.lower()
+
+
 def keywords_similar(
     keywords: Optional[List[str]], func: Union[FunctionDto, WebhookDto]
 ):
@@ -114,11 +119,7 @@ def keywords_similar(
         # when we have no keywords, just assume everything matches for now
         return True
 
-    keyword_str = " ".join(keywords)
-    # HACK for now keywords and question are identical
-    # let's remove "From the Poly API library, " from the matching
-    keyword_string = question_unprocessing(keyword_str)
-    keyword_string = keyword_string.lower()
+    keyword_str = get_keyword_string(keywords)
 
     func_parts = []
     if func.get("context"):
@@ -167,7 +168,7 @@ def get_function_message_dict(
             public_ids.append(func["id"])
 
     if keywords:
-        log_matches(" ".join(keywords), "functions", len(public_ids), len(funcs))
+        log_matches(get_keyword_string(keywords), "functions", len(public_ids), len(funcs))
 
     if not public_ids:
         # everything already defined!
@@ -209,7 +210,7 @@ def get_webhook_message_dict(
             public_ids.append(webhook["id"])
 
     if keywords:
-        log_matches(" ".join(keywords), "functions", len(public_ids), len(webhooks))
+        log_matches(get_keyword_string(keywords), "functions", len(public_ids), len(webhooks))
 
     if not public_ids:
         # all the webhooks are already defined!
@@ -377,4 +378,5 @@ def get_completion_answer(user_id: Optional[int], question: str) -> str:
 
 
 def extract_keywords(question: str) -> List[str]:
+    question = question_unprocessing(question)
     return question.split(" ")
