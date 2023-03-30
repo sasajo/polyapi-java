@@ -1,14 +1,15 @@
 import vscode from 'vscode';
-import chokidar, { FSWatcher } from 'chokidar';
 import fs, { Stats } from 'fs';
 
 import { polyDataChanged } from './events';
+
+const CHECK_INTERVAL = 5000;
 
 let libraryInstalledCheckerTimeoutID: NodeJS.Timeout;
 
 type Info = {
   timeoutID: NodeJS.Timeout;
-  watcher: FSWatcher;
+  fileStats?: Stats;
 };
 
 const watchedWorkspaceInfos = new Map<vscode.WorkspaceFolder, Info>();
@@ -21,7 +22,7 @@ const checkForLibraryInstalled = () => {
     }
   });
   if (!installed) {
-    libraryInstalledCheckerTimeoutID = setTimeout(() => checkForLibraryInstalled(), 5000);
+    libraryInstalledCheckerTimeoutID = setTimeout(() => checkForLibraryInstalled(), CHECK_INTERVAL);
   }
   vscode.commands.executeCommand('setContext', 'polyLibraryInstalled', installed);
 };
@@ -45,44 +46,33 @@ export const start = () => {
   };
 };
 
-const getPolyPath = (folder: vscode.WorkspaceFolder) => `${folder.uri.fsPath}/node_modules/.poly`;
+const getPolyDataPath = (folder: vscode.WorkspaceFolder) => `${folder.uri.fsPath}/node_modules/.poly/lib/context-data.json`;
 const getPolyData = (folder: vscode.WorkspaceFolder) => {
-  const polyFunctionsFilePath = `${folder.uri.fsPath}/node_modules/.poly/lib/context-data.json`;
-  if (!fs.existsSync(polyFunctionsFilePath)) {
+  const polyDataPath = getPolyDataPath(folder);
+  if (!fs.existsSync(polyDataPath)) {
     return {};
   }
-  return JSON.parse(fs.readFileSync(polyFunctionsFilePath, 'utf8'));
+  return JSON.parse(fs.readFileSync(polyDataPath, 'utf8'));
 };
 
 const watchWorkspace = (folder: vscode.WorkspaceFolder) => {
-  const polyPath = getPolyPath(folder);
+  const polyDataPath = getPolyDataPath(folder);
+  let stats: Stats;
 
-  const watchAfterDelay = () => {
-    const timeoutID = setTimeout(() => watchWorkspace(folder), 5000);
-    watchedWorkspaceInfos.set(folder, { timeoutID, watcher: null });
-  };
-
-  if (fs.existsSync(polyPath)) {
-    console.log('POLY: Poly path found, watching for changes...');
-
-    const watcher = chokidar.watch(polyPath)
-      .on('all', (event, path) => {
-        if (path.endsWith('lib/context-data.json')) {
-          if (event === 'unlink') {
-            void watcher.close();
-            polyDataChanged({});
-            watchWorkspace(folder);
-          } else {
-            console.log('POLY: Poly library changed, sending event...');
-            polyDataChanged(getPolyData(folder));
-          }
-        }
-      });
-    watchedWorkspaceInfos.set(folder, { timeoutID: null, watcher });
-  } else {
-    console.log('POLY: Poly path not found, waiting...');
-    watchAfterDelay();
+  if (fs.existsSync(polyDataPath)) {
+    stats = fs.statSync(polyDataPath);
+    if (watchedWorkspaceInfos.get(folder)?.fileStats?.mtimeMs !== stats.mtimeMs) {
+      console.log('POLY: Poly library changed, sending event...');
+      watchedWorkspaceInfos.set(folder, { timeoutID: null, fileStats: stats });
+      polyDataChanged(getPolyData(folder));
+    }
+  } else if (watchedWorkspaceInfos.get(folder)?.fileStats) {
+    console.log('POLY: Poly library removed, sending event...');
+    polyDataChanged({});
   }
+
+  const timeoutID = setTimeout(() => watchWorkspace(folder), CHECK_INTERVAL);
+  watchedWorkspaceInfos.set(folder, { timeoutID, fileStats: stats });
 };
 
 const unwatchWorkspace = (folder: vscode.WorkspaceFolder) => {
@@ -90,9 +80,6 @@ const unwatchWorkspace = (folder: vscode.WorkspaceFolder) => {
   if (info) {
     if (info.timeoutID) {
       clearTimeout(info.timeoutID);
-    }
-    if (info.watcher) {
-      void info.watcher.close();
     }
     watchedWorkspaceInfos.delete(folder);
   }

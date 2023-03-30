@@ -1,3 +1,6 @@
+### 0.1.12
+* Using polling instead of event listening for library data changes 
+
 ### 0.1.11
 * Improved Poly library change listener
 
