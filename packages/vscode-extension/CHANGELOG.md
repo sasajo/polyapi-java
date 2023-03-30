@@ -1,3 +1,6 @@
+### 0.1.11
+* Improved Poly library change listener
+
 ### 0.1.10
 * Updated error message from Poly chat
 
