@@ -2,9 +2,15 @@ import copy
 import requests
 import openai
 import flask
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Union
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
+from utils import log
+from thefuzz import fuzz
+
+# how similar does a function or webhook have to be to be considered a match?
+# scale is 0-100
+SIMILARITY_RATIO = 40
 
 # TODO change to relative imports
 from constants import FINE_TUNE_MODEL, NODE_API_URL
@@ -98,8 +104,32 @@ def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessa
     )
 
 
+def keywords_similar(keywords: Optional[List[str]], func: Union[FunctionDto, WebhookDto]):
+    if not keywords:
+        # when we have no keywords, just assume everything matches for now
+        return True
+
+    keyword_str = " ".join(keywords).lower()
+    func_parts = []
+    if func.get("context"):
+        func_parts.append(func['context'])
+    if func.get("name"):
+        func_parts.append(func['name'])
+    if func.get("description"):
+        func_parts.append(func['description'])
+
+    func_str = " ".join(func_parts).lower()
+    ratio = fuzz.ratio(keyword_str, func_str)
+    return ratio > SIMILARITY_RATIO
+
+
+def log_matches(question: str, type: str, matches: int, total: int):
+    log(f"{type}: {matches} out of {total} matched: {question}")
+
+
 def get_function_message_dict(
     already_defined: Optional[Set[str]] = None,
+    keywords: Optional[List[str]] = None,
 ) -> Optional[MessageDict]:
     """get all functions (if any) that are not yet defined in the prompt
     :param already_defined: a list of function public ids that are already defined
@@ -121,14 +151,15 @@ def get_function_message_dict(
 
     public_ids = []
     for func in funcs:
-        if func["id"] in already_defined:
-            continue
+        if func["id"] not in already_defined and keywords_similar(keywords, func):
+            parts.append(f"// {func['description']}\n{func_path_with_args(func)}")
+            public_ids.append(func["id"])
 
-        parts.append(f"// {func['description']}\n{func_path_with_args(func)}")
-        public_ids.append(func["id"])
+    if keywords:
+        log_matches(" ".join(keywords), "functions", len(public_ids), len(funcs))
 
     if not public_ids:
-        # all the webhooks are already defined!
+        # everything already defined!
         # let's go ahead and skip
         return None
 
@@ -138,6 +169,7 @@ def get_function_message_dict(
 
 def get_webhook_message_dict(
     already_defined: Optional[Set[str]] = None,
+    keywords: Optional[List[str]] = None,
 ) -> Optional[MessageDict]:
     """get all webhooks (if any) that are not yet defined in the prompt
     :param already_defined: a list of webhook public ids that are already defined
@@ -160,11 +192,12 @@ def get_webhook_message_dict(
     webhooks: List[WebhookDto] = resp.json()
 
     for webhook in webhooks:
-        if webhook["id"] in already_defined:
-            continue
+        if webhook["id"] not in already_defined and keywords_similar(keywords, webhook):
+            parts.append(webhook_prompt(webhook))
+            public_ids.append(webhook["id"])
 
-        parts.append(webhook_prompt(webhook))
-        public_ids.append(webhook["id"])
+    if keywords:
+        log_matches(" ".join(keywords), "functions", len(public_ids), len(webhooks))
 
     if not public_ids:
         # all the webhooks are already defined!
@@ -270,8 +303,9 @@ def get_chat_completion(messages: List[MessageDict]) -> Dict:
 
 
 def get_completion_prompt_messages(question: str) -> List[MessageDict]:
-    function_message = get_function_message_dict()
-    webhook_message = get_webhook_message_dict()
+    keywords = extract_keywords(question)
+    function_message = get_function_message_dict(keywords=keywords)
+    webhook_message = get_webhook_message_dict(keywords=keywords)
 
     rv = [
         MessageDict(role="system", content="Include argument types. Be concise."),
@@ -311,3 +345,7 @@ def get_completion_answer(user_id: Optional[int], question: str) -> str:
     store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer
+
+
+def extract_keywords(question: str) -> List[str]:
+    return question.split(" ")

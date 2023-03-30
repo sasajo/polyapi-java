@@ -83,6 +83,21 @@ class T(DbTestCase):
         )
 
     @patch("completion.requests.get")
+    def test_get_function_message_dict_keywords(self, requests_get: Mock) -> None:
+        requests_get.return_value = Mock(status_code=200, json=lambda: GET_FUNCTIONS)
+
+        keywords = "how do I find the x and y coordinates of a Google Map?".split(" ")
+        d = get_function_message_dict(keywords=keywords)
+        self.assertEqual(requests_get.call_count, 1)
+        self.assertIn("Here are some functions", d['content'])
+        self.assertEqual(
+            d['function_ids'],
+            [
+                "60062c03-dcfd-437d-832c-6cba9543f683",
+            ],
+        )
+
+    @patch("completion.requests.get")
     def test_get_webhook_message_dict(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: GET_WEBHOOKS)
 

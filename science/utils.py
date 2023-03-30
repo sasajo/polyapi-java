@@ -6,16 +6,16 @@ from prisma.models import ConversationMessage, UrlFunction
 
 class FunctionDto(TypedDict):
     id: str
-    name: str
     context: str
+    name: str
     description: str
     arguments: List[Dict[str, str]]
 
 
 class WebhookDto(TypedDict):
     id: str
-    name: str
     context: str
+    name: str
     urls: List[str]
 
 
