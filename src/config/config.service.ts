@@ -59,4 +59,8 @@ export class ConfigService {
   get adminApiKey(): string {
     return this.get('ADMIN_API_KEY');
   }
+
+  get functionArgsParameterLimit(): number {
+    return Number(this.get('FUNCTION_ARGS_PARAMETER_LIMIT', 5));
+  }
 }

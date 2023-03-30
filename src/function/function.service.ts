@@ -27,7 +27,13 @@ import { AiService } from 'ai/ai.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
-mustache.escape = (text) => text.replace(/"/g, `\\"`);
+mustache.escape = (text) => {
+  if (typeof text === 'string') {
+    return text.replace(/"/g, `\\"`);
+  } else {
+    return text;
+  }
+};
 
 @Injectable()
 export class FunctionService {
@@ -235,19 +241,6 @@ export class FunctionService {
         payload,
       );
       this.logger.debug(`Generated response type:\n${responseType}`);
-
-      await this.prisma.urlFunction.update({
-        where: {
-          id,
-        },
-        data: {
-          name: await this.resolveFunctionName(user, name, context, false, true, [urlFunction.id]),
-          context,
-          description,
-          payload,
-          response: JSON.stringify(response),
-        },
-      });
     } catch (e) {
       if (e instanceof PathError) {
         throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
@@ -255,6 +248,40 @@ export class FunctionService {
         throw e;
       }
     }
+
+    const getArgumentsMetadata = () => {
+      if (urlFunction.argumentsMetadata) {
+        return urlFunction.argumentsMetadata;
+      }
+
+      const functionArgs = this.getArguments(urlFunction);
+      if (functionArgs.length <= this.config.functionArgsParameterLimit) {
+        return null;
+      }
+
+      this.logger.debug(`Generating arguments metadata for function ${urlFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`);
+      const metadata: ArgumentsMetadata = {};
+      functionArgs.forEach(arg => {
+        metadata[arg.key] = {
+          payload: true,
+        };
+      });
+      return JSON.stringify(metadata);
+    };
+
+    await this.prisma.urlFunction.update({
+      where: {
+        id,
+      },
+      data: {
+        name: await this.resolveFunctionName(user, name, context, false, true, [urlFunction.id]),
+        context,
+        description,
+        payload,
+        response: JSON.stringify(response),
+        argumentsMetadata: getArgumentsMetadata(),
+      },
+    });
   }
 
   private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata): FunctionArgument {
@@ -348,7 +375,6 @@ export class FunctionService {
     const method = urlFunction.method;
     const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
     const text = mustache.render(urlFunction.body, argumentsMap);
-    console.log('%c TEXT', 'background: yellow; color: black', text);
     const body = JSON.parse(text);
     const params = {
       ...this.getAuthorizationQueryParams(auth),
