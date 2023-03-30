@@ -12,9 +12,9 @@ from .testing import DbTestCase
 GET_FUNCTIONS = [
     {
         "id": "f7588018-2364-4586-b60d-b08a285f1ea3",
-        "name": "getAccuweatherGetlocation",
+        "name": "accuweatherGetlocation",
         "context": "",
-        "description": "I am the description",
+        "description": "",
         "arguments": [
             {"name": "locationId", "type": "string", "payload": False},
             {"name": "AAPIKey", "type": "string", "payload": False},
@@ -69,16 +69,30 @@ class T(DbTestCase):
             "finish_reason": "stop",
             "index": 0,
         }
-        answer, hit_token_limit = answer_processing(choice)
+        answer, hit_token_limit = answer_processing(choice, 1)
         self.assertFalse(hit_token_limit)
         self.assertEqual(answer, NO_FUNCTION_ANSWER)
+
+    def test_answer_processing_no_matches(self) -> None:
+        content = "The capitol of Sweden is Stockholm."
+        choice = {
+            "message": {"role": "assistant", "content": content},
+            "finish_reason": "stop",
+            "index": 0,
+        }
+        answer, hit_token_limit = answer_processing(choice, 0)
+        self.assertFalse(hit_token_limit)
+        self.assertTrue(answer.startswith("We weren't able "))
+        self.assertTrue(answer.endswith(content))
+        print(answer)
 
     @patch("completion.requests.get")
     def test_get_function_message_dict(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: GET_FUNCTIONS)
 
-        d = get_function_message_dict()
+        d, match_count = get_function_message_dict()
         self.assertEqual(requests_get.call_count, 1)
+        self.assertEqual(match_count, 2)
         self.assertIn("Here are some functions", d["content"])
         self.assertEqual(
             d["function_ids"],
@@ -92,9 +106,10 @@ class T(DbTestCase):
     def test_get_function_message_dict_keywords(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: GET_FUNCTIONS)
 
-        keywords = "how do I find the x and y coordinates of a Google Map?".split(" ")
-        d = get_function_message_dict(keywords=keywords)
+        keywords = "how do I find the x and y coordinates of a Google Map?".lower()
+        d, match_count = get_function_message_dict(keywords=keywords)
         self.assertEqual(requests_get.call_count, 1)
+        self.assertEqual(match_count, 1)
         self.assertIn("Here are some functions", d["content"])
         self.assertEqual(
             d["function_ids"],
@@ -107,8 +122,9 @@ class T(DbTestCase):
     def test_get_webhook_message_dict(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: GET_WEBHOOKS)
 
-        d = get_webhook_message_dict()
+        d, match_count = get_webhook_message_dict()
         self.assertEqual(requests_get.call_count, 1)
+        self.assertEqual(match_count, 1)
         self.assertTrue(d["content"].startswith("Here are some event handlers"))
         self.assertIn("poly.shipping.packageDelivered", d["content"])
         self.assertEqual(d["webhook_ids"], ["4005e0b5-6071-4d67-96a5-405b4d09492f"])
