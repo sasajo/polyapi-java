@@ -50,8 +50,10 @@ def func_args(func: FunctionDto) -> Tuple[List[str], Dict[str, str]]:
 
 def func_path_with_args(func: FunctionDto) -> str:
     args, payload = func_args(func)
-    if payload:
+    if payload and args:
         return f"const payload = {json.dumps(payload)}\n{func_path(func)}({', '.join(args)}, payload)"
+    elif payload:
+        return f"const payload = {json.dumps(payload)}\n{func_path(func)}(payload)"
     else:
         return f"{func_path(func)}({', '.join(args)})"
 
