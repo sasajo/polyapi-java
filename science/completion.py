@@ -2,7 +2,7 @@ import copy
 import requests
 import openai
 import flask
-from typing import List, Dict, Optional, Set, Union
+from typing import List, Dict, Optional, Set, Union, Tuple
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
 from utils import ChatGptChoice, log
@@ -66,23 +66,22 @@ def question_unprocessing(question: str) -> str:
     return question.replace("From the Poly API library, ", "", 1)
 
 
-def answer_processing(user_id: int, choice: ChatGptChoice) -> str:
+def answer_processing(choice: ChatGptChoice) -> Tuple[str, bool]:
     content = choice['message']['content']
 
     if choice['finish_reason'] == 'length':
         # incomplete model output due to max_tokens parameter or token limi
         # let's append a message explaining to the user answer is incomplete
         content += "\n\nTOKEN LIMIT HIT\n\nPoly has hit the ChatGPT token limit for this conversation. Conversation reset. Please try again to see the full answer."
-        clear_conversation(user_id)
-        return content
+        return content, True
 
     moderation_answer = poly_moderation(content)
     if moderation_answer:
-        return moderation_answer
+        return moderation_answer, False
 
     # ok! if we make it here we don't detect any "bad answers" coming back
     # so we can just return what openai sent us
-    return content
+    return content, False
 
 
 def poly_moderation(content: str) -> str:
@@ -291,12 +290,16 @@ def get_conversation_answer(
         clear_conversation(user_id)
         return get_completion_answer(user_id, question)
 
-    answer = answer_processing(user_id, resp["choices"][0])
+    answer, hit_token_limit = answer_processing(resp["choices"][0])
 
-    # store
-    for message in new_messages:
-        store_message(user_id, message)
-    store_message(user_id, {"role": "assistant", "content": answer})
+    if hit_token_limit:
+        # if we hit the token limit, let's just clear the conversation and start over
+        clear_conversation(user_id)
+    else:
+        # store
+        for message in new_messages:
+            store_message(user_id, message)
+        store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer
 
@@ -393,14 +396,18 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 def get_completion_answer(user_id: int, question: str) -> str:
     messages = get_completion_prompt_messages(question)
     resp = get_chat_completion(messages)
-    answer = answer_processing(user_id, resp["choices"][0])
+    answer, hit_token_limit = answer_processing(resp["choices"][0])
 
-    for message in messages:
-        store_message(
-            user_id,
-            message,
-        )
-    store_message(user_id, {"role": "assistant", "content": answer})
+    if hit_token_limit:
+        # if we hit the token limit, let's just clear the conversation and start over
+        clear_conversation(user_id)
+    else:
+        for message in messages:
+            store_message(
+                user_id,
+                message,
+            )
+        store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer
 

@@ -63,15 +63,15 @@ class T(DbTestCase):
         self.assertEqual(messages, [msg])
 
     def test_answer_processing(self) -> None:
-        user = test_user_get_or_create()
         answer = "Unfortunately, the Poly API library doesn't have a function specifically for getting a list of draft orders in Shopify."
         choice = {
             "message": {"role": "assistant", "content": answer},
             "finish_reason": "stop",
             "index": 0,
         }
-        resp = answer_processing(user.id, choice)
-        self.assertEqual(resp, NO_FUNCTION_ANSWER)
+        answer, hit_token_limit = answer_processing(choice)
+        self.assertFalse(hit_token_limit)
+        self.assertEqual(answer, NO_FUNCTION_ANSWER)
 
     @patch("completion.requests.get")
     def test_get_function_message_dict(self, requests_get: Mock) -> None:
