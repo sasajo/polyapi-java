@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Tuple, TypedDict, Optional, Union
+from typing import Any, Dict, List, Tuple, TypedDict, Optional, Union, Literal
 from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
 
@@ -24,6 +24,12 @@ class MessageDict(TypedDict, total=False):
     content: str
     function_ids: List[str]  # not required
     webhook_ids: List[str]  # not required
+
+
+class ChatGptChoice(TypedDict):
+    message: MessageDict  # no function_ids or webhook_ids
+    finish_reason: Literal['stop', 'length', 'content_filter', None]
+    index: int
 
 
 # HACK should have better name

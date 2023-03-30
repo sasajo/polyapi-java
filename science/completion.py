@@ -5,7 +5,7 @@ import flask
 from typing import List, Dict, Optional, Set, Union
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
-from utils import log
+from utils import ChatGptChoice, log
 from thefuzz import fuzz
 
 # TODO change to relative imports
@@ -66,8 +66,34 @@ def question_unprocessing(question: str) -> str:
     return question.replace("From the Poly API library, ", "", 1)
 
 
-def answer_processing(from_openai: str) -> str:
-    lowered = from_openai.strip().lower()
+def answer_processing(user_id: int, choice: ChatGptChoice) -> str:
+    content = choice['message']['content']
+
+    if choice['finish_reason'] == 'length':
+        # incomplete model output due to max_tokens parameter or token limi
+        # let's append a message explaining to the user answer is incomplete
+        content += "\n\nTOKEN LIMIT HIT\n\nPoly has hit the ChatGPT token limit for this conversation. Conversation reset. Please try again to see the full answer."
+        clear_conversation(user_id)
+        return content
+
+    moderation_answer = poly_moderation(content)
+    if moderation_answer:
+        return moderation_answer
+
+    # ok! if we make it here we don't detect any "bad answers" coming back
+    # so we can just return what openai sent us
+    return content
+
+
+def poly_moderation(content: str) -> str:
+    """ let's "moderate" the response received back from Poly
+    for now this just means we will detect if the answer says "no functions found"
+    and return a message to that effect
+
+    ChatGPT on its own will try to tell the user how to go outside Poly
+    and use external APIs to do what they want
+    """
+    lowered = content.strip().lower()
 
     # first strip off any common adverbs
     for adverb in ADVERBS:
@@ -81,12 +107,11 @@ def answer_processing(from_openai: str) -> str:
         if lowered.startswith(bad):
             return NO_FUNCTION_ANSWER
 
-    # ok! if we make it here we don't detect any "bad answers" coming back
-    # so we can just return what openai sent us
-    return from_openai
+    # return empty string if we don't want to moderate this
+    return ""
 
 
-def get_function_completion_answer(user_id: Optional[int], question: str) -> str:
+def get_function_completion_answer(user_id: int, question: str) -> str:
     question = question_processing(question)
     messages = get_conversations_for_user(user_id)
     if messages:
@@ -248,7 +273,7 @@ def webhook_prompt(hook: WebhookDto) -> str:
 
 
 def get_conversation_answer(
-    user_id: Optional[int], messages: List[ConversationMessage], question: str
+    user_id: int, messages: List[ConversationMessage], question: str
 ):
     # prepare payload
     priors: List[MessageDict] = []
@@ -266,7 +291,7 @@ def get_conversation_answer(
         clear_conversation(user_id)
         return get_completion_answer(user_id, question)
 
-    answer = answer_processing(resp["choices"][0]["message"]["content"])
+    answer = answer_processing(user_id, resp["choices"][0])
 
     # store
     for message in new_messages:
@@ -365,10 +390,10 @@ def get_system_prompt() -> Optional[SystemPrompt]:
     return system_prompt
 
 
-def get_completion_answer(user_id: Optional[int], question: str) -> str:
+def get_completion_answer(user_id: int, question: str) -> str:
     messages = get_completion_prompt_messages(question)
     resp = get_chat_completion(messages)
-    answer = answer_processing(resp["choices"][0]["message"]["content"])
+    answer = answer_processing(user_id, resp["choices"][0]["message"]["content"])
 
     for message in messages:
         store_message(
