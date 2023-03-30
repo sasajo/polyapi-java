@@ -352,7 +352,7 @@ def get_new_conversation_messages(
     question_msg = get_question_message_dict(question, match_count)
     rv.append(question_msg)
 
-    return rv
+    return rv, match_count
 
 
 def get_chat_completion(messages: List[MessageDict]) -> Dict:
