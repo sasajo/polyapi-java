@@ -393,7 +393,7 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 def get_completion_answer(user_id: int, question: str) -> str:
     messages = get_completion_prompt_messages(question)
     resp = get_chat_completion(messages)
-    answer = answer_processing(user_id, resp["choices"][0]["message"]["content"])
+    answer = answer_processing(user_id, resp["choices"][0])
 
     for message in messages:
         store_message(
