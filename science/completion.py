@@ -318,7 +318,7 @@ def get_conversation_answer(
 
 def get_new_conversation_messages(
     old_messages: List[ConversationMessage], question: str
-) -> List[MessageDict]:
+) -> Tuple[List[MessageDict], int]:
     """get all the new messages that should be added to an existing conversation"""
     rv = []
 
