@@ -1,3 +1,6 @@
+### 0.1.13
+* Updated Poly library tree icon
+
 ### 0.1.12
 * Using polling instead of event listening for library data changes 
 
