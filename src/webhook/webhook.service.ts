@@ -65,14 +65,11 @@ export class WebhookService {
   }
 
   public async registerWebhookContextFunction(user: User, context: string | null, name: string, eventPayload: any): Promise<WebhookHandle> {
-    const eventType = await this.commonService.generateContentType(toPascalCase(`${context} ${name} Event Type`), eventPayload);
-
     name = this.normalizeName(name);
     context = this.normalizeContext(context);
 
     this.logger.debug(`Registering webhook for ${context}/${name}...`);
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
-    this.logger.debug(`Event type: ${eventType}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
@@ -93,7 +90,6 @@ export class WebhookService {
         },
         data: {
           eventPayload: JSON.stringify(eventPayload),
-          eventType,
         },
       });
     } else {
@@ -107,7 +103,6 @@ export class WebhookService {
         name,
         context,
         eventPayload: JSON.stringify(eventPayload),
-        eventType: eventType,
       });
     }
   }
@@ -165,12 +160,21 @@ export class WebhookService {
     };
   }
 
-  toDefinitionDto(webhookHandle: WebhookHandle): WebhookHandleDefinitionDto {
+  async toDefinitionDto(webhookHandle: WebhookHandle): Promise<WebhookHandleDefinitionDto> {
+    const typeName = 'EventType';
+    const namespace = toPascalCase(webhookHandle.name);
+    const eventType = await this.commonService.generateTypeDeclaration(
+      typeName,
+      JSON.parse(webhookHandle.eventPayload),
+      namespace,
+    );
+
     return {
       id: webhookHandle.id,
       name: webhookHandle.name,
       context: webhookHandle.context,
-      eventType: webhookHandle.eventType,
+      eventTypeName: `${namespace}.${typeName}`,
+      eventType,
     };
   }
 
@@ -227,8 +231,8 @@ export class WebhookService {
         id,
         user: {
           id: user.id,
-        }
-      }
+        },
+      },
     });
     if (!webhookHandle) {
       throw new HttpException(`Webhook handle ${id} not found.`, HttpStatus.NOT_FOUND);
@@ -238,7 +242,7 @@ export class WebhookService {
     await this.prisma.webhookHandle.delete({
       where: {
         id: webhookHandle.id,
-      }
+      },
     });
   }
 }

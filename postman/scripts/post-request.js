@@ -19,7 +19,8 @@ const postRequest = {
       ...polyData,
       url,
       body,
-      response: pm.response.json()
+      response: pm.response.json(),
+      variables: pm.environment.toObject()
     })
   }
 };

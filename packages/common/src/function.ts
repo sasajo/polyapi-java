@@ -1,4 +1,5 @@
 export type Headers = Record<string, string>;
+export type Variables = Record<string, string>;
 export type RawBody = {
   mode: 'raw';
   raw: string;
@@ -33,6 +34,7 @@ export type ArgumentsMetadata = {
   [key: string]: {
     name?: string;
     type?: ArgumentType;
+    typeDeclarations?: string;
     payload?: boolean;
   };
 };

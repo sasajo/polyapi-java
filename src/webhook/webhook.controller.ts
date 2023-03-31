@@ -20,7 +20,7 @@ export class WebhookController {
     const webhookHandles = await this.webhookService.getAllWebhookHandles();
 
     if (useDefinitionDto) {
-      return webhookHandles.map(handle => this.webhookService.toDefinitionDto(handle));
+      return await(Promise.all(webhookHandles.map(handle => this.webhookService.toDefinitionDto(handle))));
     } else {
       return webhookHandles.map(handle => this.webhookService.toDto(handle));
     }

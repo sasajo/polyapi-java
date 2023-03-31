@@ -4,6 +4,7 @@ export interface FunctionArgument {
   key: string;
   name: string;
   type: ArgumentType;
+  typeDeclarations?: string;
   payload?: boolean;
 }
 
@@ -22,7 +23,7 @@ export interface FunctionDefinitionDto {
   name: string;
   description: string;
   arguments: FunctionArgument[];
-  returnTypeName?: string;
+  returnTypeName: string;
   returnType: string;
   customCode?: string;
 }

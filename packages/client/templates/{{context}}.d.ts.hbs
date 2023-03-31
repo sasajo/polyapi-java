@@ -3,7 +3,8 @@ import poly = require("./index");
 type UnregisterWebhookEventListenerType = () => void;
 
 {{{returnTypeDefinitions}}}
-{{webhookHandlesEventTypeDefinitions}}
+{{{functionArgumentsTypeDeclarations}}}
+{{{webhookHandlesEventTypeDefinitions}}}
 declare module "./index" {
   interface {{interfaceName}} {
     {{#each subContexts}}
@@ -11,17 +12,17 @@ declare module "./index" {
     {{/each}}
     {{#each functions}}
       {{#if hasPayloadArguments}}
-        {{name}}({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}, payload: {
+        {{name}}({{#each arguments}}{{name}}: {{{type}}}, {{/each}}payload: {
           {{#each payloadArguments}}
             {{name}}: {{type}},
           {{/each}}
-        }): {{{returnType}}};
+        }): {{{returnTypeName}}};
       {{else}}
-        {{name}}({{#each arguments}}{{name}}: {{type}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnType}}};
+        {{name}}({{#each arguments}}{{name}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnTypeName}}};
       {{/if}}
     {{/each}}
     {{#each webhookHandles}}
-      {{name}}(callback: (event: {{{eventType}}}) => any): UnregisterWebhookEventListenerType;
+      {{name}}(callback: (event: {{{eventTypeName}}}) => any): UnregisterWebhookEventListenerType;
     {{/each}}
   }
 }

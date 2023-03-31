@@ -16,7 +16,7 @@ import {
   FunctionDto,
   Headers,
   Method,
-  Role,
+  Role, Variables,
 } from '@poly/common';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -26,6 +26,7 @@ import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
+const ARGUMENT_TYPE_SUFFIX = 'ArgumentType';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -189,6 +190,7 @@ export class FunctionService {
     description: string | null,
     payload: string | null,
     response: any,
+    variables: Variables,
   ) {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
@@ -235,10 +237,11 @@ export class FunctionService {
     );
 
     try {
-      const responseType = await this.commonService.generateContentType(
-        toPascalCase(`${context} ${name} Type`),
-        response,
-        payload,
+      const content = this.commonService.getPathContent(response, payload);
+      const responseType = await this.commonService.generateTypeDeclaration(
+        'ResponseType',
+        content,
+        toPascalCase(`${context} ${name}`),
       );
       this.logger.debug(`Generated response type:\n${responseType}`);
     } catch (e) {
@@ -248,26 +251,6 @@ export class FunctionService {
         throw e;
       }
     }
-
-    const getArgumentsMetadata = () => {
-      if (urlFunction.argumentsMetadata) {
-        return urlFunction.argumentsMetadata;
-      }
-
-      const functionArgs = this.getArguments(urlFunction);
-      if (functionArgs.length <= this.config.functionArgsParameterLimit) {
-        return null;
-      }
-
-      this.logger.debug(`Generating arguments metadata for function ${urlFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`);
-      const metadata: ArgumentsMetadata = {};
-      functionArgs.forEach(arg => {
-        metadata[arg.key] = {
-          payload: true,
-        };
-      });
-      return JSON.stringify(metadata);
-    };
 
     await this.prisma.urlFunction.update({
       where: {
@@ -279,30 +262,38 @@ export class FunctionService {
         description,
         payload,
         response: JSON.stringify(response),
-        argumentsMetadata: getArgumentsMetadata(),
+        argumentsMetadata: await this.resolveArgumentsMetadata(urlFunction, variables),
       },
     });
   }
 
-  private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata): FunctionArgument {
-    return {
+  private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata, withDefinition = false): FunctionArgument {
+    const arg: FunctionArgument = {
       key: argument,
       name: argumentsMetadata[argument]?.name || argument,
       type: argumentsMetadata[argument]?.type || 'string',
       payload: argumentsMetadata[argument]?.payload || false,
     };
+    if (withDefinition) {
+      arg.typeDeclarations = argumentsMetadata[argument]?.typeDeclarations;
+    } else {
+      if (arg.type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
+        arg.type = 'object';
+      }
+    }
+    return arg;
   }
 
-  getArguments(urlFunction: UrlFunction): FunctionArgument[] {
-    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentsMetadata || '{}'));
-    let args = [];
+  getFunctionArguments(urlFunction: UrlFunction, withDefinition = false): FunctionArgument[] {
+    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentsMetadata || '{}'), withDefinition);
+    const args: FunctionArgument[] = [];
 
-    args = args.concat(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
-    args = args.concat(urlFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
-    args = args.concat(urlFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
-    args = args.concat(urlFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []);
+    args.push(...(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(urlFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(urlFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(urlFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
 
-    return args || [];
+    return args;
   }
 
   urlFunctionToDto(urlFunction: UrlFunction): FunctionDto {
@@ -311,17 +302,19 @@ export class FunctionService {
       name: urlFunction.name,
       context: urlFunction.context,
       description: urlFunction.description,
-      arguments: this.getArguments(urlFunction),
+      arguments: this.getFunctionArguments(urlFunction),
       type: 'url',
     };
   }
 
   async urlFunctionToDefinitionDto(urlFunction: UrlFunction): Promise<FunctionDefinitionDto> {
-    const returnTypeName = toPascalCase(`${urlFunction.context}.${urlFunction.name}Type`);
-    const returnType = await this.commonService.generateContentType(
+    const returnTypeName = 'ReturnType';
+    const content = this.commonService.getPathContent(JSON.parse(urlFunction.response), urlFunction.payload);
+    const namespace = toPascalCase(urlFunction.name);
+    const returnType = await this.commonService.generateTypeDeclaration(
       returnTypeName,
-      JSON.parse(urlFunction.response),
-      urlFunction.payload,
+      content,
+      namespace
     );
 
     return {
@@ -329,8 +322,8 @@ export class FunctionService {
       name: urlFunction.name,
       description: urlFunction.description,
       context: urlFunction.context,
-      arguments: this.getArguments(urlFunction),
-      returnTypeName,
+      arguments: this.getFunctionArguments(urlFunction, true),
+      returnTypeName: `Promise<${namespace}.${returnTypeName}>`,
       returnType,
     };
   }
@@ -354,6 +347,7 @@ export class FunctionService {
       context: customFunction.context,
       arguments: JSON.parse(customFunction.arguments),
       returnType: customFunction.returnType,
+      returnTypeName: customFunction.returnType,
       customCode: customFunction.code,
     };
   }
@@ -448,7 +442,7 @@ export class FunctionService {
       }
     };
 
-    const functionArgs = this.getArguments(urlFunction);
+    const functionArgs = this.getFunctionArguments(urlFunction);
     const getPayloadArgs = () => {
       const payloadArgs = functionArgs.filter((arg) => arg.payload);
       if (payloadArgs.length === 0) {
@@ -621,9 +615,9 @@ export class FunctionService {
       }
     }
 
-    argumentsMetadata = this.resolveArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
+    argumentsMetadata = this.mergeAndCheckArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
 
-    const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getArguments({
+    const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getFunctionArguments({
       ...urlFunction,
       argumentsMetadata: JSON.stringify(argumentsMetadata),
     }));
@@ -920,7 +914,7 @@ export class FunctionService {
     }
   }
 
-  private resolveArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
+  private mergeAndCheckArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
     const resolvedArgumentsMetadata: ArgumentsMetadata = merge(
       JSON.parse(argumentsMetadata || '{}'),
       updatedArgumentsMetadata,
@@ -981,5 +975,59 @@ export class FunctionService {
       names.add(name);
     }
     return null;
+  }
+
+  private async resolveArgumentsMetadata(urlFunction: UrlFunction, variables: Variables) {
+    const functionArgs = this.getFunctionArguments(urlFunction);
+    const metadata: ArgumentsMetadata = JSON.parse(urlFunction.argumentsMetadata || '{}');
+
+    const resolveArgumentParameterLimit = () => {
+      if (urlFunction.argumentsMetadata || functionArgs.length <= this.config.functionArgsParameterLimit) {
+        return;
+      }
+      this.logger.debug(`Generating arguments metadata for function ${urlFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`);
+      functionArgs.forEach(arg => {
+        if (metadata[arg.key]) {
+          metadata[arg.key].payload = true;
+        } else {
+          metadata[arg.key] = {
+            payload: true,
+          };
+        }
+      });
+    };
+    const resolveArgumentTypes = async () => {
+      this.logger.debug(`Resolving argument types for function ${urlFunction.id}...`);
+      for (const arg of functionArgs) {
+        if (metadata[arg.key]?.type) {
+          continue;
+        }
+        const value = variables[arg.key];
+        if (value == null) {
+          continue;
+        }
+
+        const [type, typeDeclarations] = await this.commonService.resolveType(
+          'Argument',
+          `${toPascalCase(urlFunction.name)}$${toPascalCase(arg.key)}`,
+          value,
+        );
+
+        if (metadata[arg.key]) {
+          metadata[arg.key].type = type;
+          metadata[arg.key].typeDeclarations = typeDeclarations;
+        } else {
+          metadata[arg.key] = {
+            type,
+            typeDeclarations,
+          };
+        }
+      }
+    };
+
+    resolveArgumentParameterLimit();
+    await resolveArgumentTypes();
+
+    return JSON.stringify(metadata);
   }
 }

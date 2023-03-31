@@ -1,4 +1,4 @@
-import { Body } from '../..';
+import { Body, Variables } from '../..';
 import { IsNotEmpty } from 'class-validator';
 
 export class TeachDetailsDto {
@@ -11,4 +11,5 @@ export class TeachDetailsDto {
   url: string;
   body: Body;
   response: any;
+  variables?: Variables;
 }

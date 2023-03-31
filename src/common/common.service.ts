@@ -5,12 +5,12 @@ import { PathError } from 'common/path-error';
 
 @Injectable()
 export class CommonService {
-  public async generateContentType(typeName: string, content: any, path?: string) {
-    if (!content) {
-      return '';
-    }
+  public async generateTypeDeclaration(typeName: string, content: any, namespace: string) {
+    const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n};`;
 
-    content = this.getPathContent(content, path);
+    if (!content) {
+      return wrapToNamespace(`type ${typeName} = any;`);
+    }
 
     const name = 'TemporaryUniqueHardToGuessType';
     const jsonInput = jsonInputForTargetLanguage('ts');
@@ -27,17 +27,29 @@ export class CommonService {
       lang: 'ts',
       inputData,
       combineClasses: true,
+      indentation: '  ',
       rendererOptions: {
         'just-types': 'true',
       },
     });
 
-    return lines
-      .map(line => line.replace(name, typeName))
-      .map(line => line.replace('content: Content', `content: ${typeName}Content`))
-      .map(line => line.replace('export interface', 'interface'))
-      .map(line => line.replace('interface Content', `interface ${typeName}Content`))
+    const temporaryTypeRegex = new RegExp(`interface ${name}\\s*\{\\s*content: (\\S+);\\s*\}\\s*`, 'g');
+    let typeDeclaration = lines
+      .map(line => line.replaceAll('export interface', 'interface'))
+      .map(line => line.replace('interface Content', `interface ${typeName}`))
       .join('\n');
+
+    const match = temporaryTypeRegex.exec(typeDeclaration);
+    if (match) {
+      const [temporaryType, type] = match;
+      if (type === 'Content') {
+        typeDeclaration = typeDeclaration.replace(temporaryType, '');
+      } else {
+        typeDeclaration = typeDeclaration.replace(temporaryType, `type ${typeName} = ${type};`);
+      }
+    }
+
+    return wrapToNamespace(typeDeclaration);
   }
 
   public getPathContent(content: any, path: string | null): unknown {
@@ -57,5 +69,28 @@ export class CommonService {
     } catch (e) {
       throw new PathError(path);
     }
+  }
+
+  public async resolveType(typeName: string, namespace: string, value: string): Promise<[string, string?]> {
+    const numberRegex = /^-?\d+\.?\d*$/;
+    const booleanRegex = /^(true|false)$/;
+
+    if (numberRegex.test(value)) {
+      return ['number'];
+    }
+    if (booleanRegex.test(value)) {
+      return ['boolean'];
+    }
+    try {
+      const obj = JSON.parse(value);
+      if (obj && typeof obj === 'object') {
+        const type = await this.generateTypeDeclaration(typeName, obj, namespace);
+        return [`${namespace}.${typeName}`, type];
+      }
+    } catch (e) {
+      // not json
+    }
+
+    return ['string'];
   }
 }

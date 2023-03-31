@@ -6,7 +6,7 @@ import shell from 'shelljs';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import prettier from 'prettier';
 
-import { FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
+import { FunctionArgument, FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
 import { getFunctions, getWebhookHandles } from '../api';
 import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
@@ -69,13 +69,11 @@ const generateCustomFunctionJSFiles = async (customFunctions: FunctionDefinition
   customFunctions.forEach((customFunction) => {
     fs.writeFileSync(
       `${POLY_LIB_PATH}/custom/${customFunction.context ? `${customFunction.context}-` : ''}${customFunction.name}.js`,
-      prettier.format(
+      prettyPrint(
         customFunctionJSTemplate({
           ...customFunction,
         }),
-        {
-          parser: 'babel',
-        },
+        'babel',
       ),
     );
   });
@@ -149,12 +147,14 @@ const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
   const template = handlebars.compile(await loadTemplate('index.d.ts.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.d.ts`,
-    template({
-      contexts: contexts.map((context) => ({
-        ...context,
-        firstLevel: context.level === 1,
-      })),
-    }),
+    prettyPrint(
+      template({
+        contexts: contexts.map((context) => ({
+          ...context,
+          firstLevel: context.level === 1,
+        })),
+      }),
+    ),
   );
 };
 
@@ -168,6 +168,12 @@ const generateTSContextDeclarationFile = async (
   const returnTypeDefinitions = functions
     .filter((func) => func.returnType && !func.customCode)
     .reduce((result, func) => `${result}${func.returnType}\n`, '');
+  const functionArgumentsTypeDeclarations = functions
+    .reduce(
+      (result, func) => result.concat(...func.arguments.filter((arg) => arg.typeDeclarations)),
+      [] as FunctionArgument[],
+    )
+    .reduce((result, arg) => `${result}${arg.typeDeclarations}\n`, '');
   const webhookHandlesEventTypeDefinitions = webhookHandles
     .filter((handle) => handle.eventType)
     .reduce((result, handle) => `${result}${handle.eventType}\n`, '');
@@ -182,26 +188,23 @@ const generateTSContextDeclarationFile = async (
       })),
     payloadArguments: func.arguments.filter((arg) => arg.payload),
     hasPayloadArguments: func.arguments.some((arg) => arg.payload),
-    returnType: func.customCode
-      ? func.returnType
-      : func.returnType
-      ? `Promise<${func.returnTypeName || `${toPascalCase(`${context.path}.${func.name}`)}Type`}['content']>`
-      : 'Promise<any>',
   });
   const toWebhookHandleData = (handle: WebhookHandleDefinitionDto) => ({
     ...handle,
-    eventType: handle.eventType ? `${toPascalCase(`${context.path}.${handle.name}`)}EventType['content']` : 'any',
   });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${context.fileName}`,
-    template({
-      interfaceName: context.interfaceName,
-      functions: functions.map(toFunctionData),
-      webhookHandles: webhookHandles.map(toWebhookHandleData),
-      subContexts,
-      returnTypeDefinitions,
-      webhookHandlesEventTypeDefinitions,
-    }),
+    prettyPrint(
+      template({
+        interfaceName: context.interfaceName,
+        functions: functions.map(toFunctionData),
+        webhookHandles: webhookHandles.map(toWebhookHandleData),
+        subContexts,
+        returnTypeDefinitions,
+        functionArgumentsTypeDeclarations,
+        webhookHandlesEventTypeDefinitions,
+      }),
+    ),
   );
 };
 
@@ -236,6 +239,13 @@ const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: Webh
   return contextData;
 };
 
+const prettyPrint = (code: string, parser = 'typescript') =>
+  prettier.format(code, {
+    parser,
+    singleQuote: true,
+    printWidth: 160,
+  });
+
 const generate = async (contexts?: string[], names?: string[], functionIds?: string[]) => {
   let functions: FunctionDefinitionDto[] = [];
   let webhookHandles: WebhookHandleDefinitionDto[] = [];
@@ -262,6 +272,7 @@ const generate = async (contexts?: string[], names?: string[], functionIds?: str
     shell.echo(chalk.red('ERROR'));
     shell.echo('Error while generating code files. Make sure the version of library/server is up to date.');
     shell.echo(chalk.red(error.message));
+    shell.echo(chalk.red(error.stack));
     return;
   }
 

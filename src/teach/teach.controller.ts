@@ -33,9 +33,9 @@ export class TeachController {
   @UseGuards(ApiKeyGuard)
   @Post('/:functionId')
   async teachDetails(@Req() req, @Param('functionId', ParseIdPipe) id: number, @Body() teachDetailsDto: TeachDetailsDto): Promise<void> {
-    const { url, body, name = null, context = null, description = null, payload = null, response } = teachDetailsDto;
+    const { url, body, name = null, context = null, description = null, payload = null, response, variables = {} } = teachDetailsDto;
     this.logger.debug(`Teaching details of function ${id} for user ${req.user.id}...`);
     this.logger.debug(`name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}`);
-    await this.polyFunctionService.updateDetails(id, req.user, url, body, name, context, description, payload, response);
+    await this.polyFunctionService.updateDetails(id, req.user, url, body, name, context, description, payload, response, variables);
   }
 }

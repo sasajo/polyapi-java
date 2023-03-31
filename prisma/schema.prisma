@@ -69,7 +69,6 @@ model WebhookHandle {
   context      String
   name         String
   eventPayload String       @map("event_payload")
-  eventType    String       @map("event_type")
   urlFunction  UrlFunction?
 
   @@map("webhook_handle")
