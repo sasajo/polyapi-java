@@ -80,12 +80,17 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
 
   static copyLibraryItem(item: LibraryTreeItem) {
     const { parentPath, data, label } = item;
-    switch (data.type) {
+    const {type, name, arguments: args} = data;
+    switch (type) {
       case 'function':
-        vscode.env.clipboard.writeText(`await ${parentPath}.${data.name}(${data.arguments.map(arg => `${arg.name}`).join(', ')});`);
+        const functionArgs = args.filter(arg => !arg.payload);
+        const payloadArgs = args.filter(arg => arg.payload);
+        vscode.env.clipboard.writeText(
+          `await ${parentPath}.${name}(${functionArgs.map(arg => `${arg.name}`).join(', ')}${payloadArgs.length ? `${functionArgs.length ? ', ' : ''}payload` : ''});`
+        );
         break;
       case 'webhookHandle':
-        vscode.env.clipboard.writeText(`${parentPath}.${data.name}(data => {\n\n});`);
+        vscode.env.clipboard.writeText(`${parentPath}.${name}(event => {\n\n});`);
         break;
       default:
         vscode.env.clipboard.writeText(`${parentPath}.${label}`);
