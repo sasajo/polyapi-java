@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
 import jsonpath from 'jsonpath';
-import { PathError } from 'common/path-error';
+import { PathError } from './path-error';
 
 @Injectable()
 export class CommonService {
@@ -92,5 +92,27 @@ export class CommonService {
     }
 
     return ['string'];
+  }
+
+  public trimDownObject(obj: any, maxArrayItems = 1): any {
+    if (typeof obj !== 'object') {
+      return obj;
+    }
+
+    const trimDownArray = (array: any[]) => array.slice(0, maxArrayItems).map((item: any) => this.trimDownObject(item, maxArrayItems));
+
+    if (Array.isArray(obj)) {
+      return trimDownArray(obj);
+    }
+
+    const newObj = {};
+    for (const key in obj) {
+      if (Array.isArray(obj[key])) {
+        newObj[key] = trimDownArray(obj[key]);
+      } else {
+        newObj[key] = this.trimDownObject(obj[key], maxArrayItems);
+      }
+    }
+    return newObj;
   }
 }

@@ -16,7 +16,8 @@ import {
   FunctionDto,
   Headers,
   Method,
-  Role, Variables,
+  Role,
+  Variables,
 } from '@poly/common';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -204,6 +205,8 @@ export class FunctionService {
       throw new HttpException(`Poly function not found`, HttpStatus.NOT_FOUND);
     }
 
+    response = this.commonService.trimDownObject(response, 1);
+
     if (!name || !context || !description) {
       const {
         name: aiName,
@@ -213,7 +216,7 @@ export class FunctionService {
         url,
         urlFunction.method,
         description || urlFunction.description,
-        JSON.stringify(body),
+        JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
         JSON.stringify(response),
       );
 
@@ -368,8 +371,7 @@ export class FunctionService {
     const url = mustache.render(urlFunction.url, argumentsMap);
     const method = urlFunction.method;
     const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
-    const text = mustache.render(urlFunction.body, argumentsMap);
-    const body = JSON.parse(text);
+    const body = JSON.parse(mustache.render(urlFunction.body, argumentsMap));
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
