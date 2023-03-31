@@ -1,3 +1,6 @@
+### 0.1.15
+* Fixed tooltip for functions when payload arguments are present
+
 ### 0.1.14
 * Fixed copied code when payload arguments are present
 
