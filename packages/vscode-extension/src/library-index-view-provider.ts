@@ -9,23 +9,38 @@ class LibraryTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
   ) {
     super(label, collapsibleState);
-    switch (data.type) {
+    this.generateTooltip();
+  }
+
+  private generateTooltip() {
+    const { type, name, description, customCode, arguments: args } = this.data;
+    switch (type) {
       case 'function':
-        const title = data.customCode ? 'Custom function' : 'Function';
+        const title = customCode ? 'Custom function' : 'Function';
+        const functionArgs = args.filter(arg => !arg.payload);
+        const payloadArgs = args.filter(arg => arg.payload);
         this.tooltip = new vscode.MarkdownString(
-          `**${title}**\n\n---\n\n${data.description
-            ? `${data.description}\n\n---\n\n`
-            : ''}${data.name}(${data.arguments.map(arg => `${arg.name}: ${arg.type}`).join(', ')})`,
+          `**${title}**\n\n---\n\n${
+            description
+              ? `${description}\n\n---\n\n`
+              : ''
+          }${name}(${functionArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')}${
+            payloadArgs.length
+              ? `${
+                functionArgs.length ? ', ' : ''
+              }payload: { ${payloadArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')} }`
+              : ''
+          })`,
         );
         break;
       case 'webhookHandle':
         this.tooltip = new vscode.MarkdownString(
-          `**Webhook listener**\n\n---\n\n${data.name}()`,
+          `**Webhook listener**\n\n---\n\n${name}()`,
         );
         break;
       default:
         this.tooltip = new vscode.MarkdownString(
-          `**Context**\n\n---\n\n${label}`,
+          `**Context**\n\n---\n\n${this.label}`,
         );
         break;
     }
@@ -80,13 +95,17 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
 
   static copyLibraryItem(item: LibraryTreeItem) {
     const { parentPath, data, label } = item;
-    const {type, name, arguments: args} = data;
+    const { type, name, arguments: args } = data;
     switch (type) {
       case 'function':
         const functionArgs = args.filter(arg => !arg.payload);
         const payloadArgs = args.filter(arg => arg.payload);
         vscode.env.clipboard.writeText(
-          `await ${parentPath}.${name}(${functionArgs.map(arg => `${arg.name}`).join(', ')}${payloadArgs.length ? `${functionArgs.length ? ', ' : ''}payload` : ''});`
+          `await ${parentPath}.${name}(${functionArgs.map(arg => `${arg.name}`).join(', ')}${
+            payloadArgs.length
+              ? `${functionArgs.length ? ', ' : ''}payload`
+              : ''
+          });`,
         );
         break;
       case 'webhookHandle':
