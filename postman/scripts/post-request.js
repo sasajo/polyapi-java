@@ -20,7 +20,10 @@ const postRequest = {
       url,
       body,
       response: pm.response.json(),
-      variables: pm.environment.toObject()
+      variables: {
+        ...pm.environment.toObject(),
+        ...pm.collectionVariables.toObject()
+      }
     })
   }
 };
