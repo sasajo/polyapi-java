@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Tuple, TypedDict, Optional, Union, Literal
+from typing import Dict, List, Tuple, TypedDict, Optional, Union, Literal
 from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
 
@@ -68,8 +68,8 @@ def url_function_path(func: UrlFunction) -> str:
     return f"{func.context}.{func.name}"
 
 
-def log(message: Any) -> None:
-    print(str(message), flush=True)
+def log(*args) -> None:
+    print(*args, flush=True)
 
 
 def store_message(

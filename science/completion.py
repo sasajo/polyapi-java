@@ -3,15 +3,14 @@ import requests
 import openai
 import flask
 from requests import Response
-from typing import List, Dict, Optional, Set, Union, Tuple
+from typing import List, Dict, Optional, Set, Tuple
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
 from utils import ChatGptChoice, log
-from thefuzz import fuzz
 
 # TODO change to relative imports
 from constants import FINE_TUNE_MODEL, NODE_API_URL
-
+from keywords import extract_keywords, keywords_similar
 from utils import (
     FunctionDto,
     MessageDict,
@@ -21,17 +20,6 @@ from utils import (
     func_path,
     store_message,
 )
-
-# how similar does a function or webhook have to be to be considered a match?
-# scale is 0-100
-NAME_SIMILARITY_THRESHOLD = 35
-DESC_SIMILARITY_THRESHOLD = 20
-
-
-# There are three main steps in our completion pipeline:
-# 1. Question Processing - process the question to make it more suitable for the model
-# 2. Send to OpenAI
-# 3. Answer Processing - process the answer to see if it's suitable to send back to the user
 
 
 NO_FUNCTION_RESPONSE = {
@@ -123,30 +111,6 @@ def get_conversations_for_user(user_id: Optional[int]) -> List[ConversationMessa
         db.conversationmessage.find_many(
             where={"userId": user_id}, order={"createdAt": "asc"}
         )
-    )
-
-
-def keywords_similar(keywords: str, func: Union[FunctionDto, WebhookDto]):
-    if not keywords:
-        # when we have no keywords, just assume everything matches for now
-        return True
-
-    keywords = keywords.lower()
-
-    func_parts = []
-    if func.get("context"):
-        func_parts.append(func["context"])
-    if func.get("name"):
-        func_parts.append(func["name"])
-    func_str = " ".join(func_parts).lower()
-    name_ratio = fuzz.ratio(keywords, func_str)
-
-    desc_ratio = 0
-    if func.get("description"):
-        desc_ratio = fuzz.ratio(keywords, func["description"])
-
-    return (
-        name_ratio > NAME_SIMILARITY_THRESHOLD or desc_ratio > DESC_SIMILARITY_THRESHOLD
     )
 
 
@@ -276,7 +240,7 @@ def get_fine_tune_answer(question: str):
 
 def webhook_prompt(hook: WebhookDto) -> str:
     parts = [func_path(hook)]
-    for url in hook["urls"]:
+    for url in hook.get("urls", []):
         if hook["id"] in url:
             continue
         parts.append(f"url: {url}")
@@ -429,7 +393,3 @@ def get_completion_answer(user_id: int, question: str) -> str:
         store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer
-
-
-def extract_keywords(question: str) -> str:
-    return question

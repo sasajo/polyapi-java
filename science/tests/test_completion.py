@@ -10,6 +10,11 @@ from completion import (
 )
 from .testing import DbTestCase
 
+
+def _fake_extract(keyword):
+    return keyword
+
+
 GET_FUNCTIONS = [
     {
         "id": "f7588018-2364-4586-b60d-b08a285f1ea3",
@@ -129,6 +134,7 @@ class T(DbTestCase):
         self.assertIn("poly.shipping.packageDelivered", d["content"])
         self.assertEqual(d["webhook_ids"], ["4005e0b5-6071-4d67-96a5-405b4d09492f"])
 
+    @patch("completion.extract_keywords", new=_fake_extract)
     @patch("completion.requests.get")
     def test_get_completion_prompt_messages(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: GET_FUNCTIONS)
