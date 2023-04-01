@@ -52,6 +52,19 @@ def extract_keywords(question: str) -> str:
     return " ".join(content.split(", "))
 
 
+def remove_punctuation(text: str) -> str:
+    return text.replace(",", "").replace(".", "").replace("?", "").replace("!", "").replace(":", "").replace(";", "")
+
+
+BLACKLISTED = ['keywords', 'semantically', 'similar', 'likely http methods']
+
+
+def remove_blacklist(keywords: str) -> str:
+    for blacklist in BLACKLISTED:
+        keywords = keywords.replace(blacklist, "")
+    return keywords
+
+
 def keywords_similar(keywords: str, func: Union[FunctionDto, WebhookDto], debug=False):
     if not keywords:
         # when we have no keywords, just assume everything matches for now
@@ -65,16 +78,24 @@ def keywords_similar(keywords: str, func: Union[FunctionDto, WebhookDto], debug=
     if func.get("name"):
         func_parts.append(func["name"])
     func_str = " ".join(func_parts).lower()
+
+    # HACK just add description for now
+    if func.get("description"):
+        func_str += f"\n{func['description']}"
+
+    keywords = remove_punctuation(keywords)
+    keywords = remove_blacklist(keywords)
+
     name_ratio = fuzz.partial_ratio(keywords, func_str)
     if debug:
         log(keywords, name_ratio, func_str)
 
-    desc_ratio = 0
-    if func.get("description"):
-        desc_ratio = fuzz.partial_ratio(keywords, func["description"])
-        if debug:
-            log(keywords, desc_ratio, func['description'])
+    # desc_ratio = 0
+    # if func.get("description"):
+    #     desc_ratio = fuzz.partial_ratio(keywords, func["description"])
+    #     if debug:
+    #         log(keywords, desc_ratio, func['description'])
 
     return (
-        name_ratio > NAME_SIMILARITY_THRESHOLD or desc_ratio > DESC_SIMILARITY_THRESHOLD
+        name_ratio > NAME_SIMILARITY_THRESHOLD
     )
