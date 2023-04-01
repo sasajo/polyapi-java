@@ -55,7 +55,7 @@ def extract_keywords(question: str) -> str:
 
 
 def remove_punctuation(text: str) -> str:
-    return text.replace(",", "").replace(".", "").replace("?", "").replace("!", "").replace(":", "").replace(";", "")
+    return text.replace(",", "").replace(".", "").replace("?", "").replace("!", "").replace(":", "").replace(";", "").replace("-", "")
 
 
 BLACKLISTED = ['keywords', 'semantically', 'similar', 'likely', 'http', 'methods', 'api']
