@@ -18,13 +18,13 @@ Here is the prompt:
 {prompt}
 """
 
-ALT2_KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
+KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
 This will be used to power an API discovery service.
 Each keyword must be a single word.
 Keep the list to the top 8 keywords relevant to APIs.
 Don't include "API" "resource" as keywords.
 Include all of the likely HTTP methods for this prompt, for example many times search is done using a POST.
-Return all keywords in one list. If the prompt is in a different language, translate and return the keywords in English.
+Return all keywords in one comma separated list. If the prompt is in a different language, translate and return the keywords in English.
 
 Here is the prompt:
 
@@ -32,9 +32,9 @@ Here is the prompt:
 """
 
 
-KEYWORD_PROMPT = """
+SIMPLER_KEYWORD_PROMPT = """
 For the following prompt, give me back the top 4 keywords and the top synonym for each keyword.
-Return a single comma-separated list.
+Return both keywords and synonyms in a single comma-separated list.
 
 Here is the prompt:
 
