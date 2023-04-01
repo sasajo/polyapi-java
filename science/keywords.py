@@ -5,16 +5,28 @@ from utils import FunctionDto, WebhookDto, log
 
 # how similar does a function or webhook have to be to be considered a match?
 # scale is 0-100
-NAME_SIMILARITY_THRESHOLD = 60
-DESC_SIMILARITY_THRESHOLD = 60
+# HACK was 60 just trying 40
+NAME_SIMILARITY_THRESHOLD = 40
+DESC_SIMILARITY_THRESHOLD = 40
 
-KEYWORD_PROMPT = """
-I will give you a prompt, respond to me with only a list of the relevant keywords from the prompt I give you.
-Assume that the keywords will be used to execute a search against a database of function records.
+# OLD_KEYWORD_PROMPT = """
+# I will give you a prompt, respond to me with only a list of the relevant keywords from the prompt I give you.
+# Assume that the keywords will be used to execute a search against a database of function records.
 
-Here is the prompt:
+# Here is the prompt:
 
-{prompt}
+# {prompt}
+# """
+
+KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
+This will be used to power an API discovery service.
+Each keyword must be a single word.
+Keep the list to the top 8 keywords relevant to APIs.
+Don't include "API" "resource" as keywords.
+Include all of the likely HTTP methods for this prompt, for example many times search is done using a POST.
+List the set as a comma separated list. If the prompt is in a different language, translate and return the keywords in English.
+
+{{prompt}}
 """
 
 
