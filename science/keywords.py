@@ -6,7 +6,7 @@ from utils import FunctionDto, WebhookDto, log
 # how similar does a function or webhook have to be to be considered a match?
 # scale is 0-100
 # HACK was 60 just trying 40
-SIMILARITY_THRESHOLD = 50
+SIMILARITY_THRESHOLD = 45
 
 # NOT USED CURRENTLY
 #DESC_SIMILARITY_THRESHOLD = 50
