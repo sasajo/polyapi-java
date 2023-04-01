@@ -26,6 +26,8 @@ Don't include "API" "resource" as keywords.
 Include all of the likely HTTP methods for this prompt, for example many times search is done using a POST.
 List the set as a comma separated list. If the prompt is in a different language, translate and return the keywords in English.
 
+Here is the prompt:
+
 {prompt}
 """
 
