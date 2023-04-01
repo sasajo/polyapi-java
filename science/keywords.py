@@ -9,22 +9,32 @@ from utils import FunctionDto, WebhookDto, log
 NAME_SIMILARITY_THRESHOLD = 50
 DESC_SIMILARITY_THRESHOLD = 50
 
-# OLD_KEYWORD_PROMPT = """
-# I will give you a prompt, respond to me with only a list of the relevant keywords from the prompt I give you.
-# Assume that the keywords will be used to execute a search against a database of function records.
+ALT1_KEYWORD_PROMPT = """
+I will give you a prompt, respond to me with only a list of the relevant keywords from the prompt I give you.
+Assume that the keywords will be used to execute a search against a database of function records.
 
-# Here is the prompt:
+Here is the prompt:
 
-# {prompt}
-# """
+{prompt}
+"""
 
-KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
+ALT2_KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
 This will be used to power an API discovery service.
 Each keyword must be a single word.
 Keep the list to the top 8 keywords relevant to APIs.
 Don't include "API" "resource" as keywords.
 Include all of the likely HTTP methods for this prompt, for example many times search is done using a POST.
 Return all keywords in one list. If the prompt is in a different language, translate and return the keywords in English.
+
+Here is the prompt:
+
+{prompt}
+"""
+
+
+KEYWORD_PROMPT = """
+For the following prompt, give me back the top 4 keywords and the top synonym for each keyword.
+Return a single comma-separated list.
 
 Here is the prompt:
 
