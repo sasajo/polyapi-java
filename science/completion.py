@@ -163,7 +163,7 @@ def get_function_message_dict(
 
     match_count = 0
     for item in items:
-        keyword_match = keywords_similar(keywords, item)
+        keyword_match = keywords_similar(keywords, item, debug=True)
         if keyword_match:
             match_count += 1
 
@@ -204,7 +204,7 @@ def get_webhook_message_dict(
 
     match_count = 0
     for item in items:
-        keyword_match = keywords_similar(keywords, item)
+        keyword_match = keywords_similar(keywords, item, debug=True)
         if keyword_match:
             match_count += 1
 

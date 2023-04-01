@@ -6,8 +6,10 @@ from utils import FunctionDto, WebhookDto, log
 # how similar does a function or webhook have to be to be considered a match?
 # scale is 0-100
 # HACK was 60 just trying 40
-NAME_SIMILARITY_THRESHOLD = 50
-DESC_SIMILARITY_THRESHOLD = 50
+SIMILARITY_THRESHOLD = 50
+
+# NOT USED CURRENTLY
+#DESC_SIMILARITY_THRESHOLD = 50
 
 ALT1_KEYWORD_PROMPT = """
 I will give you a prompt, respond to me with only a list of the relevant keywords from the prompt I give you.
@@ -56,7 +58,7 @@ def remove_punctuation(text: str) -> str:
     return text.replace(",", "").replace(".", "").replace("?", "").replace("!", "").replace(":", "").replace(";", "")
 
 
-BLACKLISTED = ['keywords', 'semantically', 'similar', 'likely http methods']
+BLACKLISTED = ['keywords', 'semantically', 'similar', 'likely', 'http', 'methods', 'api']
 
 
 def remove_blacklist(keywords: str) -> str:
@@ -97,5 +99,5 @@ def keywords_similar(keywords: str, func: Union[FunctionDto, WebhookDto], debug=
     #         log(keywords, desc_ratio, func['description'])
 
     return (
-        name_ratio > NAME_SIMILARITY_THRESHOLD
+        name_ratio > SIMILARITY_THRESHOLD
     )
