@@ -65,7 +65,10 @@ def answer_processing(choice: ChatGptChoice, match_count: int) -> Tuple[str, boo
         # so we can just return what openai sent us
         return content, False
     else:
-        return f"We weren't able to find any Poly functions to do that.\n\nBeyond Poly, here's what we think:\n\n{content}", False
+        return (
+            f"We weren't able to find any Poly functions to do that.\n\nBeyond Poly, here's what we think:\n\n{content}",
+            False,
+        )
 
 
 def poly_moderation(content: str) -> str:
@@ -133,7 +136,9 @@ def query_node_server(type: str) -> Response:
 def get_question_message_dict(question, match_count) -> MessageDict:
     if match_count > 0:
         # let's ask it to give us one of the matching functions!
-        question_msg = MessageDict(role="user", content="From the Poly API Library, " + question)
+        question_msg = MessageDict(
+            role="user", content="From the Poly API Library, " + question
+        )
     else:
         # there are no matches, let's just ask the question to ChatGPT in general
         question_msg = MessageDict(role="user", content=question)
@@ -145,8 +150,7 @@ def get_function_message_dict(
     already_defined: Optional[Set[str]] = None,
     keywords: str = "",
 ) -> Tuple[Optional[MessageDict], int]:
-    """get all matching functions that need to be injected into the prompt
-    """
+    """get all matching functions that need to be injected into the prompt"""
     already_defined = already_defined or set()
 
     preface = "Here are some functions in the Poly API library,"
@@ -187,8 +191,7 @@ def get_webhook_message_dict(
     already_defined: Optional[Set[str]] = None,
     keywords: str = "",
 ) -> Tuple[Optional[MessageDict], int]:
-    """get all matching webhooks that need to be injected into the prompt
-    """
+    """get all matching webhooks that need to be injected into the prompt"""
     already_defined = already_defined or set()
 
     preface = "Here are some event handlers in the Poly API library,"
@@ -345,12 +348,17 @@ def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], in
         MessageDict(
             role="user",
             content="Only include actual payload elements and function arguments in the example. Be concise.",
-        ),
-        MessageDict(
-            role="user",
-            content="To import the Poly API library, use `import poly from 'polyapi';`",
-        ),
+        )
     ]
+
+    match_count = function_count + webhook_count
+    if match_count:
+        rv.append(
+            MessageDict(
+                role="user",
+                content="To import the Poly API library, use `import poly from 'polyapi';`",
+            )
+        )
 
     if function_message:
         rv.append(function_message)
@@ -358,7 +366,6 @@ def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], in
     if webhook_message:
         rv.append(webhook_message)
 
-    match_count = function_count + webhook_count
     question_msg = get_question_message_dict(question, match_count)
     rv.append(question_msg)
 
