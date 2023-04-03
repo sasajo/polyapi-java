@@ -41,7 +41,6 @@ model UrlFunction {
   publicId          String         @unique @default(uuid()) @map("public_id")
   webhookHandle     WebhookHandle? @relation(fields: [webhookHandleId], references: [id])
   webhookHandleId   String?        @unique @map("webhook_handle_id")
-  authToken         String?        @map("auth_token")
 
   @@map("url_function")
 }
