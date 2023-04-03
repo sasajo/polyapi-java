@@ -12,8 +12,9 @@ import {
   Auth,
   Body,
   FunctionArgument,
+  FunctionBasicDto,
   FunctionDefinitionDto,
-  FunctionDto,
+  FunctionDetailsDto,
   Headers,
   Method,
   Role,
@@ -27,7 +28,7 @@ import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
-const ARGUMENT_TYPE_SUFFIX = 'ArgumentType';
+const ARGUMENT_TYPE_SUFFIX = '.Argument';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -278,10 +279,13 @@ export class FunctionService {
       payload: argumentsMetadata[argument]?.payload || false,
     };
     if (withDefinition) {
-      arg.typeDeclarations = argumentsMetadata[argument]?.typeDeclarations;
+      if (arg.type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
+        arg.typeDeclarations = argumentsMetadata[argument]?.typeDeclarations;
+      }
     } else {
       if (arg.type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
         arg.type = 'object';
+        arg.typeObject = argumentsMetadata[argument]?.typeObject;
       }
     }
     return arg;
@@ -299,12 +303,18 @@ export class FunctionService {
     return args;
   }
 
-  urlFunctionToDto(urlFunction: UrlFunction): FunctionDto {
+  urlFunctionToBasicDto(urlFunction: UrlFunction): FunctionBasicDto {
     return {
       id: urlFunction.publicId,
       name: urlFunction.name,
       context: urlFunction.context,
       description: urlFunction.description,
+    };
+  }
+
+  urlFunctionToDetailsDto(urlFunction: UrlFunction): FunctionDetailsDto {
+    return {
+      ...this.urlFunctionToBasicDto(urlFunction),
       arguments: this.getFunctionArguments(urlFunction),
       type: 'url',
     };
@@ -317,7 +327,7 @@ export class FunctionService {
     const returnType = await this.commonService.generateTypeDeclaration(
       returnTypeName,
       content,
-      namespace
+      namespace,
     );
 
     return {
@@ -331,12 +341,18 @@ export class FunctionService {
     };
   }
 
-  customFunctionToDto(customFunction: CustomFunction): FunctionDto {
+  customFunctionToBasicDto(customFunction: CustomFunction): FunctionBasicDto {
     return {
       id: customFunction.publicId,
       name: customFunction.name,
       description: customFunction.description,
       context: customFunction.context,
+    };
+  }
+
+  customFunctionToDetailsDto(customFunction: CustomFunction): FunctionDetailsDto {
+    return {
+      ...this.customFunctionToBasicDto(customFunction),
       arguments: JSON.parse(customFunction.arguments),
       type: 'custom',
     };
@@ -366,7 +382,6 @@ export class FunctionService {
   async executeFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
     this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(args)}`);
 
-    const functionPath = `${urlFunction.context ? `${urlFunction.context}.` : ''}${urlFunction.name}`;
     const argumentsMap = this.getArgumentsMap(urlFunction, args);
     const url = mustache.render(urlFunction.url, argumentsMap);
     const method = urlFunction.method;
@@ -421,6 +436,7 @@ export class FunctionService {
           catchError((error: AxiosError) => {
             this.logger.error(`Error while performing HTTP request (id: ${urlFunction.id}): ${error}`);
 
+            const functionPath = `${urlFunction.context ? `${urlFunction.context}.` : ''}${urlFunction.name}`;
             if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
               return of(null);
             }
@@ -439,6 +455,8 @@ export class FunctionService {
     const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
         return arg.replaceAll('\r\n', '\n').trim();
+      } else if (typeof arg === 'object') {
+        return JSON.stringify(arg);
       } else {
         return arg;
       }
@@ -617,7 +635,10 @@ export class FunctionService {
       }
     }
 
-    argumentsMetadata = this.mergeAndCheckArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
+    this.checkArgumentsMetadata(urlFunction, argumentsMetadata);
+
+    argumentsMetadata = await this.resolveArgumentsTypeDeclarations(urlFunction, argumentsMetadata);
+    argumentsMetadata = this.mergeArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
 
     const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getFunctionArguments({
       ...urlFunction,
@@ -916,28 +937,11 @@ export class FunctionService {
     }
   }
 
-  private mergeAndCheckArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
-    const resolvedArgumentsMetadata: ArgumentsMetadata = merge(
+  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
+    return merge(
       JSON.parse(argumentsMetadata || '{}'),
       updatedArgumentsMetadata,
     );
-    const checkNameDuplicates = () => {
-      const names = new Set<string>();
-      Object.entries(resolvedArgumentsMetadata).forEach(([key, data]) => {
-        const name = toCamelCase(data.name || key);
-        if (names.has(name)) {
-          throw new HttpException(
-            `Duplicate argument name ${name} in function arguments. Please use unique names.`,
-            HttpStatus.CONFLICT,
-          );
-        }
-        names.add(name);
-      });
-    };
-
-    checkNameDuplicates();
-
-    return resolvedArgumentsMetadata;
   }
 
   async setSystemPrompt(userId: number, prompt: string): Promise<SystemPrompt> {
@@ -1009,11 +1013,7 @@ export class FunctionService {
           continue;
         }
 
-        const [type, typeDeclarations] = await this.commonService.resolveType(
-          'Argument',
-          `${toPascalCase(urlFunction.name)}$${toPascalCase(arg.key)}`,
-          value,
-        );
+        const [type, typeDeclarations] = await this.resolveArgumentType(urlFunction, arg.key, value);
 
         if (metadata[arg.key]) {
           metadata[arg.key].type = type;
@@ -1031,5 +1031,43 @@ export class FunctionService {
     await resolveArgumentTypes();
 
     return JSON.stringify(metadata);
+  }
+
+  private async resolveArgumentType(urlFunction: UrlFunction, argKey: string, value: string) {
+    return this.commonService.resolveType(
+      'Argument',
+      `${toPascalCase(urlFunction.name)}$${toPascalCase(argKey)}`,
+      value,
+    );
+  }
+
+  private async resolveArgumentsTypeDeclarations(urlFunction: UrlFunction, argumentsMetadata: ArgumentsMetadata) {
+    for (const argKey of Object.keys(argumentsMetadata)) {
+      const argMetadata = argumentsMetadata[argKey];
+      if (argMetadata.type === 'object') {
+        if (!argMetadata.typeObject) {
+          throw new HttpException(`Argument '${argKey}' with type='object' is missing typeObject value`, HttpStatus.BAD_REQUEST);
+        }
+        if (typeof argMetadata.typeObject !== 'object') {
+          throw new HttpException(`Argument '${argKey}' with type='object' has invalid typeObject value (must be 'object' type)`, HttpStatus.BAD_REQUEST);
+        }
+
+        const [type, typeDeclarations] = await this.resolveArgumentType(urlFunction, argKey, JSON.stringify(argMetadata.typeObject));
+        argMetadata.type = type;
+        argMetadata.typeDeclarations = typeDeclarations;
+      }
+    }
+
+    return argumentsMetadata;
+  }
+
+  private checkArgumentsMetadata(urlFunction: UrlFunction, argumentsMetadata: ArgumentsMetadata) {
+    const functionArgs = this.getFunctionArguments(urlFunction);
+
+    Object.keys(argumentsMetadata).forEach(key => {
+      if (!functionArgs.find(arg => arg.key === key)) {
+        throw new HttpException(`Argument '${key}' not found in function`, HttpStatus.BAD_REQUEST);
+      }
+    });
   }
 }

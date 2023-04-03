@@ -35,6 +35,7 @@ export type ArgumentsMetadata = {
     name?: string;
     type?: ArgumentType;
     typeDeclarations?: string;
+    typeObject?: object;
     payload?: boolean;
   };
 };

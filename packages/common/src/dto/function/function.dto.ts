@@ -5,14 +5,18 @@ export interface FunctionArgument {
   name: string;
   type: ArgumentType;
   typeDeclarations?: string;
+  typeObject?: object;
   payload?: boolean;
 }
 
-export interface FunctionDto {
+export interface FunctionBasicDto {
   id: string;
   context: string;
   name: string;
   description: string;
+}
+
+export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: FunctionArgument[];
   type: 'url' | 'custom';
 }

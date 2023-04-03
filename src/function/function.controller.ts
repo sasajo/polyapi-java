@@ -23,9 +23,9 @@ import {
   DeleteAllFunctionsDto,
   ExecuteFunctionDto,
   FunctionDefinitionDto,
-  FunctionDto, GetAllFunctionsDto,
+  FunctionBasicDto, GetAllFunctionsDto,
   Role,
-  UpdateFunctionDto,
+  UpdateFunctionDto, FunctionDetailsDto,
 } from '@poly/common';
 
 export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
@@ -44,7 +44,7 @@ export class FunctionController {
     contexts,
     names,
     ids,
-  }: GetAllFunctionsDto): Promise<FunctionDto[] | FunctionDefinitionDto[]> {
+  }: GetAllFunctionsDto): Promise<FunctionBasicDto[] | FunctionDefinitionDto[]> {
     this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${JSON.stringify(contexts)}, names ${JSON.stringify(names)}, ids ${JSON.stringify(ids)}`);
 
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
@@ -55,9 +55,25 @@ export class FunctionController {
       return (await Promise.all(urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))))
         .concat(...customFunctions.map(customFunction => this.service.customFunctionToDefinitionDto(customFunction)));
     } else {
-      return urlFunctions.map(urlFunction => this.service.urlFunctionToDto(urlFunction))
-        .concat(...customFunctions.map(customFunction => this.service.customFunctionToDto(customFunction)));
+      return urlFunctions.map(urlFunction => this.service.urlFunctionToBasicDto(urlFunction))
+        .concat(...customFunctions.map(customFunction => this.service.customFunctionToBasicDto(customFunction)));
     }
+  }
+
+  @Get(':publicId')
+  @UseGuards(ApiKeyGuard)
+  async getFunction(@Req() req, @Param('publicId') publicId: string): Promise<FunctionDetailsDto> {
+    const urlFunction = await this.service.findUrlFunction(req.user, publicId);
+    if (urlFunction) {
+      return this.service.urlFunctionToDetailsDto(urlFunction);
+    }
+
+    const customFunction = await this.service.findCustomFunction(req.user, publicId);
+    if (customFunction) {
+      return this.service.customFunctionToDetailsDto(customFunction);
+    }
+
+    throw new HttpException(`Function with ID ${publicId} not found.`, HttpStatus.NOT_FOUND);
   }
 
   @Post('/execute/:publicId')
@@ -80,7 +96,7 @@ export class FunctionController {
   }: UpdateFunctionDto): Promise<any> {
     const urlFunction = await this.service.findUrlFunction(req.user, publicId);
     if (urlFunction) {
-      return this.service.urlFunctionToDto(await this.service.updateUrlFunction(req.user, urlFunction, name, context, description, argumentsMetadata));
+      return this.service.urlFunctionToDetailsDto(await this.service.updateUrlFunction(req.user, urlFunction, name, context, description, argumentsMetadata));
     }
 
     const customFunction = await this.service.findCustomFunction(req.user, publicId);
@@ -91,7 +107,7 @@ export class FunctionController {
       if (name != null) {
         throw new HttpException('Name cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
       }
-      return this.service.customFunctionToDto(await this.service.updateCustomFunction(req.user, customFunction, context, description));
+      return this.service.customFunctionToDetailsDto(await this.service.updateCustomFunction(req.user, customFunction, context, description));
     }
 
     throw new HttpException('Function not found', HttpStatus.NOT_FOUND);
