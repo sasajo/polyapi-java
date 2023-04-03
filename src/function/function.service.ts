@@ -26,6 +26,7 @@ import { CommonService } from 'common/common.service';
 import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
+import { compareArgumentsByRequired } from 'function/comparators';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
@@ -277,6 +278,8 @@ export class FunctionService {
       name: argumentsMetadata[argument]?.name || argument,
       type: argumentsMetadata[argument]?.type || 'string',
       payload: argumentsMetadata[argument]?.payload || false,
+      required: argumentsMetadata[argument]?.required !== false,
+      secure: argumentsMetadata[argument]?.secure || false,
     };
     if (withDefinition) {
       if (arg.type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
@@ -299,6 +302,8 @@ export class FunctionService {
     args.push(...(urlFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
     args.push(...(urlFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
     args.push(...(urlFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+
+    args.sort(compareArgumentsByRequired);
 
     return args;
   }

@@ -178,17 +178,23 @@ const generateTSContextDeclarationFile = async (
     .filter((handle) => handle.eventType)
     .reduce((result, handle) => `${result}${handle.eventType}\n`, '');
 
-  const toFunctionData = (func: FunctionDefinitionDto) => ({
-    ...func,
-    arguments: func.arguments
+  const toFunctionData = (func: FunctionDefinitionDto) => {
+    const functionArguments = func.arguments
       .filter((arg) => !arg.payload)
       .map((arg) => ({
         ...arg,
         name: toCamelCase(arg.name),
-      })),
-    payloadArguments: func.arguments.filter((arg) => arg.payload),
-    hasPayloadArguments: func.arguments.some((arg) => arg.payload),
-  });
+      }));
+
+    return {
+      ...func,
+      arguments: functionArguments,
+      requiredArguments: functionArguments.filter((arg) => arg.required),
+      optionalArguments: functionArguments.filter((arg) => !arg.required),
+      payloadArguments: func.arguments.filter((arg) => arg.payload),
+      hasPayloadArguments: func.arguments.some((arg) => arg.payload),
+    };
+  };
   const toWebhookHandleData = (handle: WebhookHandleDefinitionDto) => ({
     ...handle,
   });

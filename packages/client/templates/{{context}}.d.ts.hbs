@@ -12,13 +12,13 @@ declare module "./index" {
     {{/each}}
     {{#each functions}}
       {{#if hasPayloadArguments}}
-        {{name}}({{#each arguments}}{{name}}: {{{type}}}, {{/each}}payload: {
+        {{name}}({{#each requiredArguments}}{{name}}: {{{type}}}, {{/each}}payload: {
           {{#each payloadArguments}}
-            {{name}}: {{type}},
+            {{name}}{{#unless required}}?{{/unless}}: {{type}},
           {{/each}}
-        }): {{{returnTypeName}}};
+        }, {{#each optionalArguments}}{{name}}?: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnTypeName}}};
       {{else}}
-        {{name}}({{#each arguments}}{{name}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnTypeName}}};
+        {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnTypeName}}};
       {{/if}}
     {{/each}}
     {{#each webhookHandles}}

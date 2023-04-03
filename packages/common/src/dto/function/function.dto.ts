@@ -3,6 +3,8 @@ import { ArgumentType } from '../..';
 export interface FunctionArgument {
   key: string;
   name: string;
+  required?: boolean;
+  secure?: boolean;
   type: ArgumentType;
   typeDeclarations?: string;
   typeObject?: object;
