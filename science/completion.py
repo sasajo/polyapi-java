@@ -127,7 +127,7 @@ def query_node_server(type: str) -> Response:
     if not user:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
-    headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey}
+    headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey, "Accept": "application/poly.function-definition+json"}
     resp = requests.get(f"{NODE_API_URL}/{type}", headers=headers)
     assert resp.status_code == 200, resp.content
     return resp
