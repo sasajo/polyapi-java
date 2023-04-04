@@ -18,7 +18,11 @@ export class AiService {
         user_id: userId,
         question: message,
       }).pipe(
-        map(response => response.data),
+        // HACK TODO return the full data object
+        // and have the VSCode extension:
+        // * display the "answer"
+        // * log the "stats" for debugging
+        map(response => response.data.answer),
       ).pipe(
         catchError(this.processScienceServerError()),
       ),

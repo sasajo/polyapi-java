@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from flask import Flask, Response, request, jsonify
 from openai import OpenAIError
 from prisma import Prisma, register
-from completion import get_function_completion_answer
+from completion import get_completion_or_conversation_answer
 from description import get_function_description
 from typedefs import DescInputDto
 from utils import clear_conversation
@@ -22,11 +22,13 @@ def home():
 
 
 @app.route("/function-completion", methods=["POST"])  # type: ignore
-def function_completion() -> str:
+def function_completion() -> Dict:
     data: Dict = request.get_json(force=True)
     question: str = data["question"].strip()
     user_id: Optional[int] = data.get("user_id")
-    return get_function_completion_answer(user_id, question)
+    resp = get_completion_or_conversation_answer(user_id, question)
+    print(resp)
+    return resp
 
 
 @app.route("/function-description", methods=["POST"])

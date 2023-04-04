@@ -3,48 +3,26 @@ import requests
 import openai
 import flask
 from requests import Response
-from typing import List, Dict, Optional, Set, Tuple
+from typing import List, Dict, Optional, Tuple, Union
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
-from utils import ChatGptChoice, log
 
 # TODO change to relative imports
+from typedefs import ChatGptChoice, ExtractKeywordDto, StatsDict
 from constants import FINE_TUNE_MODEL, NODE_API_URL
-from keywords import extract_keywords, keywords_similar
-from utils import (
+from keywords import extract_keywords, top_5_keywords
+from typedefs import (
     FunctionDto,
     MessageDict,
     WebhookDto,
+)
+from utils import (
+    log,
     clear_conversation,
     func_path_with_args,
     func_path,
     store_message,
 )
-
-
-NO_FUNCTION_RESPONSE = {
-    "there is currently no function",  # maybe replace currently with a regex?
-    "there is not currently a function",
-    "there isn't currently a function",
-    "there is no function",
-    "there isn't a function",
-    "there is no direct function",
-    "there isn't a direct function",
-    "there is no specific function",
-    "there isn't a specific function",
-    "the poly api library does not have",
-    "the poly api library doesn't have",
-    "the poly api library does not provide",
-    "the poly api library doesn't provide",
-}
-NO_FUNCTION_ANSWER = (
-    "Poly doesn't know any functions to do that yet. But Poly would love to be taught!"
-)
-
-
-ADVERBS = {
-    "unfortunately",
-}
 
 
 def answer_processing(choice: ChatGptChoice, match_count: int) -> Tuple[str, bool]:
@@ -57,12 +35,6 @@ def answer_processing(choice: ChatGptChoice, match_count: int) -> Tuple[str, boo
         return content, True
 
     if match_count:
-        moderation_answer = poly_moderation(content)
-        if moderation_answer:
-            return moderation_answer, False
-
-        # ok! if we make it here we don't detect any "bad answers" coming back
-        # so we can just return what openai sent us
         return content, False
     else:
         return (
@@ -71,35 +43,9 @@ def answer_processing(choice: ChatGptChoice, match_count: int) -> Tuple[str, boo
         )
 
 
-def poly_moderation(content: str) -> str:
-    """let's "moderate" the response received back from Poly
-    for now this just means we will detect if the answer says "no functions found"
-    and return a message to that effect
-
-    ChatGPT on its own will try to tell the user how to go outside Poly
-    and use external APIs to do what they want
-    """
-    lowered = content.strip().lower()
-
-    # first strip off any common adverbs
-    for adverb in ADVERBS:
-        if lowered.startswith(adverb):
-            lowered = lowered.lstrip(adverb)
-            lowered = lowered.lstrip(",")
-            lowered = lowered.strip()
-
-    # now lets detect bad answers
-    for bad in NO_FUNCTION_RESPONSE:
-        if lowered.startswith(bad):
-            return NO_FUNCTION_ANSWER
-
-    # return empty string if we don't want to moderate this
-    return ""
-
-
-def get_function_completion_answer(user_id: int, question: str) -> str:
+def get_completion_or_conversation_answer(user_id: int, question: str) -> Dict:
     messages = get_conversations_for_user(user_id)
-    if messages:
+    if False and messages:
         return get_conversation_answer(user_id, messages, question)
     else:
         return get_completion_answer(user_id, question)
@@ -127,7 +73,11 @@ def query_node_server(type: str) -> Response:
     if not user:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
-    headers = {"Content-Type": "application/json", "X-PolyApiKey": user.apiKey, "Accept": "application/poly.function-definition+json"}
+    headers = {
+        "Content-Type": "application/json",
+        "X-PolyApiKey": user.apiKey,
+        "Accept": "application/poly.function-definition+json",
+    }
     resp = requests.get(f"{NODE_API_URL}/{type}", headers=headers)
     assert resp.status_code == 200, resp.content
     return resp
@@ -145,86 +95,50 @@ def get_question_message_dict(question, match_count) -> MessageDict:
     return question_msg
 
 
-def get_function_message_dict(
-    *,
-    already_defined: Optional[Set[str]] = None,
-    keywords: str = "",
-) -> Tuple[Optional[MessageDict], int]:
+def get_library_message_dict(keywords: ExtractKeywordDto) -> Tuple[Optional[MessageDict], StatsDict]:
     """get all matching functions that need to be injected into the prompt"""
-    already_defined = already_defined or set()
+    if not keywords:
+        return None, {"match_count": 0}
 
-    preface = "Here are some functions in the Poly API library,"
-    parts: List[str] = [preface]
+    functions_resp = query_node_server("functions")
+    items: List[Union[FunctionDto, WebhookDto]] = functions_resp.json()
+    webhooks_resp = query_node_server("webhooks")
+    items += webhooks_resp.json()
 
-    resp = query_node_server("functions")
+    top_5, stats = top_5_keywords(items, keywords)
 
-    public_ids = []
-    items: List[FunctionDto] = resp.json()
+    function_parts: List[str] = []
+    webhook_parts: List[str] = []
+    for item in top_5:
+        if "arguments" in item:  # HACK this key is only present in functions
+            function_parts.append(
+                f"// {item['description']}\n{func_path_with_args(item)}"
+            )
+        else:
+            webhook_parts.append(webhook_prompt(item))
 
-    match_count = 0
-    for item in items:
-        keyword_match = keywords_similar(keywords, item, debug=True)
-        if keyword_match:
-            match_count += 1
-
-        if item["id"] not in already_defined and keyword_match:
-            parts.append(f"// {item['description']}\n{func_path_with_args(item)}")
-            public_ids.append(item["id"])
-
-    if keywords:
-        log_matches(keywords, "functions", match_count, len(items))
-
-    if not public_ids:
-        # all the functions are already defined!
-        # let's go ahead and skip
-        return None, match_count
+    # if keywords:
+    #     log_matches(keywords, "functions", stats["match_count"], len(items))
 
     return {
         "role": "assistant",
-        "content": "\n\n".join(parts),
-        "function_ids": public_ids,
-    }, match_count
+        "content": _join_content(function_parts, webhook_parts),
+    }, stats
 
 
-def get_webhook_message_dict(
-    *,
-    already_defined: Optional[Set[str]] = None,
-    keywords: str = "",
-) -> Tuple[Optional[MessageDict], int]:
-    """get all matching webhooks that need to be injected into the prompt"""
-    already_defined = already_defined or set()
+def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
+    function_preface = "Here are some functions in the Poly API library,"
+    webhook_preface = "Here are some event handlers in the Poly API library,"
+    parts = []
+    if function_parts:
+        parts.append(function_preface)
+        parts += function_parts
 
-    preface = "Here are some event handlers in the Poly API library,"
-    parts: List[str] = [preface]
+    if webhook_parts:
+        parts.append(webhook_preface)
+        parts += webhook_parts
 
-    resp = query_node_server("webhooks")
-
-    public_ids = []
-    items: List[WebhookDto] = resp.json()
-
-    match_count = 0
-    for item in items:
-        keyword_match = keywords_similar(keywords, item, debug=True)
-        if keyword_match:
-            match_count += 1
-
-        if item["id"] not in already_defined and keyword_match:
-            parts.append(webhook_prompt(item))
-            public_ids.append(item["id"])
-
-    if keywords:
-        log_matches(keywords, "webhooks", match_count, len(items))
-
-    if not public_ids:
-        # all the webhooks are already defined!
-        # let's go ahead and skip
-        return None, match_count
-
-    return {
-        "role": "assistant",
-        "content": "\n\n".join(parts),
-        "webhook_ids": public_ids,
-    }, match_count
+    return "\n\n".join(parts)
 
 
 def get_fine_tune_answer(question: str):
@@ -285,41 +199,34 @@ def get_conversation_answer(
 
 def get_new_conversation_messages(
     old_messages: List[ConversationMessage], question: str
-) -> Tuple[List[MessageDict], int]:
+) -> Tuple[List[MessageDict], StatsDict]:
     """get all the new messages that should be added to an existing conversation"""
     rv = []
 
-    old_msg_ids = [m.id for m in old_messages]
+    # old_msg_ids = [m.id for m in old_messages]
 
-    db = get_client()
-    old_function_ids = {
-        f.functionPublicId
-        for f in db.functiondefined.find_many(where={"messageId": {"in": old_msg_ids}})
-    }
-    old_webhook_ids = {
-        w.webhookPublicId
-        for w in db.webhookdefined.find_many(where={"messageId": {"in": old_msg_ids}})
-    }
+    # db = get_client()
+    # old_function_ids = {
+    #     f.functionPublicId
+    #     for f in db.functiondefined.find_many(where={"messageId": {"in": old_msg_ids}})
+    # }
+    # old_webhook_ids = {
+    #     w.webhookPublicId
+    #     for w in db.webhookdefined.find_many(where={"messageId": {"in": old_msg_ids}})
+    # }
 
     keywords = extract_keywords(question)
 
-    new_functions, function_count = get_function_message_dict(
-        already_defined=old_function_ids, keywords=keywords
-    )
-    if new_functions:
-        rv.append(new_functions)
+    library, stats = get_library_message_dict(keywords)
+    stats["prompt"] = question
 
-    new_webhooks, webhook_count = get_webhook_message_dict(
-        already_defined=old_webhook_ids, keywords=keywords
-    )
-    if new_webhooks:
-        rv.append(new_webhooks)
+    if library:
+        rv.append(library)
 
-    match_count = function_count + webhook_count
-    question_msg = get_question_message_dict(question, match_count)
+    question_msg = get_question_message_dict(question, stats["match_count"])
     rv.append(question_msg)
 
-    return rv, match_count
+    return rv, stats
 
 
 def get_chat_completion(messages: List[MessageDict]) -> Dict:
@@ -336,10 +243,10 @@ def get_chat_completion(messages: List[MessageDict]) -> Dict:
     )
 
 
-def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], int]:
+def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], StatsDict]:
     keywords = extract_keywords(question)
-    function_message, function_count = get_function_message_dict(keywords=keywords)
-    webhook_message, webhook_count = get_webhook_message_dict(keywords=keywords)
+    library, stats = get_library_message_dict(keywords)
+    stats["prompt"] = question
 
     rv = [
         # from the OpenAI docs:
@@ -351,28 +258,22 @@ def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], in
         )
     ]
 
-    match_count = function_count + webhook_count
-    if match_count:
+    if library:
         rv.append(
             MessageDict(
                 role="user",
                 content="To import the Poly API library, use `import poly from 'polyapi';`",
             )
         )
+        rv.append(library)
 
-    if function_message:
-        rv.append(function_message)
-
-    if webhook_message:
-        rv.append(webhook_message)
-
-    question_msg = get_question_message_dict(question, match_count)
+    question_msg = get_question_message_dict(question, bool(library))
     rv.append(question_msg)
 
     system_prompt = get_system_prompt()
     if system_prompt and system_prompt.content:
         rv.insert(0, {"role": "system", "content": system_prompt.content})
-    return rv, match_count
+    return rv, stats
 
 
 def get_system_prompt() -> Optional[SystemPrompt]:
@@ -383,15 +284,16 @@ def get_system_prompt() -> Optional[SystemPrompt]:
     return system_prompt
 
 
-def get_completion_answer(user_id: int, question: str) -> str:
-    messages, match_count = get_completion_prompt_messages(question)
+def get_completion_answer(user_id: int, question: str) -> Dict:
+    messages, stats = get_completion_prompt_messages(question)
     resp = get_chat_completion(messages)
-    answer, hit_token_limit = answer_processing(resp["choices"][0], match_count)
+    answer, hit_token_limit = answer_processing(resp["choices"][0], stats['match_count'])
 
     if hit_token_limit:
         # if we hit the token limit, let's just clear the conversation and start over
         clear_conversation(user_id)
-    else:
+    elif False:
+        # disable for now
         for message in messages:
             store_message(
                 user_id,
@@ -399,4 +301,4 @@ def get_completion_answer(user_id: int, question: str) -> str:
             )
         store_message(user_id, {"role": "assistant", "content": answer})
 
-    return answer
+    return {"answer": answer, "stats": stats}

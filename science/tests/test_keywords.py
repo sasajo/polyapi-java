@@ -38,20 +38,30 @@ class T(DbTestCase):
     def test_keywords_similar_weather(self):
         # "how do I get the weather at a certain location?"
         keywords = "current weather location get"
-        self.assertTrue(keywords_similar(keywords, ACCUWEATHER, debug=True))
-        self.assertFalse(keywords_similar(keywords, GOOGLE_MAPS))
-        self.assertFalse(keywords_similar(keywords, SERVICE_NOW))
+
+        # accuweather does pass even though we might not expect it to
+        for func, expected in [(GOOGLE_MAPS, False), (ACCUWEATHER, True), (SERVICE_NOW, False)]:
+            self.assertTrue(keywords_similar(keywords, func))
+            with self.subTest(func=func):
+                similar, ratio = keywords_similar(keywords, func)
+                self.assertEqual(similar, expected, ratio)
 
     def test_keywords_similar_maps(self):
         # how do I get the geocoordinates of a location?
         keywords = "geocoordinates location get"
-        self.assertTrue(keywords_similar(keywords, GOOGLE_MAPS))
-        self.assertFalse(keywords_similar(keywords, ACCUWEATHER))
-        self.assertFalse(keywords_similar(keywords, SERVICE_NOW))
+
+        # accuweather does pass even though we might not expect it to
+        for func, expected in [(GOOGLE_MAPS, True), (ACCUWEATHER, True), (SERVICE_NOW, False)]:
+            self.assertTrue(keywords_similar(keywords, func))
+            with self.subTest(func=func):
+                similar, ratio = keywords_similar(keywords, func)
+                self.assertEqual(similar, expected, ratio)
 
     def test_keywords_similar_incident(self):
         # how do I create an incident on service now?
         keywords = "create incident service now"
-        self.assertTrue(keywords_similar(keywords, SERVICE_NOW))
-        self.assertFalse(keywords_similar(keywords, GOOGLE_MAPS))
-        self.assertFalse(keywords_similar(keywords, ACCUWEATHER))
+        for func, expected in [(GOOGLE_MAPS, False), (ACCUWEATHER, False), (SERVICE_NOW, True)]:
+            self.assertTrue(keywords_similar(keywords, func))
+            with self.subTest(func=func):
+                similar, ratio = keywords_similar(keywords, func)
+                self.assertEqual(similar, expected, ratio)

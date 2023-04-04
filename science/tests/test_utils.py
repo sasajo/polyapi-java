@@ -1,7 +1,8 @@
 import uuid
 from .testing import DbTestCase
+from typedefs import FunctionDto
 from load_fixtures import load_functions, test_user_get_or_create
-from utils import FunctionDto, func_args, func_path, store_message
+from utils import func_args, func_path, store_message
 
 FUNC: FunctionDto = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",

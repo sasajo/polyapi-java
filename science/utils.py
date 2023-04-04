@@ -1,36 +1,8 @@
 import json
-from typing import Dict, List, Tuple, TypedDict, Optional, Union, Literal
+from typing import Dict, List, Tuple, Optional, Union
+from typedefs import FunctionDto, WebhookDto, MessageDict
 from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
-
-
-# TODO move types to typedefs
-class FunctionDto(TypedDict):
-    id: str
-    context: str
-    name: str
-    description: str
-    arguments: List[Dict[str, str]]
-
-
-class WebhookDto(TypedDict):
-    id: str
-    context: str
-    name: str
-    urls: List[str]
-
-
-class MessageDict(TypedDict, total=False):
-    role: str
-    content: str
-    function_ids: List[str]  # not required
-    webhook_ids: List[str]  # not required
-
-
-class ChatGptChoice(TypedDict):
-    message: MessageDict  # no function_ids or webhook_ids
-    finish_reason: Literal['stop', 'length', 'content_filter', None]
-    index: int
 
 
 # HACK should have better name
@@ -69,8 +41,8 @@ def url_function_path(func: UrlFunction) -> str:
     return f"{func.context}.{func.name}"
 
 
-def log(*args) -> None:
-    print(*args, flush=True)
+def log(*args, **kwargs) -> None:
+    print(*args, **kwargs, flush=True)
 
 
 def store_message(
