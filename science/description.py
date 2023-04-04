@@ -59,13 +59,42 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
 def _parse_function_description(completion: str) -> DescOutputDto:
     rv = DescOutputDto(context="", name="", description="", openai_response=completion)
     parts = completion.split("\n")
-    for part in parts:
+    for idx in range(len(parts)):
+        part = parts[idx]
         part = part.strip()
         part_lowered = part.lower()  # sometimes OpenAI returns "context:", sometimes "Context:"
+
         if part_lowered.startswith("context:"):
             rv["context"] = part.split(":")[1].strip()
+            if not rv["context"] and _value_on_next_line(parts, idx):
+                # next line is context, grab it and move forward!
+                rv['context'] = parts[idx + 1].strip()
+                idx += 1
+
         elif part_lowered.startswith("name:"):
             rv["name"] = part.split(":")[1].strip()
+            if not rv["name"] and _value_on_next_line(parts, idx):
+                # next line is name, grab it and move forward!
+                rv['name'] = parts[idx + 1].strip()
+                idx += 1
+
         elif part_lowered.startswith("description:"):
             rv["description"] = part.split(":")[1].strip()
+            if not rv["description"] and _value_on_next_line(parts, idx):
+                # next line is description, grab it and move forward!
+                rv['description'] = parts[idx + 1].strip()
+                idx += 1
+
+        idx += 1
+
     return rv
+
+
+def _value_on_next_line(parts: list, idx: int) -> bool:
+    try:
+        next_line = parts[idx + 1].strip()
+    except IndexError:
+        return False
+
+    next_line = next_line.lower()
+    return next_line and not next_line.startswith("context:") and not next_line.startswith("name:") and not next_line.startswith("description:")

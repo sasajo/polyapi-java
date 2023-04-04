@@ -1,5 +1,5 @@
 from unittest.mock import patch, Mock
-from description import get_function_description
+from description import _parse_function_description, get_function_description
 from .testing import DbTestCase
 
 
@@ -16,3 +16,15 @@ class T(DbTestCase):
         )
         self.assertEqual(mock_chat.call_count, 1)
         self.assertEqual(output['name'], 'foobar')
+
+    def test_parse_function_description(self):
+        completion = """Context:
+        comms.mailchimp
+        Name:
+        mailchimp.getMembers
+        Description:
+        This API call retrieves a list of members subscribed..."""
+        parsed = _parse_function_description(completion)
+        self.assertEqual(parsed['context'], 'comms.mailchimp')
+        self.assertEqual(parsed['name'], 'mailchimp.getMembers')
+        self.assertEqual(parsed['description'], 'This API call retrieves a list of members subscribed...')
