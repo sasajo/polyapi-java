@@ -8,7 +8,7 @@ from utils import func_path, log
 # how similar does a function or webhook have to be to be considered a match?
 # scale is 0-100
 # HACK was 60 just trying 40
-SIMILARITY_THRESHOLD = 60
+SIMILARITY_THRESHOLD = 55
 
 # NOT USED CURRENTLY
 # DESC_SIMILARITY_THRESHOLD = 50
@@ -134,7 +134,10 @@ def top_5_keywords(
     )
     top_5_uuids = {x["id"] for x in top_5}
     for top in semantic_top_5:
-        if top['id'] not in top_5_uuids and len(top_5) < 5:
+        if len(top_5) >= 5:
+            break
+
+        if top['id'] not in top_5_uuids:
             top_5.append(top)
 
     stats = {"keyword_extraction": keyword_data}
@@ -162,7 +165,7 @@ def _get_top_5(
     items: List[Union[FunctionDto, WebhookDto]], keywords: str
 ) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
     if not keywords:
-        return [], {"total": len(items), "match_count": 0}
+        return [], {"total": len(items), "match_count": 0, "scores": []}
 
     items_with_scores = []
     for item in items:
@@ -170,7 +173,7 @@ def _get_top_5(
         items_with_scores.append((item, score))
 
     items_with_scores = sorted(items_with_scores, key=lambda x: x[1], reverse=True)
-    top_5 = [x[0] for x in items_with_scores if score > SIMILARITY_THRESHOLD]
+    top_5 = [item for item, score in items_with_scores if score > get_similarity_threshold()]
 
     stats = _get_stats(items_with_scores)
     return top_5[:5], stats

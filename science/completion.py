@@ -292,8 +292,9 @@ def get_completion_answer(user_id: int, question: str) -> Dict:
     if hit_token_limit:
         # if we hit the token limit, let's just clear the conversation and start over
         clear_conversation(user_id)
-    elif False:
-        # disable for now
+    else:
+        # HACK always clear for now
+        clear_conversation(user_id)
         for message in messages:
             store_message(
                 user_id,

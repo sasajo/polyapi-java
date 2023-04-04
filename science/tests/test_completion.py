@@ -128,7 +128,7 @@ class T(DbTestCase):
         keywords = "how do I find the x and y coordinates of a Google Map?".lower()
         d, stats = get_library_message_dict({"keywords": keywords})
         self.assertEqual(requests_get.call_count, 2)
-        self.assertEqual(stats["match_count"], 2)
+        self.assertEqual(stats["match_count"], 3)
         self.assertIn("Here are some functions", d["content"])
 
     @patch("keywords.get_similarity_threshold", new=_fake_threshold)
