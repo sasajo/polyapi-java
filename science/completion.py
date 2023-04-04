@@ -38,7 +38,8 @@ def answer_processing(choice: ChatGptChoice, match_count: int) -> Tuple[str, boo
         return content, False
     else:
         return (
-            f"We weren't able to find any Poly functions to do that.\n\nBeyond Poly, here's what we think:\n\n{content}",
+            # f"We weren't able to find any Poly functions to do that.\n\nBeyond Poly, here's what we think:\n\n{content}",
+            content,
             False,
         )
 
