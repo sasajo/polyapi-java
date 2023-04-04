@@ -32,7 +32,7 @@ class T(DbTestCase):
         clear_conversation(user.id)
         self.assertFalse(self.db.conversationmessage.find_first(where={"id": msg.id}))
 
-    @patch("server.get_function_completion_answer")
+    @patch("server.get_completion_or_conversation_answer")
     def test_function_completion_error(self, get_answer: Mock) -> None:
         # setup
         get_answer.side_effect = ServiceUnavailableError("The server is overloaded or not ready yet.")

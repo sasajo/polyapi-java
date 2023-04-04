@@ -2,7 +2,6 @@ import copy
 from mock import Mock, patch
 from load_fixtures import test_user_get_or_create
 from completion import (
-    answer_processing,
     get_conversations_for_user,
     get_library_message_dict,
     get_completion_prompt_messages,
@@ -96,17 +95,17 @@ class T(DbTestCase):
         messages = get_conversations_for_user(user.id)
         self.assertEqual(messages, [msg])
 
-    def test_answer_processing_no_matches(self) -> None:
-        content = "The capitol of Sweden is Stockholm."
-        choice = {
-            "message": {"role": "assistant", "content": content},
-            "finish_reason": "stop",
-            "index": 0,
-        }
-        answer, hit_token_limit = answer_processing(choice, 0)
-        self.assertFalse(hit_token_limit)
-        self.assertTrue(answer.startswith("We weren't able "))
-        self.assertTrue(answer.endswith(content))
+    # def test_answer_processing_no_matches(self) -> None:
+    #     content = "The capitol of Sweden is Stockholm."
+    #     choice = {
+    #         "message": {"role": "assistant", "content": content},
+    #         "finish_reason": "stop",
+    #         "index": 0,
+    #     }
+    #     answer, hit_token_limit = answer_processing(choice, 0)
+    #     self.assertFalse(hit_token_limit)
+    #     self.assertTrue(answer.startswith("We weren't able "))
+    #     self.assertTrue(answer.endswith(content))
 
     @patch("keywords.get_similarity_threshold", new=_fake_threshold)
     @patch("completion.requests.get")

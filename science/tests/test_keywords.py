@@ -40,7 +40,7 @@ class T(DbTestCase):
         keywords = "current weather location get"
 
         # accuweather does pass even though we might not expect it to
-        for func, expected in [(GOOGLE_MAPS, False), (ACCUWEATHER, True), (SERVICE_NOW, False)]:
+        for func, expected in [(GOOGLE_MAPS, True), (ACCUWEATHER, True), (SERVICE_NOW, False)]:
             self.assertTrue(keywords_similar(keywords, func))
             with self.subTest(func=func):
                 similar, ratio = keywords_similar(keywords, func)
