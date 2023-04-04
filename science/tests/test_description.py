@@ -9,9 +9,9 @@ class T(DbTestCase):
         mock_chat.return_value = {'choices': [{'message': {'content': 'Name: foobar'}}]}
         output = get_function_description(
             {
-                "url": "https://api.openai.com/v1/engines/davinci/completions",
+                "url": "https://example.com",
                 "method": "POST",
-                "short_description": "Create a completion",
+                "short_description": "Create a thing",
             }
         )
         self.assertEqual(mock_chat.call_count, 1)

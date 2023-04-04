@@ -1,6 +1,7 @@
 from typing import Union
 import openai
 from typedefs import DescInputDto, DescOutputDto, ErrorDto
+from utils import log
 
 
 prompt_template = """
@@ -48,7 +49,11 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         messages=[system_msg, prompt_msg]
     )
     completion = resp["choices"][0]["message"]["content"]
-    return _parse_function_description(completion)
+    rv = _parse_function_description(completion)
+    if not rv["context"] or rv['name'] or rv['description']:
+        parts = ["Error getting context/name/description from OpenAI", "input:", str(data), "output:", completion]
+        log("\n".join(parts))
+    return rv
 
 
 def _parse_function_description(completion: str) -> DescOutputDto:
