@@ -1,24 +1,6 @@
-from typing import TypedDict, Union
+from typing import Union
 import openai
-
-
-class DescInputDto(TypedDict):
-    url: str
-    method: str
-    short_description: str
-    payload: str
-    response: str
-
-
-class DescOutputDto(TypedDict):
-    name: str
-    context: str
-    description: str
-    openai_response: str
-
-
-class ErrorDto(TypedDict):
-    error: str
+from typedefs import DescInputDto, DescOutputDto, ErrorDto
 
 
 prompt_template = """
@@ -51,7 +33,13 @@ Response Payload:
 
 
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
-    prompt = prompt_template.format(**data)
+    prompt = prompt_template.format(
+        url=data.get("url", ""),
+        method=data.get("method", ""),
+        short_description=data.get("short_description", ""),
+        payload=data.get("payload", ""),
+        response=data.get("response", "")
+    )
     # print(prompt)
     system_msg = {"role": "system", "content": "Include argument types. Be concise."}
     prompt_msg = {"role": "user", "content": prompt}

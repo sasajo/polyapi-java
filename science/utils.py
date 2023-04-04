@@ -4,6 +4,7 @@ from prisma import get_client
 from prisma.models import ConversationMessage, UrlFunction
 
 
+# TODO move types to typedefs
 class FunctionDto(TypedDict):
     id: str
     context: str

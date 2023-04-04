@@ -5,7 +5,8 @@ from openai import OpenAIError
 from prisma import Prisma, register
 from completion import get_function_completion_answer
 from description import get_function_description
-from utils import FunctionDto, clear_conversation
+from typedefs import DescInputDto
+from utils import clear_conversation
 
 
 app = Flask(__name__)
@@ -30,7 +31,7 @@ def function_completion() -> str:
 
 @app.route("/function-description", methods=["POST"])
 def function_description() -> Response:
-    data: FunctionDto = request.get_json(force=True)
+    data: DescInputDto = request.get_json(force=True)
     return jsonify(get_function_description(data))
 
 
