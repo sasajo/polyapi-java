@@ -77,7 +77,7 @@ const poly = {};
 module.exports = merge(
   poly,
   functions.reduce(
-    (acc, [path, id]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/functions/execute/${id}`, { clientID, args }).then(({ data }) => data)),
+    (acc, [path, id]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/functions/url/${id}/execute`, { clientID, args }).then(({ data }) => data)),
     {}
   ),
   customFunctions(poly),
