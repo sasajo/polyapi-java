@@ -81,6 +81,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         type: 'addResponseTexts',
         value: data.texts,
       });
+      this.logStats(data.texts);
     } catch (error) {
       console.error(error);
       this.webView?.webview.postMessage({
@@ -91,6 +92,14 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         }],
       });
     }
+  }
+
+  private logStats(texts) {
+    texts.forEach(text => {
+      if (text.stats) {
+        console.log('%c Poly Debug Stats:', 'background: green; color: black', text.stats);
+      }
+    });
   }
 
   private async sendPolyCommandRequest(command: string) {

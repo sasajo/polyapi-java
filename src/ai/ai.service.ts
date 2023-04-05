@@ -2,7 +2,7 @@ import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
-import { FunctionDescriptionDto } from '@poly/common';
+import { FunctionCompletionDto, FunctionDescriptionDto } from '@poly/common';
 
 @Injectable()
 export class AiService {
@@ -11,18 +11,17 @@ export class AiService {
   constructor(private readonly httpService: HttpService, private readonly config: ConfigService) {
   }
 
-  async getFunctionCompletion(userId: number, message: string): Promise<string> {
+  async getFunctionCompletion(userId: number, message: string): Promise<FunctionCompletionDto> {
     this.logger.debug(`Sending message to Science server for function completion: ${message}`);
     return await lastValueFrom(
       this.httpService.post(`${this.config.scienceServerBaseUrl}/function-completion`, {
         user_id: userId,
         question: message,
       }).pipe(
-        // HACK TODO return the full data object
-        // and have the VSCode extension:
-        // * display the "answer"
-        // * log the "stats" for debugging
-        map(response => response.data.answer),
+        map(response => ({
+          answer: response.data.answer,
+          stats: response.data.stats,
+        })),
       ).pipe(
         catchError(this.processScienceServerError()),
       ),

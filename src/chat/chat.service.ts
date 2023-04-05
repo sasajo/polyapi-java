@@ -1,8 +1,5 @@
-import { HttpException, Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
+import { Injectable, Logger } from '@nestjs/common';
 import { ChatText } from '@poly/common';
-import { catchError, lastValueFrom, map } from 'rxjs';
-import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 
 @Injectable()
@@ -13,11 +10,12 @@ export class ChatService {
   }
 
   public async getMessageResponseTexts(userId: number, message: string): Promise<ChatText[]> {
-    const value = await this.aiService.getFunctionCompletion(userId, message);
+    const { answer, stats } = await this.aiService.getFunctionCompletion(userId, message);
 
     return [{
       type: 'markdown',
-      value,
+      value: answer,
+      stats,
     }];
   }
 

@@ -1,3 +1,6 @@
+### 0.1.16
+* Fixed tooltip and copied code for URL, Custom and Auth functions
+
 ### 0.1.15
 * Fixed tooltip for functions when payload arguments are present
 

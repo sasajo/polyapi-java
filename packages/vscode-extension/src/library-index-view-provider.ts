@@ -15,8 +15,14 @@ class LibraryTreeItem extends vscode.TreeItem {
   private generateTooltip() {
     const { type, name, description, customCode, arguments: args } = this.data;
     switch (type) {
-      case 'function':
-        const title = customCode ? 'Custom function' : 'Function';
+      case 'url':
+      case 'custom':
+      case 'auth':
+        const title = type === 'custom'
+          ? 'Custom function'
+          : type === 'auth'
+            ? 'OAuth function'
+            : 'Function';
         const functionArgs = args.filter(arg => !arg.payload);
         const payloadArgs = args.filter(arg => arg.payload);
         this.tooltip = new vscode.MarkdownString(
@@ -97,7 +103,8 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
     const { parentPath, data, label } = item;
     const { type, name, arguments: args } = data;
     switch (type) {
-      case 'function':
+      case 'url':
+      case 'custom':
         const functionArgs = args.filter(arg => !arg.payload);
         const payloadArgs = args.filter(arg => arg.payload);
         vscode.env.clipboard.writeText(
@@ -107,6 +114,9 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
               : ''
           });`,
         );
+        break;
+      case 'auth':
+        vscode.env.clipboard.writeText(`${parentPath}.${name}(clientId, clientSecret, scopes, (url, token, error) => {\n\n});`);
         break;
       case 'webhookHandle':
         vscode.env.clipboard.writeText(`${parentPath}.${name}(event => {\n\n});`);
