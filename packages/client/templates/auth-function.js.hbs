@@ -1,0 +1,42 @@
+const axios = require('axios');
+
+module.exports = function(eventsClientId, getSocket, clientId, clientSecret, scopes, callback, timeout = 0) {
+  axios.post(`{{apiBaseUrl}}/functions/auth/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
+    .then(({ data }) => {
+      callback(data.url, data.token);
+      if (data.token) {
+        return;
+      }
+
+      let timeoutID;
+      const socket = getSocket();
+      const unregisterEventHandler = () => {
+        socket.off(`handleAuthFunctionEvent:{{id}}`);
+        socket.emit('unregisterAuthFunctionEventHandler', {
+            clientID: eventsClientId,
+            functionId: '{{id}}',
+            apiKey: '{{apiKey}}'
+        });
+        if (timeoutID) {
+          clearTimeout(timeoutID);
+        }
+      };
+      const handleEvent = (event) => {
+        if (event.token) {
+
+        }
+        callback(event.url, event.token, event.error);
+      };
+      socket.on(`handleAuthFunctionEvent:{{id}}`, handleEvent);
+      socket.emit('registerAuthFunctionEventHandler', {
+        clientID: eventsClientId,
+        functionId: '{{id}}',
+        apiKey: '{{apiKey}}'
+      });
+
+      if (timeout) {
+        timeoutID = setTimeout(() => unregisterEventHandler(), timeout);
+        callback(null, null, { message: 'Timeout reached' });
+      }
+    });
+}

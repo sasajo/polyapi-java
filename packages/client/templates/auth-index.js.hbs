@@ -1,0 +1,20 @@
+const set = require('lodash/set');
+const merge = require('lodash/merge');
+
+const authFunctions = [
+{{#each functions}}
+  {{#if context}}
+    ['{{context}}.{{name}}', require('./{{context}}-{{name}}')],
+  {{else}}
+    ['{{name}}', require('./{{name}}')],
+  {{/if}}
+{{/each}}
+];
+
+module.exports = (clientID, getSocket) => merge(
+  {},
+  authFunctions.reduce(
+    (acc, [name, fn]) => set(acc, name, (...args) => fn(clientID, getSocket, ...args)),
+    {}
+  )
+);

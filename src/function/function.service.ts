@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import ts from 'typescript';
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
@@ -5,12 +6,12 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
 import merge from 'lodash/merge';
-import { CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
+import { AuthFunction, CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentsMetadata,
-  Auth,
-  Body,
+  Auth, AuthFunctionDto,
+  Body, ExecuteAuthFunctionResponseDto,
   FunctionArgument,
   FunctionBasicDto,
   FunctionDefinitionDto,
@@ -27,6 +28,7 @@ import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
+import { URLSearchParams } from 'url';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
@@ -89,6 +91,18 @@ export class FunctionService {
 
   async getCustomFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
+      where: {
+        // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
+        // user: {
+        //   id: user.id,
+        // },
+        ...this.getFunctionFilterConditions(contexts, names, ids),
+      },
+    });
+  }
+
+  async getAuthFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
+    return this.prisma.authFunction.findMany({
       where: {
         // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
         // user: {
@@ -343,6 +357,7 @@ export class FunctionService {
       arguments: this.getFunctionArguments(urlFunction, true),
       returnTypeName: `Promise<${namespace}.${returnTypeName}>`,
       returnType,
+      type: 'url',
     };
   }
 
@@ -370,13 +385,59 @@ export class FunctionService {
       description: customFunction.description,
       context: customFunction.context,
       arguments: JSON.parse(customFunction.arguments),
-      returnType: customFunction.returnType,
       returnTypeName: customFunction.returnType,
       customCode: customFunction.code,
+      type: 'custom',
     };
   }
 
-  findUrlFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
+  authFunctionToDefinitionDto(authFunction: AuthFunction): FunctionDefinitionDto {
+    return {
+      id: authFunction.publicId,
+      name: authFunction.name,
+      description: authFunction.description,
+      context: authFunction.context,
+      arguments: this.generateAuthFunctionArguments(),
+      returnTypeName: 'void',
+      type: 'auth',
+    };
+  }
+
+  authFunctionToDto(authFunction: AuthFunction): AuthFunctionDto {
+    return {
+      id: authFunction.publicId,
+      context: authFunction.context,
+      name: authFunction.name,
+      description: authFunction.description,
+      callbackUrl: this.getAuthFunctionCallbackUrl(authFunction),
+    };
+  }
+
+  private getAuthFunctionCallbackUrl(authFunction: AuthFunction) {
+    return `${this.config.hostUrl}/functions/auth/${authFunction.publicId}/callback`;
+  }
+
+  authFunctionToBasicDto(authFunction: AuthFunction): FunctionBasicDto {
+    return {
+      id: authFunction.publicId,
+      context: authFunction.context,
+      name: authFunction.name,
+      description: authFunction.description,
+    };
+  }
+
+  authFunctionToDetailsDto(authFunction: AuthFunction): FunctionDetailsDto {
+    return {
+      id: authFunction.publicId,
+      context: authFunction.context,
+      name: authFunction.name,
+      description: authFunction.description,
+      arguments: this.generateAuthFunctionArguments(),
+      type: 'auth',
+    };
+  }
+
+  async findUrlFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
     return this.prisma.urlFunction.findFirst({
       where: {
         publicId,
@@ -384,7 +445,15 @@ export class FunctionService {
     });
   }
 
-  async executeFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
+  async findAuthFunctionByPublicId(publicId: string): Promise<AuthFunction | null> {
+    return this.prisma.authFunction.findFirst({
+      where: {
+        publicId,
+      },
+    });
+  }
+
+  async executeUrlFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
     this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const argumentsMap = this.getArgumentsMap(urlFunction, args);
@@ -621,6 +690,17 @@ export class FunctionService {
     });
   }
 
+  async findAuthFunction(user: User, publicId: string) {
+    return this.prisma.authFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        publicId,
+      },
+    });
+  }
+
   async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
     if (name != null || context != null) {
       name = await this.resolveFunctionName(user, name, urlFunction.context, false);
@@ -698,6 +778,31 @@ export class FunctionService {
     });
   }
 
+  async updateAuthFunction(user: User, authFunction: AuthFunction, context: string | null, name: string | null, description: string | null) {
+    if (context != null || name != null) {
+      if (!await this.checkNameAndContextDuplicates(
+        user,
+        name || authFunction.name,
+        context == null ? authFunction.context : context,
+        [authFunction.id],
+      )) {
+        throw new HttpException(`Function with name ${name || authFunction.name} and context ${context} already exists.`, HttpStatus.CONFLICT);
+      }
+    }
+
+    this.logger.debug(`Updating auth function ${authFunction.id} with name ${name}, context ${context}, description ${description}`);
+    return this.prisma.authFunction.update({
+      where: {
+        id: authFunction.id,
+      },
+      data: {
+        name: name || authFunction.name,
+        context: context == null ? authFunction.context : context,
+        description: description == null ? authFunction.description : description,
+      },
+    });
+  }
+
   async deleteFunction(user: User, publicId: string) {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
@@ -715,6 +820,7 @@ export class FunctionService {
           publicId,
         },
       });
+      return;
     }
 
     const customFunction = await this.prisma.customFunction.findFirst({
@@ -736,6 +842,29 @@ export class FunctionService {
           publicId,
         },
       });
+      return;
+    }
+
+    const authFunction = await this.prisma.authFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        publicId,
+      },
+    });
+    if (authFunction) {
+      if (user.role !== Role.Admin && authFunction.userId !== user.id) {
+        throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
+      }
+
+      this.logger.debug(`Deleting auth function ${publicId}`);
+      await this.prisma.authFunction.delete({
+        where: {
+          publicId,
+        },
+      });
+      return;
     }
 
     throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
@@ -781,6 +910,27 @@ export class FunctionService {
       },
     });
     if (customFunction) {
+      return false;
+    }
+
+    const authFunction = await this.prisma.authFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        name,
+        context,
+        AND:
+          excludedIds == null
+            ? undefined
+            : {
+              id: {
+                notIn: excludedIds,
+              },
+            },
+      },
+    });
+    if (authFunction) {
       return false;
     }
 
@@ -837,6 +987,13 @@ export class FunctionService {
         },
       },
     });
+    await this.prisma.authFunction.deleteMany({
+      where: {
+        user: {
+          id: userID,
+        },
+      },
+    });
   }
 
   async deleteAllApiKey(apiKey: string) {
@@ -848,6 +1005,13 @@ export class FunctionService {
       },
     });
     await this.prisma.customFunction.deleteMany({
+      where: {
+        user: {
+          apiKey,
+        },
+      },
+    });
+    await this.prisma.authFunction.deleteMany({
       where: {
         user: {
           apiKey,
@@ -942,6 +1106,227 @@ export class FunctionService {
         },
       });
     }
+  }
+
+  async createAuthFunction(user: User, context: string | null, name: string, description: string | null, authUrl: string, accessTokenUrl: string) {
+    const authFunction = await this.prisma.authFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        name,
+        context,
+      },
+    });
+    if (
+      !(await this.checkNameAndContextDuplicates(
+        user,
+        name,
+        context == null ? authFunction.context || '' : context,
+        authFunction ? [authFunction.id] : [],
+      ))
+    ) {
+      throw new HttpException(
+        `Function with name ${name} and context ${context} already exists.`,
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    if (authFunction) {
+      this.logger.debug(`Updating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`);
+      return this.prisma.authFunction.update({
+        where: {
+          id: authFunction.id,
+        },
+        data: {
+          description: description || authFunction.description,
+          authUrl,
+          accessTokenUrl,
+        },
+      });
+    } else {
+      this.logger.debug(`Creating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`);
+      return this.prisma.authFunction.create({
+        data: {
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+          context,
+          name,
+          description,
+          authUrl,
+          accessTokenUrl,
+        },
+      });
+    }
+  }
+
+  public async executeAuthFunction(user: User, authFunction: AuthFunction, eventsClientId: string, clientId: string, clientSecret: string, scopes: string[] | undefined): Promise<ExecuteAuthFunctionResponseDto> {
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        authFunction: {
+          id: authFunction.id,
+        },
+        user: {
+          id: user.id,
+        },
+      },
+    });
+    if (authToken?.accessToken) {
+      return {
+        token: authToken.accessToken,
+      };
+    } else if (authToken) {
+      await this.prisma.authToken.delete({
+        where: {
+          authFunctionId_userId: {
+            userId: user.id,
+            authFunctionId: authFunction.id,
+          },
+        },
+      });
+    }
+
+    const state = crypto.randomBytes(20).toString('hex');
+    await this.prisma.authToken.create({
+      data: {
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
+        authFunction: {
+          connect: {
+            id: authFunction.id,
+          },
+        },
+        state,
+        clientId,
+        clientSecret,
+        eventsClientId,
+      },
+    });
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
+      response_type: 'code',
+      scope: scopes?.join(' '),
+      state,
+    });
+
+    return {
+      url: `${authFunction.authUrl}?${params.toString()}`,
+    };
+  }
+
+  public async refreshAuthToken(user: User, authFunction: AuthFunction, code: string, state: string): Promise<void> {
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        authFunctionId: authFunction.id,
+        userId: user.id,
+        state,
+      },
+    });
+    if (!authToken) {
+      throw new HttpException('Invalid state', HttpStatus.BAD_REQUEST);
+    }
+
+  }
+
+  async processAuthFunctionCallback(publicId: string, query: any) {
+    const { state, error, code } = query;
+    if (!state) {
+      this.logger.error('Missing state for auth function callback');
+      throw new HttpException('Missing state', HttpStatus.BAD_REQUEST);
+    }
+
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        state,
+      },
+    });
+    if (!authToken) {
+      this.logger.error(`Cannot find auth token for state: ${state}`);
+      throw new HttpException('Invalid state', HttpStatus.BAD_REQUEST);
+    }
+
+    const authFunction = await this.prisma.authFunction.findFirst({
+      where: {
+        publicId,
+      },
+    });
+    if (!authFunction) {
+      this.logger.error(`Cannot find auth function for publicId: ${publicId}`);
+      throw new HttpException('Invalid publicId', HttpStatus.BAD_REQUEST);
+    }
+
+    if (error) {
+      this.logger.debug(`Auth function callback error: ${error}`);
+      this.eventService.sendAuthFunctionEvent(publicId, {
+        error,
+      });
+      return;
+    }
+
+    if (!code) {
+      this.logger.error('Missing code for auth function callback');
+      throw new HttpException('Missing code', HttpStatus.BAD_REQUEST);
+    }
+
+    const tokenData = await lastValueFrom(
+      this.httpService
+        .request({
+          url: authFunction.accessTokenUrl,
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+          },
+          params: {
+            code,
+            client_id: authToken.clientId,
+            client_secret: authToken.clientSecret,
+            grant_type: 'authorization_code',
+            redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
+          },
+        })
+        .pipe(
+          map((response) => response.data),
+        )
+        .pipe(
+          catchError((error: AxiosError) => {
+            this.logger.error(`Error while performing token request for auth function (id: ${authFunction.id}): ${error}`);
+
+            this.eventService.sendAuthFunctionEvent(publicId, {
+              error: error.response ? error.response.data : error.message,
+            });
+
+            return of(null);
+          }),
+        ),
+    );
+    if (!tokenData) {
+      return;
+    }
+
+    await this.prisma.authToken.update({
+      where: {
+        authFunctionId_userId: {
+          userId: authToken.userId,
+          authFunctionId: authFunction.id,
+        },
+      },
+      data: {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+      },
+    });
+
+    this.eventService.sendAuthFunctionEvent(publicId, {
+      token: tokenData.access_token,
+    });
   }
 
   private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
@@ -1076,5 +1461,40 @@ export class FunctionService {
         throw new HttpException(`Argument '${key}' not found in function`, HttpStatus.BAD_REQUEST);
       }
     });
+  }
+
+  private generateAuthFunctionArguments(): FunctionArgument[] {
+    return [
+      {
+        key: 'clientId',
+        name: 'clientId',
+        type: 'string',
+        required: true,
+      },
+      {
+        key: 'clientSecret',
+        name: 'clientSecret',
+        type: 'string',
+        required: true,
+      },
+      {
+        key: 'scopes',
+        name: 'scopes',
+        type: 'string[]',
+        required: false,
+      },
+      {
+        key: 'callback',
+        name: 'callback',
+        type: '(url?: string, token?: string, error?: { message: string }) => void',
+        required: true,
+      },
+      {
+        key: 'timeout',
+        name: 'timeout',
+        type: 'number',
+        required: false,
+      },
+    ];
   }
 }

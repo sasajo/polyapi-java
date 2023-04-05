@@ -24,17 +24,20 @@ interface Context {
 const prepareDir = () => {
   fs.rmSync(POLY_LIB_PATH, { recursive: true, force: true });
   fs.mkdirSync(POLY_LIB_PATH, { recursive: true });
+  fs.mkdirSync(`${POLY_LIB_PATH}/auth`);
   fs.mkdirSync(`${POLY_LIB_PATH}/custom`);
 };
 
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
 
 const generateJSFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
-  const urlFunctions = functions.filter((func) => !func.customCode);
-  const customFunctions = functions.filter((func) => func.customCode);
+  const urlFunctions = functions.filter((func) => func.type === 'url');
+  const customFunctions = functions.filter((func) => func.type === 'custom');
+  const authFunctions = functions.filter((func) => func.type === 'auth');
 
   await generateIndexJSFile(urlFunctions, webhookHandles);
   await generateCustomFunctionJSFiles(customFunctions);
+  await generateAuthFunctionJSFiles(authFunctions);
 };
 
 const generateIndexJSFile = async (
@@ -79,6 +82,34 @@ const generateCustomFunctionJSFiles = async (customFunctions: FunctionDefinition
   });
 };
 
+const generateAuthFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+  const authIndexJSTemplate = handlebars.compile(await loadTemplate('auth-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/auth/index.js`,
+    authIndexJSTemplate({
+      functions,
+    }),
+  );
+
+  if (functions.length === 0) {
+    return;
+  }
+  const authFunctionJSTemplate = handlebars.compile(await loadTemplate('auth-function.js.hbs'));
+  functions.forEach((authFunction) => {
+    fs.writeFileSync(
+      `${POLY_LIB_PATH}/auth/${authFunction.context ? `${authFunction.context}-` : ''}${authFunction.name}.js`,
+      prettyPrint(
+        authFunctionJSTemplate({
+          ...authFunction,
+          apiBaseUrl: process.env.POLY_API_BASE_URL,
+          apiKey: process.env.POLY_API_KEY,
+        }),
+        'babel',
+      ),
+    );
+  });
+};
+
 const generateTSDeclarationFilesForContext = async (
   context: Context,
   contextData: any,
@@ -86,7 +117,10 @@ const generateTSDeclarationFilesForContext = async (
 ) => {
   const contextDataKeys = Object.keys(contextData);
   const contextDataFunctions = contextDataKeys
-    .filter((key) => contextData[key].type === 'function')
+    .filter((key) => ['url', 'custom'].includes(contextData[key].type))
+    .map((key) => contextData[key]);
+  const contextDataAuthFunctions = contextDataKeys
+    .filter((key) => contextData[key].type === 'auth')
     .map((key) => contextData[key]);
   const contextDataWebhookHandles = contextDataKeys
     .filter((key) => contextData[key].type === 'webhookHandle')
@@ -107,6 +141,7 @@ const generateTSDeclarationFilesForContext = async (
   await generateTSContextDeclarationFile(
     context,
     contextDataFunctions,
+    contextDataAuthFunctions,
     contextDataWebhookHandles,
     contextDataSubContexts,
   );
@@ -161,12 +196,13 @@ const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
 const generateTSContextDeclarationFile = async (
   context: Context,
   functions: FunctionDefinitionDto[],
+  authFunctions: FunctionDefinitionDto[],
   webhookHandles: WebhookHandleDefinitionDto[],
   subContexts: Context[],
 ) => {
   const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
   const returnTypeDefinitions = functions
-    .filter((func) => func.returnType && !func.customCode)
+    .filter((func) => func.returnType)
     .reduce((result, func) => `${result}${func.returnType}\n`, '');
   const functionArgumentsTypeDeclarations = functions
     .reduce(
@@ -195,16 +231,14 @@ const generateTSContextDeclarationFile = async (
       hasPayloadArguments: func.arguments.some((arg) => arg.payload),
     };
   };
-  const toWebhookHandleData = (handle: WebhookHandleDefinitionDto) => ({
-    ...handle,
-  });
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${context.fileName}`,
     prettyPrint(
       template({
         interfaceName: context.interfaceName,
         functions: functions.map(toFunctionData),
-        webhookHandles: webhookHandles.map(toWebhookHandleData),
+        webhookHandles,
+        authFunctions,
         subContexts,
         returnTypeDefinitions,
         functionArgumentsTypeDeclarations,
@@ -225,7 +259,6 @@ const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: Webh
     const path = func.context ? `${func.context}.${func.name}` : func.name;
     set(contextData, path, {
       ...func,
-      type: 'function',
       name: func.name.split('.').pop(),
       arguments: func.arguments.map((arg) => ({
         ...arg,

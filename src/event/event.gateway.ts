@@ -1,5 +1,5 @@
 import { SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { ErrorHandlerDto, WebhookEventHandlerDto } from '@poly/common';
+import { AuthFunctionEventHandlerDto, ErrorHandlerDto, WebhookEventHandlerDto } from '@poly/common';
 import { Socket, Server } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { EventService } from 'event/event.service';
@@ -80,10 +80,48 @@ export class EventGateway {
   }
 
   @SubscribeMessage('unregisterWebhookEventHandler')
-  async unregisterWebhookErrorHandler(client: Socket, webhookEventHandler: WebhookEventHandlerDto) {
+  async unregisterWebhookEventHandler(client: Socket, webhookEventHandler: WebhookEventHandlerDto) {
     if (!await this.checkWebhookEventHandler(webhookEventHandler)) {
       return false;
     }
     this.eventService.unregisterWebhookEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.webhookHandleID);
+  }
+
+  private async checkAuthFunctionEventHandler({ clientID, functionId, apiKey }: AuthFunctionEventHandlerDto) {
+    if (!clientID) {
+      this.logger.debug(`Missing client ID.`);
+      return false;
+    }
+    if (!functionId) {
+      this.logger.debug(`Missing function ID.`);
+      return false;
+    }
+    if (!apiKey) {
+      this.logger.debug(`Missing API key.`);
+      return false;
+    }
+    const user = await this.userService.findByApiKey(apiKey);
+    if (!user) {
+      this.logger.debug(`Invalid API key: ${apiKey}`);
+      return false;
+    }
+    return true;
+  }
+
+  @SubscribeMessage('registerAuthFunctionEventHandler')
+  async registerAuthFunctionEventHandler(client: Socket, webhookEventHandler: AuthFunctionEventHandlerDto) {
+    if (!await this.checkAuthFunctionEventHandler(webhookEventHandler)) {
+      return false;
+    }
+    this.eventService.registerAuthFunctionEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.functionId);
+    return true;
+  }
+
+  @SubscribeMessage('unregisterAuthFunctionEventHandler')
+  async unregisterAuthFunctionEventHandler(client: Socket, webhookEventHandler: AuthFunctionEventHandlerDto) {
+    if (!await this.checkAuthFunctionEventHandler(webhookEventHandler)) {
+      return false;
+    }
+    this.eventService.unregisterAuthFunctionEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.functionId);
   }
 }

@@ -6,12 +6,14 @@ import { AxiosError } from 'axios';
 type ClientID = string;
 type Path = string;
 type WebhookHandleID = string;
+type AuthFunctionID = string;
 
 @Injectable()
 export class EventService {
   private logger: Logger = new Logger(EventService.name);
   private readonly errorHandlers: Record<ClientID, Record<Path, Socket[]>> = {};
   private readonly webhookEventHandlers: Record<ClientID, Record<WebhookHandleID, Socket[]>> = {};
+  private readonly authFunctionHandlers: Record<ClientID, Record<AuthFunctionID, Socket[]>> = {};
 
   registerErrorHandler(client: Socket, clientID: string, path: string) {
     this.logger.debug(`Registering error handler: ${clientID} '${path}'`);
@@ -95,7 +97,8 @@ export class EventService {
       return;
     }
 
-    this.webhookEventHandlers[clientID][webhookHandleID] = this.webhookEventHandlers[clientID][webhookHandleID].filter(socket => socket.id !== client.id);
+    this.webhookEventHandlers[clientID][webhookHandleID] = this.webhookEventHandlers[clientID][webhookHandleID]
+      .filter(socket => socket.id !== client.id);
   }
 
   sendWebhookEvent(webhookHandleID: string, eventPayload: any) {
@@ -106,6 +109,46 @@ export class EventService {
         return;
       }
       clientHandlers[webhookHandleID].forEach(socket => socket.emit(`handleWebhookEvent:${webhookHandleID}`, eventPayload));
+    });
+  }
+
+  registerAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string) {
+    this.logger.debug(`Registering handler for auth function ${authFunctionId} on ${clientID}`);
+    if (!this.authFunctionHandlers[clientID]) {
+      this.authFunctionHandlers[clientID] = {};
+    }
+    if (!this.authFunctionHandlers[clientID][authFunctionId]) {
+      this.authFunctionHandlers[clientID][authFunctionId] = [];
+    }
+    this.authFunctionHandlers[clientID][authFunctionId].push(client);
+
+    client.on('disconnect', () => {
+      this.logger.debug(`Client for auth function handler disconnected: ${clientID} '${authFunctionId}'`);
+      this.unregisterAuthFunctionEventHandler(client, clientID, authFunctionId);
+    });
+  }
+
+  unregisterAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string) {
+    this.logger.debug(`Unregistering auth function handler: '${authFunctionId}' on ${clientID}`);
+    if (!this.authFunctionHandlers[clientID]?.[authFunctionId]) {
+      return;
+    }
+
+    this.authFunctionHandlers[clientID][authFunctionId] = this.authFunctionHandlers[clientID][authFunctionId]
+      .filter(socket => socket.id !== client.id);
+  }
+
+  sendAuthFunctionEvent(authFunctionId: string, eventPayload: any) {
+    this.logger.debug(`Sending auth function event: '${authFunctionId}'`, eventPayload);
+
+    Object.values(this.authFunctionHandlers).forEach(clientHandlers => {
+      if (!clientHandlers[authFunctionId]) {
+        return;
+      }
+      clientHandlers[authFunctionId].forEach(socket => {
+        this.logger.debug(`Sending auth function event: '${authFunctionId}'`, eventPayload);
+        socket.emit(`handleAuthFunctionEvent:${authFunctionId}`, eventPayload);
+      });
     });
   }
 }

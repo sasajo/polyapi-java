@@ -6,7 +6,7 @@ import { PathError } from './path-error';
 @Injectable()
 export class CommonService {
   public async generateTypeDeclaration(typeName: string, content: any, namespace: string) {
-    const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n};`;
+    const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n}`;
 
     if (!content) {
       return wrapToNamespace(`type ${typeName} = any;`);

@@ -4,6 +4,7 @@ const merge = require('lodash/merge');
 const { io } = require("socket.io-client");
 const { v4: uuidv4 } = require('uuid');
 const customFunctions = require('./custom');
+const authFunctions = require('./auth');
 
 const clientID = uuidv4();
 let socket = null;
@@ -80,6 +81,7 @@ module.exports = merge(
     {}
   ),
   customFunctions(poly),
+  authFunctions(clientID, getSocket),
   webhookHandles.reduce(
     (acc, [path, id]) => set(acc, path, (callback) => registerWebhookEventListener(id, callback)),
     {}

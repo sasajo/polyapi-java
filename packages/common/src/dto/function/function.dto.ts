@@ -18,9 +18,11 @@ export interface FunctionBasicDto {
   description: string;
 }
 
+type FunctionType = 'url' | 'custom' | 'auth';
+
 export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: FunctionArgument[];
-  type: 'url' | 'custom';
+  type: FunctionType;
 }
 
 export interface FunctionDefinitionDto {
@@ -30,6 +32,15 @@ export interface FunctionDefinitionDto {
   description: string;
   arguments: FunctionArgument[];
   returnTypeName: string;
-  returnType: string;
+  returnType?: string;
   customCode?: string;
+  type: FunctionType;
+}
+
+export interface AuthFunctionDto {
+  id: string;
+  name: string;
+  context: string;
+  description: string;
+  callbackUrl: string;
 }
