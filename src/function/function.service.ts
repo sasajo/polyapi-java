@@ -640,7 +640,9 @@ export class FunctionService {
       }
     }
 
-    this.checkArgumentsMetadata(urlFunction, argumentsMetadata);
+    if (argumentsMetadata != null) {
+      this.checkArgumentsMetadata(urlFunction, argumentsMetadata);
+    }
 
     argumentsMetadata = await this.resolveArgumentsTypeDeclarations(urlFunction, argumentsMetadata);
     argumentsMetadata = this.mergeArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
