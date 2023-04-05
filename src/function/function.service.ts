@@ -642,9 +642,9 @@ export class FunctionService {
 
     if (argumentsMetadata != null) {
       this.checkArgumentsMetadata(urlFunction, argumentsMetadata);
+      argumentsMetadata = await this.resolveArgumentsTypeDeclarations(urlFunction, argumentsMetadata);
     }
 
-    argumentsMetadata = await this.resolveArgumentsTypeDeclarations(urlFunction, argumentsMetadata);
     argumentsMetadata = this.mergeArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
 
     const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getFunctionArguments({
@@ -947,7 +947,7 @@ export class FunctionService {
   private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
     return merge(
       JSON.parse(argumentsMetadata || '{}'),
-      updatedArgumentsMetadata,
+      updatedArgumentsMetadata || {},
     );
   }
 
