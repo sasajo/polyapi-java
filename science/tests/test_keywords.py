@@ -1,5 +1,5 @@
 from .testing import DbTestCase
-from keywords import keywords_similar
+from keywords import keywords_similar, top_5_keywords
 
 
 ACCUWEATHER = {
@@ -65,3 +65,8 @@ class T(DbTestCase):
             with self.subTest(func=func):
                 similar, ratio = keywords_similar(keywords, func)
                 self.assertEqual(similar, expected, ratio)
+
+    def test_top_5_keywords(self):
+        keyword_data = {"keywords": "xasyz"}
+        top_5, stats = top_5_keywords([ACCUWEATHER, GOOGLE_MAPS, SERVICE_NOW], keyword_data)
+        self.assertEqual(top_5, [])
