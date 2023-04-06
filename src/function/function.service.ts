@@ -5,7 +5,7 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import merge from 'lodash/merge';
+import mergeWith from 'lodash/mergeWith';
 import { AuthFunction, CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
@@ -1317,9 +1317,18 @@ export class FunctionService {
   }
 
   private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
-    return merge(
+    return mergeWith(
       JSON.parse(argumentsMetadata || '{}'),
       updatedArgumentsMetadata || {},
+      (objValue, srcValue) => {
+        if (objValue?.typeObject && srcValue?.typeObject) {
+          return {
+            ...objValue,
+            ...srcValue,
+            typeObject: srcValue.typeObject,
+          };
+        }
+      },
     );
   }
 
