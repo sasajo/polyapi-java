@@ -1,3 +1,4 @@
+import string
 import json
 from typing import Dict, List, Tuple, Optional, Union
 from constants import VarName
@@ -108,3 +109,10 @@ def is_vip_user(user_id: Optional[int]) -> bool:
 
     user = get_client().user.find_first(where={"id": user_id})
     return user.vip if user else False
+
+
+remove_punctuation_translation = str.maketrans('', '', string.punctuation)
+
+
+def remove_punctuation(s: str) -> str:
+    return s.translate(remove_punctuation_translation)

@@ -4,7 +4,7 @@ from thefuzz import fuzz
 from typing import Optional, Tuple, Union, List
 from constants import VarName
 from typedefs import StatsDict, ExtractKeywordDto, FunctionDto, WebhookDto
-from utils import func_path, get_config_variable, log
+from utils import func_path, get_config_variable, log, remove_punctuation
 
 
 KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
@@ -66,6 +66,7 @@ def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
     for key in ["keywords", "semantically_similar_keywords", "http_methods"]:
         if isinstance(rv[key], list):
             rv[key] = " ".join(rv[key])
+            rv[key] = remove_punctuation(rv[key])
 
     return rv
 
