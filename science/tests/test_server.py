@@ -78,6 +78,6 @@ class T(DbTestCase):
     def test_configure(self):
         data = {"name": "function_match_limit", "value": "4"}
         resp = self.client.post("/configure", json=data)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 201)
         out = get_function_match_limit()
         self.assertEqual(out, 4)

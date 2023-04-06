@@ -6,6 +6,7 @@ from completion import (
     get_function_options_prompt,
     get_completion_prompt_messages,
 )
+from typedefs import ExtractKeywordDto
 from .testing import DbTestCase
 
 
@@ -112,7 +113,7 @@ class T(DbTestCase):
     def test_library_message_no_keywords(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: get_functions())
 
-        d, stats = get_function_options_prompt("")
+        d, stats = get_function_options_prompt(None)
         self.assertEqual(requests_get.call_count, 0)
         self.assertIsNone(d)
 
@@ -125,7 +126,9 @@ class T(DbTestCase):
         ]
 
         keywords = "how do I find the x and y coordinates of a Google Map?".lower()
-        d, stats = get_function_options_prompt({"keywords": keywords})
+        keyword_data = ExtractKeywordDto(keywords=keywords, semantically_similar_keywords="", http_methods="")
+        d, stats = get_function_options_prompt(keyword_data)
+        assert d
         self.assertEqual(requests_get.call_count, 2)
         self.assertEqual(stats["match_count"], 3)
         self.assertIn("Here are some functions", d["content"])
@@ -138,7 +141,8 @@ class T(DbTestCase):
             Mock(status_code=200, json=lambda: get_webhooks()),
         ]
 
-        d, stats = get_function_options_prompt({"keywords": "foo bar"})
+        d, stats = get_function_options_prompt({"keywords": "foo bar"})  # type: ignore
+        assert d
         self.assertEqual(requests_get.call_count, 2)
         self.assertEqual(stats["match_count"], 1)
         self.assertTrue(d["content"].startswith("Here are some event handlers"))
@@ -159,4 +163,4 @@ class T(DbTestCase):
         )
         self.assertEqual(requests_get.call_count, 2)
         self.assertEqual(stats["match_count"], 1)
-        self.assertEqual(len(messages), 3)
+        self.assertEqual(len(messages), 2)
