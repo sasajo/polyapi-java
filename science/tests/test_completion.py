@@ -159,4 +159,4 @@ class T(DbTestCase):
         )
         self.assertEqual(requests_get.call_count, 2)
         self.assertEqual(stats["match_count"], 1)
-        self.assertEqual(len(messages), 4)
+        self.assertEqual(len(messages), 3)

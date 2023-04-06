@@ -68,10 +68,18 @@ def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
     )
     content = resp["choices"][0]["message"]["content"]
     try:
-        return json.loads(content)
+        rv = json.loads(content)
     except Exception as e:
         log("Non-JSON response from OpenAI", e, content, sep="\n")
         return None
+
+    # sometimes OpenAI returns lists instead of strings
+    # let's coerce them to strings
+    for key in ["keywords", "semantically_similar_keywords", "http_methods"]:
+        if isinstance(rv[key], list):
+            rv[key] = " ".join(rv[key])
+
+    return rv
 
 
 BLACKLISTED = [
@@ -165,9 +173,6 @@ def _get_top_5(
     items: List[Union[FunctionDto, WebhookDto]], keywords: str
 ) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
     threshold = get_similarity_threshold()
-
-    if isinstance(keywords, list):
-        keywords = " ".join(keywords)
 
     if not keywords:
         return [], {"total": len(items), "match_count": 0, "scores": []}

@@ -1,5 +1,7 @@
+import json
+from unittest.mock import patch, Mock
+from keywords import extract_keywords, keywords_similar, top_5_keywords
 from .testing import DbTestCase
-from keywords import keywords_similar, top_5_keywords
 
 
 ACCUWEATHER = {
@@ -40,7 +42,11 @@ class T(DbTestCase):
         keywords = "current weather location get"
 
         # accuweather does pass even though we might not expect it to
-        for func, expected in [(GOOGLE_MAPS, True), (ACCUWEATHER, True), (SERVICE_NOW, False)]:
+        for func, expected in [
+            (GOOGLE_MAPS, True),
+            (ACCUWEATHER, True),
+            (SERVICE_NOW, False),
+        ]:
             self.assertTrue(keywords_similar(keywords, func))
             with self.subTest(func=func):
                 similar, ratio = keywords_similar(keywords, func)
@@ -51,7 +57,11 @@ class T(DbTestCase):
         keywords = "geocoordinates location get"
 
         # accuweather does pass even though we might not expect it to
-        for func, expected in [(GOOGLE_MAPS, True), (ACCUWEATHER, True), (SERVICE_NOW, False)]:
+        for func, expected in [
+            (GOOGLE_MAPS, True),
+            (ACCUWEATHER, True),
+            (SERVICE_NOW, False),
+        ]:
             self.assertTrue(keywords_similar(keywords, func))
             with self.subTest(func=func):
                 similar, ratio = keywords_similar(keywords, func)
@@ -60,7 +70,11 @@ class T(DbTestCase):
     def test_keywords_similar_incident(self):
         # how do I create an incident on service now?
         keywords = "create incident service now"
-        for func, expected in [(GOOGLE_MAPS, False), (ACCUWEATHER, False), (SERVICE_NOW, True)]:
+        for func, expected in [
+            (GOOGLE_MAPS, False),
+            (ACCUWEATHER, False),
+            (SERVICE_NOW, True),
+        ]:
             self.assertTrue(keywords_similar(keywords, func))
             with self.subTest(func=func):
                 similar, ratio = keywords_similar(keywords, func)
@@ -68,5 +82,37 @@ class T(DbTestCase):
 
     def test_top_5_keywords(self):
         keyword_data = {"keywords": "xasyz"}
-        top_5, stats = top_5_keywords([ACCUWEATHER, GOOGLE_MAPS, SERVICE_NOW], keyword_data)
+        top_5, stats = top_5_keywords(
+            [ACCUWEATHER, GOOGLE_MAPS, SERVICE_NOW], keyword_data
+        )
         self.assertEqual(top_5, [])
+
+    @patch("keywords.openai.ChatCompletion.create")
+    def test_extract_keywords(self, chat_create: Mock):
+        mock_response = {
+            "keywords": "foo bar",
+            "semantically_similar_keywords": "foo bar",
+            "http_methods": "get post",
+        }
+        chat_create.return_value = {
+            "choices": [{"message": {"content": json.dumps(mock_response)}}]
+        }
+        keyword_data = extract_keywords("test")
+        self.assertEqual(keyword_data["keywords"], "foo bar")
+        self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
+        self.assertEqual(keyword_data["http_methods"], "get post")
+
+    @patch("keywords.openai.ChatCompletion.create")
+    def test_extract_keywords_lists(self, chat_create: Mock):
+        mock_response = {
+            "keywords": ["foo", "bar"],
+            "semantically_similar_keywords": ["foo", "bar"],
+            "http_methods": ["get", "post"],
+        }
+        chat_create.return_value = {
+            "choices": [{"message": {"content": json.dumps(mock_response)}}]
+        }
+        keyword_data = extract_keywords("test")
+        self.assertEqual(keyword_data["keywords"], "foo bar")
+        self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
+        self.assertEqual(keyword_data["http_methods"], "get post")
