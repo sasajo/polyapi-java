@@ -121,10 +121,14 @@ def get_library_message_dict(keywords: ExtractKeywordDto) -> Tuple[Optional[Mess
     # if keywords:
     #     log_matches(keywords, "functions", stats["match_count"], len(items))
 
-    return {
-        "role": "assistant",
-        "content": _join_content(function_parts, webhook_parts),
-    }, stats
+    content = _join_content(function_parts, webhook_parts)
+    if content:
+        return {
+            "role": "assistant",
+            "content": content,
+        }, stats
+    else:
+        return None, stats
 
 
 def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
