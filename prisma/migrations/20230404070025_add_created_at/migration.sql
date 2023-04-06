@@ -13,7 +13,7 @@ CREATE TABLE "new_auth_function" (
     "trained" BOOLEAN NOT NULL DEFAULT false,
     CONSTRAINT "auth_function_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_auth_function" ("access_token_url", "auth_url", "context", "description", "id", "name", "public_id", "trained", "user_id", "created_at") SELECT "access_token_url", "auth_url", "context", "description", "id", "name", "public_id", "state", "trained", "user_id", cast(strftime('%s','now') as int) * 1000 FROM "auth_function";
+INSERT INTO "new_auth_function" ("access_token_url", "auth_url", "context", "description", "id", "name", "public_id", "trained", "user_id", "created_at") SELECT "access_token_url", "auth_url", "context", "description", "id", "name", "public_id", "trained", "user_id", cast(strftime('%s','now') as int) * 1000 FROM "auth_function";
 DROP TABLE "auth_function";
 ALTER TABLE "new_auth_function" RENAME TO "auth_function";
 CREATE UNIQUE INDEX "auth_function_public_id_key" ON "auth_function"("public_id");
