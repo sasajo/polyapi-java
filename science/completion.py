@@ -264,12 +264,12 @@ def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], St
             role="user",
             content="Only include actual payload elements and function arguments in the example. Be concise.",
         )
-        rv.append(
-            MessageDict(
-                role="user",
-                content="To import the Poly API library, use `import poly from 'polyapi';`",
-            )
-        )
+        # rv.append(
+        #     MessageDict(
+        #         role="user",
+        #         content="To import the Poly API library, use `import poly from 'polyapi';`",
+        #     )
+        # )
         rv.append(library)
 
     question_msg = get_question_message_dict(question, bool(library))
