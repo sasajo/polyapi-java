@@ -164,6 +164,11 @@ def _generate_match_count(stats: StatsDict) -> int:
 def _get_top_5(
     items: List[Union[FunctionDto, WebhookDto]], keywords: str
 ) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
+    threshold = get_similarity_threshold()
+
+    if isinstance(keywords, list):
+        keywords = " ".join(keywords)
+
     if not keywords:
         return [], {"total": len(items), "match_count": 0, "scores": []}
 
@@ -173,7 +178,7 @@ def _get_top_5(
         items_with_scores.append((item, score))
 
     items_with_scores = sorted(items_with_scores, key=lambda x: x[1], reverse=True)
-    top_5 = [item for item, score in items_with_scores if score > get_similarity_threshold()]
+    top_5 = [item for item, score in items_with_scores if score > threshold]
 
     stats = _get_stats(items_with_scores)
     return top_5[:5], stats
