@@ -1,7 +1,7 @@
 import poly = require("./index");
 
 type UnregisterWebhookEventListenerType = () => void;
-type AuthFunctionCallbackType = (url?: string, token?: string, error?: { message: string }) => any;
+type AuthFunctionCallbackType = (url?: string, token?: string, error?: any) => any;
 
 {{{returnTypeDefinitions}}}
 {{{functionArgumentsTypeDeclarations}}}

@@ -1174,7 +1174,7 @@ export class FunctionService {
         },
       },
     });
-    if (authToken?.accessToken) {
+    if (authToken?.accessToken && authToken?.clientId === clientId && authToken?.clientSecret === clientSecret) {
       return {
         token: authToken.accessToken,
       };
@@ -1220,20 +1220,6 @@ export class FunctionService {
     return {
       url: `${authFunction.authUrl}?${params.toString()}`,
     };
-  }
-
-  public async refreshAuthToken(user: User, authFunction: AuthFunction, code: string, state: string): Promise<void> {
-    const authToken = await this.prisma.authToken.findFirst({
-      where: {
-        authFunctionId: authFunction.id,
-        userId: user.id,
-        state,
-      },
-    });
-    if (!authToken) {
-      throw new HttpException('Invalid state', HttpStatus.BAD_REQUEST);
-    }
-
   }
 
   async processAuthFunctionCallback(publicId: string, query: any) {
@@ -1283,8 +1269,9 @@ export class FunctionService {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          params: {
+          data: {
             code,
             client_id: authToken.clientId,
             client_secret: authToken.clientSecret,
@@ -1486,7 +1473,7 @@ export class FunctionService {
       {
         key: 'callback',
         name: 'callback',
-        type: '(url?: string, token?: string, error?: { message: string }) => void',
+        type: '(url?: string, token?: string, error?: any) => void',
         required: true,
       },
       {
