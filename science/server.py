@@ -6,7 +6,7 @@ from prisma import Prisma, register
 from completion import get_completion_or_conversation_answer
 from description import get_function_description
 from typedefs import DescInputDto
-from utils import clear_conversation, set_config_variable
+from utils import clear_conversation, is_vip_user, log, set_config_variable
 
 
 app = Flask(__name__)
@@ -28,6 +28,9 @@ def function_completion() -> Dict:
     user_id: Optional[int] = data.get("user_id")
     assert user_id
     resp = get_completion_or_conversation_answer(user_id, question)
+    if is_vip_user(user_id):
+        log(f"VIP USER {user_id}", resp, sep="\n")
+
     return resp
 
 

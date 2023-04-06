@@ -13,3 +13,4 @@ FINE_TUNE_MODEL = os.environ.get("FINE_TUNE_MODEL")
 class VarName(Enum):
     keyword_similarity_threshold = "keyword_similarity_threshold"
     function_match_limit = "function_match_limit"
+    extract_keywords_temperature = "extract_keywords_temperature"

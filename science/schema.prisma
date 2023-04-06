@@ -14,6 +14,7 @@ model User {
   apiKey               String                @unique @map("api_key")
   name                 String?
   role                 String                @default("USER")
+  vip                  Boolean               @default(false)  // is this person a VIP we want to track carefully?
   urlFunctions         UrlFunction[]
   webhookHandles       WebhookHandle[]
   customFunctions      CustomFunction[]

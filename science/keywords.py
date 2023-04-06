@@ -36,6 +36,11 @@ def get_function_match_limit() -> int:
     return int(var.value) if var else 5
 
 
+def get_extract_keywords_temperature() -> float:
+    var = get_config_variable(VarName.extract_keywords_temperature)
+    return float(var.value) if var else 0.01
+
+
 def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
     prompt = KEYWORD_PROMPT.format(prompt=question)
     resp = openai.ChatCompletion.create(

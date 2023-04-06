@@ -100,3 +100,11 @@ def quick_db_connect():
     db = Prisma()
     db.connect()
     register(db)
+
+
+def is_vip_user(user_id: Optional[int]) -> bool:
+    if not user_id:
+        return False
+
+    user = get_client().user.find_first(where={"id": user_id})
+    return user.vip if user else False
