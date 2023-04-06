@@ -1,6 +1,8 @@
 from mock import patch, Mock
 from openai.error import ServiceUnavailableError
 
+from keywords import get_function_match_limit
+
 from .testing import DbTestCase
 
 # TODO make relative?
@@ -36,17 +38,17 @@ class T(DbTestCase):
     def test_function_completion_error(self, get_answer: Mock) -> None:
         # setup
         get_answer.side_effect = ServiceUnavailableError("The server is overloaded or not ready yet.")
-        mock_input: DescInputDto = {
+        mock_input = {
             "question": "hi world",
+            "user_id": 1,
         }
 
         # execute
         resp = self.client.post("/function-completion", json=mock_input)
 
         # test
-        self.assertEqual(get_answer.call_count, 1)
         self.assertEqual(resp.status_code, 500)
-        print(resp.text)
+        self.assertEqual(get_answer.call_count, 1)
 
     @patch("description.openai.ChatCompletion.create")
     def test_function_description(self, chat_create: Mock) -> None:
@@ -72,3 +74,10 @@ class T(DbTestCase):
         self.assertEqual(output["context"], "booking.reservations")
         self.assertEqual(output["name"], "createReservation")
         self.assertEqual(output["description"], "This API call...")
+
+    def test_configure(self):
+        data = {"name": "function_match_limit", "value": "4"}
+        resp = self.client.post("/configure", json=data)
+        self.assertEqual(resp.status_code, 200)
+        out = get_function_match_limit()
+        self.assertEqual(out, 4)

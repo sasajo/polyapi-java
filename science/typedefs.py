@@ -54,7 +54,11 @@ class ChatGptChoice(TypedDict):
     index: int
 
 
-class StatsDict(TypedDict):
+class StatsDict(TypedDict, total=False):
+    prompt: str
     total: int
     match_count: int
     scores: List[Tuple[str, int]]
+    keyword_extraction: ExtractKeywordDto
+    keyword_stats: 'StatsDict'
+    semantically_similar_stats: 'StatsDict'

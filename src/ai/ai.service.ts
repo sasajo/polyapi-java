@@ -56,6 +56,17 @@ export class AiService {
     );
   }
 
+  async configure(name: string, value: string) {
+    // configure the AI server parameters
+    return await lastValueFrom(
+      this.httpService.post(
+        `${this.config.scienceServerBaseUrl}/configure`, {name, value}
+      ).pipe(
+        catchError(this.processScienceServerError()),
+      )
+    )
+  }
+
   private processScienceServerError() {
     return error => {
       this.logger.error(`Error while communicating with Science server: ${error}`);

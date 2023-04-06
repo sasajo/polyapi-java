@@ -2,35 +2,10 @@ import json
 import openai
 from thefuzz import fuzz
 from typing import Optional, Tuple, Union, List
+from constants import VarName
 from typedefs import StatsDict, ExtractKeywordDto, FunctionDto, WebhookDto
-from utils import func_path, log
+from utils import func_path, get_config_variable, log
 
-# how similar does a function or webhook have to be to be considered a match?
-# scale is 0-100
-# HACK was 60 just trying 40
-SIMILARITY_THRESHOLD = 55
-
-# NOT USED CURRENTLY
-# DESC_SIMILARITY_THRESHOLD = 50
-
-ALT1_KEYWORD_PROMPT = """
-I will give you a prompt, respond to me with only a list of the relevant keywords from the prompt I give you.
-Assume that the keywords will be used to execute a search against a database of function records.
-
-Here is the prompt:
-
-{prompt}
-"""
-
-
-ALT2_KEYWORD_PROMPT = """
-For the following prompt, give me back the top 4 keywords and the top synonym for each keyword.
-Return both keywords and synonyms in a single comma-separated list.
-
-Here is the prompt:
-
-{prompt}
-"""
 
 KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
 This will be used to power an API discovery service.
@@ -50,7 +25,15 @@ Here is the prompt:
 
 
 def get_similarity_threshold() -> int:
-    return SIMILARITY_THRESHOLD
+    # how similar does a function or webhook have to be to be considered a match?
+    # scale is 0-100
+    var = get_config_variable(VarName.keyword_similarity_threshold)
+    return int(var.value) if var else 55
+
+
+def get_function_match_limit() -> int:
+    var = get_config_variable(VarName.function_match_limit)
+    return int(var.value) if var else 5
 
 
 def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
@@ -111,7 +94,7 @@ def keywords_similar(
 
     # HACK just add description for now
     if func.get("description"):
-        func_str += f"\n{func['description']}"
+        func_str += f"\n{func.get('description')}"
 
     keywords = remove_blacklist(keywords)
 
@@ -131,30 +114,37 @@ def keywords_similar(
     return similarity_score > get_similarity_threshold(), similarity_score
 
 
-def top_5_keywords(
+def get_top_function_matches(
     items: List[Union[FunctionDto, WebhookDto]], keyword_data: ExtractKeywordDto
 ) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
+    """get top function matches based on keywords"""
     # for now ignore http_methods
-    top_5, keyword_stats = _get_top_5(items, keyword_data["keywords"])
-
-    semantic_top_5, semantic_stats = _get_top_5(
-        items, keyword_data.get("semantically_similar_keywords", "")
+    match_limit = get_function_match_limit()
+    keyword_matches, keyword_stats = _get_top(
+        match_limit, items, keyword_data["keywords"]
     )
-    top_5_uuids = {x["id"] for x in top_5}
-    for top in semantic_top_5:
-        if len(top_5) >= 5:
+
+    semantic_matches, semantic_stats = _get_top(
+        match_limit,
+        items,
+        keyword_data.get("semantically_similar_keywords", ""),
+    )
+
+    keyword_match_uuids = {x["id"] for x in keyword_matches}
+    for match in semantic_matches:
+        if len(keyword_matches) >= match_limit:
             break
 
-        if top['id'] not in top_5_uuids:
-            top_5.append(top)
+        if match["id"] not in keyword_match_uuids:
+            keyword_matches.append(match)
 
-    stats = {"keyword_extraction": keyword_data}
+    stats: StatsDict = {"keyword_extraction": keyword_data}
     stats["keyword_stats"] = keyword_stats
     stats["semantically_similar_stats"] = semantic_stats
     stats["match_count"] = _generate_match_count(stats)
 
     # TODO
-    return top_5, stats
+    return keyword_matches, stats
 
 
 def _generate_match_count(stats: StatsDict) -> int:
@@ -169,8 +159,10 @@ def _generate_match_count(stats: StatsDict) -> int:
     return len(matches)
 
 
-def _get_top_5(
-    items: List[Union[FunctionDto, WebhookDto]], keywords: str
+def _get_top(
+    match_limit: int,
+    items: List[Union[FunctionDto, WebhookDto]],
+    keywords: str,
 ) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
     threshold = get_similarity_threshold()
 
@@ -183,13 +175,15 @@ def _get_top_5(
         items_with_scores.append((item, score))
 
     items_with_scores = sorted(items_with_scores, key=lambda x: x[1], reverse=True)
-    top_5 = [item for item, score in items_with_scores if score > threshold]
-
     stats = _get_stats(items_with_scores)
-    return top_5[:5], stats
+
+    top_matches = [item for item, score in items_with_scores if score > threshold]
+    return top_matches[:match_limit], stats
 
 
-def _get_stats(items_with_scores: List[Tuple[Union[FunctionDto, WebhookDto], int]]) -> StatsDict:
+def _get_stats(
+    items_with_scores: List[Tuple[Union[FunctionDto, WebhookDto], int]]
+) -> StatsDict:
     stats: StatsDict = {"total": len(items_with_scores)}
     match_count = 0
 

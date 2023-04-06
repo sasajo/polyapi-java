@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from flask import Flask, Response, request, jsonify
 from openai import OpenAIError
 from prisma import Prisma, register
 from completion import get_completion_or_conversation_answer
 from description import get_function_description
 from typedefs import DescInputDto
-from utils import clear_conversation
+from utils import clear_conversation, set_config_variable
 
 
 app = Flask(__name__)
@@ -26,8 +26,8 @@ def function_completion() -> Dict:
     data: Dict = request.get_json(force=True)
     question: str = data["question"].strip()
     user_id: Optional[int] = data.get("user_id")
+    assert user_id
     resp = get_completion_or_conversation_answer(user_id, question)
-    print(resp)
     return resp
 
 
@@ -43,6 +43,19 @@ def clear_conversation_view() -> str:
     user_id = int(user_id)
     clear_conversation(user_id)
     return "Conversation Cleared"
+
+
+@app.route("/configure", methods=["POST"])
+def configure() -> Tuple[str, int]:
+    data = request.get_json(force=True)
+    name = data['name']
+    value = data['value']
+    try:
+        set_config_variable(name, value)
+    except ValueError:
+        return f"Invalid config variable name: {name}", 400
+
+    return "Configured", 201
 
 
 @app.route("/error")

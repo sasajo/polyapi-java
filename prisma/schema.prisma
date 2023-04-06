@@ -154,3 +154,12 @@ model AuthToken {
   @@id([authFunctionId, userId])
   @@map("auth_token")
 }
+
+model ConfigVariable {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  name      String   @unique // "keyword_similarity_threshold" | "function_match_limit"
+  value     String
+
+  @@map("config_variable")
+}

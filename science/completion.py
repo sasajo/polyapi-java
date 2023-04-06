@@ -3,14 +3,14 @@ import requests
 import openai
 import flask
 from requests import Response
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union, cast
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
 
 # TODO change to relative imports
 from typedefs import ChatGptChoice, ExtractKeywordDto, StatsDict
 from constants import FINE_TUNE_MODEL, NODE_API_URL
-from keywords import extract_keywords, top_5_keywords
+from keywords import extract_keywords, get_top_function_matches
 from typedefs import (
     FunctionDto,
     MessageDict,
@@ -96,7 +96,7 @@ def get_question_message_dict(question, match_count) -> MessageDict:
     return question_msg
 
 
-def get_library_message_dict(keywords: ExtractKeywordDto) -> Tuple[Optional[MessageDict], StatsDict]:
+def get_function_options_prompt(keywords: Optional[ExtractKeywordDto]) -> Tuple[Optional[MessageDict], StatsDict]:
     """get all matching functions that need to be injected into the prompt"""
     if not keywords:
         return None, {"match_count": 0}
@@ -106,20 +106,18 @@ def get_library_message_dict(keywords: ExtractKeywordDto) -> Tuple[Optional[Mess
     webhooks_resp = query_node_server("webhooks")
     items += webhooks_resp.json()
 
-    top_5, stats = top_5_keywords(items, keywords)
+    top_matches, stats = get_top_function_matches(items, keywords)
 
     function_parts: List[str] = []
     webhook_parts: List[str] = []
-    for item in top_5:
-        if "arguments" in item:  # HACK this key is only present in functions
+    for match in top_matches:
+        if "arguments" in match:  # HACK this key is only present in functions
+            match = cast(FunctionDto, match)
             function_parts.append(
-                f"// {item['description']}\n{func_path_with_args(item)}"
+                f"// {match['description']}\n{func_path_with_args(match)}"
             )
         else:
-            webhook_parts.append(webhook_prompt(item))
-
-    # if keywords:
-    #     log_matches(keywords, "functions", stats["match_count"], len(items))
+            webhook_parts.append(webhook_prompt(match))
 
     content = _join_content(function_parts, webhook_parts)
     if content:
@@ -177,7 +175,7 @@ def get_conversation_answer(
     for message in messages:
         priors.append({"role": message.role, "content": message.content})
 
-    new_messages, match_count = get_new_conversation_messages(messages, question)
+    new_messages, stats = get_new_conversation_messages(messages, question)
 
     # get
     try:
@@ -188,15 +186,15 @@ def get_conversation_answer(
         clear_conversation(user_id)
         return get_completion_answer(user_id, question)
 
-    answer, hit_token_limit = answer_processing(resp["choices"][0], match_count)
+    answer, hit_token_limit = answer_processing(resp["choices"][0], stats['match_count'])
 
     if hit_token_limit:
         # if we hit the token limit, let's just clear the conversation and start over
         clear_conversation(user_id)
     else:
         # store
-        for message in new_messages:
-            store_message(user_id, message)
+        for msg in new_messages:
+            store_message(user_id, msg)
         store_message(user_id, {"role": "assistant", "content": answer})
 
     return answer
@@ -222,11 +220,11 @@ def get_new_conversation_messages(
 
     keywords = extract_keywords(question)
 
-    library, stats = get_library_message_dict(keywords)
+    functions, stats = get_function_options_prompt(keywords)
     stats["prompt"] = question
 
-    if library:
-        rv.append(library)
+    if functions:
+        rv.append(functions)
 
     question_msg = get_question_message_dict(question, stats["match_count"])
     rv.append(question_msg)
@@ -250,7 +248,7 @@ def get_chat_completion(messages: List[MessageDict]) -> Dict:
 
 def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], StatsDict]:
     keywords = extract_keywords(question)
-    library, stats = get_library_message_dict(keywords)
+    library, stats = get_function_options_prompt(keywords)
     stats["prompt"] = question
 
     rv = [

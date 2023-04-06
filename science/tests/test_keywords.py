@@ -1,6 +1,6 @@
 import json
 from unittest.mock import patch, Mock
-from keywords import extract_keywords, keywords_similar, top_5_keywords
+from keywords import extract_keywords, get_function_match_limit, keywords_similar, get_top_function_matches
 from .testing import DbTestCase
 
 
@@ -82,7 +82,7 @@ class T(DbTestCase):
 
     def test_top_5_keywords(self):
         keyword_data = {"keywords": "xasyz"}
-        top_5, stats = top_5_keywords(
+        top_5, stats = get_top_function_matches(
             [ACCUWEATHER, GOOGLE_MAPS, SERVICE_NOW], keyword_data
         )
         self.assertEqual(top_5, [])
@@ -98,6 +98,7 @@ class T(DbTestCase):
             "choices": [{"message": {"content": json.dumps(mock_response)}}]
         }
         keyword_data = extract_keywords("test")
+        assert keyword_data
         self.assertEqual(keyword_data["keywords"], "foo bar")
         self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
         self.assertEqual(keyword_data["http_methods"], "get post")
@@ -113,6 +114,15 @@ class T(DbTestCase):
             "choices": [{"message": {"content": json.dumps(mock_response)}}]
         }
         keyword_data = extract_keywords("test")
+        assert keyword_data
         self.assertEqual(keyword_data["keywords"], "foo bar")
         self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
         self.assertEqual(keyword_data["http_methods"], "get post")
+
+    def test_get_function_match_limit(self):
+        value = 6
+        name = "function_match_limit"
+        defaults = {"name": name, "value": str(value)}
+        self.db.configvariable.upsert(where={"name": name}, data={"update": defaults, "create": defaults})
+        limit = get_function_match_limit()
+        self.assertEqual(limit, 6)

@@ -1,8 +1,9 @@
 import json
 from typing import Dict, List, Tuple, Optional, Union
+from constants import VarName
 from typedefs import FunctionDto, WebhookDto, MessageDict
-from prisma import get_client
-from prisma.models import ConversationMessage, UrlFunction
+from prisma import Prisma, get_client, register
+from prisma.models import ConversationMessage, UrlFunction, ConfigVariable
 
 
 # HACK should have better name
@@ -72,3 +73,30 @@ def clear_conversation(user_id: int):
     db.functiondefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
     db.webhookdefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
     db.conversationmessage.delete_many(where={"userId": user_id})
+
+
+def get_config_variable(varname: VarName) -> Optional[ConfigVariable]:
+    db = get_client()
+    rv = db.configvariable.find_first(where={"name": varname.value})  # type: ignore
+    return rv
+
+
+def set_config_variable(name: str, value: str) -> Optional[ConfigVariable]:
+    db = get_client()
+    if name not in VarName.__members__:
+        raise ValueError(f"invalid config variable name: {name}")
+
+    defaults = {"name": name, "value": value}
+    var = db.configvariable.upsert(
+        where={"name": name}, data={"update": defaults, "create": defaults}  # type: ignore
+    )
+    return var
+
+
+def quick_db_connect():
+    """ handy function to use in ipython to quickly connect to the db
+    and register your connection
+    """
+    db = Prisma()
+    db.connect()
+    register(db)
