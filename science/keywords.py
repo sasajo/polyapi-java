@@ -14,7 +14,7 @@ Keep the list to the top 8 keywords relevant to APIs.
 Don't include "API" "resource" as keywords.
 Include all of the likely HTTP methods for this prompt, for example many times search is done using a POST.
 
-If the prompt is in a different language, translate and return the keywords in English.
+Always translate the keywords ot English.
 
 Here is the prompt:
 
@@ -45,7 +45,7 @@ def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
     prompt = KEYWORD_PROMPT.format(prompt=question)
     resp = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        temperature=0.01,  # let's try making things SUPER deterministic
+        temperature=get_extract_keywords_temperature(),
         messages=[
             {"role": "user", "content": prompt},
             {
