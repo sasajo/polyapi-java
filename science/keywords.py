@@ -166,6 +166,9 @@ def _get_top_5(
 ) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
     threshold = get_similarity_threshold()
 
+    if isinstance(keywords, list):
+        keywords = " ".join(keywords)
+
     if not keywords:
         return [], {"total": len(items), "match_count": 0, "scores": []}
 
