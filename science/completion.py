@@ -254,6 +254,9 @@ def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], St
     stats["prompt"] = question
 
     rv = [
+    ]
+
+    if library:
         # from the OpenAI docs:
         # gpt-3.5-turbo-0301 does not always pay strong attention to system messages. Future models will be trained to pay stronger attention to system messages.
         # let's try user!
@@ -261,9 +264,6 @@ def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], St
             role="user",
             content="Only include actual payload elements and function arguments in the example. Be concise.",
         )
-    ]
-
-    if library:
         rv.append(
             MessageDict(
                 role="user",
