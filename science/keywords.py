@@ -120,6 +120,7 @@ def get_top_function_matches(
     """get top function matches based on keywords"""
     # for now ignore http_methods
     match_limit = get_function_match_limit()
+
     keyword_matches, keyword_stats = _get_top(
         match_limit, items, keyword_data["keywords"]
     )
@@ -139,6 +140,7 @@ def get_top_function_matches(
             keyword_matches.append(match)
 
     stats: StatsDict = {"keyword_extraction": keyword_data}
+    stats['config'] = {"function_match_limit": match_limit, "similarity_threshold": get_similarity_threshold()}
     stats["keyword_stats"] = keyword_stats
     stats["semantically_similar_stats"] = semantic_stats
     stats["match_count"] = _generate_match_count(stats)

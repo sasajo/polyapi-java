@@ -62,3 +62,4 @@ class StatsDict(TypedDict, total=False):
     keyword_extraction: ExtractKeywordDto
     keyword_stats: 'StatsDict'
     semantically_similar_stats: 'StatsDict'
+    config: Dict

@@ -29,6 +29,6 @@ export class ChatController {
   @Post('/ai-configuration')
   async aiConfiguration(@Req() req, @Body() body: SendConfigureDto): Promise<string> {
     await this.aiService.configure(body.name, body.value);
-    return "ok"
+    return "chirp"
   }
 }
