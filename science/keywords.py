@@ -145,7 +145,11 @@ def get_top_function_matches(
             keyword_matches.append(match)
 
     stats: StatsDict = {"keyword_extraction": keyword_data}
-    stats['config'] = {"function_match_limit": match_limit, "similarity_threshold": get_similarity_threshold()}
+    stats["config"] = {
+        "function_match_limit": match_limit,
+        "similarity_threshold": get_similarity_threshold(),
+        "extract_keywords_temperature": get_extract_keywords_temperature(),
+    }
     stats["keyword_stats"] = keyword_stats
     stats["semantically_similar_stats"] = semantic_stats
     stats["match_count"] = _generate_match_count(stats)
