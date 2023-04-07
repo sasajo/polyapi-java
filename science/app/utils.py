@@ -1,8 +1,8 @@
 import string
 import json
 from typing import Dict, List, Tuple, Optional, Union
-from constants import VarName
-from typedefs import FunctionDto, WebhookDto, MessageDict
+from app.constants import VarName
+from app.typedefs import FunctionDto, WebhookDto, MessageDict
 from prisma import Prisma, get_client, register
 from prisma.models import ConversationMessage, UrlFunction, ConfigVariable
 

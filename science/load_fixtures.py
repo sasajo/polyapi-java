@@ -3,7 +3,7 @@ import csv
 from typing import List, TypedDict
 from prisma import Prisma, register, get_client
 from prisma.models import User
-from utils import url_function_path
+from app.utils import url_function_path
 
 
 class FunctionDict(TypedDict):

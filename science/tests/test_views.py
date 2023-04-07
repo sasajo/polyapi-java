@@ -1,13 +1,13 @@
 from mock import patch, Mock
 from openai.error import ServiceUnavailableError
 
-from keywords import get_function_match_limit
+from app.keywords import get_function_match_limit
 
 from .testing import DbTestCase
 
 # TODO make relative?
-from description import DescInputDto
-from server import clear_conversation
+from app.description import DescInputDto
+from app.utils import clear_conversation
 from load_fixtures import test_user_get_or_create
 
 
@@ -34,7 +34,7 @@ class T(DbTestCase):
         clear_conversation(user.id)
         self.assertFalse(self.db.conversationmessage.find_first(where={"id": msg.id}))
 
-    @patch("server.get_completion_or_conversation_answer")
+    @patch("app.views.get_completion_or_conversation_answer")
     def test_function_completion_error(self, get_answer: Mock) -> None:
         # setup
         get_answer.side_effect = ServiceUnavailableError("The server is overloaded or not ready yet.")
@@ -50,7 +50,7 @@ class T(DbTestCase):
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(get_answer.call_count, 1)
 
-    @patch("description.openai.ChatCompletion.create")
+    @patch("app.description.openai.ChatCompletion.create")
     def test_function_description(self, chat_create: Mock) -> None:
         # setup
         mock_output = "Context: booking.reservations\nName: createReservation\nDescription: This API call..."

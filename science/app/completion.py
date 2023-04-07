@@ -1,22 +1,21 @@
 import copy
 import requests
 import openai
-import flask
+from flask import current_app
 from requests import Response
 from typing import List, Dict, Optional, Tuple, Union, cast
 from prisma import get_client
 from prisma.models import ConversationMessage, SystemPrompt
 
 # TODO change to relative imports
-from typedefs import ChatGptChoice, ExtractKeywordDto, StatsDict
-from constants import FINE_TUNE_MODEL, NODE_API_URL
-from keywords import extract_keywords, get_top_function_matches
-from typedefs import (
+from app.typedefs import ChatGptChoice, ExtractKeywordDto, StatsDict
+from app.keywords import extract_keywords, get_top_function_matches
+from app.typedefs import (
     FunctionDto,
     MessageDict,
     WebhookDto,
 )
-from utils import (
+from app.utils import (
     log,
     clear_conversation,
     func_path_with_args,
@@ -79,7 +78,8 @@ def query_node_server(type: str) -> Response:
         "X-PolyApiKey": user.apiKey,
         "Accept": "application/poly.function-definition+json",
     }
-    resp = requests.get(f"{NODE_API_URL}/{type}", headers=headers)
+    base = current_app.config['NODE_API_URL']
+    resp = requests.get(f"{base}/{type}", headers=headers)
     assert resp.status_code == 200, resp.content
     return resp
 
@@ -96,7 +96,9 @@ def get_question_message_dict(question, match_count) -> MessageDict:
     return question_msg
 
 
-def get_function_options_prompt(keywords: Optional[ExtractKeywordDto]) -> Tuple[Optional[MessageDict], StatsDict]:
+def get_function_options_prompt(
+    keywords: Optional[ExtractKeywordDto],
+) -> Tuple[Optional[MessageDict], StatsDict]:
     """get all matching functions that need to be injected into the prompt"""
     if not keywords:
         return None, {"match_count": 0}
@@ -144,20 +146,6 @@ def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
     return "\n\n".join(parts)
 
 
-def get_fine_tune_answer(question: str):
-    # Fine tune model sucks for now, just use ChatGPT
-    resp = openai.Completion.create(
-        temperature=0.2,
-        model=FINE_TUNE_MODEL,
-        max_tokens=200,
-        frequency_penalty=0.8,
-        prompt=question,
-    )
-
-    prefix = f"USING FINE TUNE MODEL: {FINE_TUNE_MODEL}\n\n"
-    return prefix + resp["choices"][0]["text"]
-
-
 def webhook_prompt(hook: WebhookDto) -> str:
     parts = [func_path(hook)]
     for url in hook.get("urls", []):
@@ -182,11 +170,13 @@ def get_conversation_answer(
         resp = get_chat_completion(priors + new_messages)
     except openai.InvalidRequestError as e:
         # our conversation is probably too long! let's transparently nuke it and start again
-        flask.current_app.log_exception(e)  # type: ignore
+        current_app.log_exception(e)  # type: ignore
         clear_conversation(user_id)
         return get_completion_answer(user_id, question)
 
-    answer, hit_token_limit = answer_processing(resp["choices"][0], stats['match_count'])
+    answer, hit_token_limit = answer_processing(
+        resp["choices"][0], stats["match_count"]
+    )
 
     if hit_token_limit:
         # if we hit the token limit, let's just clear the conversation and start over
@@ -246,13 +236,14 @@ def get_chat_completion(messages: List[MessageDict]) -> Dict:
     )
 
 
-def get_completion_prompt_messages(question: str) -> Tuple[List[MessageDict], StatsDict]:
+def get_completion_prompt_messages(
+    question: str,
+) -> Tuple[List[MessageDict], StatsDict]:
     keywords = extract_keywords(question)
     library, stats = get_function_options_prompt(keywords)
     stats["prompt"] = question
 
-    rv = [
-    ]
+    rv = []
 
     if library:
         # from the OpenAI docs:
@@ -290,7 +281,9 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 def get_completion_answer(user_id: int, question: str) -> Dict:
     messages, stats = get_completion_prompt_messages(question)
     resp = get_chat_completion(messages)
-    answer, hit_token_limit = answer_processing(resp["choices"][0], stats['match_count'])
+    answer, hit_token_limit = answer_processing(
+        resp["choices"][0], stats["match_count"]
+    )
 
     if hit_token_limit:
         # if we hit the token limit, let's just clear the conversation and start over

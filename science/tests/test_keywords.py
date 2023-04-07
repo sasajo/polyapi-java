@@ -1,6 +1,6 @@
 import json
 from unittest.mock import patch, Mock
-from keywords import extract_keywords, get_function_match_limit, keywords_similar, get_top_function_matches
+from app.keywords import extract_keywords, get_function_match_limit, keywords_similar, get_top_function_matches
 from .testing import DbTestCase
 
 
@@ -87,7 +87,7 @@ class T(DbTestCase):
         )
         self.assertEqual(top_5, [])
 
-    @patch("keywords.openai.ChatCompletion.create")
+    @patch("app.keywords.openai.ChatCompletion.create")
     def test_extract_keywords(self, chat_create: Mock):
         mock_response = {
             "keywords": "foo bar",
@@ -103,7 +103,7 @@ class T(DbTestCase):
         self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
         self.assertEqual(keyword_data["http_methods"], "get post")
 
-    @patch("keywords.openai.ChatCompletion.create")
+    @patch("app.keywords.openai.ChatCompletion.create")
     def test_extract_keywords_lists(self, chat_create: Mock):
         mock_response = {
             "keywords": ["foo", "bar"],

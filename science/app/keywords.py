@@ -2,9 +2,9 @@ import json
 import openai
 from thefuzz import fuzz
 from typing import Optional, Tuple, Union, List
-from constants import VarName
-from typedefs import StatsDict, ExtractKeywordDto, FunctionDto, WebhookDto
-from utils import func_path, get_config_variable, log, remove_punctuation
+from app.constants import VarName
+from app.typedefs import StatsDict, ExtractKeywordDto, FunctionDto, WebhookDto
+from app.utils import func_path, get_config_variable, log, remove_punctuation
 
 
 KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.

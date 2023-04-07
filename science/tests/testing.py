@@ -1,11 +1,16 @@
 import unittest
 from prisma import Prisma
-from server import app as flask_app
+from app import create_app
 
 
 class DbTestCase(unittest.TestCase):
     # TODO replace with testing flask_app that uses test db
-    app = flask_app
+    app = create_app(testing=True)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app_context = cls.app.app_context()
+        cls.app_context.push()
 
     def setUp(self):
         self.client = self.app.test_client()
@@ -16,3 +21,7 @@ class DbTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.db.disconnect()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.app_context.pop()

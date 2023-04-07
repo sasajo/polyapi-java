@@ -1,12 +1,12 @@
 import copy
 from mock import Mock, patch
 from load_fixtures import test_user_get_or_create
-from completion import (
+from app.completion import (
     get_conversations_for_user,
     get_function_options_prompt,
     get_completion_prompt_messages,
 )
-from typedefs import ExtractKeywordDto
+from app.typedefs import ExtractKeywordDto
 from .testing import DbTestCase
 
 
@@ -108,8 +108,8 @@ class T(DbTestCase):
     #     self.assertTrue(answer.startswith("We weren't able "))
     #     self.assertTrue(answer.endswith(content))
 
-    @patch("keywords.get_similarity_threshold", new=_fake_threshold)
-    @patch("completion.requests.get")
+    @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
+    @patch("app.completion.requests.get")
     def test_library_message_no_keywords(self, requests_get: Mock) -> None:
         requests_get.return_value = Mock(status_code=200, json=lambda: get_functions())
 
@@ -117,8 +117,8 @@ class T(DbTestCase):
         self.assertEqual(requests_get.call_count, 0)
         self.assertIsNone(d)
 
-    @patch("keywords.get_similarity_threshold", new=_fake_threshold)
-    @patch("completion.requests.get")
+    @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
+    @patch("app.completion.requests.get")
     def test_library_message_functions(self, requests_get: Mock) -> None:
         requests_get.side_effect = [
             Mock(status_code=200, json=lambda: get_functions()),
@@ -133,8 +133,8 @@ class T(DbTestCase):
         self.assertEqual(stats["match_count"], 3)
         self.assertIn("Here are some functions", d["content"])
 
-    @patch("keywords.get_similarity_threshold", new=_fake_threshold)
-    @patch("completion.requests.get")
+    @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
+    @patch("app.completion.requests.get")
     def test_library_message_webhooks(self, requests_get: Mock) -> None:
         requests_get.side_effect = [
             Mock(status_code=200, json=lambda: []),
@@ -148,8 +148,8 @@ class T(DbTestCase):
         self.assertTrue(d["content"].startswith("Here are some event handlers"))
         self.assertIn("poly.shipping.packageDelivered", d["content"])
 
-    @patch("completion.extract_keywords", new=_fake_extract)
-    @patch("completion.requests.get")
+    @patch("app.completion.extract_keywords", new=_fake_extract)
+    @patch("app.completion.requests.get")
     def test_get_completion_prompt_messages(self, requests_get: Mock) -> None:
         self.db.systemprompt.delete_many()  # no system prompt!
 

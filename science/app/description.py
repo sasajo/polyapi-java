@@ -1,7 +1,7 @@
 from typing import Union
 import openai
-from typedefs import DescInputDto, DescOutputDto, ErrorDto
-from utils import log
+from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
+from app.utils import log
 
 
 prompt_template = """

@@ -32,7 +32,7 @@ To start the server, run the following:
 
 # server
 # local dev default port of node server is 8000
-> NODE_API_URL=http://localhost:8000 ./server.py
+> flask --app app run --debug
 < * Running on http://127.0.0.1:5000
 ```
 
@@ -64,17 +64,3 @@ python -m unittest discover
 All tests are in the `/tests` directory.
 
 Follow the normal rules of naming for the [Python Unit testing framework](https://docs.python.org/3/library/unittest.html).
-
-
-## Fine Tunes
-
-Ok so you have a new hypothesis for how to create a hot new model?
-
-How do you train it?
-
-1. `cd poly-alpha/science`
-2. Load training data into db
-4. Run `./fine_tunes/fine_tune_generate_jsonl.py`
-4. Run `./fine_tunes/fine_tune_start.py`
-5. Wait for OpenAI to finish creating the new model:
-`openai api fine_tunes.follow -i <fine_tune_id_printed_by_train_new_model.py>`
