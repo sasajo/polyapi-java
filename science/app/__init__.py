@@ -2,6 +2,7 @@ from flask import Flask, got_request_exception, request
 from prisma import Prisma, register
 import socket
 import rollbar
+import rollbar.contrib.flask
 
 
 def report_exception(app, exception):
