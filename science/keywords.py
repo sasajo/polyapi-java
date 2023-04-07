@@ -14,8 +14,6 @@ Keep the list to the top 8 keywords relevant to APIs.
 Don't include "API" "resource" as keywords.
 Include all of the likely HTTP methods for this prompt, for example many times search is done using a POST.
 
-Always translate the keywords ot English.
-
 Here is the prompt:
 
 {prompt}
@@ -50,7 +48,7 @@ def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
             {"role": "user", "content": prompt},
             {
                 "role": "user",
-                "content": 'Return JSON with keys "keywords", "semantically_similar_keywords", and "http_methods". Each value should be a string.',
+                "content": 'Return JSON with keys "keywords", "semantically_similar_keywords", and "http_methods". Each value should be a string and in English.',
             },
         ],
     )
