@@ -58,7 +58,7 @@ def configure() -> Tuple[str, int]:
 
 @bp.route("/error")
 def error():
-    raise OpenAIError("This is an error")
+    raise NotImplementedError("Intentional error successfully triggered!")
 
 
 @bp.errorhandler(OpenAIError)

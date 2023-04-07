@@ -1,7 +1,12 @@
-import os
-
-from flask import Flask
+from flask import Flask, got_request_exception, request
 from prisma import Prisma, register
+import socket
+import rollbar
+
+
+def report_exception(app, exception):
+    rollbar.report_exc_info(request=request)
+    rollbar.wait()
 
 
 def create_app(testing=False):
@@ -19,7 +24,10 @@ def create_app(testing=False):
     if app.config["DEBUG"]:
         app.config["NODE_API_URL"] = "http://localhost:8000"
     else:
+        print("DEBUG OFF")
         app.config["NODE_API_URL"] = "http://localhost:80"
-    print("Using NODE_API_URL: {}".format(app.config["NODE_API_URL"]))
+
+        rollbar.init("d31f5efb15034e86b11fa6cf82d8cef0", socket.gethostname())
+        got_request_exception.connect(report_exception, app)
 
     return app
