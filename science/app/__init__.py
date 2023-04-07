@@ -7,6 +7,8 @@ import rollbar.contrib.flask
 
 def report_exception(app, exception):
     rollbar.report_exc_info(request=request)
+    # HACK recommended by rollbar support because otherwise
+    # multi-process uwsgi does not log
     rollbar.wait()
 
 
