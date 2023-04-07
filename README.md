@@ -13,10 +13,10 @@ $ yarn install
 $ cp .env.template .env
 ```
 
-## Loading the DB
+## Migrate the DB, Generate Prisma Libraries
 
 ```bash
-$ prisma db push
+$ ./after_pull.sh
 ```
 
 ## Running the Node Server
