@@ -65,6 +65,9 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
         log_error(data, completion, prompt)
+    else:
+        # for now log EVERYTHING
+        log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
 
