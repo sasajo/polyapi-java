@@ -2,7 +2,7 @@ from typing import Dict, Set, Union
 import json
 import openai
 from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
-from app.utils import func_path, log
+from app.utils import log
 from prisma import get_client
 
 # trim
@@ -41,7 +41,7 @@ Please return JSON with three keys: context, name, description
 
 
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
-    contexts = _get_context_and_names()
+    # contexts = _get_context_and_names()
     short = data.get("short_description", "")
     short = f"User given name: {short}" if short else ""
     prompt = prompt_template.format(
