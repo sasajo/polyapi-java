@@ -82,6 +82,8 @@ def try_to_match_existing_context(from_openai: str) -> str:
     """
     db = get_client()
     contexts = list({f.context for f in db.urlfunction.find_many()})
+    # try to match the longest context first
+    # otherwise we will match something like `weather` when `weather.forecast` is a better match
     contexts = sorted(contexts, key=lambda x: len(x), reverse=True)
     for context in contexts:
         if fuzz.token_set_ratio(from_openai, context) > 90:
