@@ -33,7 +33,9 @@ Don't repeat similar words in both the name and the context
 
 The context should begin with the product. Then the resource. Then the action.
 
-For example, to create a new product on shopify the context should be "shopify.product" and the name should be "create".
+For example, to create a new product on shopify the context should be "shopify.products" and the name should be "create".
+
+Resources should be plural. For example, shopify.products, shopify.orders, shopify.customers, etc.
 
 The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
 
