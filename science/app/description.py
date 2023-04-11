@@ -9,8 +9,7 @@ from thefuzz import fuzz
 # trim
 # The name should allow me to understand if I am doing a get, post, delete, it should include a verb and the object. It should use the name of the system that it's for follow a convention of product.verbObject if possible. It should be as concise as possible and can use common product acronyms such as MS for microsoft, SFDC for salesforce etc... The name should be as short as possible and ideally only consist of two words and one "." Lastly dont use the same word for the name as found in the context, default to only one word if that is the case.
 
-# The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
-# Don't repeat words in both the name and the context. For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
+#  For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
 
 # Here are the existing contexts and names separated by dots:
 # {contexts}
@@ -22,13 +21,21 @@ I will provide you information about an API call.
 
 Please give me a context, name and description for the API call.
 
-context (classification) and name can use '.' notation but cannot have any spaces or dashes.
+The context is a way of grouping similar API calls.
 
-The context should ideally begin with the name of the product. Then the name of the resource. Then the name of the action.
+The context and name can use '.' notation but cannot have any spaces or dashes.
+
+The context and name should be in camelCase.
+
+Don't repeat words in both the context and the name.
+
+Don't repeat similar words in both the name and the context
+
+The context should begin with the product. Then the resource. Then the action.
 
 For example, to create a new product on shopify the context should be "shopify.product" and the name should be "create".
 
-Don't use the same word in both the name and the context.
+The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
 
 Here is the API call:
 
