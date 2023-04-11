@@ -11,6 +11,10 @@ from prisma import get_client
 # The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
 # Don't repeat words in both the name and the context. For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
 
+# Here are the existing contexts and names separated by dots:
+# {contexts}
+# Try to use an existing context if possible.
+
 
 prompt_template = """
 I will provide you information about an API call.
@@ -20,12 +24,6 @@ Please give me a name, context, and description for the API call.
 name and context (classification) can use '.' notation but cannot have any spaces or dashes.
 
 Don't use the same word in both the name and the context.
-
-Here are the existing contexts and names separated by dots:
-
-{contexts}
-
-Try to use an existing context if possible.
 
 Here is the API call:
 
@@ -52,7 +50,7 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         short_description=short,
         payload=data.get("payload", "None"),
         response=data.get("response", "None"),
-        contexts="\n".join(contexts),
+        # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
