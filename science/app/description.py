@@ -4,6 +4,7 @@ import openai
 from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
 from app.utils import log
 from prisma import get_client
+from thefuzz import fuzz
 
 # trim
 # The name should allow me to understand if I am doing a get, post, delete, it should include a verb and the object. It should use the name of the system that it's for follow a convention of product.verbObject if possible. It should be as concise as possible and can use common product acronyms such as MS for microsoft, SFDC for salesforce etc... The name should be as short as possible and ideally only consist of two words and one "." Lastly dont use the same word for the name as found in the context, default to only one word if that is the case.
@@ -69,7 +70,24 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         # for now log EVERYTHING
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
+    rv['context'] = try_to_match_existing_context(rv['context'])
+
     return rv
+
+
+def try_to_match_existing_context(from_openai: str) -> str:
+    """ lets try to see if an existing context is highly similar
+    to the context we get from openai
+    if it is, let's use the existing context rather than the new one from openai
+    """
+    db = get_client()
+    contexts = list({f.context for f in db.urlfunction.find_many()})
+    contexts = sorted(contexts, key=lambda x: len(x), reverse=True)
+    for context in contexts:
+        if fuzz.token_set_ratio(from_openai, context) > 90:
+            return context
+
+    return from_openai
 
 
 def _get_context_and_names() -> Set[str]:
