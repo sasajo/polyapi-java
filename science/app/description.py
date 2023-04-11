@@ -183,6 +183,7 @@ def log_error(data: DescInputDto, completion: str, prompt: str) -> None:
 
 
 def _parse_openai_response(completion: str) -> DescOutputDto:
+    completion = completion.lstrip("JSON Response:").strip()
     data: Dict = json.loads(completion)
 
     rv = DescOutputDto(

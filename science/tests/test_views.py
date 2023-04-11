@@ -70,7 +70,7 @@ class T(DbTestCase):
         resp = self.client.post("/function-description", json=mock_input)
 
         # test
-        self.assertEqual(chat_create.call_count, 2)
+        self.assertEqual(chat_create.call_count, 1)
         output = resp.get_json()
         self.assertEqual(output["context"], "booking.reservations")
         self.assertEqual(output["name"], "createReservation")
