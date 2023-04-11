@@ -1,28 +1,35 @@
-from typing import Union
+from typing import Dict, Set, Union
+import json
 import openai
 from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
-from app.utils import log
+from app.utils import func_path, log
+from prisma import get_client
+
+# trim
+# The name should allow me to understand if I am doing a get, post, delete, it should include a verb and the object. It should use the name of the system that it's for follow a convention of product.verbObject if possible. It should be as concise as possible and can use common product acronyms such as MS for microsoft, SFDC for salesforce etc... The name should be as short as possible and ideally only consist of two words and one "." Lastly dont use the same word for the name as found in the context, default to only one word if that is the case.
+
+# The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
+# Don't repeat words in both the name and the context. For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
 
 
 prompt_template = """
-For each of the following prompts, I will provide you information about an API call. I want you to help me name, classify and describe it.
+I will provide you information about an API call.
 
-I want your response to include three properties:
-context:
-name:
-description:
+Please give me a name, context, and description for the API call.
 
-context (classification) can use '.' notation, for example comms.messaging, but they cannot have any spaces. It should be standard words that most people would understand, and represent a hierarchical directory. It can be one word if the industry is small, but can be two words if the industry is large.
+name and context (classification) can use '.' notation but cannot have any spaces or dashes.
 
-The name can use '.' notation, for example twilio.sendSMS , but they cannot have any spaces. The name should allow me to understand if I am doing a get, post, delete, it should include a verb and the object. It should use the name of the system that it's for follow a convention of product.verbObject if possible. It should be as concise as possible and can use common product acronyms such as MS for microsoft, SFDC for salesforce etc... The name should be as short as possible and ideally only consist of two words and one "." Lastly dont use the same word for the name as found in the context, default to only one word if that is the case.
+Don't use the same word in both the name and the context.
 
-The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be exhaustive in listing what it does but it should be ideally two to three sentences.
+Here are the existing contexts and names separated by dots:
 
-Don't repeat words in both the name and the context. For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
+{contexts}
+
+Try to use an existing context if possible.
 
 Here is the API call:
 
-User Given Name: {short_description}
+{short_description}
 {method} {url}
 
 Request Payload:
@@ -30,62 +37,103 @@ Request Payload:
 
 Response Payload:
 {response}
+
+Please return JSON with three keys: context, name, description
 """
 
 
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
+    contexts = _get_context_and_names()
+    short = data.get("short_description", "")
+    short = f"User given name: {short}" if short else ""
     prompt = prompt_template.format(
         url=data.get("url", ""),
         method=data.get("method", ""),
-        short_description=data.get("short_description", ""),
-        payload=data.get("payload", ""),
-        response=data.get("response", "")
+        short_description=short,
+        payload=data.get("payload", "None"),
+        response=data.get("response", "None"),
+        contexts="\n".join(contexts),
     )
-    # print(prompt)
-    system_msg = {"role": "system", "content": "Include argument types. Be concise."}
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[system_msg, prompt_msg]
+        model="gpt-3.5-turbo", temperature=0.2, messages=[prompt_msg]
     )
-    completion = resp["choices"][0]["message"]["content"]
-    rv = _parse_function_description(completion)
-    if not rv["context"] or rv['name'] or rv['description']:
-        parts = ["Error getting context/name/description from OpenAI", "input:", str(data), "output:", completion]
-        log("\n".join(parts))
+    completion = resp["choices"][0]["message"]["content"].strip()
+    try:
+        rv = _parse_openai_response(completion)
+    except json.JSONDecodeError:
+        log_error(data, completion, prompt)
+        return {"error": "Error parsing JSON from OpenAI: " + completion}
+
+    if not rv["context"] or not rv["name"] or not rv["description"]:
+        log_error(data, completion, prompt)
+
     return rv
 
 
-def _parse_function_description(completion: str) -> DescOutputDto:
-    rv = DescOutputDto(context="", name="", description="", openai_response=completion)
-    parts = completion.split("\n")
-    for idx in range(len(parts)):
-        part = parts[idx]
-        part = part.strip()
-        part_lowered = part.lower()  # sometimes OpenAI returns "context:", sometimes "Context:"
+def _get_context_and_names() -> Set[str]:
+    db = get_client()
+    funcs = {
+        ".".join([f.context, f.name]).lstrip(".") for f in db.urlfunction.find_many()
+    }
+    return funcs
 
-        if part_lowered.startswith("context:"):
-            rv["context"] = part.split(":")[1].strip()
-            if not rv["context"] and _value_on_next_line(parts, idx):
-                # next line is context, grab it and move forward!
-                rv['context'] = parts[idx + 1].strip()
-                idx += 1
 
-        elif part_lowered.startswith("name:"):
-            rv["name"] = part.split(":")[1].strip()
-            if not rv["name"] and _value_on_next_line(parts, idx):
-                # next line is name, grab it and move forward!
-                rv['name'] = parts[idx + 1].strip()
-                idx += 1
+def log_error(data: DescInputDto, completion: str, prompt: str) -> None:
+    parts = [
+        "Error getting context/name/description from OpenAI",
+        "input:",
+        str(data),
+        "output:",
+        completion,
+        "prompt:",
+        prompt,
+    ]
+    log("\n".join(parts))
 
-        elif part_lowered.startswith("description:"):
-            rv["description"] = part.split(":")[1].strip()
-            if not rv["description"] and _value_on_next_line(parts, idx):
-                # next line is description, grab it and move forward!
-                rv['description'] = parts[idx + 1].strip()
-                idx += 1
 
-        idx += 1
+def _parse_openai_response(completion: str) -> DescOutputDto:
+    data: Dict = json.loads(completion)
+
+    rv = DescOutputDto(
+        context=data.get("context", ""),
+        name=data.get("name", ""),
+        description=data.get("description", ""),
+        openai_response=completion,
+    )
+
+    # make sure there are no spaces or dashes in context or name
+    rv["name"] = rv["name"].replace(" ", "").replace("-", "")
+    rv["context"] = rv["context"].replace(" ", "").replace("-", "")
+
+    # parts = completion.split("\n")
+    # for idx in range(len(parts)):
+    #     part = parts[idx]
+    #     part = part.strip()
+    #     part_lowered = part.lower()  # sometimes OpenAI returns "context:", sometimes "Context:"
+
+    #     if part_lowered.startswith("context:"):
+    #         rv["context"] = part.split(":")[1].strip()
+    #         if not rv["context"] and _value_on_next_line(parts, idx):
+    #             # next line is context, grab it and move forward!
+    #             rv['context'] = parts[idx + 1].strip()
+    #             idx += 1
+
+    #     elif part_lowered.startswith("name:"):
+    #         rv["name"] = part.split(":")[1].strip()
+    #         if not rv["name"] and _value_on_next_line(parts, idx):
+    #             # next line is name, grab it and move forward!
+    #             rv['name'] = parts[idx + 1].strip()
+    #             idx += 1
+
+    #     elif part_lowered.startswith("description:"):
+    #         rv["description"] = part.split(":")[1].strip()
+    #         if not rv["description"] and _value_on_next_line(parts, idx):
+    #             # next line is description, grab it and move forward!
+    #             rv['description'] = parts[idx + 1].strip()
+    #             idx += 1
+
+    #     idx += 1
 
     return rv
 
@@ -97,4 +145,9 @@ def _value_on_next_line(parts: list, idx: int) -> bool:
         return False
 
     next_line = next_line.lower()
-    return next_line and not next_line.startswith("context:") and not next_line.startswith("name:") and not next_line.startswith("description:")
+    return (
+        next_line
+        and not next_line.startswith("context:")
+        and not next_line.startswith("name:")
+        and not next_line.startswith("description:")
+    )

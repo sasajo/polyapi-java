@@ -1,3 +1,4 @@
+import json
 from mock import patch, Mock
 from openai.error import ServiceUnavailableError
 
@@ -53,7 +54,7 @@ class T(DbTestCase):
     @patch("app.description.openai.ChatCompletion.create")
     def test_function_description(self, chat_create: Mock) -> None:
         # setup
-        mock_output = "Context: booking.reservations\nName: createReservation\nDescription: This API call..."
+        mock_output = json.dumps({"context": "booking.reservations", "name": "createReservation", "description": "This API call..."})
         chat_create.return_value = {
             "choices": [{"message": {"content": mock_output}}]
         }
