@@ -18,7 +18,7 @@ class T(DbTestCase):
                 "short_description": "Create a thing",
             }
         )
-        self.assertEqual(mock_chat.call_count, 1)
+        self.assertEqual(mock_chat.call_count, 2)
         self.assertEqual(output['name'], 'foo')
         self.assertEqual(output['context'], 'bar')
         self.assertEqual(output['description'], 'foobar')

@@ -1,4 +1,4 @@
-from typing import Dict, Set, Union
+from typing import Dict, List, Optional, Set, Union
 import json
 import openai
 from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
@@ -17,7 +17,7 @@ from thefuzz import fuzz
 # Try to use an existing context if possible.
 
 
-prompt_template = """
+NAME_CONTEXT_DESCRIPTION_PROMPT = """
 I will provide you information about an API call.
 
 Please give me a name, context, and description for the API call.
@@ -41,11 +41,30 @@ Please return JSON with three keys: context, name, description
 """
 
 
+REVISION_PROMPT = """
+Each of our functions has a context and a name.
+
+Here's our existing contexts and names:
+
+{existing}
+
+Here's the proposed context and name for a new function:
+
+{new}
+
+We would like to have this function use an existing context if it makes sense.
+
+We would like to have the new name follow similar patterns as the existing names.
+
+Please determine the best context and name for this new function and return valid JSON with two keys: context, name
+"""
+
+
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
     # contexts = _get_context_and_names()
     short = data.get("short_description", "")
     short = f"User given name: {short}" if short else ""
-    prompt = prompt_template.format(
+    prompt = NAME_CONTEXT_DESCRIPTION_PROMPT.format(
         url=data.get("url", ""),
         method=data.get("method", ""),
         short_description=short,
@@ -70,13 +89,52 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         # for now log EVERYTHING
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
-    rv['context'] = try_to_match_existing_context(rv['context'])
+    if rv["context"] and rv['name']:
+        revision = _revise_to_match_existing_context_and_patterns(rv['context'], rv['name'])
+        if revision:
+            rv['context'] = revision['context']
+            rv['name'] = revision['name']
 
     return rv
 
 
+def _revise_to_match_existing_context_and_patterns(context: str, name: str) -> Optional[Dict]:
+    existing = _get_existing_context_and_names()
+    prompt = REVISION_PROMPT.format(
+        existing="\n".join(json.dumps(e) for e in existing),
+        new=json.dumps({"context": context, "name": name}),
+    )
+    prompt_msg = {"role": "user", "content": prompt}
+    resp = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo", temperature=0.2, messages=[prompt_msg]
+    )
+    completion = resp["choices"][0]["message"]["content"].strip()
+
+    # just log it all for now!
+    log("REVISION", "input:", f"{context}, {name}", "output:", completion, "prompt:", prompt, sep="\n")
+
+    try:
+        rv = _parse_openai_response(completion)
+    except json.JSONDecodeError:
+        return None
+
+    if rv["context"] and rv["name"]:
+        return {"context": rv["context"], "name": rv["name"]}
+    else:
+        return None
+
+
+def _get_existing_context_and_names() -> List[Dict]:
+    db = get_client()
+    rv = []
+    for f in db.urlfunction.find_many():
+        rv.append({"context": f.context, "name": f.name})
+    return rv
+
+
 def try_to_match_existing_context(from_openai: str) -> str:
-    """ lets try to see if an existing context is highly similar
+    """ UNUSED ATM
+    lets try to see if an existing context is highly similar
     to the context we get from openai
     if it is, let's use the existing context rather than the new one from openai
     """
