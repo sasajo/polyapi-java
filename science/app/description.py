@@ -20,13 +20,13 @@ from thefuzz import fuzz
 NAME_CONTEXT_DESCRIPTION_PROMPT = """
 I will provide you information about an API call.
 
-Please give me a name, context, and description for the API call.
+Please give me a context, name and description for the API call.
 
-name and context (classification) can use '.' notation but cannot have any spaces or dashes.
+context (classification) and name can use '.' notation but cannot have any spaces or dashes.
 
-The context should ideally begin with the name of the product. Then the name of the resource. Then the action.
+The context should ideally begin with the name of the product. Then the name of the resource. Then the name of the action.
 
-For example: shopify.product.create
+For example, to create a new product on shopify the context should be "shopify.product" and the name should be "create".
 
 Don't use the same word in both the name and the context.
 
