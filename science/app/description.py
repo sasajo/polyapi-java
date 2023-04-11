@@ -24,6 +24,10 @@ Please give me a name, context, and description for the API call.
 
 name and context (classification) can use '.' notation but cannot have any spaces or dashes.
 
+The context should ideally begin with the name of the product. Then the name of the resource. Then the action.
+
+For example: shopify.product.create
+
 Don't use the same word in both the name and the context.
 
 Here is the API call:
@@ -89,11 +93,11 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         # for now log EVERYTHING
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
-    if rv["context"] and rv['name']:
-        revision = _revise_to_match_existing_context_and_patterns(rv['context'], rv['name'])
-        if revision:
-            rv['context'] = revision['context']
-            rv['name'] = revision['name']
+    # if rv["context"] and rv['name']:
+    #     revision = _revise_to_match_existing_context_and_patterns(rv['context'], rv['name'])
+    #     if revision:
+    #         rv['context'] = revision['context']
+    #         rv['name'] = revision['name']
 
     return rv
 
