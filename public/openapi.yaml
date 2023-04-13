@@ -11,7 +11,6 @@ paths:
       operationId: shopifyGetProducts
       summary: Get the products from a particular shopify store
       requestBody:
-        # description: The name of the store you want to see the products of
         required: true
         content:
           application/json:
@@ -24,8 +23,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shopifyGetProductsResponse'
+  /functions/url/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
+    post:
+      operationId: twilioSendSms
+      summary: send an sms message to a phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/twilioSendSmsArgs'
+      responses:
+        "201":
+          description: details about the sms that was sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/twilioSendSmsResponse'
 components:
   schemas:
+    twilioSendSmsArgs:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: first argument is phone number and second is the message
+    twilioSendSmsResponse:
+      type: object
     storeNameArgs:
       type: object
       properties:
@@ -37,8 +63,8 @@ components:
     shopifyGetProductsResponse:
       type: object
       properties:
-        todos:
+        products:
           type: array
           items:
-            type: string
-          description: The list of todos.
+            type: object
+          description: The list of products.
