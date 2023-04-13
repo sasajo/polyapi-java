@@ -8,7 +8,7 @@ servers:
 paths:
   /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
     post:
-      operationId: shopify.getProducts
+      operationId: shopifyGetProducts
       summary: Get the products from a particular shopify store
       requestBody:
         # description: The name of the store you want to see the products of
