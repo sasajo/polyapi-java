@@ -8,8 +8,8 @@ export class ApiSpecController {
   public async aiPluginJson(): Promise<unknown> {
     return {
       schema_version: 'v1',
-      name_for_human: 'Poly API Plugin',
-      name_for_model: 'poly_api_plugin',
+      name_for_human: 'Poly API',
+      name_for_model: 'poly_api',
       description_for_human: 'Plugin for performing tasks via Poly API platform.',
       description_for_model: 'Plugin for performing tasks via Poly API platform',
       auth: {
