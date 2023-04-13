@@ -1,0 +1,44 @@
+openapi: 3.0.1
+info:
+  title: Poly API
+  description: Endpoints that allow users to execute functions on PolyAPI
+  version: 'v1'
+servers:
+  - url: https://develop.polyapi.io
+paths:
+  /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
+    post:
+      operationId: shopify.getProducts
+      summary: Get the products from a particular shopify store
+      requestBody:
+        # description: The name of the store you want to see the products of
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/storeNameArgs'
+      responses:
+        "201":
+          description: products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shopifyGetProductsResponse'
+components:
+  schemas:
+    storeNameArgs:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: store name
+    shopifyGetProductsResponse:
+      type: object
+      properties:
+        todos:
+          type: array
+          items:
+            type: string
+          description: The list of todos.
