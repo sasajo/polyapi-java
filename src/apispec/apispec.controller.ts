@@ -10,8 +10,8 @@ export class ApiSpecController {
       schema_version: 'v1',
       name_for_human: 'Poly API',
       name_for_model: 'poly_api',
-      description_for_human: 'Plugin for performing tasks via Poly API platform.',
-      description_for_model: 'Plugin for performing tasks via Poly API platform',
+      description_for_human: "Ask ChatGPT to compose and execute chains of tasks on Poly API",
+      description_for_model: "Ask ChatGPT to compose and execute chains of tasks on Poly API",
       auth: {
         type: 'none',
       },
