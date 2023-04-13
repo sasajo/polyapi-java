@@ -52,6 +52,9 @@ components:
           description: first argument is phone number and second is the message
     twilioSendSmsResponse:
       type: object
+      properties:
+        status:
+          type: string
     storeNameArgs:
       type: object
       properties:
