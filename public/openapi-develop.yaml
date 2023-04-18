@@ -9,7 +9,7 @@ paths:
   /functions/url/5bc87056-6cae-4910-a67c-c307e4a1074e:
     post:
       operationId: upsRatingGetRate
-      description: This API call allows you to retrieve shipping rates for a shipment. The request payload includes shipment details such as shipper and recipient addresses, package dimensions and weight, and shipping service. The response payload includes the shipping rate and other details such as billing weight and service options charges. The API call uses HTTPS protocol and requires authentication. The context is 'ups.rating' and the name is 'rate'.
+      description: Retrieve shipping rates for a shipment
       requestBody:
         required: true
         content:
@@ -18,7 +18,7 @@ paths:
               $ref: '#/components/schemas/upsRatingGetRateBody'
       responses:
         "201":
-          description: Shipping rates for a location
+          description: Shipping rates for a shipment
           content:
             application/json:
               schema:
@@ -26,7 +26,7 @@ paths:
   /functions/url/cc1b01eb-943d-44d7-9d86-12fad080bd1e:
     post:
       operationId: upsAuthGetToken
-      description: This API call retrieves an OAuth token from UPS for use in subsequent API calls. The token is obtained using client credentials grant type. The token is returned in the response payload along with other information such as token type, issued at, and expiration time. The context for this call is 'ups.security' and the name is 'getToken'
+      description: This API call retrieves an OAuth token from UPS for use in subsequent API calls
       # no request body needed?
       # requestBody:
       #   required: true
@@ -44,7 +44,7 @@ paths:
   /functions/url/a2121768-6a25-4814-8b97-3c687e5c50b2:
     post:
       operationId: operaCloudPmsParSearchAvailability
-      description: This API call retrieves the availability of a hotel room for a specific date range. The request includes parameters such as roomStayStartDate, roomStayEndDate, roomStayQuantity, adults, children, and limit. The response includes information on the room rates, currency code, room type, rate plan code, start and end dates, and more. The API call also includes a link to create a reservation for the selected room. This API call is part of the Hospitality API and can be used to integrate hotel availability information into third-party applications.
+      description: availability of a hotel room for a specific date range
       requestBody:
         required: true
         content:
