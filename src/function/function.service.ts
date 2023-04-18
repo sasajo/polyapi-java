@@ -10,8 +10,10 @@ import { AuthFunction, CustomFunction, Prisma, SystemPrompt, UrlFunction, User }
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentsMetadata,
-  Auth, AuthFunctionDto,
-  Body, ExecuteAuthFunctionResponseDto,
+  Auth,
+  AuthFunctionDto,
+  Body,
+  ExecuteAuthFunctionResponseDto,
   FunctionArgument,
   FunctionBasicDto,
   FunctionDefinitionDto,
@@ -528,7 +530,13 @@ export class FunctionService {
   private getArgumentsMap(urlFunction: UrlFunction, args: any[]) {
     const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
-        return arg.replaceAll('\r\n', '\n').trim();
+        return arg
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t')
+          .replace(/\f/g, '\\f')
+          .replace(/\b/g, '')
+          .trim();
       } else if (typeof arg === 'object') {
         return JSON.stringify(arg);
       } else {
@@ -628,17 +636,24 @@ export class FunctionService {
     }
   }
 
-  private getBodyData(body: Body): Record<string, any> | undefined {
+  private getBodyData(body: Body): any | undefined {
     switch (body.mode) {
       case 'raw':
         if (!body.raw?.trim()) {
           return undefined;
         }
         try {
-          return JSON.parse(body.raw);
+          return JSON.parse(
+            body.raw
+              .replace(/\n/g, '')
+              .replace(/\r/g, '')
+              .replace(/\t/g, '')
+              .replace(/\f/g, '')
+              .replace(/\b/g, '')
+          );
         } catch (e) {
           this.logger.debug(`Error while parsing body: ${e}`);
-          return undefined;
+          return body.raw;
         }
       case 'formdata':
         return body.formdata.reduce((data, item) => Object.assign(data, { [item.key]: item.value }), {});

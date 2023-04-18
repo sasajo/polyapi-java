@@ -101,6 +101,7 @@ def quick_db_connect():
     db = Prisma()
     db.connect()
     register(db)
+    return db
 
 
 def is_vip_user(user_id: Optional[int]) -> bool:
