@@ -9,7 +9,7 @@ paths:
   /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
     post:
       operationId: shopifyGetProducts
-      summary: Get the products from a particular shopify store
+      summary: Get the products from a particular shopify store. If a store name is not specified, use 'darko-demo-store' for the store name
       requestBody:
         required: true
         content:
