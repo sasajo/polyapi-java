@@ -36,6 +36,21 @@ export class ConfigService {
     return this.get('HOST_URL');
   }
 
+  get env(): string {
+    const host = this.get('HOST_URL');
+    if (!host) {
+      return "local"
+    }
+    // HACK todo add production?
+    if (host.includes('develop')) {
+      return 'develop';
+    } else if (host.includes('staging')) {
+      return 'staging';
+    } else {
+      return 'local'
+    }
+  }
+
   get port(): number {
     return Number(this.get('PORT', 8000));
   }
