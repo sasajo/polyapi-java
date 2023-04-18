@@ -6,171 +6,68 @@ info:
 servers:
   - url: https://staging.polyapi.io
 paths:
-  /functions/url/5bc87056-6cae-4910-a67c-c307e4a1074e/execute:
+  /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
     post:
-      operationId: upsRatingGetRate
-      description: Retrieve shipping rates for a shipment
+      operationId: shopifyGetProducts
+      summary: Get the products from a particular shopify store
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/upsRatingGetRateBody'
+              $ref: '#/components/schemas/storeNameArgs'
       responses:
         "201":
-          description: Shipping rates for a shipment
+          description: products
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/upsRatingGetRateResponse'
-  /functions/url/cc1b01eb-943d-44d7-9d86-12fad080bd1e/execute:
+                $ref: '#/components/schemas/shopifyGetProductsResponse'
+  /functions/url/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
     post:
-      operationId: upsAuthGetToken
-      description: retrieve an OAuth token from UPS for use in subsequent API calls
-      # no request body needed?
-      # requestBody:
-      #   required: true
-      #   content:
-      #     application/json:
-      #       schema:
-      #         $ref: '#/components/schemas/upsAuthGetTokenBody'
-      responses:
-        "201":
-          description: Oauth token from UPS for use in subsequent API calls
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/upsAuthGetTokenResponse'
-  /functions/url/e0b0bbd8-e2dc-445b-a8b0-ef3ced06e1f9/execute:
-    post:
-      operationId: upsLocationsSearchAvailabilities
-      description: search for UPS locations based on availability
+      operationId: twilioSendSms
+      summary: send an sms message to a phone number
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/upsLocationsSearchAvailabilitiesBody'
+              $ref: '#/components/schemas/twilioSendSmsArgs'
       responses:
         "201":
-          description: UPS locations based on availability
+          description: details about the sms that was sent
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/upsLocationsSearchAvailabilitiesResponse'
-  /functions/url/a2121768-6a25-4814-8b97-3c687e5c50b2/execute:
-    post:
-      operationId: operaCloudPmsParSearchAvailability
-      description: availability of a hotel room for a specific date range
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/operaCloudPmsParSearchAvailabilityBody'
-      responses:
-        "201":
-          description: availability of a hotel room for a specific date range
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/operaCloudPmsParSearchAvailabilityResponse'
+                $ref: '#/components/schemas/twilioSendSmsResponse'
 components:
   schemas:
-    upsRatingGetRateBody:
+    twilioSendSmsArgs:
       type: object
       properties:
-        payload:
-          type: object
-          properties:
-            name:
-              type: string
-            city:
-              type: string
-            stateShort:
-              type: string
-            zipCode:
-              type: string
-            countryShort:
-              type: string
-            l:
-              type: string
-            w:
-              type: string
-            h:
-              type: string
-            packageWeight:
-              type: string
-            token:
-              type: string
-    upsRatingGetRateResponse:
-      # TODO this is fake, still need to do the real version
+        args:
+          type: array
+          items:
+            type: string
+          description: first argument is phone number and second is the message
+    twilioSendSmsResponse:
       type: object
       properties:
-        totalCharges:
-          type: number
-          description: The rate to charge
-    upsLocationsSearchAvailabilitiesBody:
-      type: object
-      properties:
-        payload:
-          type: object
-          properties:
-            address:
-              type: string
-            city:
-              type: string
-            stateShort:
-              type: string
-            zipCode:
-              type: string
-            countryShort:
-              type: string
-            searchRadiusMiles:
-              type: number
-            token:
-              type: string
-    upsLocationsSearchAvailabilitiesResponse:
-      type: object
-      properties:
-        FAKE:
-          type: string
-    upsAuthGetTokenResponse:
-      type: object
-      properties:
-        token_type:
-          type: string
-        issued_at:
-          type: string
-        client_id:
-          type: string
-        access_token:
-          type: string
-        scope:
-          type: string
-        expires_in:
-          type: string
-        refresh_count:
-          type: string
         status:
           type: string
-    operaCloudPmsParSearchAvailabilityBody:
+    storeNameArgs:
       type: object
       properties:
-        arrivalDate:
-          type: string
-        departureDate:
-          type: string
-        numberRooms:
-          type: number
-        numberAdults:
-          type: number
-        numberChildren:
-          type: number
-        token:
-          type: string
-    operaCloudPmsParSearchAvailabilityResponse:
+        args:
+          type: array
+          items:
+            type: string
+          description: store name
+    shopifyGetProductsResponse:
       type: object
       properties:
-        FAKE:
-          type: string
+        products:
+          type: array
+          items:
+            type: object
+          description: The list of products.

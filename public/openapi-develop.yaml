@@ -4,7 +4,7 @@ info:
   description: Endpoints that allow users to execute functions on PolyAPI
   version: 'v1'
 servers:
-  - url: https://staging.polyapi.io
+  - url: https://develop.polyapi.io
 paths:
   /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
     post:
