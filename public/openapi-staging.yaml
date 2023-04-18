@@ -6,7 +6,7 @@ info:
 servers:
   - url: https://staging.polyapi.io
 paths:
-  /functions/url/5bc87056-6cae-4910-a67c-c307e4a1074e:
+  /functions/url/5bc87056-6cae-4910-a67c-c307e4a1074e/execute:
     post:
       operationId: upsRatingGetRate
       description: Retrieve shipping rates for a shipment
@@ -23,7 +23,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/upsRatingGetRateResponse'
-  /functions/url/cc1b01eb-943d-44d7-9d86-12fad080bd1e:
+  /functions/url/cc1b01eb-943d-44d7-9d86-12fad080bd1e/execute:
     post:
       operationId: upsAuthGetToken
       description: retrieve an OAuth token from UPS for use in subsequent API calls
@@ -41,7 +41,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/upsAuthGetTokenResponse'
-  /functions/url/e0b0bbd8-e2dc-445b-a8b0-ef3ced06e1f9:
+  /functions/url/e0b0bbd8-e2dc-445b-a8b0-ef3ced06e1f9/execute:
     post:
       operationId: upsLocationsSearchAvailabilities
       description: search for UPS locations based on availability
@@ -58,7 +58,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/upsLocationsSearchAvailabilitiesResponse'
-  /functions/url/a2121768-6a25-4814-8b97-3c687e5c50b2:
+  /functions/url/a2121768-6a25-4814-8b97-3c687e5c50b2/execute:
     post:
       operationId: operaCloudPmsParSearchAvailability
       description: availability of a hotel room for a specific date range
