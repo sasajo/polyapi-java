@@ -1,7 +1,7 @@
 import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nestjs/common';
 import { CreatePluginDto } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { ApiSpecService } from 'apispec/apispec.service';
+import { ApiSpecService } from 'gptplugin/gptplugin.service';
 import { ConfigService } from 'config/config.service';
 
 

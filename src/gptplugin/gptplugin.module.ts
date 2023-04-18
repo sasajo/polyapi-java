@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { ApiSpecService } from 'apispec/apispec.service';
-import { ApiSpecController } from 'apispec/apispec.controller';
+import { ApiSpecService } from 'gptplugin/gptplugin.service';
+import { ApiSpecController } from 'gptplugin/gptplugin.controller';
 
 @Module({
   imports: [HttpModule],

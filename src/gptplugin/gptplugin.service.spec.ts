@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { ApiSpecService } from './apispec.service';
+import { ApiSpecService } from './gptplugin.service';
 
 
 describe('ApiSpecService', () => {
