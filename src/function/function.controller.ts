@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpException,
   HttpStatus,
   Logger,
@@ -12,9 +13,8 @@ import {
   Query,
   Req,
   UseGuards,
-  Headers,
-  ValidationPipe,
   UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FunctionService } from 'function/function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
@@ -22,16 +22,12 @@ import {
   CreateCustomFunctionDto,
   DeleteAllFunctionsDto,
   ExecuteUrlFunctionDto,
-  FunctionDefinitionDto,
   FunctionBasicDto,
+  FunctionDefinitionDto,
+  FunctionDetailsDto,
   GetAllFunctionsDto,
   Role,
   UpdateFunctionDto,
-  FunctionDetailsDto,
-  CreateAuthFunctionDto,
-  AuthFunctionDto,
-  ExecuteAuthFunctionDto,
-  ExecuteAuthFunctionResponseDto,
 } from '@poly/common';
 
 export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
@@ -56,17 +52,14 @@ export class FunctionController {
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
     const urlFunctions = await this.service.getUrlFunctionsByUser(req.user, contexts, names, ids);
     const customFunctions = await this.service.getCustomFunctionsByUser(req.user, contexts, names, ids);
-    const authFunctions = await this.service.getAuthFunctionsByUser(req.user, contexts, names, ids);
 
     if (useDefinitionDto) {
       return (await Promise.all(urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))))
         .concat(...customFunctions.map(customFunction => this.service.customFunctionToDefinitionDto(customFunction)))
-        .concat(...authFunctions.map(authFunction => this.service.authFunctionToDefinitionDto(authFunction)))
         ;
     } else {
       return urlFunctions.map(urlFunction => this.service.urlFunctionToBasicDto(urlFunction))
         .concat(...customFunctions.map(customFunction => this.service.customFunctionToBasicDto(customFunction)))
-        .concat(...authFunctions.map(authFunction => this.service.authFunctionToBasicDto(authFunction)))
         ;
     }
   }
@@ -99,12 +92,13 @@ export class FunctionController {
 
   @Patch('/:publicId')
   @UseGuards(ApiKeyGuard)
-  async updateFunction(@Req() req, @Param('publicId') publicId: string, @Body() {
-    name = null,
-    context = null,
-    description = null,
-    arguments: argumentsMetadata = null,
-  }: UpdateFunctionDto): Promise<any> {
+  async updateFunction(@Req() req, @Param('publicId') publicId: string, @Body() updateFunction: UpdateFunctionDto): Promise<any> {
+    const {
+      name = null,
+      context = null,
+      description = null,
+      arguments: argumentsMetadata = null,
+    } = updateFunction;
     const urlFunction = await this.service.findUrlFunction(req.user, publicId);
     if (urlFunction) {
       return this.service.urlFunctionToDetailsDto(
@@ -122,16 +116,6 @@ export class FunctionController {
       }
       return this.service.customFunctionToDetailsDto(
         await this.service.updateCustomFunction(req.user, customFunction, context, description),
-      );
-    }
-
-    const authFunction = await this.service.findAuthFunction(req.user, publicId);
-    if (authFunction) {
-      if (argumentsMetadata) {
-        throw new HttpException('Arguments cannot be updated for a auth function.', HttpStatus.BAD_REQUEST);
-      }
-      return this.service.authFunctionToBasicDto(
-        await this.service.updateAuthFunction(req.user, authFunction, context, name, description),
       );
     }
 
@@ -159,42 +143,12 @@ export class FunctionController {
   @Post('/custom')
   @UseGuards(ApiKeyGuard)
   async createCustomFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+    const {context = '', name, code} = createCustomFunctionDto;
+
     try {
-      return await this.service.createCustomFunction(req.user, createCustomFunctionDto.context, createCustomFunctionDto.name, createCustomFunctionDto.code);
+      return await this.service.createCustomFunction(req.user, context, name, code);
     } catch (e) {
       throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
     }
-  }
-
-  @Post('/auth')
-  @UseGuards(ApiKeyGuard)
-  async createAuthFunction(@Req() req, @Body() createAuthFunctionDto: CreateAuthFunctionDto): Promise<AuthFunctionDto> {
-    const { context = '', name, description = null, authUrl, accessTokenUrl } = createAuthFunctionDto;
-
-    try {
-      return this.service.authFunctionToDto(
-        await this.service.createAuthFunction(req.user, context, name, description, authUrl, accessTokenUrl)
-      );
-    } catch (e) {
-      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  @Post('/auth/:publicId/execute')
-  @UseGuards(ApiKeyGuard)
-  async executeAuthFunction(@Req() req, @Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteAuthFunctionDto): Promise<ExecuteAuthFunctionResponseDto> {
-    const authFunction = await this.service.findAuthFunctionByPublicId(publicId);
-    if (!authFunction) {
-      throw new HttpException(`Auth function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
-    }
-
-    const { eventsClientId, clientId, clientSecret, scopes } = executeFunctionDto;
-    return await this.service.executeAuthFunction(req.user, authFunction, eventsClientId, clientId, clientSecret, scopes);
-  }
-
-  @Get('/auth/:publicId/callback')
-  async authFunctionCallback(@Param('publicId') publicId: string, @Query() query: any): Promise<void> {
-    this.logger.debug(`Auth function callback for ${publicId} with query ${JSON.stringify(query)}`);
-    await this.service.processAuthFunctionCallback(publicId, query);
   }
 }

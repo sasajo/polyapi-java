@@ -1,9 +1,9 @@
 const axios = require('axios');
 
-module.exports = function(eventsClientId, getSocket, clientId, clientSecret, scopes, callback, timeout = 0) {
-  axios.post(`{{apiBaseUrl}}/functions/auth/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
+module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 0 } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 0 } = {}{{/if}}) {
+  axios.post(`{{apiBaseUrl}}/functions/auth/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
     .then(({ data }) => {
-      callback(data.url, data.token);
+      callback(data.token, data.url, data.error);
       if (data.token) {
         return;
       }
@@ -21,11 +21,8 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, sco
           clearTimeout(timeoutID);
         }
       };
-      const handleEvent = (event) => {
-        if (event.token) {
-
-        }
-        callback(event.url, event.token, event.error);
+      const handleEvent = ({ token, url, error }) => {
+        callback(token, url, error);
       };
       socket.on(`handleAuthFunctionEvent:{{id}}`, handleEvent);
       socket.emit('registerAuthFunctionEventHandler', {
@@ -39,4 +36,8 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, sco
         callback(null, null, { message: 'Timeout reached' });
       }
     });
+
+  return {
+    revoke: () => axios.post(`{{apiBaseUrl}}/functions/auth/{{id}}/revoke`, { clientId, clientSecret }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }}),
+  };
 }

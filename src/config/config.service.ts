@@ -21,7 +21,7 @@ export class ConfigService {
     };
   }
 
-  get(key: string, defaultValue?: any): string | null {
+  get(key: string, defaultValue?: any): string {
     const value = this.envConfig[key];
     if (value?.startsWith('file://')) {
       const fileName = value.substring(7);
@@ -33,7 +33,7 @@ export class ConfigService {
   }
 
   get hostUrl(): string {
-    return this.get('HOST_URL');
+    return this.get('HOST_URL') || 'http://localhost:8000';
   }
 
   get port(): number {

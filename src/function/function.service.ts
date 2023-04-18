@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import ts from 'typescript';
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
@@ -6,21 +5,25 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
 import mergeWith from 'lodash/mergeWith';
-import { AuthFunction, CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
+import { CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentsMetadata,
+  ArgumentType,
   Auth,
-  AuthFunctionDto,
   Body,
-  ExecuteAuthFunctionResponseDto,
+  CustomFunctionDefinitionDto,
+  CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
   FunctionDefinitionDto,
   FunctionDetailsDto,
   Headers,
   Method,
+  PropertySpecification,
+  PropertyType,
   Role,
+  Specification,
   Variables,
 } from '@poly/common';
 import { EventService } from 'event/event.service';
@@ -30,7 +33,6 @@ import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
-import { URLSearchParams } from 'url';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
@@ -71,11 +73,11 @@ export class FunctionService {
       contexts?.length ? { context: { in: contexts } } : undefined,
       names?.length ? { name: { in: names } } : undefined,
       ids?.length ? { publicId: { in: ids } } : undefined,
-    ].filter(Boolean);
+    ].filter(Boolean) as any[];
 
     this.logger.debug(`filterConditions: ${JSON.stringify(filterConditions)}`);
 
-    return filterConditions.length > 0 ? { OR: filterConditions } : undefined;
+    return filterConditions.length > 0 ? { OR: filterConditions } : {};
   }
 
   async getUrlFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
@@ -103,30 +105,14 @@ export class FunctionService {
     });
   }
 
-  async getAuthFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
-    return this.prisma.authFunction.findMany({
-      where: {
-        // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
-        // user: {
-        //   id: user.id,
-        // },
-        ...this.getFunctionFilterConditions(contexts, names, ids),
-      },
-    });
-  }
-
   private async resolveFunctionName(
     user: User,
-    name: string | null,
+    name: string,
     context: string,
     transformTextCase = true,
     fixDuplicate = false,
     excludedIds?: number[],
   ) {
-    if (name == null) {
-      return null;
-    }
-
     if (transformTextCase) {
       name = name.replace(/([\[\]\\/{}()])/g, ' ');
       name = toCamelCase(name);
@@ -289,25 +275,15 @@ export class FunctionService {
   }
 
   private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata, withDefinition = false): FunctionArgument {
-    const arg: FunctionArgument = {
+    return {
       key: argument,
       name: argumentsMetadata[argument]?.name || argument,
       type: argumentsMetadata[argument]?.type || 'string',
+      typeObject: argumentsMetadata[argument]?.typeObject,
       payload: argumentsMetadata[argument]?.payload || false,
       required: argumentsMetadata[argument]?.required !== false,
       secure: argumentsMetadata[argument]?.secure || false,
     };
-    if (withDefinition) {
-      if (arg.type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
-        arg.typeDeclarations = argumentsMetadata[argument]?.typeDeclarations;
-      }
-    } else {
-      if (arg.type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
-        arg.type = 'object';
-        arg.typeObject = argumentsMetadata[argument]?.typeObject;
-      }
-    }
-    return arg;
   }
 
   getFunctionArguments(urlFunction: UrlFunction, withDefinition = false): FunctionArgument[] {
@@ -343,7 +319,7 @@ export class FunctionService {
 
   async urlFunctionToDefinitionDto(urlFunction: UrlFunction): Promise<FunctionDefinitionDto> {
     const returnTypeName = 'ReturnType';
-    const content = this.commonService.getPathContent(JSON.parse(urlFunction.response), urlFunction.payload);
+    const content = urlFunction.response && this.commonService.getPathContent(JSON.parse(urlFunction.response), urlFunction.payload);
     const namespace = toPascalCase(urlFunction.name);
     const returnType = await this.commonService.generateTypeDeclaration(
       returnTypeName,
@@ -380,75 +356,21 @@ export class FunctionService {
     };
   }
 
-  customFunctionToDefinitionDto(customFunction: CustomFunction): FunctionDefinitionDto {
+  customFunctionToDefinitionDto(customFunction: CustomFunction): CustomFunctionDefinitionDto {
     return {
+      type: 'custom',
       id: customFunction.publicId,
       name: customFunction.name,
       description: customFunction.description,
       context: customFunction.context,
       arguments: JSON.parse(customFunction.arguments),
-      returnTypeName: customFunction.returnType,
+      returnTypeName: customFunction.returnType || 'any',
       customCode: customFunction.code,
-      type: 'custom',
-    };
-  }
-
-  authFunctionToDefinitionDto(authFunction: AuthFunction): FunctionDefinitionDto {
-    return {
-      id: authFunction.publicId,
-      name: authFunction.name,
-      description: authFunction.description,
-      context: authFunction.context,
-      arguments: this.generateAuthFunctionArguments(),
-      returnTypeName: 'void',
-      type: 'auth',
-    };
-  }
-
-  authFunctionToDto(authFunction: AuthFunction): AuthFunctionDto {
-    return {
-      id: authFunction.publicId,
-      context: authFunction.context,
-      name: authFunction.name,
-      description: authFunction.description,
-      callbackUrl: this.getAuthFunctionCallbackUrl(authFunction),
-    };
-  }
-
-  private getAuthFunctionCallbackUrl(authFunction: AuthFunction) {
-    return `${this.config.hostUrl}/functions/auth/${authFunction.publicId}/callback`;
-  }
-
-  authFunctionToBasicDto(authFunction: AuthFunction): FunctionBasicDto {
-    return {
-      id: authFunction.publicId,
-      context: authFunction.context,
-      name: authFunction.name,
-      description: authFunction.description,
-    };
-  }
-
-  authFunctionToDetailsDto(authFunction: AuthFunction): FunctionDetailsDto {
-    return {
-      id: authFunction.publicId,
-      context: authFunction.context,
-      name: authFunction.name,
-      description: authFunction.description,
-      arguments: this.generateAuthFunctionArguments(),
-      type: 'auth',
     };
   }
 
   async findUrlFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
     return this.prisma.urlFunction.findFirst({
-      where: {
-        publicId,
-      },
-    });
-  }
-
-  async findAuthFunctionByPublicId(publicId: string): Promise<AuthFunction | null> {
-    return this.prisma.authFunction.findFirst({
       where: {
         publicId,
       },
@@ -462,12 +384,12 @@ export class FunctionService {
     const url = mustache.render(urlFunction.url, argumentsMap);
     const method = urlFunction.method;
     const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
-    const body = JSON.parse(mustache.render(urlFunction.body, argumentsMap));
+    const body = JSON.parse(mustache.render(urlFunction.body || '{}', argumentsMap));
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
     const headers = {
-      ...JSON.parse(mustache.render(urlFunction.headers, argumentsMap)).reduce(
+      ...JSON.parse(mustache.render(urlFunction.headers || '[]', argumentsMap)).reduce(
         (headers, header) => Object.assign(headers, { [header.key]: header.value }),
         {},
       ),
@@ -518,7 +440,7 @@ export class FunctionService {
             }
 
             if (error.response) {
-              throw new HttpException(error.response.data, error.response.status);
+              throw new HttpException(error.response.data as any, error.response.status);
             } else {
               throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
             }
@@ -599,8 +521,8 @@ export class FunctionService {
           return {};
         }
 
-        const key = auth.apikey.find((item) => item.key === 'key')?.value;
-        const value = auth.apikey.find((item) => item.key === 'value')?.value;
+        const key = auth.apikey.find((item) => item.key === 'key')!.value;
+        const value = auth.apikey.find((item) => item.key === 'value')!.value;
 
         return {
           [key]: value,
@@ -624,8 +546,8 @@ export class FunctionService {
           return {};
         }
 
-        const key = auth.apikey.find((item) => item.key === 'key')?.value;
-        const value = auth.apikey.find((item) => item.key === 'value')?.value;
+        const key = auth.apikey.find((item) => item.key === 'key')!.value;
+        const value = auth.apikey.find((item) => item.key === 'value')!.value;
 
         return {
           [key]: value,
@@ -649,7 +571,7 @@ export class FunctionService {
               .replace(/\r/g, '')
               .replace(/\t/g, '')
               .replace(/\f/g, '')
-              .replace(/\b/g, '')
+              .replace(/\b/g, ''),
           );
         } catch (e) {
           this.logger.debug(`Error while parsing body: ${e}`);
@@ -705,20 +627,9 @@ export class FunctionService {
     });
   }
 
-  async findAuthFunction(user: User, publicId: string) {
-    return this.prisma.authFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
-        },
-        publicId,
-      },
-    });
-  }
-
   async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
     if (name != null || context != null) {
-      name = await this.resolveFunctionName(user, name, urlFunction.context, false);
+      name = name ? await this.resolveFunctionName(user, name, urlFunction.context, false) : null;
 
       if (
         !(await this.checkNameAndContextDuplicates(
@@ -793,31 +704,6 @@ export class FunctionService {
     });
   }
 
-  async updateAuthFunction(user: User, authFunction: AuthFunction, context: string | null, name: string | null, description: string | null) {
-    if (context != null || name != null) {
-      if (!await this.checkNameAndContextDuplicates(
-        user,
-        name || authFunction.name,
-        context == null ? authFunction.context : context,
-        [authFunction.id],
-      )) {
-        throw new HttpException(`Function with name ${name || authFunction.name} and context ${context} already exists.`, HttpStatus.CONFLICT);
-      }
-    }
-
-    this.logger.debug(`Updating auth function ${authFunction.id} with name ${name}, context ${context}, description ${description}`);
-    return this.prisma.authFunction.update({
-      where: {
-        id: authFunction.id,
-      },
-      data: {
-        name: name || authFunction.name,
-        context: context == null ? authFunction.context : context,
-        description: description == null ? authFunction.description : description,
-      },
-    });
-  }
-
   async deleteFunction(user: User, publicId: string) {
     const urlFunction = await this.prisma.urlFunction.findFirst({
       where: {
@@ -853,28 +739,6 @@ export class FunctionService {
 
       this.logger.debug(`Deleting custom function ${publicId}`);
       await this.prisma.customFunction.delete({
-        where: {
-          publicId,
-        },
-      });
-      return;
-    }
-
-    const authFunction = await this.prisma.authFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
-        },
-        publicId,
-      },
-    });
-    if (authFunction) {
-      if (user.role !== Role.Admin && authFunction.userId !== user.id) {
-        throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
-      }
-
-      this.logger.debug(`Deleting auth function ${publicId}`);
-      await this.prisma.authFunction.delete({
         where: {
           publicId,
         },
@@ -925,27 +789,6 @@ export class FunctionService {
       },
     });
     if (customFunction) {
-      return false;
-    }
-
-    const authFunction = await this.prisma.authFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
-        },
-        name,
-        context,
-        AND:
-          excludedIds == null
-            ? undefined
-            : {
-              id: {
-                notIn: excludedIds,
-              },
-            },
-      },
-    });
-    if (authFunction) {
       return false;
     }
 
@@ -1002,13 +845,6 @@ export class FunctionService {
         },
       },
     });
-    await this.prisma.authFunction.deleteMany({
-      where: {
-        user: {
-          id: userID,
-        },
-      },
-    });
   }
 
   async deleteAllApiKey(apiKey: string) {
@@ -1020,13 +856,6 @@ export class FunctionService {
       },
     });
     await this.prisma.customFunction.deleteMany({
-      where: {
-        user: {
-          apiKey,
-        },
-      },
-    });
-    await this.prisma.authFunction.deleteMany({
       where: {
         user: {
           apiKey,
@@ -1058,7 +887,7 @@ export class FunctionService {
                       name: param.name.getText(),
                       type: param.type?.getText() || 'any',
                     }));
-                    returnType = node.type?.getText();
+                    returnType = node.type?.getText() || 'any';
 
                     return ts.visitEachChild(node, visitor, context);
                   }
@@ -1123,230 +952,6 @@ export class FunctionService {
     }
   }
 
-  async createAuthFunction(user: User, context: string | null, name: string, description: string | null, authUrl: string, accessTokenUrl: string) {
-    const authFunction = await this.prisma.authFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
-        },
-        name,
-        context,
-      },
-    });
-    if (
-      !(await this.checkNameAndContextDuplicates(
-        user,
-        name,
-        context == null ? authFunction.context || '' : context,
-        authFunction ? [authFunction.id] : [],
-      ))
-    ) {
-      throw new HttpException(
-        `Function with name ${name} and context ${context} already exists.`,
-        HttpStatus.CONFLICT,
-      );
-    }
-
-    if (authFunction) {
-      this.logger.debug(`Updating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`);
-      return this.prisma.authFunction.update({
-        where: {
-          id: authFunction.id,
-        },
-        data: {
-          description: description || authFunction.description,
-          authUrl,
-          accessTokenUrl,
-        },
-      });
-    } else {
-      this.logger.debug(`Creating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`);
-      return this.prisma.authFunction.create({
-        data: {
-          user: {
-            connect: {
-              id: user.id,
-            },
-          },
-          context,
-          name,
-          description,
-          authUrl,
-          accessTokenUrl,
-        },
-      });
-    }
-  }
-
-  public async executeAuthFunction(user: User, authFunction: AuthFunction, eventsClientId: string, clientId: string, clientSecret: string, scopes: string[] | undefined): Promise<ExecuteAuthFunctionResponseDto> {
-    const authToken = await this.prisma.authToken.findFirst({
-      where: {
-        authFunction: {
-          id: authFunction.id,
-        },
-        user: {
-          id: user.id,
-        },
-      },
-    });
-    if (authToken?.accessToken && authToken?.clientId === clientId && authToken?.clientSecret === clientSecret) {
-      return {
-        token: authToken.accessToken,
-      };
-    } else if (authToken) {
-      await this.prisma.authToken.delete({
-        where: {
-          authFunctionId_userId: {
-            userId: user.id,
-            authFunctionId: authFunction.id,
-          },
-        },
-      });
-    }
-
-    const state = crypto.randomBytes(20).toString('hex');
-    await this.prisma.authToken.create({
-      data: {
-        user: {
-          connect: {
-            id: user.id,
-          },
-        },
-        authFunction: {
-          connect: {
-            id: authFunction.id,
-          },
-        },
-        state,
-        clientId,
-        clientSecret,
-        eventsClientId,
-      },
-    });
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
-      response_type: 'code',
-      scope: scopes?.join(' '),
-      state,
-    });
-
-    return {
-      url: `${authFunction.authUrl}?${params.toString()}`,
-    };
-  }
-
-  async processAuthFunctionCallback(publicId: string, query: any) {
-    const { state, error, code } = query;
-    if (!state) {
-      this.logger.error('Missing state for auth function callback');
-      throw new HttpException('Missing state', HttpStatus.BAD_REQUEST);
-    }
-
-    const authToken = await this.prisma.authToken.findFirst({
-      where: {
-        state,
-      },
-    });
-    if (!authToken) {
-      this.logger.error(`Cannot find auth token for state: ${state}`);
-      throw new HttpException('Invalid state', HttpStatus.BAD_REQUEST);
-    }
-
-    const authFunction = await this.prisma.authFunction.findFirst({
-      where: {
-        publicId,
-      },
-    });
-    if (!authFunction) {
-      this.logger.error(`Cannot find auth function for publicId: ${publicId}`);
-      throw new HttpException('Invalid publicId', HttpStatus.BAD_REQUEST);
-    }
-
-    if (error) {
-      this.logger.debug(`Auth function callback error: ${error}`);
-      this.eventService.sendAuthFunctionEvent(publicId, {
-        error,
-      });
-      return;
-    }
-
-    if (!code) {
-      this.logger.error('Missing code for auth function callback');
-      throw new HttpException('Missing code', HttpStatus.BAD_REQUEST);
-    }
-
-    const tokenData = await lastValueFrom(
-      this.httpService
-        .request({
-          url: authFunction.accessTokenUrl,
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          data: {
-            code,
-            client_id: authToken.clientId,
-            client_secret: authToken.clientSecret,
-            grant_type: 'authorization_code',
-            redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
-          },
-        })
-        .pipe(
-          map((response) => response.data),
-        )
-        .pipe(
-          catchError((error: AxiosError) => {
-            this.logger.error(`Error while performing token request for auth function (id: ${authFunction.id}): ${error}`);
-
-            this.eventService.sendAuthFunctionEvent(publicId, {
-              error: error.response ? error.response.data : error.message,
-            });
-
-            return of(null);
-          }),
-        ),
-    );
-    if (!tokenData) {
-      return;
-    }
-
-    await this.prisma.authToken.update({
-      where: {
-        authFunctionId_userId: {
-          userId: authToken.userId,
-          authFunctionId: authFunction.id,
-        },
-      },
-      data: {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-      },
-    });
-
-    this.eventService.sendAuthFunctionEvent(publicId, {
-      token: tokenData.access_token,
-    });
-  }
-
-  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
-    return mergeWith(
-      JSON.parse(argumentsMetadata || '{}'),
-      updatedArgumentsMetadata || {},
-      (objValue, srcValue) => {
-        if (objValue?.typeObject && srcValue?.typeObject) {
-          return {
-            ...objValue,
-            ...srcValue,
-            typeObject: srcValue.typeObject,
-          };
-        }
-      },
-    );
-  }
-
   async setSystemPrompt(userId: number, prompt: string): Promise<SystemPrompt> {
     // clear the conversation so the user can test the new system prompt!
     this.aiService.clearConversation(userId.toString());
@@ -1372,6 +977,136 @@ export class FunctionService {
       },
     });
   }
+
+  async toApiFunctionSpecification(apiFunction: UrlFunction): Promise<Specification> {
+    const functionArguments = this.getFunctionArguments(apiFunction);
+    const requiredArguments = functionArguments.filter((arg) => !arg.payload && arg.required);
+    const optionalArguments = functionArguments.filter((arg) => !arg.payload && !arg.required);
+    const payloadArguments = functionArguments.filter((arg) => arg.payload);
+
+    const toPropertySpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
+      name: arg.name,
+      required: arg.required == null ? true : arg.required,
+      type: await this.toPropertyType(arg.name, arg.type, arg.typeObject),
+    });
+
+    const getReturnType = async () => {
+      const responseObject = apiFunction.response
+        ? this.commonService.getPathContent(JSON.parse(apiFunction.response), apiFunction.payload)
+        : null;
+      const [type, typeSchema] = responseObject
+        ? await this.commonService.resolveType('ReturnType', JSON.stringify(responseObject))
+        : ['void'];
+      return {
+        ...await this.toPropertyType('ReturnType', type),
+        schema: typeSchema,
+      };
+    };
+
+    return {
+      id: apiFunction.publicId,
+      type: 'apiFunction',
+      context: apiFunction.context,
+      name: apiFunction.name,
+      description: apiFunction.description,
+      function: {
+        arguments: [
+          ...(await Promise.all(requiredArguments.map(toPropertySpecification))),
+          ...(
+            payloadArguments.length > 0
+              ? [{
+                name: 'payload',
+                required: true,
+                type: {
+                  kind: 'object',
+                  properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+                },
+              }]
+              : []
+          ),
+          ...(await Promise.all(optionalArguments.map(toPropertySpecification))),
+        ] as PropertySpecification[],
+        returnType: await getReturnType(),
+      },
+    };
+  }
+
+  async toCustomFunctionSpecification(customFunction: CustomFunction): Promise<CustomFunctionSpecification> {
+    const parsedArguments = JSON.parse(customFunction.arguments || '[]');
+
+    const toArgumentSpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
+      name: arg.name,
+      required: true,
+      type: {
+        kind: 'plain',
+        value: arg.type,
+      },
+    });
+
+    return {
+      id: customFunction.publicId,
+      type: 'customFunction',
+      context: customFunction.context,
+      name: customFunction.name,
+      description: customFunction.description,
+      function: {
+        arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
+        returnType: customFunction.returnType
+          ? {
+            kind: 'plain',
+            value: customFunction.returnType,
+          }
+          : {
+            kind: 'void',
+          },
+      },
+      code: customFunction.code,
+    };
+  }
+
+  async toPropertyType(name: string, type: ArgumentType, typeObject?: object): Promise<PropertyType> {
+    if (type.endsWith('[]')) {
+      return {
+        kind: 'array',
+        items: await this.toPropertyType(name, type.substring(0, type.length - 2)),
+      };
+    }
+    if (type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
+      // backward compatibility (might be removed in the future)
+      type = 'object';
+    }
+
+    switch (type) {
+      case 'string':
+      case 'number':
+      case 'boolean':
+        return {
+          kind: 'primitive',
+          type,
+        };
+      case 'void':
+        return {
+          kind: 'void',
+        };
+      case 'object':
+        if (typeObject) {
+          const schema = await this.commonService.getJsonSchema(toPascalCase(name), typeObject);
+          return {
+            kind: 'object',
+            schema: schema || undefined,
+          };
+        } else {
+          return {
+            kind: 'object',
+          };
+        }
+      default:
+        return {
+          kind: 'plain',
+          value: type,
+        };
+    }
+  };
 
   private findDuplicatedArgumentName(args: FunctionArgument[]) {
     const names = new Set<string>();
@@ -1416,15 +1151,15 @@ export class FunctionService {
           continue;
         }
 
-        const [type, typeDeclarations] = await this.resolveArgumentType(urlFunction, arg.key, value);
+        const [type, typeSchema] = await this.resolveArgumentType(urlFunction, arg.key, value);
 
         if (metadata[arg.key]) {
           metadata[arg.key].type = type;
-          metadata[arg.key].typeDeclarations = typeDeclarations;
+          metadata[arg.key].typeSchema = typeSchema;
         } else {
           metadata[arg.key] = {
             type,
-            typeDeclarations,
+            typeSchema,
           };
         }
       }
@@ -1439,7 +1174,6 @@ export class FunctionService {
   private async resolveArgumentType(urlFunction: UrlFunction, argKey: string, value: string) {
     return this.commonService.resolveType(
       'Argument',
-      `${toPascalCase(urlFunction.name)}$${toPascalCase(argKey)}`,
       value,
     );
   }
@@ -1455,9 +1189,9 @@ export class FunctionService {
           throw new HttpException(`Argument '${argKey}' with type='object' has invalid typeObject value (must be 'object' type)`, HttpStatus.BAD_REQUEST);
         }
 
-        const [type, typeDeclarations] = await this.resolveArgumentType(urlFunction, argKey, JSON.stringify(argMetadata.typeObject));
+        const [type, typeSchema] = await this.resolveArgumentType(urlFunction, argKey, JSON.stringify(argMetadata.typeObject));
         argMetadata.type = type;
-        argMetadata.typeDeclarations = typeDeclarations;
+        argMetadata.typeSchema = typeSchema;
       }
     }
 
@@ -1474,38 +1208,19 @@ export class FunctionService {
     });
   }
 
-  private generateAuthFunctionArguments(): FunctionArgument[] {
-    return [
-      {
-        key: 'clientId',
-        name: 'clientId',
-        type: 'string',
-        required: true,
+  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
+    return mergeWith(
+      JSON.parse(argumentsMetadata || '{}'),
+      updatedArgumentsMetadata || {},
+      (objValue, srcValue) => {
+        if (objValue?.typeObject && srcValue?.typeObject) {
+          return {
+            ...objValue,
+            ...srcValue,
+            typeObject: srcValue.typeObject,
+          };
+        }
       },
-      {
-        key: 'clientSecret',
-        name: 'clientSecret',
-        type: 'string',
-        required: true,
-      },
-      {
-        key: 'scopes',
-        name: 'scopes',
-        type: 'string[]',
-        required: false,
-      },
-      {
-        key: 'callback',
-        name: 'callback',
-        type: '(url?: string, token?: string, error?: any) => void',
-        required: true,
-      },
-      {
-        key: 'timeout',
-        name: 'timeout',
-        type: 'number',
-        required: false,
-      },
-    ];
+    );
   }
 }

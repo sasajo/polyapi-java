@@ -36,7 +36,7 @@ export type ArgumentsMetadata = {
     required?: boolean;
     secure?: boolean;
     type?: ArgumentType;
-    typeDeclarations?: string;
+    typeSchema?: Record<string, any>;
     typeObject?: object;
     payload?: boolean;
   };

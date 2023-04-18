@@ -2,7 +2,7 @@ const set = require('lodash/set');
 const merge = require('lodash/merge');
 
 const customFunctions = [
-{{#each customFunctions}}
+{{#each specifications}}
   {{#if context}}
     ['{{context}}.{{name}}', require('./{{context}}-{{name}}')],
   {{else}}

@@ -2,6 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "strictNullChecks": true,
     "paths": {
       "*": ["./src/*"],
       "@poly/common": ["./packages/common/src"]

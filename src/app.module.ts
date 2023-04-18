@@ -12,6 +12,8 @@ import { WebhookModule } from 'webhook/webhook.module';
 import { CommonModule } from 'common/common.module';
 import { ConfigModule } from 'config/config.module';
 import { AiModule } from 'ai/ai.module';
+import { AuthProviderModule } from 'auth-provider/auth-provider.module';
+import { SpecsModule } from 'specs/specs.module';
 import { ApiSpecModule } from 'apispec/apispec.module';
 
 @Module({
@@ -31,6 +33,8 @@ import { ApiSpecModule } from 'apispec/apispec.module';
     CommonModule,
     ConfigModule,
     AiModule,
+    AuthProviderModule,
+    SpecsModule,
     ApiSpecModule,
   ],
   exports: [

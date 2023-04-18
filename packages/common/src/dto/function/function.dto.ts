@@ -6,7 +6,7 @@ export interface FunctionArgument {
   required?: boolean;
   secure?: boolean;
   type: ArgumentType;
-  typeDeclarations?: string;
+  typeSchema?: string;
   typeObject?: object;
   payload?: boolean;
 }
@@ -27,14 +27,27 @@ export interface FunctionDetailsDto extends FunctionBasicDto {
 
 export interface FunctionDefinitionDto {
   id: string;
+  type: FunctionType;
   context: string;
   name: string;
   description: string;
   arguments: FunctionArgument[];
   returnTypeName: string;
   returnType?: string;
-  customCode?: string;
-  type: FunctionType;
+}
+
+export interface UrlFunctionDefinitionDto extends FunctionDefinitionDto {
+  type: 'url';
+}
+
+export interface CustomFunctionDefinitionDto extends FunctionDefinitionDto {
+  type: 'custom';
+  customCode: string;
+}
+
+export interface AuthFunctionDefinitionDto extends FunctionDefinitionDto {
+  type: 'auth';
+  audienceRequired: boolean;
 }
 
 export interface AuthFunctionDto {

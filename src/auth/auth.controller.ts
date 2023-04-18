@@ -17,7 +17,7 @@ export class AuthController {
     return users
       .filter(user => user.role === Role.User)
       .map(user => ({
-        name: user.name,
+        name: user.name || '',
         apiKey: user.apiKey,
       }));
   }
@@ -27,7 +27,7 @@ export class AuthController {
   public async createApiKey(@Body() createApiKeyDto: CreateApiKeyDto): Promise<ApiKeyDto> {
     const user = await this.userService.createUser(createApiKeyDto.name);
     return {
-      name: user.name,
+      name: user.name || '',
       apiKey: user.apiKey,
     };
   }

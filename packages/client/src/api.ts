@@ -4,7 +4,18 @@ import {
   HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION,
   POLY_HEADER_API_KEY,
 } from './constants';
-import { FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
+import { FunctionDefinitionDto, Specification, WebhookHandleDefinitionDto } from '@poly/common';
+
+
+export const getSpecs = async (contexts?: string[], names?: string[], ids?: string[]) => {
+  return (
+    await axios.get<Specification[]>(`${process.env.POLY_API_BASE_URL}/specs`, {
+      headers: {
+        [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+      },
+    })
+  ).data;
+};
 
 export const getFunctions = async (contexts?: string[], names?: string[], ids?: string[]) => {
   return (

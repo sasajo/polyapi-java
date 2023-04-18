@@ -1,9 +1,10 @@
-const axios = require('axios');
 const set = require('lodash/set');
 const merge = require('lodash/merge');
 const { io } = require("socket.io-client");
 const { v4: uuidv4 } = require('uuid');
+const apiFunctions = require('./api');
 const customFunctions = require('./custom');
+const webhookHandles = require('./webhook-handles');
 const authFunctions = require('./auth');
 
 const clientID = uuidv4();
@@ -14,26 +15,6 @@ const getSocket = () => {
   }
   return socket;
 };
-
-const functions = [
-{{#each functions}}
-  {{#if context}}
-  ['{{context}}.{{name}}', '{{id}}'],
-  {{else}}
-  ['{{name}}', '{{id}}'],
-  {{/if}}
-{{/each}}
-];
-
-const webhookHandles = [
-{{#each webhookHandles}}
-  {{#if context}}
-    ['{{context}}.{{name}}', '{{id}}'],
-  {{else}}
-    ['{{name}}', '{{id}}'],
-  {{/if}}
-{{/each}}
-];
 
 const errorHandler = {
   on: (path, callback) => {
@@ -55,37 +36,13 @@ const errorHandler = {
   }
 };
 
-const registerWebhookEventListener = (webhookHandleID, callback) => {
-  const socket = getSocket();
-  socket.emit('registerWebhookEventHandler', {
-    clientID,
-    webhookHandleID,
-    apiKey: '{{apiKey}}'
-  });
-  socket.on(`handleWebhookEvent:${webhookHandleID}`, callback);
-
-  return () => {
-    socket.emit('unregisterWebhookEventHandler', {
-      clientID,
-      webhookHandleID,
-      apiKey: '{{apiKey}}'
-    });
-  }
-};
-
 const poly = {};
 module.exports = merge(
   poly,
-  functions.reduce(
-    (acc, [path, id]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/functions/url/${id}/execute`, { clientID, args }).then(({ data }) => data)),
-    {}
-  ),
+  apiFunctions(clientID),
   customFunctions(poly),
   authFunctions(clientID, getSocket),
-  webhookHandles.reduce(
-    (acc, [path, id]) => set(acc, path, (callback) => registerWebhookEventListener(id, callback)),
-    {}
-  ),
+  webhookHandles(clientID, getSocket),
   {
     errorHandler
   }

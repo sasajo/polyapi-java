@@ -6,7 +6,13 @@ import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
-import { WebhookHandleDefinitionDto, WebhookHandleDto } from '@poly/common';
+import {
+  PropertySpecification,
+  SpecificationType,
+  WebhookHandleDefinitionDto,
+  WebhookHandleDto,
+  WebhookHandleSpecification,
+} from '@poly/common';
 import { ConfigService } from 'config/config.service';
 
 @Injectable()
@@ -212,7 +218,7 @@ export class WebhookService {
 
   private normalizeName(name: string | null, webhookHandle?: WebhookHandle) {
     if (name == null) {
-      name = webhookHandle?.name || null;
+      name = webhookHandle?.name || '';
     }
     return name.replace(/[^a-zA-Z0-9.]/g, '');
   }
@@ -244,5 +250,55 @@ export class WebhookService {
         id: webhookHandle.id,
       },
     });
+  }
+
+  async toWebhookHandleSpecification(webhookHandle: WebhookHandle): Promise<WebhookHandleSpecification> {
+    const getEventArgument = async (): Promise<PropertySpecification> => {
+      const schema = await this.commonService.getJsonSchema('WebhookEventType', webhookHandle.eventPayload) || undefined;
+
+      return {
+        name: 'event',
+        required: false,
+        type: {
+          kind: 'object',
+          schema,
+        },
+      };
+    };
+
+    return {
+      type: 'webhookHandle',
+      id: webhookHandle.id,
+      name: webhookHandle.name,
+      context: webhookHandle.context,
+      description: '',
+      function: {
+        arguments: [
+          {
+            name: 'callback',
+            required: true,
+            type: {
+              kind: 'function',
+              spec: {
+                arguments: [await getEventArgument()],
+                returnType: {
+                  kind: 'void',
+                },
+              },
+            },
+          },
+        ],
+        returnType: {
+          kind: 'function',
+          name: 'UnregisterWebhookEventListener',
+          spec: {
+            arguments: [],
+            returnType: {
+              kind: 'void',
+            },
+          },
+        },
+      },
+    };
   }
 }
