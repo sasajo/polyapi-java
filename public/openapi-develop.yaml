@@ -6,68 +6,55 @@ info:
 servers:
   - url: https://develop.polyapi.io
 paths:
-  /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
+  /functions/url/5bc87056-6cae-4910-a67c-c307e4a1074e:
     post:
-      operationId: shopifyGetProducts
-      summary: Get the products from a particular shopify store
+      operationId: upsRatingGetRate
+      description: This API call allows you to retrieve shipping rates for a shipment. The request payload includes shipment details such as shipper and recipient addresses, package dimensions and weight, and shipping service. The response payload includes the shipping rate and other details such as billing weight and service options charges. The API call uses HTTPS protocol and requires authentication. The context is 'ups.rating' and the name is 'rate'.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/storeNameArgs'
+              $ref: '#/components/schemas/upsRatingGetRateArgs'
       responses:
         "201":
           description: products
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/shopifyGetProductsResponse'
-  /functions/url/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
-    post:
-      operationId: twilioSendSms
-      summary: send an sms message to a phone number
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/twilioSendSmsArgs'
-      responses:
-        "201":
-          description: details about the sms that was sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/twilioSendSmsResponse'
+                $ref: '#/components/schemas/upsRatingGetRateResponse'
 components:
   schemas:
-    twilioSendSmsArgs:
+    upsRatingGetRateArgs:
       type: object
       properties:
-        args:
-          type: array
-          items:
-            type: string
-          description: first argument is phone number and second is the message
-    twilioSendSmsResponse:
+        payload:
+          type: object
+          properties:
+            name:
+              type: string
+            city:
+              type: string
+            stateShort:
+              type: string
+            zipCode:
+              type: string
+            countryShort:
+              type: string
+            l:
+              type: string
+            w:
+              type: string
+            h:
+              type: string
+            packageWeight:
+              type: string
+            token:
+              type: string
+    upsRatingGetRateResponse:
+      # TODO this is fake, still need to do the real version
       type: object
       properties:
-        status:
-          type: string
-    storeNameArgs:
-      type: object
-      properties:
-        args:
-          type: array
-          items:
-            type: string
-          description: store name
-    shopifyGetProductsResponse:
-      type: object
-      properties:
-        products:
-          type: array
-          items:
-            type: object
-          description: The list of products.
+        totalCharges:
+          type: number
+          description: The rate to charge
