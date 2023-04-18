@@ -1,13 +1,13 @@
 import { HttpService } from '@nestjs/axios';
-import { ApiSpecService } from './gptplugin.service';
+import { GptPluginService } from './gptplugin.service';
 
 
-describe('ApiSpecService', () => {
-  let service: ApiSpecService;
+describe('GptPluginService', () => {
+  let service: GptPluginService;
   const httpService = new HttpService();
 
   beforeEach(() => {
-    service = new ApiSpecService(httpService);
+    service = new GptPluginService(httpService);
   });
 
   describe('getOpenApiSpec', () => {

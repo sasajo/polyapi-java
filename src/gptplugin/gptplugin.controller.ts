@@ -1,7 +1,7 @@
 import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nestjs/common';
 import { CreatePluginDto } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { ApiSpecService } from 'gptplugin/gptplugin.service';
+import { GptPluginService } from 'gptplugin/gptplugin.service';
 import { ConfigService } from 'config/config.service';
 
 
@@ -12,9 +12,9 @@ function _capitalize(string) {
 
 
 @Controller()
-export class ApiSpecController {
-  private readonly logger = new Logger(ApiSpecController.name);
-  constructor(private readonly service: ApiSpecService, private readonly config: ConfigService) {}
+export class GptPluginController {
+  private readonly logger = new Logger(GptPluginController.name);
+  constructor(private readonly service: GptPluginService, private readonly config: ConfigService) {}
 
   @Get('.well-known/ai-plugin.json')
   public async aiPluginJson(): Promise<unknown> {

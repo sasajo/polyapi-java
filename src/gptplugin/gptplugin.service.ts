@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 
 @Injectable()
-export class ApiSpecService {
-  private readonly logger = new Logger(ApiSpecService.name);
+export class GptPluginService {
+  private readonly logger = new Logger(GptPluginService.name);
 
   constructor(private readonly httpService: HttpService) {}
 
