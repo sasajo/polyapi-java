@@ -12,8 +12,6 @@ import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
 
 const POLY_LIB_PATH = `${__dirname}/../../../${POLY_USER_FOLDER_NAME}/lib`;
-const API_BASE_URL = process.env.POLY_API_BASE_URL || 'http://localhost:8000';
-const API_KEY = process.env.POLY_API_KEY;
 
 interface Context {
   name: string;
@@ -22,6 +20,10 @@ interface Context {
   fileName?: string;
   level?: number;
 }
+
+const getApiBaseUrl = () => process.env.POLY_API_BASE_URL || 'http://localhost:8000';
+
+const getApiKey = () => process.env.POLY_API_KEY;
 
 const prepareDir = () => {
   fs.rmSync(POLY_LIB_PATH, { recursive: true, force: true });
@@ -57,8 +59,8 @@ const generateIndexJSFile = async (
     indexJSTemplate({
       functions,
       webhookHandles,
-      apiBaseUrl: API_BASE_URL,
-      apiKey: API_KEY,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };
@@ -69,8 +71,8 @@ const generateUrlFunctionJSFiles = async (functions: FunctionDefinitionDto[]) =>
     `${POLY_LIB_PATH}/url/index.js`,
     urlIndexJSTemplate({
       functions,
-      apiBaseUrl: API_BASE_URL,
-      apiKey: API_KEY,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };
@@ -107,8 +109,8 @@ const generateServerFunctionJSFiles = async (functions: FunctionDefinitionDto[])
     `${POLY_LIB_PATH}/server/index.js`,
     serverIndexJSTemplate({
       functions,
-      apiBaseUrl: API_BASE_URL,
-      apiKey: API_KEY,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };
@@ -132,8 +134,8 @@ const generateAuthFunctionJSFiles = async (functions: FunctionDefinitionDto[]) =
       prettyPrint(
         authFunctionJSTemplate({
           ...authFunction,
-          apiBaseUrl: API_BASE_URL,
-          apiKey: API_KEY,
+          apiBaseUrl: getApiBaseUrl(),
+          apiKey: getApiKey(),
         }),
         'babel',
       ),
