@@ -1,19 +1,28 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { AuthProvider, User } from '@prisma/client';
+import crypto from 'crypto';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { AuthProvider, AuthToken, User } from '@prisma/client';
+import { catchError, lastValueFrom, map, of } from 'rxjs';
+import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   AuthFunctionSpecification,
-  AuthProviderDto,
+  AuthProviderDto, ExecuteAuthProviderResponseDto,
   PropertySpecification,
-  PropertyType,
-  SpecificationType,
 } from '@poly/common';
+import { ConfigService } from 'config/config.service';
+import { EventService } from 'event/event.service';
+import { AxiosError } from 'axios';
 
 @Injectable()
 export class AuthProviderService {
   private logger = new Logger(AuthProviderService.name);
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService,
+    private readonly config: ConfigService,
+    private readonly eventService: EventService,
+  ) {
   }
 
   async getAuthProviders(user: User) {
@@ -90,218 +99,227 @@ export class AuthProviderService {
     };
   }
 
-  // private getAuthFunctionCallbackUrl(authFunction: AuthFunction) {
-  //   return `${this.config.hostUrl}/functions/auth/${authFunction.publicId}/callback`;
-  // }
-  // public async executeAuthFunction(user: User, authFunction: AuthFunction, eventsClientId: string, clientId: string, clientSecret: string, audience: string | null, scopes: string[], callbackUrl: string | null): Promise<ExecuteAuthFunctionResponseDto> {
-  //   await this.prisma.authToken.deleteMany({
-  //     where: {
-  //       authFunction: {
-  //         id: authFunction.id,
-  //       },
-  //       user: {
-  //         id: user.id,
-  //       },
-  //       clientId,
-  //       clientSecret,
-  //     },
-  //   });
-  //
-  //   const state = crypto.randomBytes(20).toString('hex');
-  //   const authToken = await this.prisma.authToken.create({
-  //     data: {
-  //       user: {
-  //         connect: {
-  //           id: user.id,
-  //         },
-  //       },
-  //       authFunction: {
-  //         connect: {
-  //           id: authFunction.id,
-  //         },
-  //       },
-  //       clientId,
-  //       clientSecret,
-  //       audience,
-  //       scopes: scopes.join(' '),
-  //       state,
-  //       callbackUrl,
-  //       eventsClientId,
-  //     },
-  //   });
-  //
-  //   return {
-  //     url: this.getAuthFunctionAuthorizationUrl(authFunction, authToken),
-  //   };
-  // }
-  //
-  // private getAuthFunctionAuthorizationUrl(authFunction: AuthFunction, authToken: AuthToken) {
-  //   const params = new URLSearchParams({
-  //     client_id: authToken.clientId,
-  //     redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
-  //     response_type: 'code',
-  //     state: authToken.state,
-  //   });
-  //
-  //   if (authToken.scopes) {
-  //     params.append('scope', authToken.scopes);
-  //   }
-  //   if (authToken.audience) {
-  //     params.append('audience', authToken.audience);
-  //   }
-  //
-  //   return `${authFunction.authUrl}?${params.toString()}`;
-  // }
-  //
-  // async processAuthFunctionCallback(publicId: string, query: any): Promise<string | null> {
-  //   const { state, error, code } = query;
-  //   if (!state) {
-  //     this.logger.error('Missing state for auth function callback');
-  //     throw new HttpException('Missing state', HttpStatus.BAD_REQUEST);
-  //   }
-  //
-  //   let authToken = await this.prisma.authToken.findFirst({
-  //     where: {
-  //       state,
-  //     },
-  //   });
-  //   if (!authToken) {
-  //     this.logger.error(`Cannot find auth token for state: ${state}`);
-  //     throw new HttpException('Invalid state', HttpStatus.BAD_REQUEST);
-  //   }
-  //
-  //   const authFunction = await this.prisma.authFunction.findFirst({
-  //     where: {
-  //       publicId,
-  //     },
-  //   });
-  //   if (!authFunction) {
-  //     this.logger.error(`Cannot find auth function for publicId: ${publicId}`);
-  //     throw new HttpException('Invalid publicId', HttpStatus.BAD_REQUEST);
-  //   }
-  //
-  //   if (error) {
-  //     this.logger.debug(`Auth function callback error: ${error}`);
-  //     this.eventService.sendAuthFunctionEvent(publicId, {
-  //       error,
-  //     });
-  //     return null;
-  //   }
-  //
-  //   if (!code) {
-  //     this.logger.error('Missing code for auth function callback');
-  //     throw new HttpException('Missing code', HttpStatus.BAD_REQUEST);
-  //   }
-  //
-  //   const tokenData = await lastValueFrom(
-  //     this.httpService
-  //       .request({
-  //         url: authFunction.accessTokenUrl,
-  //         method: 'POST',
-  //         headers: {
-  //           'Accept': 'application/json',
-  //           'Content-Type': 'application/x-www-form-urlencoded',
-  //         },
-  //         data: {
-  //           code,
-  //           client_id: authToken.clientId,
-  //           client_secret: authToken.clientSecret,
-  //           audience: authToken.audience,
-  //           grant_type: 'authorization_code',
-  //           redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
-  //         },
-  //       })
-  //       .pipe(
-  //         map((response) => response.data),
-  //       )
-  //       .pipe(
-  //         catchError((error: AxiosError) => {
-  //           this.logger.error(`Error while performing token request for auth function (id: ${authFunction.id}): ${error}`);
-  //
-  //           this.eventService.sendAuthFunctionEvent(publicId, {
-  //             url: this.getAuthFunctionAuthorizationUrl(authFunction, authToken),
-  //             error: error.response ? error.response.data : error.message,
-  //           });
-  //
-  //           return of(null);
-  //         }),
-  //       ),
-  //   );
-  //   if (!tokenData) {
-  //     return null;
-  //   }
-  //
-  //   this.logger.debug(`Received token data for auth function ${authFunction.id}: ${JSON.stringify(tokenData)}`);
-  //
-  //   authToken = await this.prisma.authToken.update({
-  //     where: {
-  //       id: authToken.id,
-  //     },
-  //     data: {
-  //       accessToken: tokenData.access_token,
-  //       refreshToken: tokenData.refresh_token,
-  //       state: crypto.randomBytes(20).toString('hex'),
-  //     },
-  //   });
-  //
-  //   this.eventService.sendAuthFunctionEvent(publicId, {
-  //     token: tokenData.access_token,
-  //     url: this.getAuthFunctionAuthorizationUrl(authFunction, authToken),
-  //   });
-  //
-  //   return authToken.callbackUrl;
-  // }
-  //
-  // async revokeAuthFunction(user: User, authFunction: AuthFunction, clientId: string, clientSecret: string) {
-  //   this.logger.debug(`Revoking auth function ${authFunction.id}...`);
-  //   const authToken = await this.prisma.authToken.findFirst({
-  //     where: {
-  //       authFunction: {
-  //         id: authFunction.id,
-  //       },
-  //       user: {
-  //         id: user.id,
-  //       },
-  //       clientId,
-  //       clientSecret,
-  //     },
-  //   });
-  //   if (authToken) {
-  //     await this.prisma.authToken.delete({
-  //       where: {
-  //         id: authToken.id,
-  //       },
-  //     });
-  //   }
-  //
-  //   if (!authFunction.revokeUrl) {
-  //     return;
-  //   }
-  //   if (!authToken?.accessToken) {
-  //     this.logger.debug(`No auth token found for auth function ${authFunction.id}`);
-  //     return;
-  //   }
-  //   await this.httpService
-  //     .request({
-  //       url: authFunction.revokeUrl,
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       data: {
-  //         client_id: clientId,
-  //         client_secret: clientSecret,
-  //         token: authToken.accessToken,
-  //       },
-  //     })
-  //     .pipe(
-  //       catchError((error: AxiosError) => {
-  //         this.logger.error(`Error while performing token revoke for auth function (id: ${authFunction.id}): ${error}`);
-  //         return of(null);
-  //       }),
-  //     );
-  // }
-  //
+  public async executeAuthProvider(user: User, authProvider: AuthProvider, eventsClientId: string, clientId: string, clientSecret: string, audience: string | null, scopes: string[], callbackUrl: string | null): Promise<ExecuteAuthProviderResponseDto> {
+    await this.prisma.authToken.deleteMany({
+      where: {
+        authProvider: {
+          id: authProvider.id,
+        },
+        user: {
+          id: user.id,
+        },
+        clientId,
+        clientSecret,
+      },
+    });
+
+    const state = crypto.randomBytes(20).toString('hex');
+    const authToken = await this.prisma.authToken.create({
+      data: {
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
+        authProvider: {
+          connect: {
+            id: authProvider.id,
+          },
+        },
+        clientId,
+        clientSecret,
+        audience,
+        scopes: scopes.join(' '),
+        state,
+        callbackUrl,
+        eventsClientId,
+      },
+    });
+
+    return {
+      url: this.getAuthProviderAuthorizationUrl(authProvider, authToken),
+    };
+  }
+
+  private getAuthProviderAuthorizationUrl(authFunction: AuthProvider, authToken: AuthToken) {
+    const params = new URLSearchParams({
+      client_id: authToken.clientId,
+      redirect_uri: this.getAuthProviderCallbackUrl(authFunction),
+      response_type: 'code',
+    });
+
+    if (authToken.state) {
+      params.append('state', authToken.state);
+    }
+    if (authToken.scopes) {
+      params.append('scope', authToken.scopes);
+    }
+    if (authToken.audience) {
+      params.append('audience', authToken.audience);
+    }
+
+    return `${authFunction.authorizeUrl}?${params.toString()}`;
+  }
+
+  private getAuthProviderCallbackUrl(authProvider: AuthProvider) {
+    return `${this.config.hostUrl}/auth-provider/${authProvider.id}/callback`;
+  }
+
+  async processAuthProviderCallback(id: string, query: any): Promise<string | null> {
+    const { state, error, code } = query;
+    if (!state) {
+      this.logger.error('Missing state for auth provider callback');
+      throw new BadRequestException('Missing state');
+    }
+
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        state,
+      },
+    });
+    if (!authToken) {
+      this.logger.error(`Cannot find auth token for state: ${state}`);
+      throw new BadRequestException('Invalid state');
+    }
+
+    const authProvider = await this.prisma.authProvider.findFirst({
+      where: {
+        id,
+      },
+    });
+    if (!authProvider) {
+      this.logger.error(`Cannot find auth provider for id: ${id}`);
+      throw new BadRequestException('Invalid id');
+    }
+
+    if (error) {
+      this.logger.debug(`Auth function callback error: ${error}`);
+      this.eventService.sendAuthFunctionEvent(id, {
+        error,
+      });
+      return null;
+    }
+
+    if (!code) {
+      this.logger.error('Missing code for auth function callback');
+      throw new BadRequestException('Missing code');
+    }
+
+    const tokenData = await lastValueFrom(
+      this.httpService
+        .request({
+          url: authProvider.tokenUrl,
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          data: {
+            code,
+            client_id: authToken.clientId,
+            client_secret: authToken.clientSecret,
+            audience: authToken.audience,
+            grant_type: 'authorization_code',
+            redirect_uri: this.getAuthProviderCallbackUrl(authProvider),
+          },
+        })
+        .pipe(
+          map((response) => response.data),
+        )
+        .pipe(
+          catchError((error: AxiosError) => {
+            this.logger.error(`Error while performing token request for auth function (id: ${authProvider.id}): ${error}`);
+
+            this.eventService.sendAuthFunctionEvent(id, {
+              url: this.getAuthProviderAuthorizationUrl(authProvider, authToken),
+              error: error.response ? error.response.data : error.message,
+            });
+
+            return of(null);
+          }),
+        ),
+    );
+    if (!tokenData) {
+      return null;
+    }
+
+    this.logger.debug(`Received token data for auth function ${authProvider.id}: ${JSON.stringify(tokenData)}`);
+
+    const updatedAuthToken = await this.prisma.authToken.update({
+      where: {
+        id: authToken.id,
+      },
+      data: {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        state: crypto.randomBytes(20).toString('hex'),
+      },
+    });
+
+    this.eventService.sendAuthFunctionEvent(id, {
+      token: tokenData.access_token,
+      url: this.getAuthProviderAuthorizationUrl(authProvider, updatedAuthToken),
+    });
+
+    return updatedAuthToken.callbackUrl;
+  }
+
+  async revokeAuthToken(user: User, authProvider: AuthProvider, token: string) {
+    this.logger.debug(`Revoking auth token for provider ${authProvider.id}...`);
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        authProvider: {
+          id: authProvider.id,
+        },
+        user: {
+          id: user.id,
+        },
+        OR: [
+          {
+            accessToken: token,
+          },
+          {
+            refreshToken: token,
+          }
+        ],
+      },
+    });
+    if (authToken) {
+      await this.prisma.authToken.delete({
+        where: {
+          id: authToken.id,
+        },
+      });
+    }
+
+    if (!authProvider.revokeUrl) {
+      return;
+    }
+    if (!authToken?.accessToken) {
+      this.logger.debug(`No auth token found for auth function ${authProvider.id}`);
+      return;
+    }
+    await this.httpService
+      .request({
+        url: authProvider.revokeUrl,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          client_id: authToken.clientId,
+          client_secret: authToken.clientSecret,
+          token: authToken.accessToken,
+        },
+      })
+      .pipe(
+        catchError((error: AxiosError) => {
+          this.logger.error(`Error while performing token revoke for auth function (id: ${authProvider.id}): ${error}`);
+          return of(null);
+        }),
+      );
+  }
+
 
   async toAuthFunctionSpecifications(authProvider: AuthProvider): Promise<AuthFunctionSpecification[]> {
     const specifications: AuthFunctionSpecification[] = [];

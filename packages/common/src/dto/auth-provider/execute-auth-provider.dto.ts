@@ -1,4 +1,4 @@
-export interface ExecuteAuthFunctionDto {
+export interface ExecuteAuthProviderDto {
   eventsClientId: string;
   clientId: string;
   clientSecret: string;
@@ -7,7 +7,7 @@ export interface ExecuteAuthFunctionDto {
   callbackUrl?: string;
 }
 
-export interface ExecuteAuthFunctionResponseDto {
+export interface ExecuteAuthProviderResponseDto {
   url?: string;
   token?: string;
 }

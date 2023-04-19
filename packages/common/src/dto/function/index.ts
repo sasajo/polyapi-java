@@ -7,4 +7,4 @@ export * from './get-all-functions.dto';
 export * from './create-auth-function.dto';
 export * from './execute-auth-function.dto';
 export * from './auth-function-event-handler.dto';
-export * from './revoke-auth-function.dto';
+export * from 'src/dto/function/revoke-auth-token.dto';
