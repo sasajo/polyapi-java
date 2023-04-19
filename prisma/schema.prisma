@@ -12,7 +12,7 @@ model User {
   apiKey               String                @unique @map("api_key")
   name                 String?
   role                 String                @default("USER")
-  vip                  Boolean               @default(false)  // is this person a VIP we want to track carefully?
+  vip                  Boolean               @default(false) // is this person a VIP we want to track carefully?
   urlFunctions         UrlFunction[]
   webhookHandles       WebhookHandle[]
   customFunctions      CustomFunction[]
@@ -61,6 +61,7 @@ model CustomFunction {
   returnType  String?  @map("return_type")
   publicId    String   @unique @default(uuid()) @map("public_id")
   trained     Boolean  @default(false)
+  serverSide  Boolean  @default(false) @map("server_side")
 
   @@map("custom_function")
 }

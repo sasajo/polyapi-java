@@ -5,14 +5,14 @@ import { createCustomFunction } from '../api';
 import { loadConfig } from '../config';
 import generate from './generate';
 
-export const addCustomFunction = async (context: string | null, name: string, file: string) => {
+export const addCustomFunction = async (context: string | null, name: string, file: string, server: boolean) => {
   loadConfig();
 
-  shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom function...`));
+  shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom ${server ? 'server' : 'client'} side function...`));
 
   try {
     const code = fs.readFileSync(file, 'utf8');
-    await createCustomFunction(context, name, code);
+    await createCustomFunction(context, name, code, server);
     shell.echo(chalk.green('DONE'));
     await generate();
   } catch (e) {

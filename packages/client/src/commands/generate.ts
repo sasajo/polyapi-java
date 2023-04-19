@@ -12,6 +12,8 @@ import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
 
 const POLY_LIB_PATH = `${__dirname}/../../../${POLY_USER_FOLDER_NAME}/lib`;
+const API_BASE_URL = process.env.POLY_API_BASE_URL || 'http://localhost:8000';
+const API_KEY = process.env.POLY_API_KEY;
 
 interface Context {
   name: string;
@@ -24,8 +26,10 @@ interface Context {
 const prepareDir = () => {
   fs.rmSync(POLY_LIB_PATH, { recursive: true, force: true });
   fs.mkdirSync(POLY_LIB_PATH, { recursive: true });
+  fs.mkdirSync(`${POLY_LIB_PATH}/url`);
   fs.mkdirSync(`${POLY_LIB_PATH}/auth`);
   fs.mkdirSync(`${POLY_LIB_PATH}/custom`);
+  fs.mkdirSync(`${POLY_LIB_PATH}/server`);
 };
 
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
@@ -33,10 +37,13 @@ const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/.
 const generateJSFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
   const urlFunctions = functions.filter((func) => func.type === 'url');
   const customFunctions = functions.filter((func) => func.type === 'custom');
+  const serverFunctions = functions.filter((func) => func.type === 'server');
   const authFunctions = functions.filter((func) => func.type === 'auth');
 
   await generateIndexJSFile(urlFunctions, webhookHandles);
+  await generateUrlFunctionJSFiles(urlFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
+  await generateServerFunctionJSFiles(serverFunctions);
   await generateAuthFunctionJSFiles(authFunctions);
 };
 
@@ -50,8 +57,20 @@ const generateIndexJSFile = async (
     indexJSTemplate({
       functions,
       webhookHandles,
-      apiBaseUrl: process.env.POLY_API_BASE_URL,
-      apiKey: process.env.POLY_API_KEY,
+      apiBaseUrl: API_BASE_URL,
+      apiKey: API_KEY,
+    }),
+  );
+};
+
+const generateUrlFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+  const urlIndexJSTemplate = handlebars.compile(await loadTemplate('url-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/url/index.js`,
+    urlIndexJSTemplate({
+      functions,
+      apiBaseUrl: API_BASE_URL,
+      apiKey: API_KEY,
     }),
   );
 };
@@ -82,6 +101,18 @@ const generateCustomFunctionJSFiles = async (customFunctions: FunctionDefinition
   });
 };
 
+const generateServerFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+  const serverIndexJSTemplate = handlebars.compile(await loadTemplate('server-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/server/index.js`,
+    serverIndexJSTemplate({
+      functions,
+      apiBaseUrl: API_BASE_URL,
+      apiKey: API_KEY,
+    }),
+  );
+};
+
 const generateAuthFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
   const authIndexJSTemplate = handlebars.compile(await loadTemplate('auth-index.js.hbs'));
   fs.writeFileSync(
@@ -101,8 +132,8 @@ const generateAuthFunctionJSFiles = async (functions: FunctionDefinitionDto[]) =
       prettyPrint(
         authFunctionJSTemplate({
           ...authFunction,
-          apiBaseUrl: process.env.POLY_API_BASE_URL,
-          apiKey: process.env.POLY_API_KEY,
+          apiBaseUrl: API_BASE_URL,
+          apiKey: API_KEY,
         }),
         'babel',
       ),
@@ -117,7 +148,7 @@ const generateTSDeclarationFilesForContext = async (
 ) => {
   const contextDataKeys = Object.keys(contextData);
   const contextDataFunctions = contextDataKeys
-    .filter((key) => ['url', 'custom'].includes(contextData[key].type))
+    .filter((key) => ['url', 'custom', 'server'].includes(contextData[key].type))
     .map((key) => contextData[key]);
   const contextDataAuthFunctions = contextDataKeys
     .filter((key) => contextData[key].type === 'auth')

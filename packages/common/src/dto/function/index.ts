@@ -7,3 +7,4 @@ export * from './get-all-functions.dto';
 export * from './create-auth-function.dto';
 export * from './execute-auth-function.dto';
 export * from './auth-function-event-handler.dto';
+export * from './execute-custom-function.dto';
