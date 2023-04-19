@@ -12,8 +12,8 @@ import { FaasService } from '../faas.service';
 
 const exec = util.promisify(execAsync);
 
-const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.env.PWD}/bin/kn-func`;
-const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.env.PWD}/server-functions`;
+const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
+const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
 const FAAS_HOST_BASE_URL = process.env.FAAS_HOST_BASE_URL || 'http://127.0.0.1';
 const REGISTRY = 'polyapi.io/server-functions';
 
@@ -32,7 +32,7 @@ export class KNativeFaasService implements FaasService {
 
     await this.preparePolyLib(functionPath, apiKey);
 
-    const indexFileContent = handlebars.compile(fs.readFileSync(`${process.env.PWD}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8'))({
+    const indexFileContent = handlebars.compile(fs.readFileSync(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8'))({
       code, name: toCamelCase(name),
     });
     fs.writeFileSync(`${functionPath}/index.js`, indexFileContent);
