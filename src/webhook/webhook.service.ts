@@ -20,8 +20,7 @@ export class WebhookService {
     private readonly httpService: HttpService,
     private readonly eventService: EventService,
     private readonly userService: UserService,
-  ) {
-  }
+  ) {}
 
   private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>): Promise<WebhookHandle> {
     return this.prisma.webhookHandle.create({
@@ -64,7 +63,13 @@ export class WebhookService {
     });
   }
 
-  public async registerWebhookContextFunction(user: User, context: string | null, name: string, eventPayload: any): Promise<WebhookHandle> {
+  public async registerWebhookContextFunction(
+    user: User,
+    context: string | null,
+    name: string,
+    eventPayload: any,
+    description: string | null,
+  ): Promise<WebhookHandle> {
     name = this.normalizeName(name);
     context = this.normalizeContext(context);
 
@@ -80,7 +85,10 @@ export class WebhookService {
 
     if (webhookHandle) {
       if (webhookHandle.userId !== user.id) {
-        throw new HttpException(`Webhook handle ${context}/${name} is already registered by another user.`, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          `Webhook handle ${context}/${name} is already registered by another user.`,
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
@@ -90,6 +98,7 @@ export class WebhookService {
         },
         data: {
           eventPayload: JSON.stringify(eventPayload),
+          description,
         },
       });
     } else {
@@ -103,6 +112,7 @@ export class WebhookService {
         name,
         context,
         eventPayload: JSON.stringify(eventPayload),
+        description,
       });
     }
   }
@@ -119,7 +129,13 @@ export class WebhookService {
     if (!webhookHandle) {
       if (this.config.autoRegisterWebhookHandle) {
         this.logger.debug(`Webhook handle not found for ${context}/${name} - auto registering...`);
-        await this.registerWebhookContextFunction(await this.userService.getPublicUser(), context, name, eventPayload);
+        await this.registerWebhookContextFunction(
+          await this.userService.getPublicUser(),
+          context,
+          name,
+          eventPayload,
+          '',
+        );
         return;
       } else {
         this.logger.debug(`Webhook handle not found for ${context}/${name} - skipping...`);
@@ -178,7 +194,13 @@ export class WebhookService {
     };
   }
 
-  async updateWebhookHandle(user: User, id: string, context: string | null, name: string | null) {
+  async updateWebhookHandle(
+    user: User,
+    id: string,
+    context: string | null,
+    name: string | null,
+    description: string | null,
+  ) {
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
         id,
@@ -196,8 +218,11 @@ export class WebhookService {
 
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
+    description = this.normalizeDescription(description, webhookHandle);
 
-    this.logger.debug(`Updating webhook for ${webhookHandle.context}/${webhookHandle.name} with context:${context}/name:${name}...`);
+    this.logger.debug(
+      `Updating webhook for ${webhookHandle.context}/${webhookHandle.name} with context:${context}/name:${name} and description: "${description}"...`,
+    );
 
     return this.prisma.webhookHandle.update({
       where: {
@@ -206,6 +231,7 @@ export class WebhookService {
       data: {
         context,
         name,
+        description,
       },
     });
   }
@@ -223,6 +249,14 @@ export class WebhookService {
     }
 
     return context.replace(/[^a-zA-Z0-9.]/g, '');
+  }
+
+  private normalizeDescription(description: string | null, webhookHandle?: WebhookHandle) {
+    if (description == null) {
+      description = webhookHandle?.description || '';
+    }
+
+    return description;
   }
 
   async deleteWebhookHandle(user: User, id: string) {

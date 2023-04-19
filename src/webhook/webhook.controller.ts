@@ -7,8 +7,7 @@ export const HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION = 'application/poly.webhook
 
 @Controller('webhooks')
 export class WebhookController {
-  public constructor(private readonly webhookService: WebhookService) {
-  }
+  public constructor(private readonly webhookService: WebhookService) {}
 
   @UseGuards(ApiKeyGuard)
   @Get()
@@ -20,43 +19,70 @@ export class WebhookController {
     const webhookHandles = await this.webhookService.getAllWebhookHandles();
 
     if (useDefinitionDto) {
-      return await(Promise.all(webhookHandles.map(handle => this.webhookService.toDefinitionDto(handle))));
+      return await Promise.all(webhookHandles.map((handle) => this.webhookService.toDefinitionDto(handle)));
     } else {
-      return webhookHandles.map(handle => this.webhookService.toDto(handle));
+      return webhookHandles.map((handle) => this.webhookService.toDto(handle));
     }
   }
 
   @UseGuards(ApiKeyGuard)
   @Post('register')
   public async registerWebhookHandle(@Req() req, @Body() registerWebhookHandleDto: RegisterWebhookHandleDto) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, registerWebhookHandleDto.context, registerWebhookHandleDto.name, registerWebhookHandleDto.eventPayload);
+    const webhookHandle = await this.webhookService.registerWebhookContextFunction(
+      req.user,
+      registerWebhookHandleDto.context,
+      registerWebhookHandleDto.name,
+      registerWebhookHandleDto.eventPayload,
+      registerWebhookHandleDto.description,
+    );
     return this.webhookService.toDto(webhookHandle);
   }
 
   @UseGuards(ApiKeyGuard)
   @Put(':context/:name')
-  public async registerWebhookContextFunction(@Req() req, @Param('context') context: string, @Param('name') name: string, @Body() payload: any) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, context, name, payload);
+  public async registerWebhookContextFunction(
+    @Req() req,
+    @Param('context') context: string,
+    @Param('name') name: string,
+    @Body() payload: any,
+  ) {
+    const webhookHandle = await this.webhookService.registerWebhookContextFunction(
+      req.user,
+      context,
+      name,
+      payload,
+      '',
+    );
     return this.webhookService.toDto(webhookHandle);
   }
 
   @UseGuards(ApiKeyGuard)
   @Put(':name')
   public async registerWebhookFunction(@Req() req, @Param('name') name: string, @Body() payload: any) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, null, name, payload);
+    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, null, name, payload, '');
     return this.webhookService.toDto(webhookHandle);
   }
 
   @Post(':context/:name')
-  public async triggerWebhookContextFunction(@Param('context') context: string, @Param('name') name: string, @Body() payload: any) {
+  public async triggerWebhookContextFunction(
+    @Param('context') context: string,
+    @Param('name') name: string,
+    @Body() payload: any,
+  ) {
     return await this.webhookService.triggerWebhookContextFunction(context, name, payload);
   }
 
   @Patch(':id')
   @UseGuards(ApiKeyGuard)
-  public async updateWebhookHandle(@Req() req, @Param('id') id: string, @Body() updateWebhookHandleDto: UpdateWebhookHandleDto) {
-    const { context = null, name = null } = updateWebhookHandleDto;
-    return this.webhookService.toDto(await this.webhookService.updateWebhookHandle(req.user, id, context, name));
+  public async updateWebhookHandle(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() updateWebhookHandleDto: UpdateWebhookHandleDto,
+  ) {
+    const { context = null, name = null, description = null } = updateWebhookHandleDto;
+    return this.webhookService.toDto(
+      await this.webhookService.updateWebhookHandle(req.user, id, context, name, description),
+    );
   }
 
   @Post(':id')

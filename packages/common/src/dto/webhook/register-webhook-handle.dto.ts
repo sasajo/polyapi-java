@@ -5,4 +5,5 @@ export class RegisterWebhookHandleDto {
   name: string;
   context: string;
   eventPayload: any;
+  description: string;
 }
