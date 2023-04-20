@@ -36,7 +36,13 @@ To start the server, run the following:
 < * Running on http://127.0.0.1:5000
 ```
 
-Then to hit the server, request the following:
+Then to hit the server, set your OPEN_API_KEY locally in your `.bashrc`:
+
+```
+export OPEN_API_KEY=<your_key>
+```
+
+And request the following:
 
 ```
 POST /function_completion/
