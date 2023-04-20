@@ -3,18 +3,16 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   HttpException,
   HttpStatus,
-  Logger, NotFoundException,
+  Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Query,
   Req,
   UseGuards,
-  UsePipes,
-  ValidationPipe,
 } from '@nestjs/common';
 import { FunctionService } from 'function/function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
@@ -22,13 +20,11 @@ import {
   CreateCustomFunctionDto,
   DeleteAllFunctionsDto,
   ExecuteApiFunctionDto,
-  FunctionBasicDto,
-  FunctionDefinitionDto,
+  ExecuteCustomFunctionDto,
   FunctionDetailsDto,
-  GetAllFunctionsDto,
   Role,
   UpdateApiFunctionDto,
-  ExecuteCustomFunctionDto, UpdateCustomFunctionDto,
+  UpdateCustomFunctionDto,
 } from '@poly/common';
 
 export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
