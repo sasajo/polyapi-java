@@ -9,7 +9,7 @@ paths:
   /functions/custom/af6063f3-5cff-48ee-b0f9-6f077e5b5428/execute:
     post:
       operationId: operaReservation
-      summary: takes in details about a guest and books a reservation for them at our specific hotel The Dreams Hotel In the Sands
+      summary: takes in details about a guest and books a reservation for them at our specific hotel The Dreams Hotel In the Sands.  All dates should be passed in the form YYYY-MM-DD.
       requestBody:
         required: true
         content:
@@ -26,7 +26,7 @@ paths:
   /functions/custom/c5f3630c-f751-4447-ac82-1971aaff0e6b/execute:
     post:
       operationId: operaAvailability
-      summary: takes details of a guests desired stay and checks availability for those dates, number of people, at our specific hotel The Dreams Hotel In the Sands
+      summary: takes details of a guests desired stay and checks availability for those dates, number of people, at our specific hotel The Dreams Hotel In the Sands. All dates should be passed in the form YYYY-MM-DD.
       requestBody:
         required: true
         content:
