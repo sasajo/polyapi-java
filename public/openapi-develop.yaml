@@ -60,7 +60,7 @@ paths:
   /functions/custom/33dd29b3-2380-4e45-9217-d0344ca2d5e6/execute:
     post:
       operationId: upsLocation
-      summary: find a ups pickup or dropoff location
+      summary: Validate if an address is serviced by UPS. If the address is eligible, then you will get the same address back. If the address is not a valid pickup and delivery location, the API will return the nearest address within the search radius provided
       requestBody:
         required: true
         content:
@@ -69,11 +69,28 @@ paths:
               $ref: '#/components/schemas/upsLocationArgs'
       responses:
         "201":
-          description: Address of nearest UPS Location
+          description: The nearest address that is a valid UPS pickup or dropoff location
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/upsLocationResponse'
+  /functions/custom/0b30e315-f4b3-43b8-8c02-c65c14d67a5b/execute:
+    post:
+      operationId: upsRateEstimate
+      summary: returns a rate estimate for a UPS shipment form our specific business Frontier Shoes. The user provides an address of where the shipment is to be made, a weight in pounds, a height, width and length in inches
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/upsRateEstimateArgs'
+      responses:
+        "201":
+          description: rate estimate for the UPS shipment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/upsRateEstimateResponse'
 components:
   schemas:
     twilioSendSmsArgs:
@@ -133,4 +150,20 @@ components:
           description: an array of strings and numbers - address, city, stateShort, zip, countryShort, searchRadiusMiles
     upsLocationResponse:
       type: string
-      description: Address of nearest UPS Location
+      description: The nearest address that is a valid UPS pickup or dropoff location
+    upsRateEstimateArgs:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: an array of strings and numbers - name, city, stateShort, zipCode, countryShort, weight, l, w, h
+    upsRateEstimateResponse:
+      type: object
+      description: Rate estimate for the UPS shipment
+      properties:
+        CurrencyCode:
+          type: string
+        MonetaryValue:
+          type: number
