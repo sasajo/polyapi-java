@@ -45,7 +45,7 @@ export OPEN_API_KEY=<your_key>
 And request the following:
 
 ```
-POST /function_completion/
+POST http://localhost:5000/function_completion/
 {"question": "how do I get united flight information for a user?", "user_id": 1}
 ```
 
