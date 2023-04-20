@@ -173,6 +173,9 @@ export class FunctionController {
   @Post('/custom')
   @UseGuards(ApiKeyGuard)
   async createCustomFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+    // temporarily increase timeout for custom function creation
+    req.setTimeout(300000);
+
     const { context = '', name, code, server = false } = createCustomFunctionDto;
 
     try {
