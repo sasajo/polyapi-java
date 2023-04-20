@@ -390,7 +390,10 @@ export class FunctionService {
       name: customFunction.name,
       description: customFunction.description,
       context: customFunction.context,
-      arguments: JSON.parse(customFunction.arguments),
+      arguments: JSON.parse(customFunction.arguments).map((arg: any) => ({
+        ...arg,
+        required: arg.required !== false,
+      })),
       returnTypeName: customFunction.returnType,
       customCode: customFunction.serverSide ? undefined : customFunction.code,
       type: customFunction.serverSide ? 'server' : 'custom',
