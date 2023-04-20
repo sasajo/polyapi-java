@@ -10,6 +10,10 @@ import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
 import { FaasService } from '../faas.service';
 
+// sleep function from SO
+// https://stackoverflow.com/a/39914235
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 const exec = util.promisify(execAsync);
 
 const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
@@ -53,18 +57,36 @@ export class KNativeFaasService implements FaasService {
 
     this.logger.debug(`Executing server function '${id}' (maxRetryCount=${maxRetryCount})...`);
 
-    return await lastValueFrom(
-      this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
-        .pipe(
-          map(response => response.data),
-        )
-        .pipe(
-          catchError((error: AxiosError) => {
-            this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
-            throw error;
-          }),
-        ),
-    );
+    try {
+      return await lastValueFrom(
+        this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
+          .pipe(
+            map(response => response.data),
+          )
+          .pipe(
+            catchError((error: AxiosError) => {
+              this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
+              throw error;
+            }),
+          ),
+      );
+    } catch {
+      // HACK total copypasta from above, let's just wait 2 seconds and try again
+      await sleep(2000)
+
+      return await lastValueFrom(
+        this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
+          .pipe(
+            map(response => response.data),
+          )
+          .pipe(
+            catchError((error: AxiosError) => {
+              this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
+              throw error;
+            }),
+          ),
+      );
+    }
   }
 
   private getFunctionPath(id: string): string {
