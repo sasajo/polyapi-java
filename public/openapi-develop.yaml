@@ -9,7 +9,7 @@ paths:
   /functions/custom/af6063f3-5cff-48ee-b0f9-6f077e5b5428/execute:
     post:
       operationId: operaReservation
-      summary: takes in details about a guest and books a reservation for them at our specific hotel The Dreams Hotel In the Sands.  All dates should be passed in the form YYYY-MM-DD.
+      summary: Get details about a guest and book a reservation at the hotel The Dreams Hotel In the Sands. Make sure to collect the user's full details. Do not assume the user's name or phone number for example. All dates should be formatted YYYY-MM-DD.
       requestBody:
         required: true
         content:
@@ -113,7 +113,7 @@ components:
           type: array
           items:
             type: string
-          description: an array of strings and numbers - firstName, lastName, arrivalDate, departureDate, numberAdults, numberChildren, roomType, numberRooms, phoneNumber
+          description: If an array of strings and numbers - firstName, lastName, arrivalDate, departureDate, numberAdults, numberChildren, roomType, numberRooms, phoneNumber
     operaReservationResponse:
       type: string
       description: reservation ID as a string
