@@ -57,6 +57,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/twilioSendSmsResponse'
+  /functions/custom/33dd29b3-2380-4e45-9217-d0344ca2d5e6/execute:
+    post:
+      operationId: upsLocation
+      summary: find a ups pickup or dropoff location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/upsLocationArgs'
+      responses:
+        "201":
+          description: Address of nearest UPS Location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/upsLocationResponse'
 components:
   schemas:
     twilioSendSmsArgs:
@@ -106,3 +123,14 @@ components:
             type: string
           numberOfUnits:
             type: number
+    upsLocationArgs:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: an array of strings and numbers - address, city, stateShort, zip, countryShort, searchRadiusMiles
+    upsLocationResponse:
+      type: string
+      description: Address of nearest UPS Location
