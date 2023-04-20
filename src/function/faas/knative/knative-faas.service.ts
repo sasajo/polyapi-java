@@ -32,8 +32,10 @@ export class KNativeFaasService implements FaasService {
 
     await this.preparePolyLib(functionPath, apiKey);
 
-    const indexFileContent = handlebars.compile(fs.readFileSync(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8'))({
-      code, name: toCamelCase(name),
+    const template = fs.readFileSync(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8');
+    const indexFileContent = handlebars.compile(template)({
+      name,
+      code,
     });
     fs.writeFileSync(`${functionPath}/index.js`, indexFileContent);
 
