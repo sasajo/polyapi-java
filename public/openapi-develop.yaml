@@ -43,7 +43,7 @@ paths:
   /functions/url/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
     post:
       operationId: twilioSendSms
-      summary: send an sms message to a phone number
+      summary: Send an sms message to a phone number. When a user receives a confirmation, offer to send the details to the user's phone using this function.
       requestBody:
         required: true
         content:
