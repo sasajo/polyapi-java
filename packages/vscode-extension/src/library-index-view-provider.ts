@@ -13,31 +13,38 @@ class LibraryTreeItem extends vscode.TreeItem {
   }
 
   private generateTooltip() {
-    const { type, name, description, customCode, arguments: args } = this.data;
+    const { type, name, description, arguments: args } = this.data;
+
+    const getFunctionTooltip = (title: string) => {
+      const functionArgs = args.filter(arg => !arg.payload);
+      const payloadArgs = args.filter(arg => arg.payload);
+      return new vscode.MarkdownString(
+        `**${title}**\n\n---\n\n${
+          description
+            ? `${description}\n\n---\n\n`
+            : ''
+        }${name}(${functionArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')}${
+          payloadArgs.length
+            ? `${
+              functionArgs.length ? ', ' : ''
+            }payload: { ${payloadArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')} }`
+            : ''
+        })`,
+      );
+    };
+
     switch (type) {
       case 'url':
+        this.tooltip = getFunctionTooltip('API function');
+        break;
       case 'custom':
+        this.tooltip = getFunctionTooltip('Custom function');
+        break;
+      case 'server':
+        this.tooltip = getFunctionTooltip('Server function');
+        break;
       case 'auth':
-        const title = type === 'custom'
-          ? 'Custom function'
-          : type === 'auth'
-            ? 'OAuth function'
-            : 'Function';
-        const functionArgs = args.filter(arg => !arg.payload);
-        const payloadArgs = args.filter(arg => arg.payload);
-        this.tooltip = new vscode.MarkdownString(
-          `**${title}**\n\n---\n\n${
-            description
-              ? `${description}\n\n---\n\n`
-              : ''
-          }${name}(${functionArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')}${
-            payloadArgs.length
-              ? `${
-                functionArgs.length ? ', ' : ''
-              }payload: { ${payloadArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')} }`
-              : ''
-          })`,
-        );
+        this.tooltip = getFunctionTooltip('OAuth function');
         break;
       case 'webhookHandle':
         this.tooltip = new vscode.MarkdownString(
