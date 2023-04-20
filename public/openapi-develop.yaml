@@ -6,68 +6,73 @@ info:
 servers:
   - url: https://develop.polyapi.io
 paths:
-  /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
+  /functions/custom/af6063f3-5cff-48ee-b0f9-6f077e5b5428/execute:
     post:
-      operationId: shopifyGetProducts
-      summary: Get the products from a particular shopify store. If a store name is not specified, use 'darko-demo-store' for the store name
+      operationId: operaReservation
+      summary: takes in details about a guest and books a reservation for them at our specific hotel The Dreams Hotel In the Sands
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/storeNameArgs'
+              $ref: '#/components/schemas/operaReservationArgs'
       responses:
         "201":
-          description: products
+          description: reservation ID of the newly created reservation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/shopifyGetProductsResponse'
-  /functions/url/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
+                $ref: '#/components/schemas/operaReservationResponse'
+  /functions/custom/c5f3630c-f751-4447-ac82-1971aaff0e6b/execute:
     post:
-      operationId: twilioSendSms
-      summary: send an sms message to a phone number
+      operationId: operaAvailability
+      summary: takes details of a guests desired stay and checks availability for those dates, number of people, at our specific hotel The Dreams Hotel In the Sands
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/twilioSendSmsArgs'
+              $ref: '#/components/schemas/operaAvailabilityArgs'
       responses:
         "201":
-          description: details about the sms that was sent
+          description: a list of availabilities with room codes and total costs before tax for their desired stay
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/twilioSendSmsResponse'
+                $ref: '#/components/schemas/operaAvailabilityResponse'
 components:
   schemas:
-    twilioSendSmsArgs:
+    operaReservationArgs:
       type: object
       properties:
         args:
           type: array
           items:
             type: string
-          description: first argument is phone number and second is the message
-    twilioSendSmsResponse:
-      type: object
-      properties:
-        status:
-          type: string
-    storeNameArgs:
+          description: firstName, lastName, arrivalDate, departureDate, numberAdults, numberChildren, roomType, numberRooms, phoneNumber
+    operaReservationResponse:
+      type: string
+      description: reservation ID as a string
+    operaAvailabilityArgs:
       type: object
       properties:
         args:
           type: array
           items:
             type: string
-          description: store name
-    shopifyGetProductsResponse:
-      type: object
-      properties:
-        products:
-          type: array
-          items:
-            type: object
-          description: The list of products.
+          description: arrivalDate, departureDate, numAdults, numChildren, numRooms
+    operaAvailabilityResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          costBeforeTax:
+            type: number
+          currency:
+            type: string
+          roomType:
+            type: string
+          ratePlanCode:
+            type: string
+          numberOfUnits:
+            type: number
