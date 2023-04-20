@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import ts from 'typescript';
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
@@ -1170,7 +1170,7 @@ export class FunctionService {
         return;
       }
 
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException((error.response?.data as any)?.message || error.message);
     }
   }
 
