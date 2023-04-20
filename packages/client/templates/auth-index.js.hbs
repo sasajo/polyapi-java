@@ -28,7 +28,7 @@ module.exports = (clientID, getSocket) => merge(
     {}
   ),
   subResourceFunctions.reduce(
-    (acc, [path, resource]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/auth-providers/${resource}`, { clientID, args }).then(({ data }) => data)),
+    (acc, [path, resource]) => set(acc, path, (token) => axios.post(`{{apiBaseUrl}}/auth-providers/${resource}`, { clientID, token }, { headers: { 'X-PolyApiKey': '{{apiKey}}' } }).then(({ data }) => data)),
     {}
   )
 );

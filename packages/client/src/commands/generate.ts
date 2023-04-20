@@ -14,7 +14,8 @@ import {
   FunctionPropertyType,
   ObjectPropertyType,
   PropertySpecification,
-  PropertyType, ServerFunctionSpecification,
+  PropertyType,
+  ServerFunctionSpecification,
   Specification,
   WebhookHandleSpecification,
 } from '@poly/common';
@@ -49,11 +50,11 @@ const prepareDir = () => {
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
 
 const generateJSFiles = async (specs: Specification[]) => {
-  const apiFunctions = specs.filter(spec => spec.type === 'apiFunction') as ApiFunctionSpecification[];
-  const customFunctions = specs.filter(spec => spec.type === 'customFunction') as CustomFunctionSpecification[];
-  const webhookHandles = specs.filter(spec => spec.type === 'webhookHandle') as WebhookHandleSpecification[];
-  const authFunctions = specs.filter(spec => spec.type === 'authFunction') as AuthFunctionSpecification[];
-  const serverFunctions = specs.filter(spec => spec.type === 'serverFunction') as ServerFunctionSpecification[];
+  const apiFunctions = specs.filter((spec) => spec.type === 'apiFunction') as ApiFunctionSpecification[];
+  const customFunctions = specs.filter((spec) => spec.type === 'customFunction') as CustomFunctionSpecification[];
+  const webhookHandles = specs.filter((spec) => spec.type === 'webhookHandle') as WebhookHandleSpecification[];
+  const authFunctions = specs.filter((spec) => spec.type === 'authFunction') as AuthFunctionSpecification[];
+  const serverFunctions = specs.filter((spec) => spec.type === 'serverFunction') as ServerFunctionSpecification[];
 
   await generateIndexJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
@@ -102,10 +103,7 @@ const generateCustomFunctionJSFiles = async (specifications: CustomFunctionSpeci
   specifications.forEach((spec) => {
     fs.writeFileSync(
       `${POLY_LIB_PATH}/custom/${spec.context ? `${spec.context}-` : ''}${spec.name}.js`,
-      prettyPrint(
-        customFunctionJSTemplate(spec),
-        'babel',
-      ),
+      prettyPrint(customFunctionJSTemplate(spec), 'babel'),
     );
   });
 };
@@ -139,8 +137,10 @@ const generateAuthFunctionJSFiles = async (specifications: AuthFunctionSpecifica
   fs.writeFileSync(
     `${POLY_LIB_PATH}/auth/index.js`,
     authIndexJSTemplate({
-      getTokenFunctions: specifications.filter(spec => spec.name === 'getToken'),
-      subResourceFunctions: specifications.filter(spec => spec.subResource),
+      getTokenFunctions: specifications.filter((spec) => spec.name === 'getToken'),
+      subResourceFunctions: specifications.filter((spec) => spec.subResource),
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 
@@ -149,7 +149,7 @@ const generateAuthFunctionJSFiles = async (specifications: AuthFunctionSpecifica
   }
   const authFunctionJSTemplate = handlebars.compile(await loadTemplate('auth-function.js.hbs'));
   specifications
-    .filter(spec => !spec.subResource)
+    .filter((spec) => !spec.subResource)
     .forEach((spec) => {
       fs.writeFileSync(
         `${POLY_LIB_PATH}/auth/${spec.context ? `${spec.context}-` : ''}${spec.name}.js`,
@@ -187,11 +187,7 @@ const generateTSDeclarationFilesForContext = async (
       };
     });
 
-  await generateTSContextDeclarationFile(
-    context,
-    contextDataSpecifications,
-    contextDataSubContexts,
-  );
+  await generateTSContextDeclarationFile(context, contextDataSpecifications, contextDataSubContexts);
   contextCollector = [...contextCollector, context];
 
   for await (const subContext of contextDataSubContexts) {
@@ -205,9 +201,7 @@ const generateTSDeclarationFilesForContext = async (
   return contextCollector;
 };
 
-const generateTSDeclarationFiles = async (
-  specs: Specification[],
-) => {
+const generateTSDeclarationFiles = async (specs: Specification[]) => {
   const contextData = getContextData(specs);
   const contexts = await generateTSDeclarationFilesForContext(
     {
@@ -251,7 +245,7 @@ const schemaToDeclarations = async (namespace: string, typeName: string, schema:
 };
 
 const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
-  const wrapInPromiseIfNeeded = (code: string) => synchronous ? code : `Promise<${code}>`;
+  const wrapInPromiseIfNeeded = (code: string) => (synchronous ? code : `Promise<${code}>`);
 
   switch (type.kind) {
     case 'plain':
@@ -267,9 +261,9 @@ const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
         return wrapInPromiseIfNeeded(type.typeName);
       } else if (type.properties) {
         return wrapInPromiseIfNeeded(
-          `{ ${type.properties.map((prop) => `${prop.name}${prop.required === false
-            ? '?'
-            : ''}: ${toTypeDeclaration(prop.type)}`).join(';\n')} }`,
+          `{ ${type.properties
+            .map((prop) => `${prop.name}${prop.required === false ? '?' : ''}: ${toTypeDeclaration(prop.type)}`)
+            .join(';\n')} }`,
         );
       } else {
         return wrapInPromiseIfNeeded('any');
@@ -278,25 +272,33 @@ const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
       if (type.name) {
         return type.name;
       }
-      const toArgument = (arg: PropertySpecification) => `${arg.name}${arg.required === false
-        ? '?'
-        : ''}: ${toTypeDeclaration(arg.type)}${arg.nullable === true ? ' | null' : ''}`;
+      const toArgument = (arg: PropertySpecification) =>
+        `${arg.name}${arg.required === false ? '?' : ''}: ${toTypeDeclaration(arg.type)}${
+          arg.nullable === true ? ' | null' : ''
+        }`;
 
-      return `(${type.spec.arguments.map(toArgument).join(', ')}) => ${toTypeDeclaration(type.spec.returnType, type.spec.synchronous === true)}`;
+      return `(${type.spec.arguments.map(toArgument).join(', ')}) => ${toTypeDeclaration(
+        type.spec.returnType,
+        type.spec.synchronous === true,
+      )}`;
   }
 };
 
-const getReturnTypeDeclarations = async (namespace: string, objectProperty: ObjectPropertyType, typeName = 'ReturnType'): Promise<string> => {
-  const declarations = await schemaToDeclarations(
-    namespace,
-    typeName,
-    objectProperty.schema,
-  );
+const getReturnTypeDeclarations = async (
+  namespace: string,
+  objectProperty: ObjectPropertyType,
+  typeName = 'ReturnType',
+): Promise<string> => {
+  const declarations = await schemaToDeclarations(namespace, typeName, objectProperty.schema);
   objectProperty.typeName = `${namespace}.ReturnType`;
   return declarations;
 };
 
-const getArgumentsTypeDeclarations = async (parentType: string, properties: PropertySpecification[], typeName = 'Argument') => {
+const getArgumentsTypeDeclarations = async (
+  parentType: string,
+  properties: PropertySpecification[],
+  typeName = 'Argument',
+) => {
   const typeDeclarations: string[] = [];
   const objectProperties = properties.filter((property) => property.type.kind === 'object');
   const functionProperties = properties.filter((property) => property.type.kind === 'function');
@@ -307,19 +309,13 @@ const getArgumentsTypeDeclarations = async (parentType: string, properties: Prop
       const namespace = `${parentType}$${toPascalCase(property.name)}`;
       objectProperty.typeName = `${namespace}.${typeName}`;
 
-      typeDeclarations.push(
-        await schemaToDeclarations(
-          namespace,
-          typeName,
-          objectProperty.schema,
-        ),
-      );
+      typeDeclarations.push(await schemaToDeclarations(namespace, typeName, objectProperty.schema));
     } else if (objectProperty.properties) {
       typeDeclarations.push(
-        ...await getArgumentsTypeDeclarations(
+        ...(await getArgumentsTypeDeclarations(
           `${parentType}$${toPascalCase(property.name)}`,
           objectProperty.properties,
-        ),
+        )),
       );
     }
   }
@@ -332,10 +328,10 @@ const getArgumentsTypeDeclarations = async (parentType: string, properties: Prop
     }
 
     typeDeclarations.push(
-      ...await getArgumentsTypeDeclarations(
+      ...(await getArgumentsTypeDeclarations(
         `${parentType}$${toPascalCase(property.name)}`,
         functionProperty.spec.arguments.filter((arg) => arg.type.kind === 'object'),
-      ),
+      )),
     );
     if (functionProperty.spec.returnType.kind === 'object' && functionProperty.spec.returnType.schema) {
       typeDeclarations.push(
@@ -353,28 +349,18 @@ const getArgumentsTypeDeclarations = async (parentType: string, properties: Prop
 const getSpecificationsTypeDeclarations = async (specifications: Specification[]): Promise<string> => {
   const argumentsTypeDeclarations = (
     await Promise.all(
-      specifications.map(
-        (spec) => getArgumentsTypeDeclarations(
-          toPascalCase(spec.name),
-          spec.function.arguments,
-        ),
-      ),
+      specifications.map((spec) => getArgumentsTypeDeclarations(toPascalCase(spec.name), spec.function.arguments)),
     )
   ).flat();
   const returnTypeDeclarations = await Promise.all(
     specifications
-      .filter(spec => spec.function.returnType.kind === 'object' && spec.function.returnType.schema)
-      .map((spec) => getReturnTypeDeclarations(
-          toPascalCase(spec.name),
-          spec.function.returnType as ObjectPropertyType,
-        ),
+      .filter((spec) => spec.function.returnType.kind === 'object' && spec.function.returnType.schema)
+      .map((spec) =>
+        getReturnTypeDeclarations(toPascalCase(spec.name), spec.function.returnType as ObjectPropertyType),
       ),
   );
 
-  return [
-    ...argumentsTypeDeclarations,
-    ...returnTypeDeclarations,
-  ].join('\n');
+  return [...argumentsTypeDeclarations, ...returnTypeDeclarations].join('\n');
 };
 
 const generateTSContextDeclarationFile = async (

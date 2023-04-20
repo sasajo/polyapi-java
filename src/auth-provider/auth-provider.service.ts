@@ -1,5 +1,12 @@
 import crypto from 'crypto';
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { AuthProvider, AuthToken, User } from '@prisma/client';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
@@ -25,10 +32,13 @@ export class AuthProviderService {
   ) {
   }
 
-  async getAuthProviders(user: User) {
+  async getAuthProviders(user: User, contexts?: string[]): Promise<AuthProvider[]> {
     return this.prisma.authProvider.findMany({
       where: {
         userId: user.id,
+        context: contexts
+          ? { in: contexts }
+          : undefined,
       },
     });
   }
@@ -96,6 +106,7 @@ export class AuthProviderService {
       audienceRequired: authProvider.audienceRequired,
       revokeUrl: authProvider.revokeUrl,
       introspectUrl: authProvider.introspectUrl,
+      callbackUrl: this.getAuthProviderCallbackUrl(authProvider),
     };
   }
 
@@ -162,7 +173,7 @@ export class AuthProviderService {
   }
 
   private getAuthProviderCallbackUrl(authProvider: AuthProvider) {
-    return `${this.config.hostUrl}/auth-provider/${authProvider.id}/callback`;
+    return `${this.config.hostUrl}/auth-providers/${authProvider.id}/callback`;
   }
 
   async processAuthProviderCallback(id: string, query: any): Promise<string | null> {
@@ -265,6 +276,10 @@ export class AuthProviderService {
   }
 
   async revokeAuthToken(user: User, authProvider: AuthProvider, token: string) {
+    if (!authProvider.revokeUrl) {
+      return;
+    }
+
     this.logger.debug(`Revoking auth token for provider ${authProvider.id}...`);
     const authToken = await this.prisma.authToken.findFirst({
       where: {
@@ -280,7 +295,7 @@ export class AuthProviderService {
           },
           {
             refreshToken: token,
-          }
+          },
         ],
       },
     });
@@ -292,9 +307,6 @@ export class AuthProviderService {
       });
     }
 
-    if (!authProvider.revokeUrl) {
-      return;
-    }
     if (!authToken?.accessToken) {
       this.logger.debug(`No auth token found for auth function ${authProvider.id}`);
       return;
@@ -315,11 +327,58 @@ export class AuthProviderService {
       .pipe(
         catchError((error: AxiosError) => {
           this.logger.error(`Error while performing token revoke for auth function (id: ${authProvider.id}): ${error}`);
-          return of(null);
+          throw new InternalServerErrorException(error.response?.data || error.message);
         }),
       );
   }
 
+  async introspectAuthToken(user: User, authProvider: AuthProvider, token: string): Promise<any> {
+    if (!authProvider.introspectUrl) {
+      return;
+    }
+
+    this.logger.debug(`Introspecting auth token for provider ${authProvider.id}...`);
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        authProvider: {
+          id: authProvider.id,
+        },
+        user: {
+          id: user.id,
+        },
+        accessToken: token,
+      },
+    });
+    if (!authToken?.accessToken) {
+      this.logger.debug(`No auth token found for auth function ${authProvider.id}`);
+      return;
+    }
+    return lastValueFrom(
+      await this.httpService
+        .request({
+          url: authProvider.introspectUrl,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            token: authToken.accessToken,
+          },
+        })
+        .pipe(
+          map((response) => {
+            this.logger.debug(`Received introspection data for auth function ${authProvider.id}: ${JSON.stringify(response.data)}`);
+            return response.data;
+          }),
+        )
+        .pipe(
+          catchError((error: AxiosError) => {
+            this.logger.error(`Error while performing token introspection for auth function (id: ${authProvider.id}): ${error}`);
+            throw new InternalServerErrorException(error.response?.data || error.message);
+          }),
+        ),
+    );
+  }
 
   async toAuthFunctionSpecifications(authProvider: AuthProvider): Promise<AuthFunctionSpecification[]> {
     const specifications: AuthFunctionSpecification[] = [];

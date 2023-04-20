@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -18,7 +19,7 @@ import {
   CreateAuthProviderDto,
   ExecuteAuthProviderDto,
   ExecuteAuthProviderResponseDto,
-  RevokeAuthTokenDto,
+  AuthTokenDto,
 } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 
@@ -33,7 +34,7 @@ export class AuthProviderController {
   @UseGuards(ApiKeyGuard)
   async getAuthProviders(@Req() req) {
     return (await this.service.getAuthProviders(req.user))
-      .map(this.service.toAuthProviderDto);
+      .map(authProvider => this.service.toAuthProviderDto(authProvider));
   }
 
   @Get(':id')
@@ -111,13 +112,31 @@ export class AuthProviderController {
 
   @Post('/:id/revoke')
   @UseGuards(ApiKeyGuard)
-  async revokeToken(@Req() req, @Param('id') id: string, @Body() revokeFunctionDto: RevokeAuthTokenDto): Promise<void> {
+  async revokeToken(@Req() req, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<void> {
     const authProvider = await this.service.getAuthProvider(req.user, id);
     if (!authProvider) {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
+    if (!authProvider.revokeUrl) {
+      throw new BadRequestException(`Auth provider with id ${id} does not support revocation.`);
+    }
 
-    const { token } = revokeFunctionDto;
+    const { token } = tokenDto;
     await this.service.revokeAuthToken(req.user, authProvider, token);
+  }
+
+  @Post('/:id/introspect')
+  @UseGuards(ApiKeyGuard)
+  async introspectToken(@Req() req, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<any> {
+    const authProvider = await this.service.getAuthProvider(req.user, id);
+    if (!authProvider) {
+      throw new NotFoundException(`Auth provider with id ${id} not found.`);
+    }
+    if (!authProvider.introspectUrl) {
+      throw new BadRequestException(`Auth provider with id ${id} does not support introspection.`);
+    }
+
+    const { token } = tokenDto;
+    return await this.service.introspectAuthToken(req.user, authProvider, token);
   }
 }

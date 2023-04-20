@@ -23,7 +23,7 @@ import {
   Method,
   PropertySpecification,
   PropertyType,
-  Role,
+  Role, ServerFunctionSpecification,
   Specification,
   Variables,
 } from '@poly/common';
@@ -314,7 +314,7 @@ export class FunctionService {
     };
   }
 
-  urlFunctionToDetailsDto(urlFunction: UrlFunction): FunctionDetailsDto {
+  apiFunctionToDetailsDto(urlFunction: UrlFunction): FunctionDetailsDto {
     return {
       ...this.urlFunctionToBasicDto(urlFunction),
       arguments: this.getFunctionArguments(urlFunction),
@@ -374,7 +374,7 @@ export class FunctionService {
     };
   }
 
-  async findUrlFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
+  async findApiFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
     return this.prisma.urlFunction.findFirst({
       where: {
         publicId,
@@ -610,7 +610,7 @@ export class FunctionService {
     }
   }
 
-  async findUrlFunction(user: User, publicId: string) {
+  async findApiFunction(user: User, publicId: string) {
     return this.prisma.urlFunction.findFirst({
       where: {
         user: {
@@ -632,7 +632,7 @@ export class FunctionService {
     });
   }
 
-  async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
+  async updateApiFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(user, name, urlFunction.context, false) : null;
 
@@ -709,14 +709,14 @@ export class FunctionService {
     });
   }
 
-  async deleteFunction(user: User, publicId: string) {
-    const urlFunction = await this.prisma.urlFunction.findFirst({
+  async deleteApiFunction(user: User, publicId: string) {
+    const apiFunction = await this.prisma.urlFunction.findFirst({
       where: {
         publicId,
       },
     });
-    if (urlFunction) {
-      if (user.role !== Role.Admin && urlFunction.userId !== user.id) {
+    if (apiFunction) {
+      if (user.role !== Role.Admin && apiFunction.userId !== user.id) {
         throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
       }
 
@@ -729,6 +729,10 @@ export class FunctionService {
       return;
     }
 
+    throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
+  }
+
+  async deleteCustomFunction(user: User, publicId: string) {
     const customFunction = await this.prisma.customFunction.findFirst({
       where: {
         user: {
@@ -750,8 +754,6 @@ export class FunctionService {
       });
       return;
     }
-
-    throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
   }
 
   private async checkNameAndContextDuplicates(user: User, name: string, context: string, excludedIds?: number[]) {
@@ -1083,7 +1085,7 @@ export class FunctionService {
     };
   }
 
-  async toCustomFunctionSpecification(customFunction: CustomFunction): Promise<CustomFunctionSpecification> {
+  async toCustomFunctionSpecification(customFunction: CustomFunction): Promise<CustomFunctionSpecification | ServerFunctionSpecification> {
     const parsedArguments = JSON.parse(customFunction.arguments || '[]');
 
     const toArgumentSpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
@@ -1097,7 +1099,7 @@ export class FunctionService {
 
     return {
       id: customFunction.publicId,
-      type: 'customFunction',
+      type: customFunction.serverSide ? 'serverFunction' : 'customFunction',
       context: customFunction.context,
       name: customFunction.name,
       description: customFunction.description,

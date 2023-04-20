@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 0 } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 0 } = {}{{/if}}) {
-  axios.post(`{{apiBaseUrl}}/auth-providers/{{id}}/token`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
+  axios.post(`{{apiBaseUrl}}/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
     .then(({ data }) => {
       callback(data.token, data.url, data.error);
       if (data.token) {

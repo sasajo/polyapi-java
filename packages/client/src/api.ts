@@ -6,7 +6,6 @@ import {
 } from './constants';
 import { FunctionDefinitionDto, Specification, WebhookHandleDefinitionDto } from '@poly/common';
 
-
 export const getSpecs = async (contexts?: string[], names?: string[], ids?: string[]) => {
   return (
     await axios.get<Specification[]>(`${process.env.POLY_API_BASE_URL}/specs`, {

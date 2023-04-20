@@ -1,7 +1,7 @@
 import { IsArray, IsOptional, IsString } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
-export class GetAllFunctionsDto {
+export class GetSpecsDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

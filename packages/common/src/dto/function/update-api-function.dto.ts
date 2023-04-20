@@ -1,6 +1,6 @@
 import { ArgumentsMetadata } from '../../function';
 
-export interface UpdateFunctionDto {
+export interface UpdateApiFunctionDto {
   name?: string;
   context?: string;
   description?: string;

@@ -16,11 +16,11 @@ export class SpecsService {
   ) {
   }
 
-  async getSpecifications(user: User): Promise<Specification[]> {
-    const apiFunctions = await this.functionService.getUrlFunctionsByUser(user);
-    const customFunctions = await this.functionService.getCustomFunctionsByUser(user);
+  async getSpecifications(user: User, contexts?: string[], names?: string[], ids?: string[]): Promise<Specification[]> {
+    const apiFunctions = await this.functionService.getUrlFunctionsByUser(user, contexts, names, ids);
+    const customFunctions = await this.functionService.getCustomFunctionsByUser(user, contexts, names, ids);
     const webhookHandles = await this.webhookService.getWebhookHandles(user);
-    const authProviders = await this.authProviderService.getAuthProviders(user);
+    const authProviders = await this.authProviderService.getAuthProviders(user, contexts);
 
     return [
       ...(await Promise.all(apiFunctions.map(apiFunction => this.functionService.toApiFunctionSpecification(apiFunction)))),

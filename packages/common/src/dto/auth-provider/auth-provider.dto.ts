@@ -6,4 +6,5 @@ export class AuthProviderDto {
   audienceRequired: boolean;
   revokeUrl: string | null;
   introspectUrl: string | null;
+  callbackUrl: string;
 }
