@@ -40,8 +40,9 @@ Then to hit the server, request the following:
 
 ```
 POST /function_completion/
-{"question": "how do I get united flight information for a user?"}
+{"question": "how do I get united flight information for a user?", "user_id": 1}
 ```
+
 
 The server will build a query based on your question, send it to OpenAI, and return the response.
 
