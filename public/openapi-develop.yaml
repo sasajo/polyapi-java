@@ -9,7 +9,7 @@ paths:
   /functions/custom/af6063f3-5cff-48ee-b0f9-6f077e5b5428/execute:
     post:
       operationId: operaReservation
-      summary: Get details about a guest and book a reservation at the hotel The Dreams Hotel In the Sands. Make sure to collect the user's full details. Do not assume the user's name or phone number for example. All dates should be formatted YYYY-MM-DD.
+      summary: Get details about a guest and book a reservation at the hotel The Dreams Hotel In the Sands. The hotel is located on the Strip in Las Vegas Nevada. Make sure to collect the user's full details. Do not assume the user's name or phone number for example. All dates should be formatted YYYY-MM-DD.
       requestBody:
         required: true
         content:
