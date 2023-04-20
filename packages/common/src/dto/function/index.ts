@@ -5,6 +5,6 @@ export * from './delete-all-functions.dto';
 export * from './create-custom-function.dto';
 export * from './get-all-functions.dto';
 export * from './create-auth-function.dto';
-export * from './execute-auth-function.dto';
 export * from './auth-function-event-handler.dto';
-export * from 'src/dto/function/revoke-auth-token.dto';
+export * from './execute-custom-function.dto';
+export * from './function/revoke-auth-token.dto';

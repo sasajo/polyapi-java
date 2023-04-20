@@ -18,7 +18,7 @@ export interface FunctionBasicDto {
   description: string;
 }
 
-type FunctionType = 'url' | 'custom' | 'auth';
+type FunctionType = 'url' | 'custom' | 'auth' | 'server';
 
 export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: FunctionArgument[];

@@ -28,6 +28,7 @@ import {
   GetAllFunctionsDto,
   Role,
   UpdateFunctionDto,
+  ExecuteCustomFunctionDto,
 } from '@poly/common';
 
 export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
@@ -90,6 +91,19 @@ export class FunctionController {
     return await this.service.executeUrlFunction(urlFunction, executeFunctionDto.args, executeFunctionDto.clientID);
   }
 
+  @Post('/custom/:publicId/execute')
+  async executeCustomFunction(@Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteCustomFunctionDto): Promise<any> {
+    const customFunction = await this.service.findCustomFunctionByPublicId(publicId);
+    if (!customFunction) {
+      throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
+    }
+    if (!customFunction.serverSide) {
+      throw new HttpException(`Function with publicId ${publicId} is not server function.`, HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.service.executeServerFunction(customFunction, executeFunctionDto.args, executeFunctionDto.clientID);
+  }
+
   @Patch('/:publicId')
   @UseGuards(ApiKeyGuard)
   async updateFunction(@Req() req, @Param('publicId') publicId: string, @Body() updateFunction: UpdateFunctionDto): Promise<any> {
@@ -143,10 +157,13 @@ export class FunctionController {
   @Post('/custom')
   @UseGuards(ApiKeyGuard)
   async createCustomFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
-    const {context = '', name, code} = createCustomFunctionDto;
+    // temporarily increase timeout for custom function creation
+    req.setTimeout(300000);
+
+    const { context = '', name, code, server = false } = createCustomFunctionDto;
 
     try {
-      return await this.service.createCustomFunction(req.user, context, name, code);
+      return await this.service.createCustomFunction(req.user, context, name, code, server);
     } catch (e) {
       throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
     }

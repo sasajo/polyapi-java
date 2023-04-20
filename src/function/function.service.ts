@@ -1,9 +1,10 @@
 import ts from 'typescript';
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
+import { URLSearchParams } from 'url';
 import mergeWith from 'lodash/mergeWith';
 import { CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
@@ -33,6 +34,8 @@ import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
+import { FaasService } from 'function/faas/faas.service';
+import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
@@ -47,7 +50,8 @@ mustache.escape = (text) => {
 
 @Injectable()
 export class FunctionService {
-  private logger: Logger = new Logger(FunctionService.name);
+  private readonly logger: Logger = new Logger(FunctionService.name);
+  private readonly faasService: FaasService;
 
   constructor(
     private readonly commonService: CommonService,
@@ -57,6 +61,7 @@ export class FunctionService {
     private readonly eventService: EventService,
     private readonly aiService: AiService,
   ) {
+    this.faasService = new KNativeFaasService(config, httpService);
   }
 
   create(data: Omit<Prisma.UrlFunctionCreateInput, 'createdAt'>): Promise<UrlFunction> {
@@ -352,13 +357,13 @@ export class FunctionService {
     return {
       ...this.customFunctionToBasicDto(customFunction),
       arguments: JSON.parse(customFunction.arguments),
-      type: 'custom',
+      type: customFunction.serverSide ? 'server' : 'custom',
     };
   }
 
   customFunctionToDefinitionDto(customFunction: CustomFunction): CustomFunctionDefinitionDto {
     return {
-      type: 'custom',
+      type: customFunction.serverSide ? 'server' : 'custom',
       id: customFunction.publicId,
       name: customFunction.name,
       description: customFunction.description,
@@ -864,12 +869,13 @@ export class FunctionService {
     });
   }
 
-  async createCustomFunction(user: User, context: string | null, name: string, code: string) {
+  async createCustomFunction(user: User, context: string, name: string, code: string, serverFunction: boolean) {
     let functionArguments: FunctionArgument[] | null = null;
     let returnType: string | null = null;
 
     const result = ts.transpileModule(code, {
       compilerOptions: {
+        target: ts.ScriptTarget.ES2020,
         module: ts.ModuleKind.CommonJS,
         esModuleInterop: true,
         noImplicitUseStrict: true,
@@ -912,20 +918,21 @@ export class FunctionService {
 
     code = result.outputText;
 
-    const found = await this.prisma.customFunction.findFirst({
+    let customFunction = await this.prisma.customFunction.findFirst({
       where: {
         user: {
           id: user.id,
         },
         name,
-        context: context || '',
+        context,
       },
     });
-    if (found) {
+
+    if (customFunction) {
       this.logger.debug(`Updating custom function ${name} with context ${context} and code:\n${code}`);
-      return this.prisma.customFunction.update({
+      customFunction = await this.prisma.customFunction.update({
         where: {
-          id: found.id,
+          id: customFunction.id,
         },
         data: {
           code,
@@ -935,20 +942,57 @@ export class FunctionService {
       });
     } else {
       this.logger.debug(`Creating custom function ${name} with context ${context} and code:\n${code}`);
-      return this.prisma.customFunction.create({
+      customFunction = await this.prisma.customFunction.create({
         data: {
           user: {
             connect: {
               id: user.id,
             },
           },
-          context: context || '',
+          context,
           name,
           code,
           arguments: JSON.stringify(functionArguments),
           returnType,
         },
       });
+    }
+
+    if (serverFunction) {
+      this.logger.debug(`Creating server side custom function ${name}`);
+
+      try {
+        await this.faasService.createFunction(customFunction.publicId, name, code, user.apiKey);
+        return this.prisma.customFunction.update({
+          where: {
+            id: customFunction.id,
+          },
+          data: {
+            serverSide: true,
+          },
+        });
+      } catch (e) {
+        this.logger.error(`Error creating server side custom function ${name}: ${e.message}. Function created as client side.`);
+        throw e;
+      }
+    }
+  }
+
+  async executeServerFunction(customFunction: CustomFunction, args: any[], clientID: string) {
+    this.logger.debug(`Executing server function ${customFunction.publicId} with arguments ${JSON.stringify(args)}`);
+
+    try {
+      const result = await this.faasService.executeFunction(customFunction.publicId, args);
+      this.logger.debug(`Server function ${customFunction.publicId} executed successfully with result: ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error executing server function ${customFunction.publicId}: ${error.message}`);
+      const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
+      if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
+        return;
+      }
+
+      throw new InternalServerErrorException((error.response?.data as any)?.message || error.message);
     }
   }
 

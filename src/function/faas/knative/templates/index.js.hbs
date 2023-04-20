@@ -1,0 +1,20 @@
+const poly = require('polyapi');
+
+const handle = async (context, body) => {
+  {{{code}}}
+
+  try {
+    const result = await {{name}}(...body.args);
+    return { body: result };
+  } catch (e) {
+    return {
+      body: {
+        message: e.message,
+        stack: e.stack
+      },
+      statusCode: 500
+    };
+  }
+}
+
+module.exports = { handle };

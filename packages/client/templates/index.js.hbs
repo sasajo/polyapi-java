@@ -6,6 +6,7 @@ const apiFunctions = require('./api');
 const customFunctions = require('./custom');
 const webhookHandles = require('./webhook-handles');
 const authFunctions = require('./auth');
+const serverFunctions = require('./server');
 
 const clientID = uuidv4();
 let socket = null;
@@ -41,6 +42,7 @@ module.exports = merge(
   poly,
   apiFunctions(clientID),
   customFunctions(poly),
+  serverFunctions(clientID),
   authFunctions(clientID, getSocket),
   webhookHandles(clientID, getSocket),
   {

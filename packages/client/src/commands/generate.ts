@@ -34,6 +34,10 @@ interface Context {
   level?: number;
 }
 
+const getApiBaseUrl = () => process.env.POLY_API_BASE_URL || 'http://localhost:8000';
+
+const getApiKey = () => process.env.POLY_API_KEY;
+
 const prepareDir = () => {
   fs.rmSync(POLY_LIB_PATH, { recursive: true, force: true });
   fs.mkdirSync(POLY_LIB_PATH, { recursive: true });
@@ -41,6 +45,7 @@ const prepareDir = () => {
   fs.mkdirSync(`${POLY_LIB_PATH}/custom`);
   fs.mkdirSync(`${POLY_LIB_PATH}/auth`);
   fs.mkdirSync(`${POLY_LIB_PATH}/webhook-handles`);
+  fs.mkdirSync(`${POLY_LIB_PATH}/server`);
 };
 
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
@@ -50,12 +55,14 @@ const generateJSFiles = async (specs: Specification[]) => {
   const customFunctions = specs.filter(spec => spec.type === 'customFunction') as CustomFunctionSpecification[];
   const webhookHandles = specs.filter(spec => spec.type === 'webhookHandle') as WebhookHandleSpecification[];
   const authFunctions = specs.filter(spec => spec.type === 'authFunction') as AuthFunctionSpecification[];
+  const serverFunctions = specs.filter(spec => spec.type === 'server') as ServerFunctionSpecification[];
 
   await generateIndexJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
   await generateWebhookHandlesJSFiles(webhookHandles);
   await generateAuthFunctionJSFiles(authFunctions);
+  await generateServerFunctionJSFiles(serverFunctions);
 };
 
 const generateIndexJSFile = async () => {
@@ -113,6 +120,18 @@ const generateWebhookHandlesJSFiles = async (specifications: WebhookHandleSpecif
       specifications,
       apiBaseUrl: API_BASE_URL,
       apiKey: API_KEY,
+    }),
+  );
+};
+
+const generateServerFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+  const serverIndexJSTemplate = handlebars.compile(await loadTemplate('server-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/server/index.js`,
+    serverIndexJSTemplate({
+      functions,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };

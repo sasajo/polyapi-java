@@ -1,3 +1,6 @@
+### 0.1.17
+* Fixed tooltip for server functions
+
 ### 0.1.16
 * Fixed tooltip and copied code for URL, Custom and Auth functions
 

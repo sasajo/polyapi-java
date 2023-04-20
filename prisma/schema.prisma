@@ -61,6 +61,7 @@ model CustomFunction {
   returnType  String?  @map("return_type")
   publicId    String   @unique @default(uuid()) @map("public_id")
   trained     Boolean  @default(false)
+  serverSide  Boolean  @default(false) @map("server_side")
 
   @@map("custom_function")
 }
@@ -91,6 +92,7 @@ model WebhookHandle {
   name         String
   eventPayload String       @map("event_payload")
   urlFunction  UrlFunction?
+  description String   @default("")
 
   @@map("webhook_handle")
 }

@@ -77,14 +77,18 @@ yargs
           .option('description', {
             describe: 'Description of the function',
             type: 'string',
+          })
+          .option('server', {
+            describe: 'Marks the function as a server function',
+            type: 'boolean',
           }),
-      async ({ name, file, context }) => {
+      async ({ name, file, context, server = false }) => {
         if (!name || !file) {
           yargs.showHelp();
           return;
         }
 
-        await addCustomFunction(context, name, file);
+        await addCustomFunction(context, name, file, server);
       },
     );
   })
