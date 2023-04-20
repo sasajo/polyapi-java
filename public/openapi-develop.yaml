@@ -91,8 +91,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/upsRateEstimateResponse'
+  /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
+    post:
+      operationId: shopifyGetProducts
+      summary: Get the products from a particular shopify store. If a store name is not specified, use 'darko-demo-store' for the store name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/storeNameArgs'
+      responses:
+        "201":
+          description: products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shopifyGetProductsResponse'
 components:
   schemas:
+    storeNameArgs:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: store name
+    shopifyGetProductsResponse:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+          description: The list of products.
     twilioSendSmsArgs:
       type: object
       properties:
