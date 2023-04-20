@@ -978,6 +978,14 @@ export class FunctionService {
     }
   }
 
+  async findCustomFunctionByPublicId(publicId: string): Promise<CustomFunction | null> {
+    return this.prisma.customFunction.findFirst({
+      where: {
+        publicId,
+      },
+    });
+  }
+
   async executeServerFunction(customFunction: CustomFunction, args: any[], clientID: string) {
     this.logger.debug(`Executing server function ${customFunction.publicId} with arguments ${JSON.stringify(args)}`);
 

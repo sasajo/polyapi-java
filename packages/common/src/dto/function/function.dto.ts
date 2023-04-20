@@ -41,7 +41,7 @@ export interface UrlFunctionDefinitionDto extends FunctionDefinitionDto {
 }
 
 export interface CustomFunctionDefinitionDto extends FunctionDefinitionDto {
-  type: 'custom';
+  type: 'custom' | 'server';
   customCode: string;
 }
 

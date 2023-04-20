@@ -8,7 +8,6 @@ import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
 import {
   PropertySpecification,
-  SpecificationType,
   WebhookHandleDefinitionDto,
   WebhookHandleDto,
   WebhookHandleSpecification,
@@ -74,7 +73,7 @@ export class WebhookService {
     context: string | null,
     name: string,
     eventPayload: any,
-    description: string | null,
+    description: string,
   ): Promise<WebhookHandle> {
     name = this.normalizeName(name);
     context = this.normalizeContext(context);

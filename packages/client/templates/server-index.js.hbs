@@ -3,7 +3,7 @@ const set = require('lodash/set');
 const merge = require('lodash/merge');
 
 const serverFunctions = [
-{{#each functions}}
+{{#each specifications}}
   {{#if context}}
     ['{{context}}.{{name}}', '{{id}}'],
   {{else}}

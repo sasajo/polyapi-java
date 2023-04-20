@@ -14,7 +14,7 @@ import {
   FunctionPropertyType,
   ObjectPropertyType,
   PropertySpecification,
-  PropertyType,
+  PropertyType, ServerFunctionSpecification,
   Specification,
   WebhookHandleSpecification,
 } from '@poly/common';
@@ -23,8 +23,6 @@ import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
 
 const POLY_LIB_PATH = `${__dirname}/../../../${POLY_USER_FOLDER_NAME}/lib`;
-const API_BASE_URL = process.env.POLY_API_BASE_URL || 'http://localhost:8000';
-const API_KEY = process.env.POLY_API_KEY;
 
 interface Context {
   name: string;
@@ -55,7 +53,7 @@ const generateJSFiles = async (specs: Specification[]) => {
   const customFunctions = specs.filter(spec => spec.type === 'customFunction') as CustomFunctionSpecification[];
   const webhookHandles = specs.filter(spec => spec.type === 'webhookHandle') as WebhookHandleSpecification[];
   const authFunctions = specs.filter(spec => spec.type === 'authFunction') as AuthFunctionSpecification[];
-  const serverFunctions = specs.filter(spec => spec.type === 'server') as ServerFunctionSpecification[];
+  const serverFunctions = specs.filter(spec => spec.type === 'serverFunction') as ServerFunctionSpecification[];
 
   await generateIndexJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
@@ -70,8 +68,8 @@ const generateIndexJSFile = async () => {
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
-      apiBaseUrl: API_BASE_URL,
-      apiKey: API_KEY,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };
@@ -82,8 +80,8 @@ const generateApiFunctionJSFiles = async (specifications: ApiFunctionSpecificati
     `${POLY_LIB_PATH}/api/index.js`,
     template({
       specifications,
-      apiBaseUrl: API_BASE_URL,
-      apiKey: API_KEY,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };
@@ -118,18 +116,18 @@ const generateWebhookHandlesJSFiles = async (specifications: WebhookHandleSpecif
     `${POLY_LIB_PATH}/webhook-handles/index.js`,
     template({
       specifications,
-      apiBaseUrl: API_BASE_URL,
-      apiKey: API_KEY,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 };
 
-const generateServerFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+const generateServerFunctionJSFiles = async (specifications: ServerFunctionSpecification[]) => {
   const serverIndexJSTemplate = handlebars.compile(await loadTemplate('server-index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/server/index.js`,
     serverIndexJSTemplate({
-      functions,
+      specifications,
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),
@@ -158,8 +156,8 @@ const generateAuthFunctionJSFiles = async (specifications: AuthFunctionSpecifica
         prettyPrint(
           authFunctionJSTemplate({
             ...spec,
-            apiBaseUrl: API_BASE_URL,
-            apiKey: API_KEY,
+            apiBaseUrl: getApiBaseUrl(),
+            apiKey: getApiKey(),
           }),
           'babel',
         ),

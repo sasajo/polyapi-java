@@ -7,7 +7,7 @@ interface ISpecification {
   type: SpecificationType;
 }
 
-export type SpecificationType = 'apiFunction' | 'customFunction' | 'authFunction' | 'webhookHandle';
+export type SpecificationType = 'apiFunction' | 'customFunction' | 'authFunction' | 'webhookHandle' | 'serverFunction';
 
 export interface FunctionSpecification {
   arguments: PropertySpecification[];
@@ -75,6 +75,11 @@ export interface CustomFunctionSpecification extends ISpecification {
   code: string;
 }
 
+export interface ServerFunctionSpecification extends ISpecification {
+  type: 'serverFunction';
+  code: string;
+}
+
 export interface AuthFunctionSpecification extends ISpecification {
   type: 'authFunction';
   subResource?: string;
@@ -87,5 +92,6 @@ export interface WebhookHandleSpecification extends ISpecification {
 export type Specification =
   ApiFunctionSpecification
   | CustomFunctionSpecification
+  | ServerFunctionSpecification
   | AuthFunctionSpecification
   | WebhookHandleSpecification;

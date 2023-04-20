@@ -28,12 +28,13 @@ export class WebhookController {
   @UseGuards(ApiKeyGuard)
   @Post('register')
   public async registerWebhookHandle(@Req() req, @Body() registerWebhookHandleDto: RegisterWebhookHandleDto) {
+    const {context = '', name, eventPayload, description = ''} = registerWebhookHandleDto;
     const webhookHandle = await this.webhookService.registerWebhookContextFunction(
       req.user,
-      registerWebhookHandleDto.context,
-      registerWebhookHandleDto.name,
-      registerWebhookHandleDto.eventPayload,
-      registerWebhookHandleDto.description,
+      context,
+      name,
+      eventPayload,
+      description,
     );
     return this.webhookService.toDto(webhookHandle);
   }

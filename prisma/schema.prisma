@@ -92,7 +92,7 @@ model WebhookHandle {
   name         String
   eventPayload String       @map("event_payload")
   urlFunction  UrlFunction?
-  description String   @default("")
+  description  String       @default("")
 
   @@map("webhook_handle")
 }
