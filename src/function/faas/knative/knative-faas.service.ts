@@ -98,7 +98,7 @@ export class KNativeFaasService implements FaasService {
       detached: true,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(5000);
   };
 
   private async cleanUpFunction(id: string, functionPath: string) {
