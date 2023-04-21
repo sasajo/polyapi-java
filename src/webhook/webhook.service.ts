@@ -31,12 +31,42 @@ export class WebhookService {
     });
   }
 
-  public async getAllWebhookHandles(): Promise<WebhookHandle[]> {
+  private getWebhookFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
+    const contextConditions = contexts?.length
+      ? contexts.filter(Boolean).map((context) => {
+          return {
+            OR: [
+              {
+                context: { startsWith: `${context}.` },
+              },
+              {
+                context,
+              },
+            ],
+          };
+        })
+      : [];
+
+    const filterConditions = [
+      ...contextConditions,
+      names?.length ? { name: { in: names } } : undefined,
+      ids?.length ? { id: { in: ids } } : undefined,
+    ].filter(Boolean);
+
+    this.logger.debug(`filterConditions: ${JSON.stringify(filterConditions)}`);
+
+    return filterConditions.length > 0 ? { OR: [...filterConditions] } : undefined;
+  }
+
+  public async getAllWebhookHandles(contexts?: string[], names?: string[], ids?: string[]): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting all webhook handles...`);
 
     return this.prisma.webhookHandle.findMany({
       orderBy: {
         createdAt: 'desc',
+      },
+      where: {
+        ...this.getWebhookFilterConditions(contexts, names, ids),
       },
     });
   }

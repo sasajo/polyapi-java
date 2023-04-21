@@ -329,7 +329,7 @@ const generate = async (contexts?: string[], names?: string[], functionIds?: str
 
   try {
     functions = await getFunctions(contexts, names, functionIds);
-    webhookHandles = await getWebhookHandles();
+    webhookHandles = await getWebhookHandles(contexts, names, functionIds);
   } catch (error) {
     shell.echo(chalk.red('ERROR'));
     shell.echo('Error while getting data from Poly server. Make sure the version of library/server is up to date.');

@@ -1,7 +1,22 @@
-import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+  Query,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { WebhookService } from 'webhook/webhook.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { RegisterWebhookHandleDto, UpdateWebhookHandleDto } from '@poly/common';
+import { RegisterWebhookHandleDto, UpdateWebhookHandleDto, GetAllWebhookHandleDto } from '@poly/common';
 
 export const HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION = 'application/poly.webhook-handle-definition+json';
 
@@ -11,12 +26,17 @@ export class WebhookController {
 
   @UseGuards(ApiKeyGuard)
   @Get()
-  public async getWebhookHandles(@Req() req, @Headers('Accept') acceptHeader: string) {
+  @UsePipes(new ValidationPipe({ transform: true }))
+  public async getWebhookHandles(
+    @Req() req,
+    @Headers('Accept') acceptHeader: string,
+    @Query() { contexts, names, ids }: GetAllWebhookHandleDto,
+  ) {
     const useDefinitionDto = acceptHeader === HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION;
 
     // TODO: temporarily disabled to allow all users to see all webhooks
     // const webhookHandles = await this.webhookService.getWebhookHandles(req.user);
-    const webhookHandles = await this.webhookService.getAllWebhookHandles();
+    const webhookHandles = await this.webhookService.getAllWebhookHandles(contexts, names, ids);
 
     if (useDefinitionDto) {
       return await Promise.all(webhookHandles.map((handle) => this.webhookService.toDefinitionDto(handle)));

@@ -71,8 +71,23 @@ export class FunctionService {
   }
 
   private getFunctionFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
+    const contextConditions = contexts?.length
+      ? contexts.filter(Boolean).map((context) => {
+          return {
+            OR: [
+              {
+                context: { startsWith: `${context}.` },
+              },
+              {
+                context,
+              },
+            ],
+          };
+        })
+      : [];
+
     const filterConditions = [
-      contexts?.length ? { context: { in: contexts } } : undefined,
+      ...contextConditions,
       names?.length ? { name: { in: names } } : undefined,
       ids?.length ? { publicId: { in: ids } } : undefined,
     ].filter(Boolean);
@@ -315,7 +330,8 @@ export class FunctionService {
   }
 
   getFunctionArguments(urlFunction: UrlFunction, withDefinition = false): FunctionArgument[] {
-    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentsMetadata || '{}'), withDefinition);
+    const toArgument = (arg: string) =>
+      this.toArgument(arg, JSON.parse(urlFunction.argumentsMetadata || '{}'), withDefinition);
     const args: FunctionArgument[] = [];
 
     args.push(...(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
@@ -349,11 +365,7 @@ export class FunctionService {
     const returnTypeName = 'ReturnType';
     const content = this.commonService.getPathContent(JSON.parse(urlFunction.response), urlFunction.payload);
     const namespace = toPascalCase(urlFunction.name);
-    const returnType = await this.commonService.generateTypeDeclaration(
-      returnTypeName,
-      content,
-      namespace,
-    );
+    const returnType = await this.commonService.generateTypeDeclaration(returnTypeName, content, namespace);
 
     return {
       id: urlFunction.publicId,
@@ -579,10 +591,7 @@ export class FunctionService {
     return {
       ...functionArgs
         .filter((arg) => !arg.payload)
-        .reduce(
-          (result, arg, index) => Object.assign(result, { [arg.key]: normalizeArg(args[index]) }),
-          {},
-        ),
+        .reduce((result, arg, index) => Object.assign(result, { [arg.key]: normalizeArg(args[index]) }), {}),
       ...getPayloadArgs(),
     };
   }
@@ -659,12 +668,7 @@ export class FunctionService {
         }
         try {
           return JSON.parse(
-            body.raw
-              .replace(/\n/g, '')
-              .replace(/\r/g, '')
-              .replace(/\t/g, '')
-              .replace(/\f/g, '')
-              .replace(/\b/g, '')
+            body.raw.replace(/\n/g, '').replace(/\r/g, '').replace(/\t/g, '').replace(/\f/g, '').replace(/\b/g, ''),
           );
         } catch (e) {
           this.logger.debug(`Error while parsing body: ${e}`);
@@ -731,7 +735,14 @@ export class FunctionService {
     });
   }
 
-  async updateUrlFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
+  async updateUrlFunction(
+    user: User,
+    urlFunction: UrlFunction,
+    name: string | null,
+    context: string | null,
+    description: string | null,
+    argumentsMetadata: ArgumentsMetadata | null,
+  ) {
     if (name != null || context != null) {
       name = await this.resolveFunctionName(user, name, urlFunction.context, false);
 
@@ -757,18 +768,19 @@ export class FunctionService {
 
     argumentsMetadata = this.mergeArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
 
-    const duplicatedArgumentName = this.findDuplicatedArgumentName(this.getFunctionArguments({
-      ...urlFunction,
-      argumentsMetadata: JSON.stringify(argumentsMetadata),
-    }));
+    const duplicatedArgumentName = this.findDuplicatedArgumentName(
+      this.getFunctionArguments({
+        ...urlFunction,
+        argumentsMetadata: JSON.stringify(argumentsMetadata),
+      }),
+    );
     if (duplicatedArgumentName) {
-      throw new HttpException(
-        `Function has duplicated arguments: ${duplicatedArgumentName}`,
-        HttpStatus.CONFLICT,
-      );
+      throw new HttpException(`Function has duplicated arguments: ${duplicatedArgumentName}`, HttpStatus.CONFLICT);
     }
 
-    this.logger.debug(`Updating URL function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`);
+    this.logger.debug(
+      `Updating URL function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`,
+    );
     return this.prisma.urlFunction.update({
       where: {
         id: urlFunction.id,
@@ -782,21 +794,26 @@ export class FunctionService {
     });
   }
 
-  async updateCustomFunction(user: User, customFunction: CustomFunction, context: string | null, description: string | null) {
+  async updateCustomFunction(
+    user: User,
+    customFunction: CustomFunction,
+    context: string | null,
+    description: string | null,
+  ) {
     const { id, name } = customFunction;
 
     if (context != null) {
-      if (!await this.checkNameAndContextDuplicates(
-        user,
-        name,
-        context,
-        [id],
-      )) {
-        throw new HttpException(`Function with name ${name} and context ${context} already exists.`, HttpStatus.CONFLICT);
+      if (!(await this.checkNameAndContextDuplicates(user, name, context, [id]))) {
+        throw new HttpException(
+          `Function with name ${name} and context ${context} already exists.`,
+          HttpStatus.CONFLICT,
+        );
       }
     }
 
-    this.logger.debug(`Updating custom function ${id} with name ${name}, context ${context}, description ${description}`);
+    this.logger.debug(
+      `Updating custom function ${id} with name ${name}, context ${context}, description ${description}`,
+    );
     return this.prisma.customFunction.update({
       where: {
         id,
@@ -808,19 +825,32 @@ export class FunctionService {
     });
   }
 
-  async updateAuthFunction(user: User, authFunction: AuthFunction, context: string | null, name: string | null, description: string | null) {
+  async updateAuthFunction(
+    user: User,
+    authFunction: AuthFunction,
+    context: string | null,
+    name: string | null,
+    description: string | null,
+  ) {
     if (context != null || name != null) {
-      if (!await this.checkNameAndContextDuplicates(
-        user,
-        name || authFunction.name,
-        context == null ? authFunction.context : context,
-        [authFunction.id],
-      )) {
-        throw new HttpException(`Function with name ${name || authFunction.name} and context ${context} already exists.`, HttpStatus.CONFLICT);
+      if (
+        !(await this.checkNameAndContextDuplicates(
+          user,
+          name || authFunction.name,
+          context == null ? authFunction.context : context,
+          [authFunction.id],
+        ))
+      ) {
+        throw new HttpException(
+          `Function with name ${name || authFunction.name} and context ${context} already exists.`,
+          HttpStatus.CONFLICT,
+        );
       }
     }
 
-    this.logger.debug(`Updating auth function ${authFunction.id} with name ${name}, context ${context}, description ${description}`);
+    this.logger.debug(
+      `Updating auth function ${authFunction.id} with name ${name}, context ${context}, description ${description}`,
+    );
     return this.prisma.authFunction.update({
       where: {
         id: authFunction.id,
@@ -912,10 +942,10 @@ export class FunctionService {
           excludedIds == null
             ? undefined
             : {
-              id: {
-                notIn: excludedIds,
+                id: {
+                  notIn: excludedIds,
+                },
               },
-            },
       },
     });
     if (urlFunction) {
@@ -933,10 +963,10 @@ export class FunctionService {
           excludedIds == null
             ? undefined
             : {
-              id: {
-                notIn: excludedIds,
+                id: {
+                  notIn: excludedIds,
+                },
               },
-            },
       },
     });
     if (customFunction) {
@@ -954,10 +984,10 @@ export class FunctionService {
           excludedIds == null
             ? undefined
             : {
-              id: {
-                notIn: excludedIds,
+                id: {
+                  notIn: excludedIds,
+                },
               },
-            },
       },
     });
     if (authFunction) {
@@ -1153,7 +1183,9 @@ export class FunctionService {
           },
         });
       } catch (e) {
-        this.logger.error(`Error creating server side custom function ${name}: ${e.message}. Function created as client side.`);
+        this.logger.error(
+          `Error creating server side custom function ${name}: ${e.message}. Function created as client side.`,
+        );
         throw e;
       }
     }
@@ -1164,7 +1196,9 @@ export class FunctionService {
 
     try {
       const result = await this.faasService.executeFunction(customFunction.publicId, args);
-      this.logger.debug(`Server function ${customFunction.publicId} executed successfully with result: ${JSON.stringify(result)}`);
+      this.logger.debug(
+        `Server function ${customFunction.publicId} executed successfully with result: ${JSON.stringify(result)}`,
+      );
       return result;
     } catch (error) {
       this.logger.error(`Error executing server function ${customFunction.publicId}: ${error.message}`);
@@ -1177,7 +1211,14 @@ export class FunctionService {
     }
   }
 
-  async createAuthFunction(user: User, context: string | null, name: string, description: string | null, authUrl: string, accessTokenUrl: string) {
+  async createAuthFunction(
+    user: User,
+    context: string | null,
+    name: string,
+    description: string | null,
+    authUrl: string,
+    accessTokenUrl: string,
+  ) {
     const authFunction = await this.prisma.authFunction.findFirst({
       where: {
         user: {
@@ -1195,14 +1236,13 @@ export class FunctionService {
         authFunction ? [authFunction.id] : [],
       ))
     ) {
-      throw new HttpException(
-        `Function with name ${name} and context ${context} already exists.`,
-        HttpStatus.CONFLICT,
-      );
+      throw new HttpException(`Function with name ${name} and context ${context} already exists.`, HttpStatus.CONFLICT);
     }
 
     if (authFunction) {
-      this.logger.debug(`Updating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`);
+      this.logger.debug(
+        `Updating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`,
+      );
       return this.prisma.authFunction.update({
         where: {
           id: authFunction.id,
@@ -1214,7 +1254,9 @@ export class FunctionService {
         },
       });
     } else {
-      this.logger.debug(`Creating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`);
+      this.logger.debug(
+        `Creating auth function ${name} with context ${context}, authUrl ${authUrl} and accessTokenUrl ${accessTokenUrl}`,
+      );
       return this.prisma.authFunction.create({
         data: {
           user: {
@@ -1232,7 +1274,14 @@ export class FunctionService {
     }
   }
 
-  public async executeAuthFunction(user: User, authFunction: AuthFunction, eventsClientId: string, clientId: string, clientSecret: string, scopes: string[] | undefined): Promise<ExecuteAuthFunctionResponseDto> {
+  public async executeAuthFunction(
+    user: User,
+    authFunction: AuthFunction,
+    eventsClientId: string,
+    clientId: string,
+    clientSecret: string,
+    scopes: string[] | undefined,
+  ): Promise<ExecuteAuthFunctionResponseDto> {
     const authToken = await this.prisma.authToken.findFirst({
       where: {
         authFunction: {
@@ -1337,7 +1386,7 @@ export class FunctionService {
           url: authFunction.accessTokenUrl,
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: {
@@ -1348,12 +1397,12 @@ export class FunctionService {
             redirect_uri: this.getAuthFunctionCallbackUrl(authFunction),
           },
         })
-        .pipe(
-          map((response) => response.data),
-        )
+        .pipe(map((response) => response.data))
         .pipe(
           catchError((error: AxiosError) => {
-            this.logger.error(`Error while performing token request for auth function (id: ${authFunction.id}): ${error}`);
+            this.logger.error(
+              `Error while performing token request for auth function (id: ${authFunction.id}): ${error}`,
+            );
 
             this.eventService.sendAuthFunctionEvent(publicId, {
               error: error.response ? error.response.data : error.message,
@@ -1386,19 +1435,15 @@ export class FunctionService {
   }
 
   private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
-    return mergeWith(
-      JSON.parse(argumentsMetadata || '{}'),
-      updatedArgumentsMetadata || {},
-      (objValue, srcValue) => {
-        if (objValue?.typeObject && srcValue?.typeObject) {
-          return {
-            ...objValue,
-            ...srcValue,
-            typeObject: srcValue.typeObject,
-          };
-        }
-      },
-    );
+    return mergeWith(JSON.parse(argumentsMetadata || '{}'), updatedArgumentsMetadata || {}, (objValue, srcValue) => {
+      if (objValue?.typeObject && srcValue?.typeObject) {
+        return {
+          ...objValue,
+          ...srcValue,
+          typeObject: srcValue.typeObject,
+        };
+      }
+    });
   }
 
   async setSystemPrompt(userId: number, prompt: string): Promise<SystemPrompt> {
@@ -1448,8 +1493,10 @@ export class FunctionService {
       if (urlFunction.argumentsMetadata || functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
-      this.logger.debug(`Generating arguments metadata for function ${urlFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`);
-      functionArgs.forEach(arg => {
+      this.logger.debug(
+        `Generating arguments metadata for function ${urlFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`,
+      );
+      functionArgs.forEach((arg) => {
         if (metadata[arg.key]) {
           metadata[arg.key].payload = true;
         } else {
@@ -1503,13 +1550,23 @@ export class FunctionService {
       const argMetadata = argumentsMetadata[argKey];
       if (argMetadata.type === 'object') {
         if (!argMetadata.typeObject) {
-          throw new HttpException(`Argument '${argKey}' with type='object' is missing typeObject value`, HttpStatus.BAD_REQUEST);
+          throw new HttpException(
+            `Argument '${argKey}' with type='object' is missing typeObject value`,
+            HttpStatus.BAD_REQUEST,
+          );
         }
         if (typeof argMetadata.typeObject !== 'object') {
-          throw new HttpException(`Argument '${argKey}' with type='object' has invalid typeObject value (must be 'object' type)`, HttpStatus.BAD_REQUEST);
+          throw new HttpException(
+            `Argument '${argKey}' with type='object' has invalid typeObject value (must be 'object' type)`,
+            HttpStatus.BAD_REQUEST,
+          );
         }
 
-        const [type, typeDeclarations] = await this.resolveArgumentType(urlFunction, argKey, JSON.stringify(argMetadata.typeObject));
+        const [type, typeDeclarations] = await this.resolveArgumentType(
+          urlFunction,
+          argKey,
+          JSON.stringify(argMetadata.typeObject),
+        );
         argMetadata.type = type;
         argMetadata.typeDeclarations = typeDeclarations;
       }
@@ -1521,8 +1578,8 @@ export class FunctionService {
   private checkArgumentsMetadata(urlFunction: UrlFunction, argumentsMetadata: ArgumentsMetadata) {
     const functionArgs = this.getFunctionArguments(urlFunction);
 
-    Object.keys(argumentsMetadata).forEach(key => {
-      if (!functionArgs.find(arg => arg.key === key)) {
+    Object.keys(argumentsMetadata).forEach((key) => {
+      if (!functionArgs.find((arg) => arg.key === key)) {
         throw new HttpException(`Argument '${key}' not found in function`, HttpStatus.BAD_REQUEST);
       }
     });
