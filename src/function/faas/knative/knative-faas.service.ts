@@ -3,12 +3,15 @@ import { exec as execAsync, spawn } from 'child_process';
 import handlebars from 'handlebars';
 import fs from 'fs';
 import { Logger } from '@nestjs/common';
-import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
 import { FaasService } from '../faas.service';
+
+// sleep function from SO
+// https://stackoverflow.com/a/39914235
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const exec = util.promisify(execAsync);
 
@@ -59,8 +62,13 @@ export class KNativeFaasService implements FaasService {
           map(response => response.data),
         )
         .pipe(
-          catchError((error: AxiosError) => {
+          catchError(async (error: AxiosError) => {
             this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
+            if (maxRetryCount > 0) {
+              await sleep(2000);
+              return this.executeFunction(id, args, 0);
+            }
+
             throw error;
           }),
         ),
@@ -90,7 +98,7 @@ export class KNativeFaasService implements FaasService {
       detached: true,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(5000);
   };
 
   private async cleanUpFunction(id: string, functionPath: string) {

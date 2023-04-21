@@ -32,12 +32,17 @@ export const getFunctions = async (contexts?: string[], names?: string[], ids?: 
   ).data;
 };
 
-export const getWebhookHandles = async () => {
+export const getWebhookHandles = async (contexts?: string[], names?: string[], ids?: string[]) => {
   return (
     await axios.get<WebhookHandleDefinitionDto[]>(`${process.env.POLY_API_BASE_URL}/webhooks`, {
       headers: {
         Accept: HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION,
         [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+      },
+      params: {
+        contexts,
+        names,
+        ids,
       },
     })
   ).data;

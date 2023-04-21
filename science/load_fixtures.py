@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 import csv
 from typing import List, TypedDict
 from prisma import Prisma, register, get_client
@@ -55,6 +56,7 @@ def load_functions(user: User) -> None:
                     "url": data["url"],
                     "headers": headers,
                     "method": data["method"],
+                    "createdAt": datetime.datetime.now(),
                 }  # type: ignore
             )
             print(f"Created {url_function_path(func)}")

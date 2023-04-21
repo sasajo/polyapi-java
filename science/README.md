@@ -36,16 +36,21 @@ To start the server, run the following:
 < * Running on http://127.0.0.1:5000
 ```
 
-Then to hit the server, request the following:
+Then to hit the server, set your OPEN_API_KEY in your environment. For bash, update your `~/.bashrc`:
 
 ```
-POST /function_completion/
-{"question": "how do I get united flight information for a user?"}
+export OPEN_API_KEY=<your_key>
+```
+
+And request the following:
+
+```
+POST http://localhost:5000/function-completion/
+{"question": "how do I get united flight information for a user?", "user_id": 1}
 ```
 
 The server will build a query based on your question, send it to OpenAI, and return the response.
 
-NOTE: you must have an OPENAI_API_KEY in your environment. Contact Darko for a key if you don't have one yet!
 
 ## Tests
 
