@@ -3,7 +3,6 @@ import { exec as execAsync, spawn } from 'child_process';
 import handlebars from 'handlebars';
 import fs from 'fs';
 import { Logger } from '@nestjs/common';
-import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
@@ -57,36 +56,23 @@ export class KNativeFaasService implements FaasService {
 
     this.logger.debug(`Executing server function '${id}' (maxRetryCount=${maxRetryCount})...`);
 
-    try {
-      return await lastValueFrom(
-        this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
-          .pipe(
-            map(response => response.data),
-          )
-          .pipe(
-            catchError((error: AxiosError) => {
-              this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
-              throw error;
-            }),
-          ),
-      );
-    } catch {
-      // HACK total copypasta from above, let's just wait 2 seconds and try again
-      await sleep(2000)
+    return await lastValueFrom(
+      this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
+        .pipe(
+          map(response => response.data),
+        )
+        .pipe(
+          catchError(async (error: AxiosError) => {
+            this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
+            if (maxRetryCount > 0) {
+              await sleep(2000);
+              return this.executeFunction(id, args, 0);
+            }
 
-      return await lastValueFrom(
-        this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
-          .pipe(
-            map(response => response.data),
-          )
-          .pipe(
-            catchError((error: AxiosError) => {
-              this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
-              throw error;
-            }),
-          ),
-      );
-    }
+            throw error;
+          }),
+        ),
+    );
   }
 
   private getFunctionPath(id: string): string {
