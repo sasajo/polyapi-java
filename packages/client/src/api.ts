@@ -43,15 +43,33 @@ export const getWebhookHandles = async () => {
   ).data;
 };
 
-export const createCustomFunction = async (context: string | null, name: string, code: string, server: boolean) => {
+export const createServerFunction = async (context: string | null, name: string, code: string) => {
   return (
     await axios.post(
-      `${process.env.POLY_API_BASE_URL}/functions/custom`,
+      `${process.env.POLY_API_BASE_URL}/functions/server`,
       {
         context,
         name,
         code,
-        server,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+        },
+      },
+    )
+  ).data;
+};
+
+export const createClientFunction = async (context: string | null, name: string, code: string) => {
+  return (
+    await axios.post(
+      `${process.env.POLY_API_BASE_URL}/functions/client`,
+      {
+        context,
+        name,
+        code,
       },
       {
         headers: {

@@ -15,7 +15,7 @@ const functions = [
 module.exports = (clientID) => merge(
   {},
   functions.reduce(
-    (acc, [path, id]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/functions/url/${id}/execute`, { clientID, args }).then(({ data }) => data)),
+    (acc, [path, id]) => set(acc, path, (...args) => axios.post(`{{apiBaseUrl}}/functions/api/${id}/execute`, { clientID, args }).then(({ data }) => data)),
     {}
   )
 );

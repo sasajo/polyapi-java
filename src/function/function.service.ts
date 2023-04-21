@@ -4,7 +4,6 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import { URLSearchParams } from 'url';
 import mergeWith from 'lodash/mergeWith';
 import { CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
@@ -23,7 +22,8 @@ import {
   Method,
   PropertySpecification,
   PropertyType,
-  Role, ServerFunctionSpecification,
+  Role,
+  ServerFunctionSpecification,
   Specification,
   Variables,
 } from '@poly/common';
@@ -85,7 +85,7 @@ export class FunctionService {
     return filterConditions.length > 0 ? { OR: filterConditions } : {};
   }
 
-  async getUrlFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
+  async getApiFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.urlFunction.findMany({
       where: {
         // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
@@ -139,7 +139,7 @@ export class FunctionService {
     return name;
   }
 
-  async findOrCreate(
+  async createOrUpdateApiFunction(
     user: User,
     url: string,
     method: Method,
@@ -149,7 +149,7 @@ export class FunctionService {
     body: Body,
     auth?: Auth,
   ): Promise<UrlFunction> {
-    const urlFunction = await this.prisma.urlFunction.findFirst({
+    const apiFunction = await this.prisma.urlFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -158,11 +158,11 @@ export class FunctionService {
         method,
       },
     });
-    if (urlFunction) {
-      this.logger.debug(`Found existing URL function ${urlFunction.id}. Updating...`);
+    if (apiFunction) {
+      this.logger.debug(`Found existing URL function ${apiFunction.id}. Updating...`);
       return this.prisma.urlFunction.update({
         where: {
-          id: urlFunction.id,
+          id: apiFunction.id,
         },
         data: {
           headers: JSON.stringify(headers),
@@ -190,7 +190,7 @@ export class FunctionService {
     });
   }
 
-  async updateDetails(
+  async updateApiFunctionDetails(
     id: number,
     user: User,
     url: string,
@@ -202,7 +202,7 @@ export class FunctionService {
     response: any,
     variables: Variables,
   ) {
-    const urlFunction = await this.prisma.urlFunction.findFirst({
+    const apiFunction = await this.prisma.urlFunction.findFirst({
       where: {
         id,
         user: {
@@ -210,7 +210,7 @@ export class FunctionService {
         },
       },
     });
-    if (!urlFunction) {
+    if (!apiFunction) {
       throw new HttpException(`Poly function not found`, HttpStatus.NOT_FOUND);
     }
 
@@ -223,8 +223,8 @@ export class FunctionService {
         context: aiContext,
       } = await this.aiService.getFunctionDescription(
         url,
-        urlFunction.method,
-        description || urlFunction.description,
+        apiFunction.method,
+        description || apiFunction.description,
         JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
         JSON.stringify(response),
       );
@@ -232,18 +232,18 @@ export class FunctionService {
       if (!name) {
         name = aiName;
       }
-      if (!context && !urlFunction.context) {
+      if (!context && !apiFunction.context) {
         context = aiContext;
       }
-      if (!description && !urlFunction.description) {
+      if (!description && !apiFunction.description) {
         description = aiDescription;
       }
     }
 
-    name = this.normalizeName(name, urlFunction);
-    context = this.normalizeContext(context, urlFunction);
-    description = this.normalizeDescription(description, urlFunction);
-    payload = this.normalizePayload(payload, urlFunction);
+    name = this.normalizeName(name, apiFunction);
+    context = this.normalizeContext(context, apiFunction);
+    description = this.normalizeDescription(description, apiFunction);
+    payload = this.normalizePayload(payload, apiFunction);
     this.logger.debug(
       `Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`,
     );
@@ -269,12 +269,12 @@ export class FunctionService {
         id,
       },
       data: {
-        name: await this.resolveFunctionName(user, name, context, false, true, [urlFunction.id]),
+        name: await this.resolveFunctionName(user, name, context, false, true, [apiFunction.id]),
         context,
         description,
         payload,
         response: JSON.stringify(response),
-        argumentsMetadata: await this.resolveArgumentsMetadata(urlFunction, variables),
+        argumentsMetadata: await this.resolveArgumentsMetadata(apiFunction, variables),
       },
     });
   }
@@ -291,55 +291,33 @@ export class FunctionService {
     };
   }
 
-  getFunctionArguments(urlFunction: UrlFunction, withDefinition = false): FunctionArgument[] {
-    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(urlFunction.argumentsMetadata || '{}'), withDefinition);
+  getFunctionArguments(apiFunction: UrlFunction, withDefinition = false): FunctionArgument[] {
+    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(apiFunction.argumentsMetadata || '{}'), withDefinition);
     const args: FunctionArgument[] = [];
 
-    args.push(...(urlFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
-    args.push(...(urlFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
-    args.push(...(urlFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
-    args.push(...(urlFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(apiFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(apiFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(apiFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
 
     args.sort(compareArgumentsByRequired);
 
     return args;
   }
 
-  urlFunctionToBasicDto(urlFunction: UrlFunction): FunctionBasicDto {
+  apiFunctionToBasicDto(apiFunction: UrlFunction): FunctionBasicDto {
     return {
-      id: urlFunction.publicId,
-      name: urlFunction.name,
-      context: urlFunction.context,
-      description: urlFunction.description,
+      id: apiFunction.publicId,
+      name: apiFunction.name,
+      context: apiFunction.context,
+      description: apiFunction.description,
     };
   }
 
-  apiFunctionToDetailsDto(urlFunction: UrlFunction): FunctionDetailsDto {
+  apiFunctionToDetailsDto(apiFunction: UrlFunction): FunctionDetailsDto {
     return {
-      ...this.urlFunctionToBasicDto(urlFunction),
-      arguments: this.getFunctionArguments(urlFunction),
-      type: 'url',
-    };
-  }
-
-  async urlFunctionToDefinitionDto(urlFunction: UrlFunction): Promise<FunctionDefinitionDto> {
-    const returnTypeName = 'ReturnType';
-    const content = urlFunction.response && this.commonService.getPathContent(JSON.parse(urlFunction.response), urlFunction.payload);
-    const namespace = toPascalCase(urlFunction.name);
-    const returnType = await this.commonService.generateTypeDeclaration(
-      returnTypeName,
-      content,
-      namespace,
-    );
-
-    return {
-      id: urlFunction.publicId,
-      name: urlFunction.name,
-      description: urlFunction.description,
-      context: urlFunction.context,
-      arguments: this.getFunctionArguments(urlFunction, true),
-      returnTypeName: `Promise<${namespace}.${returnTypeName}>`,
-      returnType,
+      ...this.apiFunctionToBasicDto(apiFunction),
+      arguments: this.getFunctionArguments(apiFunction),
       type: 'url',
     };
   }
@@ -361,19 +339,6 @@ export class FunctionService {
     };
   }
 
-  customFunctionToDefinitionDto(customFunction: CustomFunction): CustomFunctionDefinitionDto {
-    return {
-      type: customFunction.serverSide ? 'server' : 'custom',
-      id: customFunction.publicId,
-      name: customFunction.name,
-      description: customFunction.description,
-      context: customFunction.context,
-      arguments: JSON.parse(customFunction.arguments),
-      returnTypeName: customFunction.returnType || 'any',
-      customCode: customFunction.code,
-    };
-  }
-
   async findApiFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
     return this.prisma.urlFunction.findFirst({
       where: {
@@ -382,7 +347,7 @@ export class FunctionService {
     });
   }
 
-  async executeUrlFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
+  async executeApiFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
     this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const argumentsMap = this.getArgumentsMap(urlFunction, args);
@@ -454,7 +419,7 @@ export class FunctionService {
     );
   }
 
-  private getArgumentsMap(urlFunction: UrlFunction, args: any[]) {
+  private getArgumentsMap(apiFunction: UrlFunction, args: any[]) {
     const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
@@ -471,7 +436,7 @@ export class FunctionService {
       }
     };
 
-    const functionArgs = this.getFunctionArguments(urlFunction);
+    const functionArgs = this.getFunctionArguments(apiFunction);
     const getPayloadArgs = () => {
       const payloadArgs = functionArgs.filter((arg) => arg.payload);
       if (payloadArgs.length === 0) {
@@ -621,13 +586,26 @@ export class FunctionService {
     });
   }
 
-  async findCustomFunction(user: User, publicId: string) {
+  async findClientFunction(user: User, publicId: string) {
     return this.prisma.customFunction.findFirst({
       where: {
         user: {
           id: user.id,
         },
         publicId,
+        serverSide: false
+      },
+    });
+  }
+
+  async findServerFunction(user: User, publicId: string) {
+    return this.prisma.customFunction.findFirst({
+      where: {
+        user: {
+          id: user.id,
+        },
+        publicId,
+        serverSide: true
       },
     });
   }
@@ -683,6 +661,29 @@ export class FunctionService {
     });
   }
 
+  async deleteApiFunction(user: User, publicId: string) {
+    const apiFunction = await this.prisma.urlFunction.findFirst({
+      where: {
+        publicId,
+      },
+    });
+    if (apiFunction) {
+      if (user.role !== Role.Admin && apiFunction.userId !== user.id) {
+        throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
+      }
+
+      this.logger.debug(`Deleting URL function ${publicId}`);
+      await this.prisma.urlFunction.delete({
+        where: {
+          publicId,
+        },
+      });
+      return;
+    }
+
+    throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
+  }
+
   async updateCustomFunction(user: User, customFunction: CustomFunction, context: string | null, description: string | null) {
     const { id, name } = customFunction;
 
@@ -707,29 +708,6 @@ export class FunctionService {
         description: description == null ? customFunction.description : description,
       },
     });
-  }
-
-  async deleteApiFunction(user: User, publicId: string) {
-    const apiFunction = await this.prisma.urlFunction.findFirst({
-      where: {
-        publicId,
-      },
-    });
-    if (apiFunction) {
-      if (user.role !== Role.Admin && apiFunction.userId !== user.id) {
-        throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
-      }
-
-      this.logger.debug(`Deleting URL function ${publicId}`);
-      await this.prisma.urlFunction.delete({
-        where: {
-          publicId,
-        },
-      });
-      return;
-    }
-
-    throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
   }
 
   async deleteCustomFunction(user: User, publicId: string) {

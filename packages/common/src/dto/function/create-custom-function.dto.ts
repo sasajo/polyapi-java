@@ -6,5 +6,4 @@ export class CreateCustomFunctionDto {
   context?: string;
   @IsNotEmpty()
   code: string;
-  server?: boolean;
 }

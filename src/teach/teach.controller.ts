@@ -16,7 +16,7 @@ export class TeachController {
   async teach(@Req() req, @Body() teachDto: TeachDto): Promise<TeachResponseDto> {
     const { url, method, name, description, headers, body, auth } = teachDto;
     this.logger.debug(`Teaching ${method} ${url} with name '${name}' for user ${req.user.id}...`);
-    const polyFunction = await this.polyFunctionService.findOrCreate(req.user, url, method, name, description, headers, body, auth);
+    const polyFunction = await this.polyFunctionService.createOrUpdateApiFunction(req.user, url, method, name, description, headers, body, auth);
 
     return {
       functionId: polyFunction.id,
@@ -36,6 +36,6 @@ export class TeachController {
     const { url, body, name = null, context = null, description = null, payload = null, response, variables = {} } = teachDetailsDto;
     this.logger.debug(`Teaching details of function ${id} for user ${req.user.id}...`);
     this.logger.debug(`name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}`);
-    await this.polyFunctionService.updateDetails(id, req.user, url, body, name, context, description, payload, response, variables);
+    await this.polyFunctionService.updateApiFunctionDetails(id, req.user, url, body, name, context, description, payload, response, variables);
   }
 }

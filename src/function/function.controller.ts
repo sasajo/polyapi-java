@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -26,8 +27,6 @@ import {
   UpdateApiFunctionDto,
   UpdateCustomFunctionDto,
 } from '@poly/common';
-
-export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
 
 @Controller('functions')
 export class FunctionController {
@@ -66,6 +65,17 @@ export class FunctionController {
     );
   }
 
+  @Delete('/api/:id')
+  @UseGuards(ApiKeyGuard)
+  async deleteApiFunction(@Req() req, @Param('id') id: string): Promise<any> {
+    const apiFunction = await this.service.findApiFunction(req.user, id);
+    if (!apiFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.service.deleteApiFunction(req.user, id);
+  }
+
   @Post('/api/:id/execute')
   async executeApiFunction(@Param('id') id: string, @Body() executeFunctionDto: ExecuteApiFunctionDto): Promise<any> {
     const apiFunction = await this.service.findApiFunctionByPublicId(id);
@@ -73,45 +83,119 @@ export class FunctionController {
       throw new NotFoundException(`Function with publicId ${id} not found.`);
     }
 
-    return await this.service.executeUrlFunction(apiFunction, executeFunctionDto.args, executeFunctionDto.clientID);
+    return await this.service.executeApiFunction(apiFunction, executeFunctionDto.args, executeFunctionDto.clientID);
   }
 
-  @Get('/api/:id')
+  @Post('/client')
   @UseGuards(ApiKeyGuard)
-  async getCustomFunction(@Req() req, @Param('id') id: string): Promise<FunctionDetailsDto> {
-    const customFunction = await this.service.findCustomFunction(req.user, id);
-    if (customFunction) {
-      return this.service.customFunctionToDetailsDto(customFunction);
+  async createClientFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+    const { context = '', name, code} = createCustomFunctionDto;
+
+    try {
+      return await this.service.createCustomFunction(req.user, context, name, code, false);
+    } catch (e) {
+      throw new BadRequestException(e.message);
+    }
+  }
+
+  @Get('/client/:id')
+  @UseGuards(ApiKeyGuard)
+  async getClientFunction(@Req() req, @Param('id') id: string): Promise<FunctionDetailsDto> {
+    const clientFunction = await this.service.findClientFunction(req.user, id);
+    if (clientFunction) {
+      return this.service.customFunctionToDetailsDto(clientFunction);
     }
 
     throw new NotFoundException(`Function with ID ${id} not found.`);
   }
 
-  @Patch('/custom/:id')
+  @Patch('/client/:id')
   @UseGuards(ApiKeyGuard)
-  async updateCustomFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<any> {
+  async updateClientFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<any> {
     const {
       context = null,
       description = null,
     } = updateFunction;
-    const customFunction = await this.service.findCustomFunction(req.user, id);
-    if (!customFunction) {
+    const clientFunction = await this.service.findClientFunction(req.user, id);
+    if (!clientFunction) {
       throw new NotFoundException('Function not found');
     }
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(req.user, customFunction, context, description),
+      await this.service.updateCustomFunction(req.user, clientFunction, context, description),
     );
   }
 
-  @Post('/custom/:id/execute')
+  @Delete('/client/:id')
+  @UseGuards(ApiKeyGuard)
+  async deleteClientFunction(@Req() req, @Param('id') id: string): Promise<any> {
+    const clientFunction = await this.service.findClientFunction(req.user, id);
+    if (!clientFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.service.deleteCustomFunction(req.user, id);
+  }
+
+  @Post('/server')
+  @UseGuards(ApiKeyGuard)
+  async createServerFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+    const { context = '', name, code} = createCustomFunctionDto;
+
+    try {
+      return await this.service.createCustomFunction(req.user, context, name, code, true);
+    } catch (e) {
+      throw new BadRequestException(e.message);
+    }
+  }
+
+  @Get('/server/:id')
+  @UseGuards(ApiKeyGuard)
+  async getServerFunction(@Req() req, @Param('id') id: string): Promise<FunctionDetailsDto> {
+    const serverFunction = await this.service.findServerFunction(req.user, id);
+    if (serverFunction) {
+      return this.service.customFunctionToDetailsDto(serverFunction);
+    }
+
+    throw new NotFoundException(`Function with ID ${id} not found.`);
+  }
+
+  @Patch('/server/:id')
+  @UseGuards(ApiKeyGuard)
+  async updateServerFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<any> {
+    const {
+      context = null,
+      description = null,
+    } = updateFunction;
+    const serverFunction = await this.service.findServerFunction(req.user, id);
+    if (!serverFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    return this.service.customFunctionToDetailsDto(
+      await this.service.updateCustomFunction(req.user, serverFunction, context, description),
+    );
+  }
+
+  @Delete('/server/:id')
+  @UseGuards(ApiKeyGuard)
+  async deleteServerFunction(@Req() req, @Param('id') id: string): Promise<any> {
+    const serverFunction = await this.service.findServerFunction(req.user, id);
+    if (!serverFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.service.deleteCustomFunction(req.user, id);
+  }
+
+  @Post('/server/:id/execute')
   async executeCustomFunction(@Param('id') id: string, @Body() executeFunctionDto: ExecuteCustomFunctionDto): Promise<any> {
     const customFunction = await this.service.findCustomFunctionByPublicId(id);
     if (!customFunction) {
       throw new NotFoundException(`Function with publicId ${id} not found.`);
     }
     if (!customFunction.serverSide) {
-      throw new HttpException(`Function with publicId ${id} is not server function.`, HttpStatus.BAD_REQUEST);
+      throw new BadRequestException(`Function with publicId ${id} is not server function.`);
     }
 
     return await this.service.executeServerFunction(customFunction, executeFunctionDto.args, executeFunctionDto.clientID);
@@ -125,28 +209,7 @@ export class FunctionController {
     } else if (apiKey) {
       await this.service.deleteAllApiKey(apiKey);
     } else {
-      throw new HttpException('Missing userId or apiKey parameter', HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  @Delete('/api/:publicId')
-  @UseGuards(ApiKeyGuard)
-  async deleteFunction(@Req() req, @Param('publicId') publicId: string): Promise<void> {
-    await this.service.deleteApiFunction(req.user, publicId);
-  }
-
-  @Post('/custom')
-  @UseGuards(ApiKeyGuard)
-  async createCustomFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
-    // temporarily increase timeout for custom function creation
-    req.setTimeout(300000);
-
-    const { context = '', name, code, server = false } = createCustomFunctionDto;
-
-    try {
-      return await this.service.createCustomFunction(req.user, context, name, code, server);
-    } catch (e) {
-      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('Missing userId or apiKey parameter');
     }
   }
 }

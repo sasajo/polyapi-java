@@ -17,7 +17,7 @@ export class SpecsService {
   }
 
   async getSpecifications(user: User, contexts?: string[], names?: string[], ids?: string[]): Promise<Specification[]> {
-    const apiFunctions = await this.functionService.getUrlFunctionsByUser(user, contexts, names, ids);
+    const apiFunctions = await this.functionService.getApiFunctionsByUser(user, contexts, names, ids);
     const customFunctions = await this.functionService.getCustomFunctionsByUser(user, contexts, names, ids);
     const webhookHandles = await this.webhookService.getWebhookHandles(user);
     const authProviders = await this.authProviderService.getAuthProviders(user, contexts);
