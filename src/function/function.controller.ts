@@ -21,7 +21,7 @@ import {
   CreateCustomFunctionDto,
   DeleteAllFunctionsDto,
   ExecuteApiFunctionDto,
-  ExecuteCustomFunctionDto,
+  ExecuteCustomFunctionDto, FunctionBasicDto,
   FunctionDetailsDto,
   Role,
   UpdateApiFunctionDto,
@@ -35,12 +35,19 @@ export class FunctionController {
   constructor(private readonly service: FunctionService) {
   }
 
+  @Get('/api')
+  @UseGuards(ApiKeyGuard)
+  async getApiFunctions(@Req() req): Promise<FunctionBasicDto[]> {
+    const apiFunctions = await this.service.getApiFunctions(req.user);
+    return apiFunctions.map((apiFunction) => this.service.apiFunctionToBasicDto(apiFunction));
+  }
+
   @Get('/api/:id')
   @UseGuards(ApiKeyGuard)
   async getApiFunction(@Req() req, @Param('id') id: string): Promise<FunctionDetailsDto> {
-    const urlFunction = await this.service.findApiFunction(req.user, id);
-    if (urlFunction) {
-      return this.service.apiFunctionToDetailsDto(urlFunction);
+    const apiFunction = await this.service.findApiFunction(req.user, id);
+    if (apiFunction) {
+      return this.service.apiFunctionToDetailsDto(apiFunction);
     }
 
     throw new NotFoundException(`Function with ID ${id} not found.`);
@@ -86,10 +93,19 @@ export class FunctionController {
     return await this.service.executeApiFunction(apiFunction, executeFunctionDto.args, executeFunctionDto.clientID);
   }
 
+  @Get('/client')
+  @UseGuards(ApiKeyGuard)
+  async getClientFunctions(@Req() req): Promise<FunctionBasicDto[]> {
+    const customFunctions = await this.service.getCustomFunctions(req.user);
+    return customFunctions
+      .filter((customFunction) => !customFunction.serverSide)
+      .map((clientFunction) => this.service.customFunctionToBasicDto(clientFunction));
+  }
+
   @Post('/client')
   @UseGuards(ApiKeyGuard)
   async createClientFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
-    const { context = '', name, code} = createCustomFunctionDto;
+    const { context = '', name, code } = createCustomFunctionDto;
 
     try {
       return await this.service.createCustomFunction(req.user, context, name, code, false);
@@ -137,10 +153,19 @@ export class FunctionController {
     await this.service.deleteCustomFunction(req.user, id);
   }
 
+  @Get('/server')
+  @UseGuards(ApiKeyGuard)
+  async getServerFunctions(@Req() req): Promise<FunctionBasicDto[]> {
+    const customFunctions = await this.service.getCustomFunctions(req.user);
+    return customFunctions
+      .filter((customFunction) => customFunction.serverSide)
+      .map((serverFunction) => this.service.customFunctionToBasicDto(serverFunction));
+  }
+
   @Post('/server')
   @UseGuards(ApiKeyGuard)
   async createServerFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
-    const { context = '', name, code} = createCustomFunctionDto;
+    const { context = '', name, code } = createCustomFunctionDto;
 
     try {
       return await this.service.createCustomFunction(req.user, context, name, code, true);

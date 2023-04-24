@@ -1,5 +1,49 @@
 import * as vscode from 'vscode';
 import { ProviderResult, TreeItem } from 'vscode';
+import { PropertySpecification, PropertyType } from '@poly/common';
+import { toCamelCase } from '@guanghechen/helper-string';
+
+// duplicate from packages/client/src/commands/generate.ts
+// find a way how to extract it to common package
+const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
+  const wrapInPromiseIfNeeded = (code: string) => (synchronous ? code : `Promise<${code}>`);
+
+  switch (type.kind) {
+    case 'plain':
+      return type.value;
+    case 'primitive':
+      return wrapInPromiseIfNeeded(type.type);
+    case 'void':
+      return wrapInPromiseIfNeeded('void');
+    case 'array':
+      return wrapInPromiseIfNeeded(`${toTypeDeclaration(type.items)}[]`);
+    case 'object':
+      if (type.typeName) {
+        return wrapInPromiseIfNeeded(type.typeName);
+      } else if (type.properties) {
+        return wrapInPromiseIfNeeded(
+          `{ ${type.properties
+            .map((prop) => `${prop.name}${prop.required === false ? '?' : ''}: ${toTypeDeclaration(prop.type)}`)
+            .join(';\n')} }`,
+        );
+      } else {
+        return wrapInPromiseIfNeeded('any');
+      }
+    case 'function':
+      if (type.name) {
+        return type.name;
+      }
+      const toArgument = (arg: PropertySpecification) =>
+        `${arg.name}${arg.required === false ? '?' : ''}: ${toTypeDeclaration(arg.type)}${
+          arg.nullable === true ? ' | null' : ''
+        }`;
+
+      return `(${type.spec.arguments.map(toArgument).join(', ')}) => ${toTypeDeclaration(
+        type.spec.returnType,
+        type.spec.synchronous === true,
+      )}`;
+  }
+};
 
 class LibraryTreeItem extends vscode.TreeItem {
   constructor(
@@ -13,37 +57,33 @@ class LibraryTreeItem extends vscode.TreeItem {
   }
 
   private generateTooltip() {
-    const { type, name, description, arguments: args } = this.data;
+    const { type, name, description } = this.data;
 
     const getFunctionTooltip = (title: string) => {
-      const functionArgs = args.filter(arg => !arg.payload);
-      const payloadArgs = args.filter(arg => arg.payload);
+      const toFunctionArgument = (arg: PropertySpecification) => {
+        return `${toCamelCase(arg.name)}${arg.required === false ? '?' : ''}: ${toTypeDeclaration(arg.type)}`;
+      };
+
       return new vscode.MarkdownString(
         `**${title}**\n\n---\n\n${
           description
             ? `${description}\n\n---\n\n`
             : ''
-        }${name}(${functionArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')}${
-          payloadArgs.length
-            ? `${
-              functionArgs.length ? ', ' : ''
-            }payload: { ${payloadArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ')} }`
-            : ''
-        })`,
+        }${name}(${this.data.function.arguments.map(toFunctionArgument).join(', ')})`,
       );
     };
 
     switch (type) {
-      case 'url':
+      case 'apiFunction':
         this.tooltip = getFunctionTooltip('API function');
         break;
-      case 'custom':
+      case 'customFunction':
         this.tooltip = getFunctionTooltip('Custom function');
         break;
-      case 'server':
+      case 'serverFunction':
         this.tooltip = getFunctionTooltip('Server function');
         break;
-      case 'auth':
+      case 'authFunction':
         this.tooltip = getFunctionTooltip('OAuth function');
         break;
       case 'webhookHandle':
@@ -61,13 +101,13 @@ class LibraryTreeItem extends vscode.TreeItem {
 }
 
 export default class LibraryIndexViewProvider implements vscode.TreeDataProvider<LibraryTreeItem> {
-  private contextData: Record<string, any> = {};
+  private specs: Record<string, any> = {};
 
   private _onDidChangeTreeData: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData: vscode.Event<void> = this._onDidChangeTreeData.event;
 
   getChildren(parent?: LibraryTreeItem): ProviderResult<LibraryTreeItem[]> {
-    const data = parent?.data || this.contextData;
+    const data = parent?.data || this.specs;
     if (data.type) {
       return [];
     }
@@ -100,30 +140,35 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
     return element;
   }
 
-  public refresh(contextData: Record<string, any>) {
-    console.log('POLY: Refreshing index tree data...', contextData);
-    this.contextData = contextData;
+  public refresh(specs: Record<string, any>) {
+    console.log('POLY: Refreshing index tree data...', specs);
+    this.specs = specs;
     this._onDidChangeTreeData.fire();
   }
 
   static copyLibraryItem(item: LibraryTreeItem) {
     const { parentPath, data, label } = item;
-    const { type, name, arguments: args } = data;
+    const { type, name } = data;
+
     switch (type) {
-      case 'url':
-      case 'custom':
-        const functionArgs = args.filter(arg => !arg.payload);
-        const payloadArgs = args.filter(arg => arg.payload);
+      case 'apiFunction':
+      case 'customFunction':
+      case 'serverFunction':
+        const args = data.function.arguments;
         vscode.env.clipboard.writeText(
-          `await ${parentPath}.${name}(${functionArgs.map(arg => `${arg.name}`).join(', ')}${
-            payloadArgs.length
-              ? `${functionArgs.length ? ', ' : ''}payload`
-              : ''
-          });`,
+          `await ${parentPath}.${name}(${args.map(arg => `${toCamelCase(arg.name)}`).join(', ')});`,
         );
         break;
-      case 'auth':
-        vscode.env.clipboard.writeText(`${parentPath}.${name}(clientId, clientSecret, scopes, (url, token, error) => {\n\n});`);
+      case 'authFunction':
+        switch(name) {
+          case 'getToken':
+            vscode.env.clipboard.writeText(`${parentPath}.${name}(clientId, clientSecret, scopes, (token, url, error) => {\n\n});`);
+            break;
+          case 'revokeToken':
+          case 'introspectToken':
+            vscode.env.clipboard.writeText(`await ${parentPath}.${name}(token);`);
+            break;
+        }
         break;
       case 'webhookHandle':
         vscode.env.clipboard.writeText(`${parentPath}.${name}(event => {\n\n});`);

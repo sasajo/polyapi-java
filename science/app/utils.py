@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Optional, Union
 from app.constants import VarName
 from app.typedefs import FunctionDto, WebhookDto, MessageDict
 from prisma import Prisma, get_client, register
-from prisma.models import ConversationMessage, UrlFunction, ConfigVariable
+from prisma.models import ConversationMessage, ApiFunction, ConfigVariable
 
 
 # HACK should have better name
@@ -39,7 +39,7 @@ def func_path_with_args(func: FunctionDto) -> str:
         return f"{func_path(func)}({', '.join(args)})"
 
 
-def url_function_path(func: UrlFunction) -> str:
+def url_function_path(func: ApiFunction) -> str:
     return f"{func.context}.{func.name}"
 
 

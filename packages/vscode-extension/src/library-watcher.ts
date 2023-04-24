@@ -1,7 +1,7 @@
 import vscode from 'vscode';
 import fs, { Stats } from 'fs';
 
-import { polyDataChanged } from './events';
+import { polySpecsChanged } from './events';
 
 const CHECK_INTERVAL = 5000;
 
@@ -28,7 +28,7 @@ const checkForLibraryInstalled = () => {
 };
 
 export const start = () => {
-  polyDataChanged({});
+  polySpecsChanged({});
 
   vscode.workspace.onDidChangeWorkspaceFolders((event) => {
     event.added.forEach(watchWorkspace);
@@ -46,9 +46,9 @@ export const start = () => {
   };
 };
 
-const getPolyDataPath = (folder: vscode.WorkspaceFolder) => `${folder.uri.fsPath}/node_modules/.poly/lib/context-data.json`;
-const getPolyData = (folder: vscode.WorkspaceFolder) => {
-  const polyDataPath = getPolyDataPath(folder);
+const getPolySpecsPath = (folder: vscode.WorkspaceFolder) => `${folder.uri.fsPath}/node_modules/.poly/lib/specs.json`;
+const getPolySpecs = (folder: vscode.WorkspaceFolder) => {
+  const polyDataPath = getPolySpecsPath(folder);
   if (!fs.existsSync(polyDataPath)) {
     return {};
   }
@@ -56,7 +56,7 @@ const getPolyData = (folder: vscode.WorkspaceFolder) => {
 };
 
 const watchWorkspace = (folder: vscode.WorkspaceFolder) => {
-  const polyDataPath = getPolyDataPath(folder);
+  const polyDataPath = getPolySpecsPath(folder);
   let stats: Stats;
 
   if (fs.existsSync(polyDataPath)) {
@@ -64,11 +64,11 @@ const watchWorkspace = (folder: vscode.WorkspaceFolder) => {
     if (watchedWorkspaceInfos.get(folder)?.fileStats?.mtimeMs !== stats.mtimeMs) {
       console.log('POLY: Poly library changed, sending event...');
       watchedWorkspaceInfos.set(folder, { timeoutID: null, fileStats: stats });
-      polyDataChanged(getPolyData(folder));
+      polySpecsChanged(getPolySpecs(folder));
     }
   } else if (watchedWorkspaceInfos.get(folder)?.fileStats) {
     console.log('POLY: Poly library removed, sending event...');
-    polyDataChanged({});
+    polySpecsChanged({});
   }
 
   const timeoutID = setTimeout(() => watchWorkspace(folder), CHECK_INTERVAL);

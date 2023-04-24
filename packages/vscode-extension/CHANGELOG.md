@@ -1,3 +1,6 @@
+### 0.1.18
+* Updated tooltips and copied code for changed specifications
+
 ### 0.1.17
 * Fixed tooltip for server functions
 

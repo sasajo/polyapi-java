@@ -24,6 +24,7 @@ import { GptPluginModule } from 'gptplugin/gptplugin.module';
     }),
     AuthModule,
     UserModule,
+
     FunctionModule,
     TeachModule,
     PrismaModule,

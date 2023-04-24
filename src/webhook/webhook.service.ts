@@ -1,18 +1,22 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, User, WebhookHandle } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
-import { toPascalCase } from '@guanghechen/helper-string';
 import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
-import {
-  PropertySpecification,
-  WebhookHandleDefinitionDto,
-  WebhookHandleDto,
-  WebhookHandleSpecification,
-} from '@poly/common';
+import { PropertySpecification, WebhookHandleDto, WebhookHandleSpecification } from '@poly/common';
 import { ConfigService } from 'config/config.service';
+import { SpecsService } from 'specs/specs.service';
+import { toCamelCase } from '@guanghechen/helper-string';
 
 @Injectable()
 export class WebhookService {
@@ -25,7 +29,10 @@ export class WebhookService {
     private readonly httpService: HttpService,
     private readonly eventService: EventService,
     private readonly userService: UserService,
-  ) {}
+    @Inject(forwardRef(() => SpecsService))
+    private readonly specsService: SpecsService,
+  ) {
+  }
 
   private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>): Promise<WebhookHandle> {
     return this.prisma.webhookHandle.create({
@@ -39,45 +46,34 @@ export class WebhookService {
   private getWebhookFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
-          return {
-            OR: [
-              {
-                context: { startsWith: `${context}.` },
-              },
-              {
-                context,
-              },
-            ],
-          };
-        })
+        return {
+          OR: [
+            {
+              context: { startsWith: `${context}.` },
+            },
+            {
+              context,
+            },
+          ],
+        };
+      })
       : [];
 
     const filterConditions = [
       ...contextConditions,
       names?.length ? { name: { in: names } } : undefined,
       ids?.length ? { id: { in: ids } } : undefined,
-    ].filter(Boolean);
+    ].filter(Boolean) as any[];
 
-    this.logger.debug(`filterConditions: ${JSON.stringify(filterConditions)}`);
+    if (filterConditions.length > 0) {
+      this.logger.debug(`webhookHandles filterConditions: ${JSON.stringify(filterConditions)}`);
+    }
 
     return filterConditions.length > 0 ? { OR: [...filterConditions] } : undefined;
   }
 
-  public async getAllWebhookHandles(contexts?: string[], names?: string[], ids?: string[]): Promise<WebhookHandle[]> {
-    this.logger.debug(`Getting all webhook handles...`);
-
-    return this.prisma.webhookHandle.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      where: {
-        ...this.getWebhookFilterConditions(contexts, names, ids),
-      },
-    });
-  }
-
-  public async getWebhookHandles(user: User): Promise<WebhookHandle[]> {
-    this.logger.debug(`Getting webhook handles for user ${user.name}...`);
+  public async getWebhookHandles(user: User, contexts?: string[], names?: string[], ids?: string[]): Promise<WebhookHandle[]> {
+    this.logger.debug(`Getting webhook handles for user ${user?.name}...`);
 
     const publicUser = await this.userService.getPublicUser();
 
@@ -91,6 +87,7 @@ export class WebhookService {
             userId: publicUser.id,
           },
         ],
+        ...this.getWebhookFilterConditions(contexts, names, ids),
       },
       orderBy: {
         createdAt: 'desc',
@@ -98,7 +95,7 @@ export class WebhookService {
     });
   }
 
-  public async registerWebhookContextFunction(
+  public async createOrUpdateWebhookHandle(
     user: User,
     context: string | null,
     name: string,
@@ -108,7 +105,7 @@ export class WebhookService {
     name = this.normalizeName(name);
     context = this.normalizeContext(context);
 
-    this.logger.debug(`Registering webhook for ${context}/${name}...`);
+    this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
@@ -118,12 +115,13 @@ export class WebhookService {
       },
     });
 
+    if (!await this.checkContextAndNameDuplicates(user, context, name, webhookHandle ? [webhookHandle.id] : [])) {
+      throw new ConflictException(`Function with ${context}/${name} is already registered.`);
+    }
+
     if (webhookHandle) {
       if (webhookHandle.userId !== user.id) {
-        throw new HttpException(
-          `Webhook handle ${context}/${name} is already registered by another user.`,
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new ConflictException(`Webhook handle ${context}/${name} is already registered by another user.`);
       }
 
       this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
@@ -152,36 +150,7 @@ export class WebhookService {
     }
   }
 
-  async triggerWebhookContextFunction(context: string, name: string, eventPayload: any) {
-    this.logger.debug(`Triggering webhook for ${context}/${name}...`);
-    const webhookHandle = await this.prisma.webhookHandle.findFirst({
-      where: {
-        name,
-        context,
-      },
-    });
-
-    if (!webhookHandle) {
-      if (this.config.autoRegisterWebhookHandle) {
-        this.logger.debug(`Webhook handle not found for ${context}/${name} - auto registering...`);
-        await this.registerWebhookContextFunction(
-          await this.userService.getPublicUser(),
-          context,
-          name,
-          eventPayload,
-          '',
-        );
-        return;
-      } else {
-        this.logger.debug(`Webhook handle not found for ${context}/${name} - skipping...`);
-        return;
-      }
-    }
-
-    this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
-  }
-
-  async triggerWebhookContextFunctionByID(id: string, eventPayload: any) {
+  async triggerWebhookHandle(id: string, eventPayload: any) {
     this.logger.debug(`Triggering webhook for ${id}...`);
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
@@ -202,30 +171,7 @@ export class WebhookService {
       id: webhookHandle.id,
       name: webhookHandle.name,
       context: webhookHandle.context,
-      urls: [
-        `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
-        webhookHandle.context
-          ? `${this.config.hostUrl}/webhooks/${webhookHandle.context}/${webhookHandle.name}`
-          : `${this.config.hostUrl}/webhooks/${webhookHandle.name}`,
-      ],
-    };
-  }
-
-  async toDefinitionDto(webhookHandle: WebhookHandle): Promise<WebhookHandleDefinitionDto> {
-    const typeName = 'EventType';
-    const namespace = toPascalCase(webhookHandle.name);
-    const eventType = await this.commonService.generateTypeDeclaration(
-      typeName,
-      JSON.parse(webhookHandle.eventPayload),
-      namespace,
-    );
-
-    return {
-      id: webhookHandle.id,
-      name: webhookHandle.name,
-      context: webhookHandle.context,
-      eventTypeName: `${namespace}.${typeName}`,
-      eventType,
+      url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
     };
   }
 
@@ -245,15 +191,19 @@ export class WebhookService {
       },
     });
     if (!webhookHandle) {
-      throw new HttpException(`Webhook handle ${id} not found.`, HttpStatus.NOT_FOUND);
+      throw new NotFoundException(`Webhook handle ${id} not found.`);
     }
     if (name === '') {
-      throw new HttpException(`Webhook handle name cannot be empty.`, HttpStatus.BAD_REQUEST);
+      throw new BadRequestException(`Webhook handle name cannot be empty.`);
     }
 
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
     description = this.normalizeDescription(description, webhookHandle);
+
+    if (!await this.checkContextAndNameDuplicates(user, context, name, [webhookHandle.id])) {
+      throw new ConflictException(`Function with name ${context}/${name} already exists.`);
+    }
 
     this.logger.debug(
       `Updating webhook for ${webhookHandle.context}/${webhookHandle.name} with context:${context}/name:${name} and description: "${description}"...`,
@@ -269,6 +219,15 @@ export class WebhookService {
         description,
       },
     });
+  }
+
+  private async checkContextAndNameDuplicates(user: User, context: string, name: string, excludedIds?: string[]) {
+    const functionPath = `${context ? `${context}.` : ''}${name.split('.').map(toCamelCase).join('.')}`;
+    const paths = (await this.specsService.getSpecificationPaths(user))
+      .filter(path => excludedIds == null || !excludedIds.includes(path.id))
+      .map(path => path.path);
+
+    return !paths.includes(functionPath);
   }
 
   private normalizeName(name: string | null, webhookHandle?: WebhookHandle) {
@@ -304,7 +263,7 @@ export class WebhookService {
       },
     });
     if (!webhookHandle) {
-      throw new HttpException(`Webhook handle ${id} not found.`, HttpStatus.NOT_FOUND);
+      throw new NotFoundException(`Webhook handle ${id} not found.`);
     }
 
     this.logger.debug(`Deleting webhook for ${webhookHandle.context}/${webhookHandle.name}...`);

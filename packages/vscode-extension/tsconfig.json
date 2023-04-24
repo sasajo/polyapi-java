@@ -3,8 +3,14 @@
   "compilerOptions": {
     "outDir": "build",
     "paths": {
-      "*": ["./src/*"]
+      "*": ["./src/*"],
+      "@poly/common": ["../common/src"],
     }
   },
+  "references": [
+    {
+      "path": "../common"
+    }
+  ],
   "include": ["src/**/*"]
 }

@@ -2,7 +2,7 @@ export interface WebhookHandleDto {
   id: string;
   name: string;
   context: string;
-  urls: string[];
+  url: string;
 }
 
 export interface WebhookHandleDefinitionDto {

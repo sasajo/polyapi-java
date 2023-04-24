@@ -14,11 +14,11 @@ model User {
   apiKey               String                @unique @map("api_key")
   name                 String?
   role                 String                @default("USER")
-  vip                  Boolean               @default(false)  // is this person a VIP we want to track carefully?
-  urlFunctions         UrlFunction[]
+  vip                  Boolean               @default(false) // is this person a VIP we want to track carefully?
+  apiFunctions         ApiFunction[]
   webhookHandles       WebhookHandle[]
   customFunctions      CustomFunction[]
-  authFunctions        AuthFunction[]
+  authProviders        AuthProvider[]
   conversationMessages ConversationMessage[]
   systemPrompts        SystemPrompt[]
   authTokens           AuthToken[]
@@ -26,7 +26,7 @@ model User {
   @@map("user")
 }
 
-model UrlFunction {
+model ApiFunction {
   id                Int            @id @default(autoincrement())
   createdAt         DateTime       @map("created_at")
   user              User           @relation(fields: [userId], references: [id])
@@ -44,10 +44,8 @@ model UrlFunction {
   argumentsMetadata String?        @map("arguments_metadata")
   trained           Boolean        @default(false)
   publicId          String         @unique @default(uuid()) @map("public_id")
-  webhookHandle     WebhookHandle? @relation(fields: [webhookHandleId], references: [id])
-  webhookHandleId   String?        @unique @map("webhook_handle_id")
 
-  @@map("url_function")
+  @@map("api_function")
 }
 
 model CustomFunction {
@@ -63,25 +61,26 @@ model CustomFunction {
   returnType  String?  @map("return_type")
   publicId    String   @unique @default(uuid()) @map("public_id")
   trained     Boolean  @default(false)
+  serverSide  Boolean  @default(false) @map("server_side")
 
   @@map("custom_function")
 }
 
-model AuthFunction {
-  id             Int         @id @default(autoincrement())
-  createdAt      DateTime    @default(now()) @map("created_at")
-  user           User        @relation(fields: [userId], references: [id])
-  userId         Int         @map("user_id")
-  name           String
-  context        String
-  description    String      @default("")
-  authUrl        String      @map("auth_url")
-  accessTokenUrl String      @map("access_token_url")
-  publicId       String      @unique @default(uuid()) @map("public_id")
-  trained        Boolean     @default(false)
-  authTokens     AuthToken[]
+model AuthProvider {
+  id               String      @id @default(uuid())
+  createdAt        DateTime    @default(now()) @map("created_at")
+  user             User        @relation(fields: [userId], references: [id])
+  userId           Int         @map("user_id")
+  context          String
+  authorizeUrl     String      @map("authorize_url")
+  tokenUrl         String      @map("token_url")
+  revokeUrl        String?     @map("revoke_url")
+  introspectUrl    String?     @map("introspect_url")
+  audienceRequired Boolean     @default(false) @map("audience_required")
+  trained          Boolean     @default(false)
+  authTokens       AuthToken[]
 
-  @@map("auth_function")
+  @@map("auth_provider")
 }
 
 model WebhookHandle {
@@ -92,7 +91,7 @@ model WebhookHandle {
   context      String
   name         String
   eventPayload String       @map("event_payload")
-  urlFunction  UrlFunction?
+  description  String       @default("")
 
   @@map("webhook_handle")
 }
@@ -142,19 +141,22 @@ model SystemPrompt {
 }
 
 model AuthToken {
+  id             String       @id @default(uuid())
   createdAt      DateTime     @default(now()) @map("created_at")
-  authFunction   AuthFunction @relation(fields: [authFunctionId], references: [id])
-  authFunctionId Int          @map("auth_function_id")
+  authProvider   AuthProvider @relation(fields: [authProviderId], references: [id])
+  authProviderId String       @map("auth_provider_id")
   user           User         @relation(fields: [userId], references: [id])
   userId         Int          @map("user_id")
   clientId       String       @map("client_id")
   clientSecret   String       @map("client_secret")
+  callbackUrl    String?      @map("callback_url")
+  audience       String?
+  scopes         String
   state          String?
   accessToken    String?      @map("access_token")
   refreshToken   String?      @map("refresh_token")
   eventsClientId String?      @map("events_client_id")
 
-  @@id([authFunctionId, userId])
   @@map("auth_token")
 }
 

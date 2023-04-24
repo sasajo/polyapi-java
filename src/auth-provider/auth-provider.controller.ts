@@ -6,7 +6,7 @@ import {
   Get,
   Logger,
   NotFoundException,
-  Param,
+  Param, Patch,
   Post,
   Put,
   Query,
@@ -19,7 +19,7 @@ import {
   CreateAuthProviderDto,
   ExecuteAuthProviderDto,
   ExecuteAuthProviderResponseDto,
-  AuthTokenDto,
+  AuthTokenDto, UpdateAuthProviderDto,
 } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 
@@ -56,10 +56,10 @@ export class AuthProviderController {
     );
   }
 
-  @Put(':id')
+  @Patch(':id')
   @UseGuards(ApiKeyGuard)
-  async updateAuthProvider(@Req() req, @Param('id') id: string, @Body() data: CreateAuthProviderDto) {
-    const { context, authorizeUrl, tokenUrl, revokeUrl = null, introspectUrl = null, audienceRequired = false } = data;
+  async updateAuthProvider(@Req() req, @Param('id') id: string, @Body() data: UpdateAuthProviderDto) {
+    const { context, authorizeUrl, tokenUrl, revokeUrl , introspectUrl, audienceRequired  } = data;
 
     const authProvider = await this.service.getAuthProvider(req.user, id);
     if (!authProvider) {

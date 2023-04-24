@@ -399,7 +399,7 @@ const generateTSContextDeclarationFile = async (
 };
 
 const generateContextDataFile = async (contextData: Record<string, any>) => {
-  fs.writeFileSync(`${POLY_LIB_PATH}/context-data.json`, JSON.stringify(contextData, null, 2));
+  fs.writeFileSync(`${POLY_LIB_PATH}/specs.json`, JSON.stringify(contextData, null, 2));
 };
 
 const getContextData = (specs: Specification[]) => {

@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 import {
   BadRequestException,
-  HttpException,
-  HttpStatus,
+  ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -13,12 +14,14 @@ import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   AuthFunctionSpecification,
-  AuthProviderDto, ExecuteAuthProviderResponseDto,
+  AuthProviderDto,
+  ExecuteAuthProviderResponseDto,
   PropertySpecification,
 } from '@poly/common';
 import { ConfigService } from 'config/config.service';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
+import { SpecsService } from 'specs/specs.service';
 
 @Injectable()
 export class AuthProviderService {
@@ -29,16 +32,33 @@ export class AuthProviderService {
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
     private readonly eventService: EventService,
+    @Inject(forwardRef(() => SpecsService))
+    private readonly specsService: SpecsService,
   ) {
   }
 
   async getAuthProviders(user: User, contexts?: string[]): Promise<AuthProvider[]> {
+    const contextConditions = contexts?.length
+      ? contexts.filter(Boolean).map((context) => {
+        return {
+          OR: [
+            {
+              context: { startsWith: `${context}.` },
+            },
+            {
+              context,
+            },
+          ],
+        };
+      })
+      : [];
+
     return this.prisma.authProvider.findMany({
       where: {
         userId: user.id,
-        context: contexts
-          ? { in: contexts }
-          : undefined,
+        ...contextConditions.length && {
+          OR: contextConditions,
+        },
       },
     });
   }
@@ -52,7 +72,11 @@ export class AuthProviderService {
     });
   }
 
-  createAuthProvider(user: User, context: string, authorizeUrl: string, tokenUrl: string, revokeUrl: string | null, introspectUrl: string | null, audienceRequired: boolean) {
+  async createAuthProvider(user: User, context: string, authorizeUrl: string, tokenUrl: string, revokeUrl: string | null, introspectUrl: string | null, audienceRequired: boolean) {
+    if (!await this.checkContextDuplicates(user, context, !!revokeUrl, !!introspectUrl)) {
+      throw new ConflictException(`Auth functions within context ${context} already exist`);
+    }
+
     this.logger.debug(`Creating auth provider for user ${user.id} with context ${context} and authorizeUrl ${authorizeUrl}`);
     return this.prisma.authProvider.create({
       data: {
@@ -71,7 +95,27 @@ export class AuthProviderService {
     });
   }
 
-  updateAuthProvider(user: User, authProvider: AuthProvider, context: string, authorizeUrl: string, tokenUrl: string, revokeUrl: string | null, introspectUrl: string | null, audienceRequired: boolean) {
+  async updateAuthProvider(
+    user: User,
+    authProvider: AuthProvider,
+    context: string | undefined,
+    authorizeUrl: string | undefined,
+    tokenUrl: string | undefined,
+    revokeUrl: string | null | undefined,
+    introspectUrl: string | null | undefined,
+    audienceRequired: boolean | undefined
+  ) {
+    context = context || authProvider.context;
+    authorizeUrl = authorizeUrl || authProvider.authorizeUrl;
+    tokenUrl = tokenUrl || authProvider.tokenUrl;
+    revokeUrl = revokeUrl === undefined ? authProvider.revokeUrl : revokeUrl;
+    introspectUrl = introspectUrl === undefined ? authProvider.introspectUrl : introspectUrl;
+    audienceRequired = audienceRequired === undefined ? authProvider.audienceRequired : audienceRequired;
+
+    if (!await this.checkContextDuplicates(user, context, !!revokeUrl, !!introspectUrl, [authProvider.id])) {
+      throw new ConflictException(`Auth functions within context ${context} already exist`);
+    }
+
     this.logger.debug(`Updating auth provider ${authProvider.id} for user ${user.id}`);
     return this.prisma.authProvider.update({
       where: {
@@ -558,5 +602,23 @@ export class AuthProviderService {
         },
       },
     ].filter(Boolean) as PropertySpecification[];
+  }
+
+  private async checkContextDuplicates(user: User, context: string, revokeFunction: boolean, introspectFunction: boolean, excludedIds?: string[]): Promise<boolean> {
+    const paths = (await this.specsService.getSpecificationPaths(user))
+      .filter(path => excludedIds == null || !excludedIds.includes(path.id))
+      .map(path => path.path);
+
+    if (paths.includes(`${context}.getToken`)) {
+      return false;
+    }
+    if (revokeFunction && paths.includes(`${context}.revokeToken`)) {
+      return false;
+    }
+    if (introspectFunction && paths.includes(`${context}.introspectToken`)) {
+      return false;
+    }
+
+    return true;
   }
 }

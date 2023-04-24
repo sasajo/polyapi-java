@@ -95,3 +95,8 @@ export type Specification =
   | ServerFunctionSpecification
   | AuthFunctionSpecification
   | WebhookHandleSpecification;
+
+export interface SpecificationPath {
+  id: string;
+  path: string;
+}

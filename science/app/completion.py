@@ -11,7 +11,7 @@ from prisma.models import ConversationMessage, SystemPrompt
 from app.typedefs import ChatGptChoice, ExtractKeywordDto, StatsDict
 from app.keywords import extract_keywords, get_top_function_matches
 from app.typedefs import (
-    FunctionDto,
+    SpecificationDto,
     MessageDict,
     WebhookDto,
 )
@@ -103,25 +103,27 @@ def get_function_options_prompt(
     if not keywords:
         return None, {"match_count": 0}
 
-    functions_resp = query_node_server("functions")
-    items: List[Union[FunctionDto, WebhookDto]] = functions_resp.json()
-    webhooks_resp = query_node_server("webhooks")
-    items += webhooks_resp.json()
+    specs_resp = query_node_server("specs")
+    items: List[SpecificationDto] = specs_resp.json()
 
-    top_matches, stats = get_top_function_matches(items, keywords)
+    # TODO: needs to be implemented to use new API
+    # top_matches, stats = get_top_function_matches(items, keywords)
+    #     #
+    #     # function_parts: List[str] = []
+    #     # webhook_parts: List[str] = []
+    #     # for match in top_matches:
+    #     #     if "arguments" in match:  # HACK this key is only present in functions
+    #     #         match = cast(FunctionDto, match)
+    #     #         function_parts.append(
+    #     #             f"// {match['description']}\n{func_path_with_args(match)}"
+    #     #         )
+    #     #     else:
+    #     #         webhook_parts.append(webhook_prompt(match))
+    #     #
+    #     # content = _join_content(function_parts, webhook_parts)
+    stats = {"match_count": 1}
+    content = "TODO: not implemented yet"
 
-    function_parts: List[str] = []
-    webhook_parts: List[str] = []
-    for match in top_matches:
-        if "arguments" in match:  # HACK this key is only present in functions
-            match = cast(FunctionDto, match)
-            function_parts.append(
-                f"// {match['description']}\n{func_path_with_args(match)}"
-            )
-        else:
-            webhook_parts.append(webhook_prompt(match))
-
-    content = _join_content(function_parts, webhook_parts)
     if content:
         return {
             "role": "assistant",

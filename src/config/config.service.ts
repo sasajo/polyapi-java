@@ -67,10 +67,6 @@ export class ConfigService {
     return this.get('SCIENCE_SERVER_BASE_URL');
   }
 
-  get autoRegisterWebhookHandle() {
-    return this.get('AUTO_REGISTER_WEBHOOK_HANDLE') === 'true';
-  }
-
   get adminApiKey(): string {
     return this.get('ADMIN_API_KEY');
   }

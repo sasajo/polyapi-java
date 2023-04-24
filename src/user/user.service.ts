@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { HttpException, HttpStatus, Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from 'config/config.service';
@@ -50,7 +50,7 @@ export class UserService implements OnModuleInit {
       },
     });
     if (existingUser) {
-      throw new HttpException('User with such name already exists.', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('User with such name already exists.');
     }
 
     return this.prisma.user.create({

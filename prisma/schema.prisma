@@ -13,7 +13,7 @@ model User {
   name                 String?
   role                 String                @default("USER")
   vip                  Boolean               @default(false) // is this person a VIP we want to track carefully?
-  urlFunctions         UrlFunction[]
+  apiFunctions         ApiFunction[]
   webhookHandles       WebhookHandle[]
   customFunctions      CustomFunction[]
   authProviders        AuthProvider[]
@@ -24,7 +24,7 @@ model User {
   @@map("user")
 }
 
-model UrlFunction {
+model ApiFunction {
   id                Int            @id @default(autoincrement())
   createdAt         DateTime       @map("created_at")
   user              User           @relation(fields: [userId], references: [id])
@@ -42,10 +42,8 @@ model UrlFunction {
   argumentsMetadata String?        @map("arguments_metadata")
   trained           Boolean        @default(false)
   publicId          String         @unique @default(uuid()) @map("public_id")
-  webhookHandle     WebhookHandle? @relation(fields: [webhookHandleId], references: [id])
-  webhookHandleId   String?        @unique @map("webhook_handle_id")
 
-  @@map("url_function")
+  @@map("api_function")
 }
 
 model CustomFunction {
@@ -91,7 +89,6 @@ model WebhookHandle {
   context      String
   name         String
   eventPayload String       @map("event_payload")
-  urlFunction  UrlFunction?
   description  String       @default("")
 
   @@map("webhook_handle")

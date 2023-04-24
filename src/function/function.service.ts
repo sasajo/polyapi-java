@@ -1,22 +1,28 @@
 import ts from 'typescript';
-import { HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadRequestException, ConflictException, ForbiddenException,
+  forwardRef,
+  HttpException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger, NotFoundException,
+} from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
 import mergeWith from 'lodash/mergeWith';
-import { CustomFunction, Prisma, SystemPrompt, UrlFunction, User } from '@prisma/client';
+import { CustomFunction, Prisma, SystemPrompt, ApiFunction, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentsMetadata,
   ArgumentType,
   Auth,
   Body,
-  CustomFunctionDefinitionDto,
   CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
-  FunctionDefinitionDto,
   FunctionDetailsDto,
   Headers,
   Method,
@@ -36,6 +42,7 @@ import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
 import { FaasService } from 'function/faas/faas.service';
 import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
+import { SpecsService } from 'specs/specs.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
@@ -60,12 +67,14 @@ export class FunctionService {
     private readonly httpService: HttpService,
     private readonly eventService: EventService,
     private readonly aiService: AiService,
+    @Inject(forwardRef(() => SpecsService))
+    private readonly specsService: SpecsService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
   }
 
-  create(data: Omit<Prisma.UrlFunctionCreateInput, 'createdAt'>): Promise<UrlFunction> {
-    return this.prisma.urlFunction.create({
+  create(data: Omit<Prisma.ApiFunctionCreateInput, 'createdAt'>): Promise<ApiFunction> {
+    return this.prisma.apiFunction.create({
       data: {
         createdAt: new Date(),
         ...data,
@@ -76,17 +85,17 @@ export class FunctionService {
   private getFunctionFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
-          return {
-            OR: [
-              {
-                context: { startsWith: `${context}.` },
-              },
-              {
-                context,
-              },
-            ],
-          };
-        })
+        return {
+          OR: [
+            {
+              context: { startsWith: `${context}.` },
+            },
+            {
+              context,
+            },
+          ],
+        };
+      })
       : [];
 
     const filterConditions = [
@@ -95,31 +104,27 @@ export class FunctionService {
       ids?.length ? { publicId: { in: ids } } : undefined,
     ].filter(Boolean) as any[];
 
-    this.logger.debug(`filterConditions: ${JSON.stringify(filterConditions)}`);
+    if (filterConditions.length > 0) {
+      this.logger.debug(`functions filterConditions: ${JSON.stringify(filterConditions)}`);
+    }
 
     return filterConditions.length > 0 ? { OR: filterConditions } : {};
   }
 
-  async getApiFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
-    return this.prisma.urlFunction.findMany({
+  async getApiFunctions(user: User, contexts?: string[], names?: string[], ids?: string[]) {
+    return this.prisma.apiFunction.findMany({
       where: {
-        // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
-        // user: {
-        //   id: user.id,
-        // },
+        user: { id: user.id },
         ...this.getFunctionFilterConditions(contexts, names, ids),
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
-  async getCustomFunctionsByUser(user: User, contexts?: string[], names?: string[], ids?: string[]) {
+  async getCustomFunctions(user: User, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
-        // TODO: temporary returning all functions from all users (https://github.com/polyapi/poly-alpha/issues/122)
-        // user: {
-        //   id: user.id,
-        // },
+        user: { id: user.id },
         ...this.getFunctionFilterConditions(contexts, names, ids),
       },
     });
@@ -131,7 +136,7 @@ export class FunctionService {
     context: string,
     transformTextCase = true,
     fixDuplicate = false,
-    excludedIds?: number[],
+    excludedIds?: string[],
   ) {
     if (transformTextCase) {
       name = name.replace(/([\[\]\\/{}()])/g, ' ');
@@ -144,10 +149,10 @@ export class FunctionService {
 
     const originalName = name;
     let nameIdentifier = 1;
-    while (!(await this.checkNameAndContextDuplicates(user, name, context, excludedIds))) {
+    while (!(await this.checkContextAndNameDuplicates(user, context, name, excludedIds))) {
       name = `${originalName}${nameIdentifier++}`;
       if (nameIdentifier > 100) {
-        throw new HttpException(`Failed to create poly function: unambiguous function name`, HttpStatus.BAD_REQUEST);
+        throw new BadRequestException(`Failed to create poly function: unambiguous function name`);
       }
     }
 
@@ -163,8 +168,8 @@ export class FunctionService {
     headers: Headers,
     body: Body,
     auth?: Auth,
-  ): Promise<UrlFunction> {
-    const apiFunction = await this.prisma.urlFunction.findFirst({
+  ): Promise<ApiFunction> {
+    const apiFunction = await this.prisma.apiFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -175,7 +180,7 @@ export class FunctionService {
     });
     if (apiFunction) {
       this.logger.debug(`Found existing URL function ${apiFunction.id}. Updating...`);
-      return this.prisma.urlFunction.update({
+      return this.prisma.apiFunction.update({
         where: {
           id: apiFunction.id,
         },
@@ -217,7 +222,7 @@ export class FunctionService {
     response: any,
     variables: Variables,
   ) {
-    const apiFunction = await this.prisma.urlFunction.findFirst({
+    const apiFunction = await this.prisma.apiFunction.findFirst({
       where: {
         id,
         user: {
@@ -226,7 +231,7 @@ export class FunctionService {
       },
     });
     if (!apiFunction) {
-      throw new HttpException(`Poly function not found`, HttpStatus.NOT_FOUND);
+      throw new NotFoundException(`Poly function not found`);
     }
 
     response = this.commonService.trimDownObject(response, 1);
@@ -273,18 +278,18 @@ export class FunctionService {
       this.logger.debug(`Generated response type:\n${responseType}`);
     } catch (e) {
       if (e instanceof PathError) {
-        throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+        throw new BadRequestException(e.message);
       } else {
         throw e;
       }
     }
 
-    await this.prisma.urlFunction.update({
+    await this.prisma.apiFunction.update({
       where: {
         id,
       },
       data: {
-        name: await this.resolveFunctionName(user, name, context, false, true, [apiFunction.id]),
+        name: await this.resolveFunctionName(user, name, context, false, true, [apiFunction.publicId]),
         context,
         description,
         payload,
@@ -294,20 +299,8 @@ export class FunctionService {
     });
   }
 
-  private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata, withDefinition = false): FunctionArgument {
-    return {
-      key: argument,
-      name: argumentsMetadata[argument]?.name || argument,
-      type: argumentsMetadata[argument]?.type || 'string',
-      typeObject: argumentsMetadata[argument]?.typeObject,
-      payload: argumentsMetadata[argument]?.payload || false,
-      required: argumentsMetadata[argument]?.required !== false,
-      secure: argumentsMetadata[argument]?.secure || false,
-    };
-  }
-
-  getFunctionArguments(apiFunction: UrlFunction, withDefinition = false): FunctionArgument[] {
-    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(apiFunction.argumentsMetadata || '{}'), withDefinition);
+  getFunctionArguments(apiFunction: ApiFunction): FunctionArgument[] {
+    const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(apiFunction.argumentsMetadata || '{}'));
     const args: FunctionArgument[] = [];
 
     args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
@@ -320,7 +313,19 @@ export class FunctionService {
     return args;
   }
 
-  apiFunctionToBasicDto(apiFunction: UrlFunction): FunctionBasicDto {
+  private toArgument(argument: string, argumentsMetadata: ArgumentsMetadata): FunctionArgument {
+    return {
+      key: argument,
+      name: argumentsMetadata[argument]?.name || argument,
+      type: argumentsMetadata[argument]?.type || 'string',
+      typeObject: argumentsMetadata[argument]?.typeObject,
+      payload: argumentsMetadata[argument]?.payload || false,
+      required: argumentsMetadata[argument]?.required !== false,
+      secure: argumentsMetadata[argument]?.secure || false,
+    };
+  }
+
+  apiFunctionToBasicDto(apiFunction: ApiFunction): FunctionBasicDto {
     return {
       id: apiFunction.publicId,
       name: apiFunction.name,
@@ -329,11 +334,11 @@ export class FunctionService {
     };
   }
 
-  apiFunctionToDetailsDto(apiFunction: UrlFunction): FunctionDetailsDto {
+  apiFunctionToDetailsDto(apiFunction: ApiFunction): FunctionDetailsDto {
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
       arguments: this.getFunctionArguments(apiFunction),
-      type: 'url',
+      type: 'api',
     };
   }
 
@@ -350,31 +355,31 @@ export class FunctionService {
     return {
       ...this.customFunctionToBasicDto(customFunction),
       arguments: JSON.parse(customFunction.arguments),
-      type: customFunction.serverSide ? 'server' : 'custom',
+      type: customFunction.serverSide ? 'server' : 'client',
     };
   }
 
-  async findApiFunctionByPublicId(publicId: string): Promise<UrlFunction | null> {
-    return this.prisma.urlFunction.findFirst({
+  async findApiFunctionByPublicId(publicId: string): Promise<ApiFunction | null> {
+    return this.prisma.apiFunction.findFirst({
       where: {
         publicId,
       },
     });
   }
 
-  async executeApiFunction(urlFunction: UrlFunction, args: any[], clientID: string) {
-    this.logger.debug(`Executing function ${urlFunction.id} with arguments ${JSON.stringify(args)}`);
+  async executeApiFunction(apiFunction: ApiFunction, args: any[], clientID: string) {
+    this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
 
-    const argumentsMap = this.getArgumentsMap(urlFunction, args);
-    const url = mustache.render(urlFunction.url, argumentsMap);
-    const method = urlFunction.method;
-    const auth = urlFunction.auth ? JSON.parse(mustache.render(urlFunction.auth, argumentsMap)) : null;
-    const body = JSON.parse(mustache.render(urlFunction.body || '{}', argumentsMap));
+    const argumentsMap = this.getArgumentsMap(apiFunction, args);
+    const url = mustache.render(apiFunction.url, argumentsMap);
+    const method = apiFunction.method;
+    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentsMap)) : null;
+    const body = JSON.parse(mustache.render(apiFunction.body || '{}', argumentsMap));
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
     const headers = {
-      ...JSON.parse(mustache.render(urlFunction.headers || '[]', argumentsMap)).reduce(
+      ...JSON.parse(mustache.render(apiFunction.headers || '[]', argumentsMap)).reduce(
         (headers, header) => Object.assign(headers, { [header.key]: header.value }),
         {},
       ),
@@ -383,7 +388,7 @@ export class FunctionService {
     };
 
     this.logger.debug(
-      `Performing HTTP request ${method} ${url} (id: ${urlFunction.id})...\nHeaders:\n${JSON.stringify(
+      `Performing HTTP request ${method} ${url} (id: ${apiFunction.id})...\nHeaders:\n${JSON.stringify(
         headers,
       )}\nBody:\n${JSON.stringify(body)}`,
     );
@@ -400,11 +405,11 @@ export class FunctionService {
           map((response) => response.data),
           map((response) => {
             try {
-              this.logger.debug(`Response (id: ${urlFunction.id}):\n${JSON.stringify(response)}`);
-              const payloadResponse = this.commonService.getPathContent(response, urlFunction.payload);
+              this.logger.debug(`Response (id: ${apiFunction.id}):\n${JSON.stringify(response)}`);
+              const payloadResponse = this.commonService.getPathContent(response, apiFunction.payload);
               if (response !== payloadResponse) {
                 this.logger.debug(
-                  `Payload response (id: ${urlFunction.id}, payload: ${urlFunction.payload}):\n${JSON.stringify(
+                  `Payload response (id: ${apiFunction.id}, payload: ${apiFunction.payload}):\n${JSON.stringify(
                     payloadResponse,
                   )}`,
                 );
@@ -417,9 +422,9 @@ export class FunctionService {
         )
         .pipe(
           catchError((error: AxiosError) => {
-            this.logger.error(`Error while performing HTTP request (id: ${urlFunction.id}): ${error}`);
+            this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
 
-            const functionPath = `${urlFunction.context ? `${urlFunction.context}.` : ''}${urlFunction.name}`;
+            const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
             if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
               return of(null);
             }
@@ -427,14 +432,14 @@ export class FunctionService {
             if (error.response) {
               throw new HttpException(error.response.data as any, error.response.status);
             } else {
-              throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+              throw new InternalServerErrorException(error.message);
             }
           }),
         ),
     );
   }
 
-  private getArgumentsMap(apiFunction: UrlFunction, args: any[]) {
+  private getArgumentsMap(apiFunction: ApiFunction, args: any[]) {
     const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
@@ -588,7 +593,7 @@ export class FunctionService {
   }
 
   async findApiFunction(user: User, publicId: string) {
-    return this.prisma.urlFunction.findFirst({
+    return this.prisma.apiFunction.findFirst({
       where: {
         user: {
           id: user.id,
@@ -605,7 +610,7 @@ export class FunctionService {
           id: user.id,
         },
         publicId,
-        serverSide: false
+        serverSide: false,
       },
     });
   }
@@ -617,76 +622,70 @@ export class FunctionService {
           id: user.id,
         },
         publicId,
-        serverSide: true
+        serverSide: true,
       },
     });
   }
 
-  async updateApiFunction(user: User, urlFunction: UrlFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
+  async updateApiFunction(user: User, apiFunction: ApiFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
     if (name != null || context != null) {
-      name = name ? await this.resolveFunctionName(user, name, urlFunction.context, false) : null;
+      name = name ? await this.resolveFunctionName(user, name, apiFunction.context, false) : null;
 
       if (
-        !(await this.checkNameAndContextDuplicates(
-          user,
-          name || urlFunction.name,
-          context == null ? urlFunction.context || '' : context,
-          [urlFunction.id],
-        ))
+        !(await this.checkContextAndNameDuplicates(user, context == null
+          ? apiFunction.context || ''
+          : context, name || apiFunction.name, [apiFunction.publicId]))
       ) {
-        throw new HttpException(
-          `Function with name ${name} and context ${context} already exists.`,
-          HttpStatus.CONFLICT,
-        );
+        throw new ConflictException(`Function with name ${name} and context ${context} already exists.`);
       }
     }
 
     if (argumentsMetadata != null) {
-      this.checkArgumentsMetadata(urlFunction, argumentsMetadata);
-      argumentsMetadata = await this.resolveArgumentsTypeDeclarations(urlFunction, argumentsMetadata);
+      this.checkArgumentsMetadata(apiFunction, argumentsMetadata);
+      argumentsMetadata = await this.resolveArgumentsTypeDeclarations(apiFunction, argumentsMetadata);
     }
 
-    argumentsMetadata = this.mergeArgumentsMetadata(urlFunction.argumentsMetadata, argumentsMetadata);
+    argumentsMetadata = this.mergeArgumentsMetadata(apiFunction.argumentsMetadata, argumentsMetadata);
 
     const duplicatedArgumentName = this.findDuplicatedArgumentName(
       this.getFunctionArguments({
-        ...urlFunction,
+        ...apiFunction,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
       }),
     );
     if (duplicatedArgumentName) {
-      throw new HttpException(`Function has duplicated arguments: ${duplicatedArgumentName}`, HttpStatus.CONFLICT);
+      throw new ConflictException(`Function has duplicated arguments: ${duplicatedArgumentName}`);
     }
 
     this.logger.debug(
-      `Updating URL function ${urlFunction.id} with name ${name}, context ${context}, description ${description}`,
+      `Updating URL function ${apiFunction.id} with name ${name}, context ${context}, description ${description}`,
     );
-    return this.prisma.urlFunction.update({
+    return this.prisma.apiFunction.update({
       where: {
-        id: urlFunction.id,
+        id: apiFunction.id,
       },
       data: {
-        name: name || urlFunction.name,
-        context: context == null ? urlFunction.context : context,
-        description: description == null ? urlFunction.description : description,
+        name: name || apiFunction.name,
+        context: context == null ? apiFunction.context : context,
+        description: description == null ? apiFunction.description : description,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
       },
     });
   }
 
   async deleteApiFunction(user: User, publicId: string) {
-    const apiFunction = await this.prisma.urlFunction.findFirst({
+    const apiFunction = await this.prisma.apiFunction.findFirst({
       where: {
         publicId,
       },
     });
     if (apiFunction) {
       if (user.role !== Role.Admin && apiFunction.userId !== user.id) {
-        throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
+        throw new ForbiddenException(`You don't have permission to delete this function.`);
       }
 
       this.logger.debug(`Deleting URL function ${publicId}`);
-      await this.prisma.urlFunction.delete({
+      await this.prisma.apiFunction.delete({
         where: {
           publicId,
         },
@@ -694,18 +693,15 @@ export class FunctionService {
       return;
     }
 
-    throw new HttpException(`Function not found.`, HttpStatus.NOT_FOUND);
+    throw new NotFoundException(`Function not found.`);
   }
 
   async updateCustomFunction(user: User, customFunction: CustomFunction, context: string | null, description: string | null) {
-    const { id, name } = customFunction;
+    const { id, publicId, name } = customFunction;
 
     if (context != null) {
-      if (!(await this.checkNameAndContextDuplicates(user, name, context, [id]))) {
-        throw new HttpException(
-          `Function with name ${name} and context ${context} already exists.`,
-          HttpStatus.CONFLICT,
-        );
+      if (!(await this.checkContextAndNameDuplicates(user, context, name, [publicId]))) {
+        throw new ConflictException(`Function with name ${name} and context ${context} already exists.`);
       }
     }
 
@@ -734,7 +730,7 @@ export class FunctionService {
     });
     if (customFunction) {
       if (user.role !== Role.Admin && customFunction.userId !== user.id) {
-        throw new HttpException(`You don't have permission to delete this function.`, HttpStatus.FORBIDDEN);
+        throw new ForbiddenException(`You don't have permission to delete this function.`);
       }
 
       this.logger.debug(`Deleting custom function ${publicId}`);
@@ -747,78 +743,41 @@ export class FunctionService {
     }
   }
 
-  private async checkNameAndContextDuplicates(user: User, name: string, context: string, excludedIds?: number[]) {
-    const urlFunction = await this.prisma.urlFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
-        },
-        name,
-        context,
-        AND:
-          excludedIds == null
-            ? undefined
-            : {
-                id: {
-                  notIn: excludedIds,
-                },
-              },
-      },
-    });
-    if (urlFunction) {
-      return false;
-    }
+  private async checkContextAndNameDuplicates(user: User, context: string, name: string, excludedIds?: string[]) {
+    const functionPath = `${context ? `${context}.` : ''}${name.split('.').map(toCamelCase).join('.')}`;
+    const paths = (await this.specsService.getSpecificationPaths(user))
+      .filter(path => excludedIds == null || !excludedIds.includes(path.id))
+      .map(path => path.path);
 
-    const customFunction = await this.prisma.customFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
-        },
-        name,
-        context,
-        AND:
-          excludedIds == null
-            ? undefined
-            : {
-                id: {
-                  notIn: excludedIds,
-                },
-              },
-      },
-    });
-    if (customFunction) {
-      return false;
-    }
-
-    return true;
+    return !paths.includes(functionPath);
   }
 
-  private normalizeName(name: string | null, urlFunction: UrlFunction) {
+  private normalizeName(name: string | null, apiFunction: ApiFunction) {
     if (name == null) {
-      name = urlFunction.name;
+      name = apiFunction.name;
     }
     return name;
   }
 
-  private normalizeContext(context: string | null, urlFunction: UrlFunction) {
+  private normalizeContext(context: string | null, apiFunction: ApiFunction) {
     if (context == null) {
-      context = urlFunction.context;
+      context = apiFunction.context;
     }
 
     return context;
   }
 
-  private normalizeDescription(description: string | null, urlFunction: UrlFunction) {
+  private normalizeDescription(description: string | null, apiFunction: ApiFunction) {
     if (description == null) {
-      description = urlFunction.description;
+      description = apiFunction.description;
     }
 
     return description;
   }
 
-  private normalizePayload(payload: string | null, urlFunction: UrlFunction) {
+  private normalizePayload(payload: string | null, apiFunction: ApiFunction) {
     if (payload == null) {
-      payload = urlFunction.payload;
+      payload = apiFunction.payload;
     } else {
       if (!payload.startsWith('$')) {
         payload = `$${payload.startsWith('[') ? '' : '.'}${payload}`;
@@ -829,7 +788,7 @@ export class FunctionService {
   }
 
   async deleteAllByUser(userID: number) {
-    await this.prisma.urlFunction.deleteMany({
+    await this.prisma.apiFunction.deleteMany({
       where: {
         user: {
           id: userID,
@@ -846,7 +805,7 @@ export class FunctionService {
   }
 
   async deleteAllApiKey(apiKey: string) {
-    await this.prisma.urlFunction.deleteMany({
+    await this.prisma.apiFunction.deleteMany({
       where: {
         user: {
           apiKey,
@@ -1027,7 +986,7 @@ export class FunctionService {
     });
   }
 
-  async toApiFunctionSpecification(apiFunction: UrlFunction): Promise<Specification> {
+  async toApiFunctionSpecification(apiFunction: ApiFunction): Promise<Specification> {
     const functionArguments = this.getFunctionArguments(apiFunction);
     const requiredArguments = functionArguments.filter((arg) => !arg.payload && arg.required);
     const optionalArguments = functionArguments.filter((arg) => !arg.payload && !arg.required);
@@ -1170,16 +1129,16 @@ export class FunctionService {
     return null;
   }
 
-  private async resolveArgumentsMetadata(urlFunction: UrlFunction, variables: Variables) {
-    const functionArgs = this.getFunctionArguments(urlFunction);
-    const metadata: ArgumentsMetadata = JSON.parse(urlFunction.argumentsMetadata || '{}');
+  private async resolveArgumentsMetadata(apiFunction: ApiFunction, variables: Variables) {
+    const functionArgs = this.getFunctionArguments(apiFunction);
+    const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
 
     const resolveArgumentParameterLimit = () => {
-      if (urlFunction.argumentsMetadata || functionArgs.length <= this.config.functionArgsParameterLimit) {
+      if (apiFunction.argumentsMetadata || functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
       this.logger.debug(
-        `Generating arguments metadata for function ${urlFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`,
+        `Generating arguments metadata for function ${apiFunction.id} with payload 'true' (arguments count: ${functionArgs.length})`,
       );
       functionArgs.forEach((arg) => {
         if (metadata[arg.key]) {
@@ -1192,7 +1151,7 @@ export class FunctionService {
       });
     };
     const resolveArgumentTypes = async () => {
-      this.logger.debug(`Resolving argument types for function ${urlFunction.id}...`);
+      this.logger.debug(`Resolving argument types for function ${apiFunction.id}...`);
       for (const arg of functionArgs) {
         if (metadata[arg.key]?.type) {
           continue;
@@ -1202,7 +1161,7 @@ export class FunctionService {
           continue;
         }
 
-        const [type, typeSchema] = await this.resolveArgumentType(urlFunction, arg.key, value);
+        const [type, typeSchema] = await this.resolveArgumentType(apiFunction, arg.key, value);
 
         if (metadata[arg.key]) {
           metadata[arg.key].type = type;
@@ -1222,31 +1181,25 @@ export class FunctionService {
     return JSON.stringify(metadata);
   }
 
-  private async resolveArgumentType(urlFunction: UrlFunction, argKey: string, value: string) {
+  private async resolveArgumentType(apiFunction: ApiFunction, argKey: string, value: string) {
     return this.commonService.resolveType(
       'Argument',
       value,
     );
   }
 
-  private async resolveArgumentsTypeDeclarations(urlFunction: UrlFunction, argumentsMetadata: ArgumentsMetadata) {
+  private async resolveArgumentsTypeDeclarations(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
     for (const argKey of Object.keys(argumentsMetadata)) {
       const argMetadata = argumentsMetadata[argKey];
       if (argMetadata.type === 'object') {
         if (!argMetadata.typeObject) {
-          throw new HttpException(
-            `Argument '${argKey}' with type='object' is missing typeObject value`,
-            HttpStatus.BAD_REQUEST,
-          );
+          throw new BadRequestException(`Argument '${argKey}' with type='object' is missing typeObject value`);
         }
         if (typeof argMetadata.typeObject !== 'object') {
-          throw new HttpException(
-            `Argument '${argKey}' with type='object' has invalid typeObject value (must be 'object' type)`,
-            HttpStatus.BAD_REQUEST,
-          );
+          throw new BadRequestException(`Argument '${argKey}' with type='object' has invalid typeObject value (must be 'object' type)`);
         }
 
-        const [type, typeSchema] = await this.resolveArgumentType(urlFunction, argKey, JSON.stringify(argMetadata.typeObject));
+        const [type, typeSchema] = await this.resolveArgumentType(apiFunction, argKey, JSON.stringify(argMetadata.typeObject));
         argMetadata.type = type;
         argMetadata.typeSchema = typeSchema;
       }
@@ -1255,12 +1208,12 @@ export class FunctionService {
     return argumentsMetadata;
   }
 
-  private checkArgumentsMetadata(urlFunction: UrlFunction, argumentsMetadata: ArgumentsMetadata) {
-    const functionArgs = this.getFunctionArguments(urlFunction);
+  private checkArgumentsMetadata(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
+    const functionArgs = this.getFunctionArguments(apiFunction);
 
     Object.keys(argumentsMetadata).forEach((key) => {
       if (!functionArgs.find((arg) => arg.key === key)) {
-        throw new HttpException(`Argument '${key}' not found in function`, HttpStatus.BAD_REQUEST);
+        throw new BadRequestException(`Argument '${key}' not found in function`);
       }
     });
   }
