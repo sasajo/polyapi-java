@@ -103,7 +103,7 @@ export class AuthProviderService {
     tokenUrl: string | undefined,
     revokeUrl: string | null | undefined,
     introspectUrl: string | null | undefined,
-    audienceRequired: boolean | undefined
+    audienceRequired: boolean | undefined,
   ) {
     context = context || authProvider.context;
     authorizeUrl = authorizeUrl || authProvider.authorizeUrl;
@@ -382,21 +382,6 @@ export class AuthProviderService {
     }
 
     this.logger.debug(`Introspecting auth token for provider ${authProvider.id}...`);
-    const authToken = await this.prisma.authToken.findFirst({
-      where: {
-        authProvider: {
-          id: authProvider.id,
-        },
-        user: {
-          id: user.id,
-        },
-        accessToken: token,
-      },
-    });
-    if (!authToken?.accessToken) {
-      this.logger.debug(`No auth token found for auth function ${authProvider.id}`);
-      return;
-    }
     return lastValueFrom(
       await this.httpService
         .request({
@@ -406,7 +391,7 @@ export class AuthProviderService {
             'Content-Type': 'application/json',
           },
           data: {
-            token: authToken.accessToken,
+            token,
           },
         })
         .pipe(
@@ -422,6 +407,71 @@ export class AuthProviderService {
           }),
         ),
     );
+  }
+
+  async refreshAuthToken(user: User, authProvider: AuthProvider, token: string): Promise<string> {
+    if (!authProvider.refreshEnabled) {
+      throw new BadRequestException('Refresh not enabled');
+    }
+
+    this.logger.debug(`Refreshing auth token for provider ${authProvider.id}...`);
+    const authToken = await this.prisma.authToken.findFirst({
+      where: {
+        authProvider: {
+          id: authProvider.id,
+        },
+        user: {
+          id: user.id,
+        },
+        accessToken: token,
+      },
+    });
+    if (!authToken?.refreshToken) {
+      this.logger.debug(`No refresh token found for auth function ${authProvider.id}`);
+      throw new BadRequestException(`No auth token found for auth function ${authProvider.id}`);
+    }
+
+    const { access_token } = await lastValueFrom(
+      await this.httpService
+        .request({
+          url: authProvider.tokenUrl,
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          data: {
+            client_id: authToken.clientId,
+            client_secret: authToken.clientSecret,
+            audience: authToken.audience,
+            grant_type: 'refresh_token',
+            refresh_token: authToken.refreshToken,
+          },
+        })
+        .pipe(
+          map((response) => {
+            this.logger.debug(`Received refreshed token data for auth function ${authProvider.id}: ${JSON.stringify(response.data)}`);
+            return response.data;
+          }),
+        )
+        .pipe(
+          catchError((error: AxiosError) => {
+            this.logger.error(`Error while performing token refresh for auth function (id: ${authProvider.id}): ${error}`);
+            throw new InternalServerErrorException(error.response?.data || error.message);
+          }),
+        ),
+    );
+
+    await this.prisma.authToken.update({
+      where: {
+        id: authToken.id,
+      },
+      data: {
+        accessToken: access_token,
+      },
+    });
+
+    return access_token;
   }
 
   async toAuthFunctionSpecifications(authProvider: AuthProvider): Promise<AuthFunctionSpecification[]> {
@@ -481,6 +531,29 @@ export class AuthProviderService {
           },
         },
         subResource: 'revoke',
+      });
+    }
+    if (authProvider.refreshEnabled) {
+      specifications.push({
+        type: 'authFunction',
+        id: authProvider.id,
+        context: authProvider.context,
+        name: 'refreshToken',
+        function: {
+          arguments: [{
+            name: 'token',
+            required: true,
+            type: {
+              kind: 'primitive',
+              type: 'string',
+            },
+          }],
+          returnType: {
+            kind: 'primitive',
+            type: 'string',
+          },
+        },
+        subResource: 'refresh',
       });
     }
 

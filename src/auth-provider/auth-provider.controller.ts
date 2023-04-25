@@ -4,11 +4,12 @@ import {
   Controller,
   Delete,
   Get,
+  HttpStatus,
   Logger,
   NotFoundException,
-  Param, Patch,
+  Param,
+  Patch,
   Post,
-  Put,
   Query,
   Req,
   Res,
@@ -16,10 +17,11 @@ import {
 } from '@nestjs/common';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
 import {
+  AuthTokenDto,
   CreateAuthProviderDto,
   ExecuteAuthProviderDto,
   ExecuteAuthProviderResponseDto,
-  AuthTokenDto, UpdateAuthProviderDto,
+  UpdateAuthProviderDto,
 } from '@poly/common';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 
@@ -107,6 +109,8 @@ export class AuthProviderController {
     const redirectUrl = await this.service.processAuthProviderCallback(id, query);
     if (redirectUrl) {
       res.redirect(redirectUrl);
+    } else {
+      res.sendStatus(HttpStatus.OK);
     }
   }
 
@@ -138,5 +142,20 @@ export class AuthProviderController {
 
     const { token } = tokenDto;
     return await this.service.introspectAuthToken(req.user, authProvider, token);
+  }
+
+  @Post('/:id/refresh')
+  @UseGuards(ApiKeyGuard)
+  async refreshToken(@Req() req, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<any> {
+    const authProvider = await this.service.getAuthProvider(req.user, id);
+    if (!authProvider) {
+      throw new NotFoundException(`Auth provider with id ${id} not found.`);
+    }
+    if (!authProvider.refreshEnabled) {
+      throw new BadRequestException(`Auth provider with id ${id} does not support refresh.`);
+    }
+
+    const { token } = tokenDto;
+    return await this.service.refreshAuthToken(req.user, authProvider, token);
   }
 }
