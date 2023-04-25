@@ -28,7 +28,7 @@ def answer_processing(choice: ChatGptChoice, match_count: int) -> Tuple[str, boo
     content = choice["message"]["content"]
 
     if choice["finish_reason"] == "length":
-        # incomplete model output due to max_tokens parameter or token limi
+        # incomplete model output due to max_tokens parameter or token limit
         # let's append a message explaining to the user answer is incomplete
         content += "\n\nTOKEN LIMIT HIT\n\nPoly has hit the ChatGPT token limit for this conversation. Conversation reset. Please try again to see the full answer."
         return content, True

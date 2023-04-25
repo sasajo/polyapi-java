@@ -43,11 +43,11 @@ def load_functions(user: User) -> None:
             # replace single quotes with double to make this valid json
             headers = headers.replace("'", '"')
 
-        func = db.urlfunction.find_first(where={"name": data['name']})
+        func = db.apifunction.find_first(where={"name": data['name']})
         if func:
             print(f"{url_function_path(func)} already exists.")
         else:
-            func = db.urlfunction.create(
+            func = db.apifunction.create(
                 data={
                     "context": data["context"],
                     "name": data["name"],
