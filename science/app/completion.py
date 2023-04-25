@@ -118,8 +118,6 @@ def get_function_options_prompt(
             )
 
     content = _join_content(function_parts, webhook_parts)
-    stats = {"match_count": 1}
-    content = "TODO: not implemented yet"
 
     if content:
         return {
