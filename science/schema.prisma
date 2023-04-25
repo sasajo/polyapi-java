@@ -77,6 +77,7 @@ model AuthProvider {
   revokeUrl        String?     @map("revoke_url")
   introspectUrl    String?     @map("introspect_url")
   audienceRequired Boolean     @default(false) @map("audience_required")
+  refreshEnabled   Boolean     @default(false) @map("refresh_enabled")
   trained          Boolean     @default(false)
   authTokens       AuthToken[]
 
