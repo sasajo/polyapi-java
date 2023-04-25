@@ -1,4 +1,5 @@
 import copy
+from typing import List
 from mock import Mock, patch
 from load_fixtures import test_user_get_or_create
 from app.completion import (
@@ -6,7 +7,7 @@ from app.completion import (
     get_function_options_prompt,
     get_completion_prompt_messages,
 )
-from app.typedefs import ExtractKeywordDto
+from app.typedefs import ExtractKeywordDto, SpecificationDto
 from .testing import DbTestCase
 
 
@@ -18,50 +19,70 @@ def _fake_extract(keyword):
     }
 
 
-FUNCTIONS = [
+FUNCTIONS: List[SpecificationDto] = [
     {
         "id": "f7588018-2364-4586-b60d-b08a285f1ea3",
         "name": "accuweatherGetlocation",
         "context": "",
         "description": "",
-        "arguments": [
-            {"name": "locationId", "type": "string", "payload": False},
-            {"name": "AAPIKey", "type": "string", "payload": False},
-        ],
+        "type": "apiFunction",
+        "function": {
+            "arguments": [
+                {"name": "locationId", "type": {"kind": "primitive", "type": "string"}, "required": True},
+                {"name": "AAPIKey", "type": {"kind": "primitive", "type": "string"}, "required": True},
+            ],
+            "returnType": {
+                "kind": "void"
+            }
+        },
     },
     {
         "id": "60062c03-dcfd-437d-832c-6cba9543f683",
         "name": "gMapsGetXy",
         "context": "shipping",
         "description": "get the X and Y coordinates of a location from Google Maps",
-        "arguments": [
-            {"name": "location", "type": "string", "payload": True},
-            {"name": "GAPIKey", "type": "string", "payload": False},
-        ],
+        "type": "apiFunction",
+        "function": {
+            "arguments": [
+                {"name": "locationId", "type": {"kind": "primitive", "type": "string"}, "required": True},
+                {"name": "GAPIKey", "type": {"kind": "primitive", "type": "string"}, "required": True},
+            ],
+            "returnType": {
+                "kind": "void"
+            }
+        },
     },
     {
         "id": "bde87ad6-acbf-4556-9bd7-e27a479c0373",
         "name": "serviceNow.createIncident",
         "context": "incidentManagement",
         "description": "This API call allows users to create a new incident in ServiceNow's system. The user must provide a payload with all the fields needed to create the incident, such as short description, assigned group, and priority level. The response payload will contain the incident number and details, including its state, priority, and assigned user/group.",
-        "arguments": [
-            {"key": "impact", "name": "impact", "type": "string", "payload": True},
-        ],
-        "type": "url",
+        "type": "apiFunction",
+        "function": {
+            "arguments": [
+                {"name": "impact", "type": {"kind": "primitive", "type": "string"}, "required": True},
+            ],
+            "returnType": {
+                "kind": "void"
+            },
+        }
     },
 ]
 
 
-WEBHOOKS = [
+WEBHOOKS: List[SpecificationDto] = [
     {
         "id": "4005e0b5-6071-4d67-96a5-405b4d09492f",
         "name": "packageDelivered",
         "context": "shipping",
-        "eventType": "interface ShippingPackageDeliveredEventType {\n    content: ShippingPackageDeliveredEvent TypeContent;\n}\n\ninterface ShippingPackageDeliveredEventTypeContent {\n    eventname: string;\n    newCount:  number;\n}\n",
-        "urls": [
-            "https://staging.polyapi.io/webhook/4005e0b5-6071-4d67-96a5-405b4d09492f",
-            "https://staging.polyapi.io/webhook/shipping/packageDelivered",
-        ],
+        "description": "Event handler for when a package is delivered",
+        "type": "webhookHandle",
+        "function": {
+            "arguments": [],
+            "returnType": {
+                "kind": "void"
+            },
+        }
     }
 ]
 
@@ -126,10 +147,12 @@ class T(DbTestCase):
         ]
 
         keywords = "how do I find the x and y coordinates of a Google Map?".lower()
-        keyword_data = ExtractKeywordDto(keywords=keywords, semantically_similar_keywords="", http_methods="")
+        keyword_data = ExtractKeywordDto(
+            keywords=keywords, semantically_similar_keywords="", http_methods=""
+        )
         d, stats = get_function_options_prompt(keyword_data)
         assert d
-        self.assertEqual(requests_get.call_count, 2)
+        self.assertEqual(requests_get.call_count, 1)
         self.assertEqual(stats["match_count"], 3)
         self.assertIn("Here are some functions", d["content"])
 
@@ -137,13 +160,12 @@ class T(DbTestCase):
     @patch("app.completion.requests.get")
     def test_library_message_webhooks(self, requests_get: Mock) -> None:
         requests_get.side_effect = [
-            Mock(status_code=200, json=lambda: []),
             Mock(status_code=200, json=lambda: get_webhooks()),
         ]
 
         d, stats = get_function_options_prompt({"keywords": "foo bar"})  # type: ignore
         assert d
-        self.assertEqual(requests_get.call_count, 2)
+        self.assertEqual(requests_get.call_count, 1)
         self.assertEqual(stats["match_count"], 1)
         self.assertTrue(d["content"].startswith("Here are some event handlers"))
         self.assertIn("poly.shipping.packageDelivered", d["content"])
@@ -155,12 +177,11 @@ class T(DbTestCase):
 
         requests_get.side_effect = [
             Mock(status_code=200, json=lambda: get_functions()),
-            Mock(status_code=200, json=lambda: get_webhooks()),
         ]
 
         messages, stats = get_completion_prompt_messages(
             "how do I create a new incident in ServiceNow?"
         )
-        self.assertEqual(requests_get.call_count, 2)
+        self.assertEqual(requests_get.call_count, 1)
         self.assertEqual(stats["match_count"], 1)
         self.assertEqual(len(messages), 2)

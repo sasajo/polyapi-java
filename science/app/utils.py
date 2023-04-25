@@ -1,5 +1,4 @@
 import string
-import json
 from typing import List, Optional
 from app.constants import VarName
 from app.typedefs import MessageDict, PropertySpecification, SpecificationDto

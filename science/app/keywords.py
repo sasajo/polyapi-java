@@ -96,7 +96,6 @@ def keywords_similar(
         func_parts.append(func["name"])
     func_str = " ".join(func_parts).lower()
 
-    # HACK just add description for now
     if func.get("description"):
         func_str += f"\n{func.get('description')}"
 
@@ -105,15 +104,6 @@ def keywords_similar(
     similarity_score = fuzz.token_set_ratio(keywords, func_str)
     if debug:
         log(keywords, similarity_score, func_str)
-
-    # separate description ratio
-    # commented out for now
-    #
-    # desc_ratio = 0
-    # if func.get("description"):
-    #     desc_ratio = fuzz.partial_ratio(keywords, func["description"])
-    #     if debug:
-    #         log(keywords, desc_ratio, func['description'])
 
     return similarity_score > get_similarity_threshold(), similarity_score
 
