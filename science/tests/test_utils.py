@@ -2,7 +2,7 @@ import uuid
 from .testing import DbTestCase
 from app.typedefs import SpecificationDto
 from load_fixtures import load_functions, test_user_get_or_create
-from app.utils import func_args, func_path, store_message
+from app.utils import func_args, func_path, func_path_with_args, store_message
 
 FUNC: SpecificationDto = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",
@@ -14,8 +14,11 @@ FUNC: SpecificationDto = {
             {
                 "name": "payload",
                 "type": {
-                    "kind": "array",
-                    "items": {"kind": "primitive", "type": "string"},
+                    "kind": "object",
+                    "properties": [
+                        {"name": "x", "type": {"kind": "primitive", "type": "number"}, "required": True},
+                        {"name": "y", "type": {"kind": "primitive", "type": "number"}, "required": True},
+                    ]
                 },
                 "required": True,
             },
@@ -40,22 +43,24 @@ class T(DbTestCase):
         load_functions(user)
 
     def test_func_path(self) -> None:
-        user = test_user_get_or_create()
-        data = {
-            "userId": user.id,
+        data: SpecificationDto = {
+            "id": "123",
             "name": "twilio.sendSMS",
             "context": "messaging",
             "description": "send SMS",
-            "method": "POST",
-            "url": "https://poly.messaging.twilio.sendSMS",
+            "function": {"arguments": [], "returnType": {"kind": "void"}},
         }
         self.assertEqual(func_path(data), "poly.messaging.twilio.sendSMS")
 
     def test_func_args(self):
-        args, payload = func_args(FUNC)
-        self.assertEqual(len(args), 1)
-        self.assertEqual(args[0], "GAPIKey: string")
-        self.assertEqual(payload, {"location": "string"})
+        args = func_args(FUNC)
+        self.assertEqual(len(args), 2)
+        self.assertEqual(args[0], "payload: {x: number, y: number}")
+        self.assertEqual(args[1], "GAPIKey: string")
+
+    def test_func_path_with_args(self):
+        fpwa = func_path_with_args(FUNC)
+        self.assertEqual(fpwa, "poly.shipping.gMapsGetXy(payload: {x: number, y: number}, GAPIKey: string)")
 
     def test_store_message(self):
         user = test_user_get_or_create()

@@ -150,7 +150,8 @@ def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
 def webhook_prompt(hook: SpecificationDto) -> str:
     parts = [func_path(hook)]
     # DAN TODO how we get urls?
-    for url in []:
+    urls: List[Dict] = []
+    for url in urls:
         if hook["id"] in url:
             continue
         parts.append(f"url: {url}")

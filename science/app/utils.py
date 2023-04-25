@@ -1,8 +1,8 @@
 import string
 import json
-from typing import Dict, List, Tuple, Optional
+from typing import List, Optional
 from app.constants import VarName
-from app.typedefs import MessageDict, SpecificationDto
+from app.typedefs import MessageDict, PropertySpecification, SpecificationDto
 from prisma import Prisma, get_client, register
 from prisma.models import ConversationMessage, ApiFunction, ConfigVariable
 
@@ -17,26 +17,31 @@ def func_path(func: SpecificationDto) -> str:
     return "poly." + path
 
 
-def func_args(func: SpecificationDto) -> Tuple[List[str], Dict[str, str]]:
+def _process_property_spec(arg: PropertySpecification) -> str:
+    kind = arg['type']['kind']
+    if kind == "primitive":
+        return f"{arg['name']}: {arg['type']['type']}"
+    elif kind == "object":
+        properties = [_process_property_spec(p) for p in arg['type']['properties']]
+        sub_props = ', '.join(properties)
+        sub_props = "{" + sub_props + "}"
+        return "{name}: {sub_props}".format(name=arg['name'], sub_props=sub_props)
+    else:
+        raise NotImplementedError("unrecognized kind")
+
+
+def func_args(spec: SpecificationDto) -> List[str]:
     """get the args for a function from the headers and url"""
     arg_strings = []
-    payload = {}
+    func = spec['function']
     for arg in func["arguments"]:
-        if arg.get("payload"):
-            payload[arg["name"]] = arg["type"]
-        else:
-            arg_strings.append(arg["name"] + ": " + arg["type"])
-    return arg_strings, payload
+        arg_strings.append(_process_property_spec(arg))
+    return arg_strings
 
 
 def func_path_with_args(func: SpecificationDto) -> str:
-    args, payload = func_args(func)
-    if payload and args:
-        return f"const payload = {json.dumps(payload)}\n{func_path(func)}({', '.join(args)}, payload)"
-    elif payload:
-        return f"const payload = {json.dumps(payload)}\n{func_path(func)}(payload)"
-    else:
-        return f"{func_path(func)}({', '.join(args)})"
+    args = func_args(func)
+    return f"{func_path(func)}({', '.join(args)})"
 
 
 def url_function_path(func: ApiFunction) -> str:
