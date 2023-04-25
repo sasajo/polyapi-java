@@ -1,14 +1,14 @@
 import string
 import json
-from typing import Dict, List, Tuple, Optional, Union
+from typing import Dict, List, Tuple, Optional
 from app.constants import VarName
-from app.typedefs import FunctionDto, WebhookDto, MessageDict
+from app.typedefs import MessageDict, SpecificationDto
 from prisma import Prisma, get_client, register
 from prisma.models import ConversationMessage, ApiFunction, ConfigVariable
 
 
 # HACK should have better name
-def func_path(func: Union[FunctionDto, WebhookDto]) -> str:
+def func_path(func: SpecificationDto) -> str:
     """get the functions path as it will be exposed in the poly library"""
     if func["context"]:
         path = func["context"] + "." + func["name"]
@@ -17,7 +17,7 @@ def func_path(func: Union[FunctionDto, WebhookDto]) -> str:
     return "poly." + path
 
 
-def func_args(func: FunctionDto) -> Tuple[List[str], Dict[str, str]]:
+def func_args(func: SpecificationDto) -> Tuple[List[str], Dict[str, str]]:
     """get the args for a function from the headers and url"""
     arg_strings = []
     payload = {}
@@ -29,7 +29,7 @@ def func_args(func: FunctionDto) -> Tuple[List[str], Dict[str, str]]:
     return arg_strings, payload
 
 
-def func_path_with_args(func: FunctionDto) -> str:
+def func_path_with_args(func: SpecificationDto) -> str:
     args, payload = func_args(func)
     if payload and args:
         return f"const payload = {json.dumps(payload)}\n{func_path(func)}({', '.join(args)}, payload)"

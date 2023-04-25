@@ -1,9 +1,9 @@
 import json
 import openai
 from thefuzz import fuzz
-from typing import Optional, Tuple, Union, List
+from typing import Optional, Tuple, List
 from app.constants import VarName
-from app.typedefs import StatsDict, ExtractKeywordDto, FunctionDto, WebhookDto
+from app.typedefs import StatsDict, ExtractKeywordDto, SpecificationDto
 from app.utils import func_path, get_config_variable, log, remove_punctuation
 
 
@@ -81,7 +81,7 @@ def remove_blacklist(keywords: str) -> str:
 
 
 def keywords_similar(
-    keywords: str, func: Union[FunctionDto, WebhookDto], debug=False
+    keywords: str, func: SpecificationDto, debug=False
 ) -> Tuple[bool, int]:
     if not keywords:
         # when we have no keywords, just assume everything matches for now
@@ -119,8 +119,8 @@ def keywords_similar(
 
 
 def get_top_function_matches(
-    items: List[Union[FunctionDto, WebhookDto]], keyword_data: ExtractKeywordDto
-) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
+    items: List[SpecificationDto], keyword_data: ExtractKeywordDto
+) -> Tuple[List[SpecificationDto], StatsDict]:
     """get top function matches based on keywords"""
     # for now ignore http_methods
     match_limit = get_function_match_limit()
@@ -171,9 +171,9 @@ def _generate_match_count(stats: StatsDict) -> int:
 
 def _get_top(
     match_limit: int,
-    items: List[Union[FunctionDto, WebhookDto]],
+    items: List[SpecificationDto],
     keywords: str,
-) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
+) -> Tuple[List[SpecificationDto], StatsDict]:
     threshold = get_similarity_threshold()
 
     if not keywords:
@@ -192,7 +192,7 @@ def _get_top(
 
 
 def _get_stats(
-    items_with_scores: List[Tuple[Union[FunctionDto, WebhookDto], int]]
+    items_with_scores: List[Tuple[SpecificationDto, int]]
 ) -> StatsDict:
     stats: StatsDict = {"total": len(items_with_scores)}
     match_count = 0

@@ -1,18 +1,35 @@
 import uuid
 from .testing import DbTestCase
-from app.typedefs import FunctionDto
+from app.typedefs import SpecificationDto
 from load_fixtures import load_functions, test_user_get_or_create
 from app.utils import func_args, func_path, store_message
 
-FUNC: FunctionDto = {
+FUNC: SpecificationDto = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",
     "name": "gMapsGetXy",
     "context": "shipping",
     "description": "",
-    "arguments": [
-        {"name": "location", "type": "string", "payload": True},
-        {"name": "GAPIKey", "type": "string", "payload": False},
-    ],
+    "function": {
+        "arguments": [
+            {
+                "name": "payload",
+                "type": {
+                    "kind": "array",
+                    "items": {"kind": "primitive", "type": "string"},
+                },
+                "required": True,
+            },
+            {
+                "name": "GAPIKey",
+                "type": {
+                    "kind": "primitive",
+                    "type": "string",
+                },
+                "required": True,
+            },
+        ],
+        "returnType": {"kind": "string"},
+    },
 }
 
 

@@ -13,7 +13,6 @@ from app.keywords import extract_keywords, get_top_function_matches
 from app.typedefs import (
     SpecificationDto,
     MessageDict,
-    WebhookDto,
 )
 from app.utils import (
     log,
@@ -148,9 +147,10 @@ def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
     return "\n\n".join(parts)
 
 
-def webhook_prompt(hook: WebhookDto) -> str:
+def webhook_prompt(hook: SpecificationDto) -> str:
     parts = [func_path(hook)]
-    for url in hook.get("urls", []):
+    # DAN TODO how we get urls?
+    for url in []:
         if hook["id"] in url:
             continue
         parts.append(f"url: {url}")

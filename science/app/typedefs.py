@@ -1,6 +1,7 @@
 from typing import Dict, Tuple, TypedDict, List, Literal
 from typing_extensions import NotRequired
 
+
 class DescInputDto(TypedDict):
     url: str
     method: str
@@ -35,7 +36,7 @@ class PropertySpecification(TypedDict):
     name: str
     required: bool
     nullable: NotRequired[bool]
-    type: str
+    type: "PropertyType"
 
 
 class PropertyType(TypedDict):
@@ -51,7 +52,7 @@ class PropertyType(TypedDict):
 
 class FunctionSpecification(TypedDict):
     arguments: List[PropertySpecification]
-    returnType: str
+    returnType: Dict[str, str]
     synchronous: NotRequired[bool]
 
 
@@ -61,21 +62,6 @@ class SpecificationDto(TypedDict):
     name: str
     description: str
     function: FunctionSpecification
-
-
-class FunctionDto(TypedDict):
-    id: str
-    context: str
-    name: str
-    description: str
-    arguments: List[Dict[str, str]]
-
-
-class WebhookDto(TypedDict):
-    id: str
-    context: str
-    name: str
-    urls: List[str]
 
 
 class MessageDict(TypedDict, total=False):
