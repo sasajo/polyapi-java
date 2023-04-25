@@ -157,7 +157,7 @@ components:
           type: array
           items:
             type: string
-          description: arrivalDate, departureDate, numAdults, numChildren, numRooms
+          description: arrivalDate, departureDate, numAdults (default 1), numChildren (default 0), numRooms (default 1)
     operaAvailabilityResponse:
       type: array
       items:
