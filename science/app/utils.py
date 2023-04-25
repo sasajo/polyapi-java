@@ -17,14 +17,26 @@ def func_path(func: SpecificationDto) -> str:
 
 
 def _process_property_spec(arg: PropertySpecification) -> str:
-    kind = arg['type']['kind']
-    if kind == "primitive":
+    kind = arg["type"]["kind"]
+    if kind == "void":
+        # seems weird to have a void argument...
+        return f"{arg['name']}"
+    elif kind == "primitive":
         return f"{arg['name']}: {arg['type']['type']}"
+    elif kind == "array":
+        item_type = arg["type"]["items"]["type"]
+        return "{name}: [{item_type}, {item_type}, ...]".format(
+            name=arg["name"], item_type=item_type
+        )
     elif kind == "object":
-        properties = [_process_property_spec(p) for p in arg['type']['properties']]
-        sub_props = ', '.join(properties)
+        properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
+        sub_props = ", ".join(properties)
         sub_props = "{" + sub_props + "}"
-        return "{name}: {sub_props}".format(name=arg['name'], sub_props=sub_props)
+        return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
+    elif kind == "function":
+        raise NotImplementedError("TODO how do we do this?")
+    elif kind == "plain":
+        return f"{arg['name']}: {arg['type']['value']}"
     else:
         raise NotImplementedError("unrecognized kind")
 
@@ -32,7 +44,7 @@ def _process_property_spec(arg: PropertySpecification) -> str:
 def func_args(spec: SpecificationDto) -> List[str]:
     """get the args for a function from the headers and url"""
     arg_strings = []
-    func = spec['function']
+    func = spec["function"]
     for arg in func["arguments"]:
         arg_strings.append(_process_property_spec(arg))
     return arg_strings
@@ -99,7 +111,7 @@ def set_config_variable(name: str, value: str) -> Optional[ConfigVariable]:
 
 
 def quick_db_connect():
-    """ handy function to use in ipython to quickly connect to the db
+    """handy function to use in ipython to quickly connect to the db
     and register your connection
     """
     db = Prisma()
@@ -116,7 +128,7 @@ def is_vip_user(user_id: Optional[int]) -> bool:
     return user.vip if user else False
 
 
-remove_punctuation_translation = str.maketrans('', '', string.punctuation)
+remove_punctuation_translation = str.maketrans("", "", string.punctuation)
 
 
 def remove_punctuation(s: str) -> str:
