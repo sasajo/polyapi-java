@@ -379,7 +379,7 @@ const generateTSContextDeclarationFile = async (
     });
 
     return {
-      name: toCamelCase(specification.name),
+      name: toCamelCase(specification.name.split('.').pop() as string),
       arguments: specification.function.arguments.map(toArgumentDeclaration),
       returnType: toTypeDeclaration(specification.function.returnType, specification.function.synchronous === true),
     };
