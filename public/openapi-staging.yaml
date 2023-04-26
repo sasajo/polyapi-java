@@ -159,7 +159,7 @@ components:
             type: string
           minItems: 5
           maxItems: 5
-          description: arrivalDate, departureDate, numAdults (default 1), numChildren (default 0), numRooms (default 1).
+          description: arrivalDate, departureDate, numAdults, numChildren, numRooms
     operaAvailabilityResponse:
       type: array
       items:
