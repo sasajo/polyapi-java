@@ -2,7 +2,6 @@ import { Body, Variables } from '../..';
 import { IsNotEmpty } from 'class-validator';
 
 export class TeachDetailsDto {
-
   name?: string;
   context?: string;
   description?: string;
@@ -12,4 +11,5 @@ export class TeachDetailsDto {
   body: Body;
   response: any;
   variables?: Variables;
+  statusCode: number;
 }

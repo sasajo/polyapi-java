@@ -3,6 +3,7 @@ import {
   BadRequestException, ConflictException, ForbiddenException,
   forwardRef,
   HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -242,6 +243,7 @@ export class FunctionService {
     payload: string | null,
     response: any,
     variables: Variables,
+    statusCode: number,
   ) {
     const apiFunction = await this.prisma.apiFunction.findFirst({
       where: {
@@ -253,6 +255,10 @@ export class FunctionService {
     });
     if (!apiFunction) {
       throw new NotFoundException(`Poly function not found`);
+    }
+
+    if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.AMBIGUOUS)) {
+      throw new BadRequestException(`Api response status code should be between ${HttpStatus.OK} and ${HttpStatus.AMBIGUOUS}.`);
     }
 
     response = this.commonService.trimDownObject(response, 1);
