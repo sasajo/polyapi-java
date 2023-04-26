@@ -1,15 +1,14 @@
 import { IsNotEmpty } from 'class-validator';
-import { Body, Method, Headers, Auth } from '../..';
+import { Body, Method, Header, Auth } from '../..';
 
 export class TeachDto {
-
   @IsNotEmpty()
   url: string;
   @IsNotEmpty()
   method: Method;
   name: string;
   description: string;
-  headers: Headers;
+  headers: Header[];
   body: Body;
   auth?: Auth;
 }

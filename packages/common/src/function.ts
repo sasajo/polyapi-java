@@ -1,4 +1,4 @@
-export type Headers = Record<string, string>;
+export type Header = Record<string, string>;
 export type Variables = Record<string, string>;
 export type RawBody = {
   mode: 'raw';
@@ -10,16 +10,18 @@ export type UrlencodedBody = {
   urlencoded: {
     key: string;
     value: string;
+    disabled?: boolean;
   }[];
-}
+};
 
 export type FormDataBody = {
   mode: 'formdata';
   formdata: {
     key: string;
     value: string;
+    disabled?: boolean;
   }[];
-}
+};
 
 export type EmptyBody = {
   mode: 'empty';

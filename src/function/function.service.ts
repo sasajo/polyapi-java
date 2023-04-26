@@ -24,7 +24,7 @@ import {
   FunctionArgument,
   FunctionBasicDto,
   FunctionDetailsDto,
-  Headers,
+  Header,
   Method,
   PropertySpecification,
   PropertyType,
@@ -159,13 +159,34 @@ export class FunctionService {
     return name;
   }
 
+  private filterDisabledValues<T extends { [k: string]: string | boolean }>(values: T[]) {
+    return values.filter(({ disabled }) => !disabled);
+  }
+
+  private getBodyWithContentFiltered(body: Body): Body {
+    switch (body.mode) {
+      case 'formdata':
+        return {
+          ...body,
+          formdata: this.filterDisabledValues(body.formdata),
+        };
+      case 'urlencoded':
+        return {
+          ...body,
+          urlencoded: this.filterDisabledValues(body.urlencoded),
+        };
+      default:
+        return body;
+    }
+  }
+
   async createOrUpdateApiFunction(
     user: User,
     url: string,
     method: Method,
     name: string,
     description: string,
-    headers: Headers,
+    headers: Header[],
     body: Body,
     auth?: Auth,
   ): Promise<ApiFunction> {
@@ -185,8 +206,8 @@ export class FunctionService {
           id: apiFunction.id,
         },
         data: {
-          headers: JSON.stringify(headers),
-          body: JSON.stringify(body),
+          headers: JSON.stringify(this.filterDisabledValues(headers)),
+          body: JSON.stringify(this.getBodyWithContentFiltered(body)),
           auth: auth ? JSON.stringify(auth) : null,
         },
       });
@@ -204,8 +225,8 @@ export class FunctionService {
       name: await this.resolveFunctionName(user, name, '', true, true),
       description,
       context: '',
-      headers: JSON.stringify(headers),
-      body: JSON.stringify(body),
+      headers: JSON.stringify(this.filterDisabledValues(headers)),
+      body: JSON.stringify(this.getBodyWithContentFiltered(body)),
       auth: auth ? JSON.stringify(auth) : null,
     });
   }
@@ -270,6 +291,7 @@ export class FunctionService {
 
     try {
       const content = this.commonService.getPathContent(response, payload);
+
       const responseType = await this.commonService.generateTypeDeclaration(
         'ResponseType',
         content,
@@ -1157,6 +1179,7 @@ export class FunctionService {
           continue;
         }
         const value = variables[arg.key];
+
         if (value == null) {
           continue;
         }
