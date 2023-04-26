@@ -171,6 +171,7 @@ export class WebhookService {
       id: webhookHandle.id,
       name: webhookHandle.name,
       context: webhookHandle.context,
+      description: webhookHandle.description,
       url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
     };
   }
