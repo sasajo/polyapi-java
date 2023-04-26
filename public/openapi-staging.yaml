@@ -26,7 +26,7 @@ paths:
   /functions/custom/65f21242-da64-4268-9579-6aab27a33784/execute:
     post:
       operationId: operaAvailability
-      summary: takes details of a guests desired stay and checks availability for those dates, number of people, at our specific hotel The Dreams Hotel In the Sands. All dates should be passed in the form YYYY-MM-DD.
+      summary: takes details of a guests desired stay and checks availability for those dates, number of people, at our specific hotel The Dreams Hotel In the Sands. All dates should be passed in the form YYYY-MM-DD. If not specified, use 1 for the numAdults, 0 for the numChildren, and 1 for the numRooms
       requestBody:
         required: true
         content:
@@ -157,7 +157,7 @@ components:
           type: array
           items:
             type: string
-          description: arrivalDate, departureDate, numAdults (default 1), numChildren (default 0), numRooms (default 1)
+          description: arrivalDate, departureDate, numAdults, numChildren, numRooms
     operaAvailabilityResponse:
       type: array
       items:
