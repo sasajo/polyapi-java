@@ -15,14 +15,14 @@ import { ParseIdPipe } from 'pipe/parse-id.pipe';
 export class TeachController {
   private logger: Logger = new Logger(TeachController.name);
 
-  public constructor(private readonly polyFunctionService: FunctionService) {}
+  public constructor(private readonly functionService: FunctionService) {}
 
   @UseGuards(ApiKeyGuard)
   @Post()
   async teach(@Req() req, @Body() teachDto: TeachDto): Promise<TeachResponseDto> {
     const { url, method, name, description, headers, body, auth } = teachDto;
     this.logger.debug(`Teaching ${method} ${url} with name '${name}' for user ${req.user.id}...`);
-    const polyFunction = await this.polyFunctionService.createOrUpdateApiFunction(
+    const polyFunction = await this.functionService.createOrUpdateApiFunction(
       req.user,
       url,
       method,
@@ -41,7 +41,7 @@ export class TeachController {
   @UseGuards(new ApiKeyGuard([Role.Admin]))
   @Post('/system-prompt')
   async teachSystemPrompt(@Req() req, @Body() body: TeachSystemPromptDto): Promise<TeachSystemPromptResponseDto> {
-    await this.polyFunctionService.setSystemPrompt(req.user.id, body.prompt);
+    await this.functionService.setSystemPrompt(req.user.id, body.prompt);
     return { response: 'Conversation cleared and new system prompt set!' };
   }
 
@@ -67,7 +67,7 @@ export class TeachController {
     this.logger.debug(
       `name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}, statusCode: ${statusCode}`,
     );
-    await this.polyFunctionService.updateApiFunctionDetails(
+    await this.functionService.updateApiFunctionDetails(
       id,
       req.user,
       url,

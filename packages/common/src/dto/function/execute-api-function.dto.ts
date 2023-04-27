@@ -1,4 +1,4 @@
 export interface ExecuteApiFunctionDto {
   clientID: string;
-  args: any[];
+  args: Record<string, any>;
 }

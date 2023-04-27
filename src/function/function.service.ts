@@ -395,7 +395,7 @@ export class FunctionService {
     });
   }
 
-  async executeApiFunction(apiFunction: ApiFunction, args: any[], clientID: string) {
+  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientID: string) {
     this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const argumentsMap = this.getArgumentsMap(apiFunction, args);
@@ -467,7 +467,7 @@ export class FunctionService {
     );
   }
 
-  private getArgumentsMap(apiFunction: ApiFunction, args: any[]) {
+  private getArgumentsMap(apiFunction: ApiFunction, args: Record<string, any>) {
     const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
@@ -490,13 +490,13 @@ export class FunctionService {
       if (payloadArgs.length === 0) {
         return {};
       }
-      const payload = args[args.length - 1];
+      const payload = args['payload'];
       if (typeof payload !== 'object') {
         this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
         return {};
       }
       return payloadArgs.reduce(
-        (result, arg) => Object.assign(result, { [arg.key]: normalizeArg(payload[toCamelCase(arg.name)]) }),
+        (result, arg) => Object.assign(result, { [arg.key]: normalizeArg(payload[arg.name]) }),
         {},
       );
     };
@@ -504,7 +504,7 @@ export class FunctionService {
     return {
       ...functionArgs
         .filter((arg) => !arg.payload)
-        .reduce((result, arg, index) => Object.assign(result, { [arg.key]: normalizeArg(args[index]) }), {}),
+        .reduce((result, arg) => Object.assign(result, { [arg.key]: normalizeArg(args[arg.name]) }), {}),
       ...getPayloadArgs(),
     };
   }

@@ -262,7 +262,7 @@ const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
       } else if (type.properties) {
         return wrapInPromiseIfNeeded(
           `{ ${type.properties
-            .map((prop) => `${prop.name}${prop.required === false ? '?' : ''}: ${toTypeDeclaration(prop.type)}`)
+            .map((prop) => `'${prop.name}'${prop.required === false ? '?' : ''}: ${toTypeDeclaration(prop.type)}`)
             .join(';\n')} }`,
         );
       } else {
