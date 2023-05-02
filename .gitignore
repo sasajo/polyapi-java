@@ -7,7 +7,7 @@ prisma/data/poly.db
 prisma/data/poly.db-journal
 examples.jsonl
 .env
-.env.test
+.env*
 server-functions
 
 # Logs

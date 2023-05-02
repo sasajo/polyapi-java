@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "version": "v1",
+    "title": "{{plugin.name}}",
+    "description": "Endpoints that allow users to execute functions on PolyAPI"
+  },
+  "servers": [
+    {
+      "url": "https://{{plugin.slug}}.polyapi.io"
+    }
+  ],
+  "paths": {
+    {{#each functions}}
+    "{{this.executePath}}": {
+      "post": {
+        "summary": "{{this.description}}",
+        "operationId": "{{this.operationId}}",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/{{this.operationId}}Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{{this.description}}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/{{this.operationId}}Response"
+                }
+              }
+            }
+          }
+       }
+      }
+    }
+    {{#unless @last}},{{/unless}}
+    {{/each}}
+  },
+  "components": {
+    "schemas": {
+      {{#each bodySchemas}}
+        "{{this.name}}": {
+          "type": "object",
+          {{#if this.arguments}}
+          "properties": {
+            "args": {
+              "type": "object",
+              "properties": {
+                {{#each this.arguments}}
+                "{{this.name}}": {
+                  "type": "{{this.type.type}}"
+                  {{!-- "required": {{this.required}} --}}
+                }{{#unless @last}},{{/unless}}
+                {{/each}}
+              },
+              "required": [
+                {{#each this.argumentsRequired}}
+                  "{{this}}"{{#unless @last}},{{/unless}}
+                {{/each}}
+              ]
+            }
+          },
+          "required": ["args"],
+          {{/if}}
+          "description": "{{this.description}}"
+        },
+      {{/each}}
+      {{#each responseSchemas}}
+        "{{this.name}}": {{{this.schema}}}
+        {{#unless @last}},{{/unless}}
+      {{/each}}
+    }
+  }
+}

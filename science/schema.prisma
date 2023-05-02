@@ -169,3 +169,11 @@ model ConfigVariable {
 
   @@map("config_variable")
 }
+
+model GptPlugin {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  iconUrl     String   @map("icon_url")
+  functionIds String  // json array of function publicIds for now
+}

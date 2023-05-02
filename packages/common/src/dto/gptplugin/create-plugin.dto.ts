@@ -3,6 +3,8 @@ import { IsNotEmpty } from 'class-validator';
 export class CreatePluginDto {
   @IsNotEmpty()
   slug: string;
-  @IsNotEmpty()
-  functionIds: string[];
+  name?: string;
+  iconUrl?: string;
+  description?: string;
+  functionIds?: string[];
 }
