@@ -127,8 +127,9 @@ const _getOperationId = (f: ApiFunction): string => {
 async function _apiFunctionMap(f: ApiFunction, functionService: FunctionService): Promise<PluginFunction> {
   const details = await functionService.toApiFunctionSpecification(f);
   // openapi limit for description is 300. truncate!
-  if (details.description && details.description.length > 300) {
-    details['description'] = details.description.substring(0, 300);
+  // there are some escapes for html which count as extra chars so limit to 250 to be safe
+  if (details.description && details.description.length > 250) {
+    details['description'] = details.description.substring(0, 250);
   }
   const executeType = _getExecuteType(details.type);
 
