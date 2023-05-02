@@ -1,3 +1,4 @@
+// import fs from 'fs';
 import { GptPluginService } from './gptplugin.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -57,10 +58,12 @@ describe('GptPluginService', () => {
 
   describe('getOpenApiSpec', () => {
     it('should return the rendered template', async () => {
+      // WARNING THIS TEST USES THE HARDCODED TEMPLATE PATH IN DIST
+      // PLEASE RUN `yarn build` BEFORE RUNNING THIS TEST
       await _createPlugin(prisma);
       const f1 = await _createFunction(prisma);
 
-      const specStr = await service.getOpenApiSpec('mass-effect');
+      const specStr = await service.getOpenApiSpec('mass-effect.develop.polyapi.io', 'mass-effect');
 
       // write specStr to file for debugging
       // fs.writeFileSync('/tmp/spec.json', specStr, 'utf8')
@@ -70,7 +73,7 @@ describe('GptPluginService', () => {
 
       expect(spec.openapi).toBe('3.0.1');
       expect(spec.info.title).toBe('Mass Effect');
-      expect(spec.servers[0].url).toBe('https://mass-effect.polyapi.io');
+      expect(spec.servers[0].url).toBe('https://mass-effect.develop.polyapi.io');
 
       expect(Object.keys(spec.paths).length).toBe(1);
       const path1 = spec.paths[`/functions/api/${f1.publicId}/execute`];

@@ -172,7 +172,7 @@ export class GptPluginService {
     }
   }
 
-  async getOpenApiSpec(slug: string): Promise<string> {
+  async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
     const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({
       where: { slug },
     });
@@ -183,7 +183,7 @@ export class GptPluginService {
     const responseSchemas = await Promise.all(functions.map((f) => _getResponseSchema(f)));
 
     const template = handlebars.compile(await loadTemplate());
-    return template({ plugin: plugin, functions, bodySchemas, responseSchemas });
+    return template({ plugin: plugin, hostname, functions, bodySchemas, responseSchemas });
   }
 
   async createPlugin(body: CreatePluginDto): Promise<GptPlugin> {
