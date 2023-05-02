@@ -94,7 +94,7 @@ describe('GptPluginService', () => {
   describe('getManifest', () => {
     it('should return the manifest for the environment', async () => {
       const url = service.getOpenApiUrl('develop.polyapi.io', 'develop');
-      expect(url).toBe('https://develop.polyapi.io/openapi-develop.json');
+      expect(url).toBe('https://develop.polyapi.io/openapi-develop.yaml');
     });
   });
 });
