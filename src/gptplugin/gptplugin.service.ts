@@ -214,7 +214,9 @@ export class GptPluginService {
   async _getHostAndSlug(host: string): Promise<{ slug: string; host: string }> {
     const slug = host.split(".")[0]
     // make sure this is valid plugin host
-    await this.prisma.gptPlugin.findUniqueOrThrow({where: {slug}});
+    if (slug !== "staging" && slug !== "develop") {
+      await this.prisma.gptPlugin.findUniqueOrThrow({where: {slug}});
+    }
     return {host, slug}
   }
 
