@@ -8,6 +8,7 @@ export class CreateAuthProviderDto {
   @IsNotEmpty()
   tokenUrl: string;
   audienceRequired?: boolean;
+  refreshEnabled?: boolean;
   revokeUrl?: string;
   introspectUrl?: string;
 }

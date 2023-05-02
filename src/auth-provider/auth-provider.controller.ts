@@ -52,16 +52,32 @@ export class AuthProviderController {
   @Post()
   @UseGuards(ApiKeyGuard)
   async createAuthProvider(@Req() req, @Body() data: CreateAuthProviderDto) {
-    const { context, authorizeUrl, tokenUrl, revokeUrl = null, introspectUrl = null, audienceRequired = false } = data;
+    const {
+      context,
+      authorizeUrl,
+      tokenUrl,
+      revokeUrl = null,
+      introspectUrl = null,
+      audienceRequired = false,
+      refreshEnabled = false,
+    } = data;
     return this.service.toAuthProviderDto(
-      await this.service.createAuthProvider(req.user, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired),
+      await this.service.createAuthProvider(req.user, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired, refreshEnabled),
     );
   }
 
   @Patch(':id')
   @UseGuards(ApiKeyGuard)
   async updateAuthProvider(@Req() req, @Param('id') id: string, @Body() data: UpdateAuthProviderDto) {
-    const { context, authorizeUrl, tokenUrl, revokeUrl , introspectUrl, audienceRequired  } = data;
+    const {
+      context,
+      authorizeUrl,
+      tokenUrl,
+      revokeUrl,
+      introspectUrl,
+      audienceRequired,
+      refreshEnabled,
+    } = data;
 
     const authProvider = await this.service.getAuthProvider(req.user, id);
     if (!authProvider) {
@@ -69,7 +85,7 @@ export class AuthProviderController {
     }
 
     return this.service.toAuthProviderDto(
-      await this.service.updateAuthProvider(req.user, authProvider, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired),
+      await this.service.updateAuthProvider(req.user, authProvider, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired, refreshEnabled),
     );
   }
 

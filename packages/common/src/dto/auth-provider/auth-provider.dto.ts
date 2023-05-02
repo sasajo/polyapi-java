@@ -4,6 +4,7 @@ export class AuthProviderDto {
   authorizeUrl: string;
   tokenUrl: string;
   audienceRequired: boolean;
+  refreshEnabled: boolean;
   revokeUrl: string | null;
   introspectUrl: string | null;
   callbackUrl: string;

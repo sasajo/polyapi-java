@@ -1,3 +1,6 @@
+### 0.1.19
+* Fixed auth function copy action
+
 ### 0.1.18
 * Updated tooltips and copied code for changed specifications
 

@@ -72,7 +72,16 @@ export class AuthProviderService {
     });
   }
 
-  async createAuthProvider(user: User, context: string, authorizeUrl: string, tokenUrl: string, revokeUrl: string | null, introspectUrl: string | null, audienceRequired: boolean) {
+  async createAuthProvider(
+    user: User,
+    context: string,
+    authorizeUrl: string,
+    tokenUrl: string,
+    revokeUrl: string | null,
+    introspectUrl: string | null,
+    audienceRequired: boolean,
+    refreshEnabled: boolean,
+  ) {
     if (!await this.checkContextDuplicates(user, context, !!revokeUrl, !!introspectUrl)) {
       throw new ConflictException(`Auth functions within context ${context} already exist`);
     }
@@ -86,6 +95,7 @@ export class AuthProviderService {
         revokeUrl,
         introspectUrl,
         audienceRequired,
+        refreshEnabled,
         user: {
           connect: {
             id: user.id,
@@ -104,6 +114,7 @@ export class AuthProviderService {
     revokeUrl: string | null | undefined,
     introspectUrl: string | null | undefined,
     audienceRequired: boolean | undefined,
+    refreshEnabled: boolean | undefined,
   ) {
     context = context || authProvider.context;
     authorizeUrl = authorizeUrl || authProvider.authorizeUrl;
@@ -111,6 +122,7 @@ export class AuthProviderService {
     revokeUrl = revokeUrl === undefined ? authProvider.revokeUrl : revokeUrl;
     introspectUrl = introspectUrl === undefined ? authProvider.introspectUrl : introspectUrl;
     audienceRequired = audienceRequired === undefined ? authProvider.audienceRequired : audienceRequired;
+    refreshEnabled = refreshEnabled === undefined ? authProvider.refreshEnabled : refreshEnabled;
 
     if (!await this.checkContextDuplicates(user, context, !!revokeUrl, !!introspectUrl, [authProvider.id])) {
       throw new ConflictException(`Auth functions within context ${context} already exist`);
@@ -128,6 +140,7 @@ export class AuthProviderService {
         revokeUrl,
         introspectUrl,
         audienceRequired,
+        refreshEnabled,
       },
     });
   }
@@ -148,6 +161,7 @@ export class AuthProviderService {
       authorizeUrl: authProvider.authorizeUrl,
       tokenUrl: authProvider.tokenUrl,
       audienceRequired: authProvider.audienceRequired,
+      refreshEnabled: authProvider.refreshEnabled,
       revokeUrl: authProvider.revokeUrl,
       introspectUrl: authProvider.introspectUrl,
       callbackUrl: this.getAuthProviderCallbackUrl(authProvider),

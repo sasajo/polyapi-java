@@ -156,6 +156,7 @@ const generateAuthFunctionJSFiles = async (specifications: AuthFunctionSpecifica
         prettyPrint(
           authFunctionJSTemplate({
             ...spec,
+            audienceRequired: spec.function.arguments.some((arg) => arg.name === 'audience'),
             apiBaseUrl: getApiBaseUrl(),
             apiKey: getApiKey(),
           }),

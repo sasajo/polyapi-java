@@ -150,19 +150,21 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
     const { parentPath, data, label } = item;
     const { type, name } = data;
 
+    const toArgumentName = arg => `${toCamelCase(arg.name)}`;
+
     switch (type) {
       case 'apiFunction':
       case 'customFunction':
       case 'serverFunction':
         const args = data.function.arguments;
         vscode.env.clipboard.writeText(
-          `await ${parentPath}.${name}(${args.map(arg => `${toCamelCase(arg.name)}`).join(', ')});`,
+          `await ${parentPath}.${name}(${args.map(toArgumentName).join(', ')});`,
         );
         break;
       case 'authFunction':
         switch(name) {
           case 'getToken':
-            vscode.env.clipboard.writeText(`${parentPath}.${name}(clientId, clientSecret, scopes, (token, url, error) => {\n\n});`);
+            vscode.env.clipboard.writeText(`${parentPath}.${name}(${data.function.arguments.slice(0, -2).map(toArgumentName).join(', ')}, (token, url, error) => {\n\n});`);
             break;
           case 'revokeToken':
           case 'introspectToken':
