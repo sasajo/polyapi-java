@@ -166,7 +166,7 @@ export class GptPluginService {
     const protocol = host === "localhost" ? "http" : "https";
     if (slug === "develop" || slug === "staging") {
       // HACK for now staging/develop just use hardcoded manifests
-      return `${protocol}://${host}/openapi-${slug}.json`
+      return `${protocol}://${host}/openapi-${slug}.yaml`
     } else {
       return `${protocol}://${host}/plugin/${slug}/openapi`;
     }
