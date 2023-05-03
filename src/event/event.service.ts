@@ -117,10 +117,14 @@ export class EventService {
     if (!this.authFunctionHandlers[clientID]) {
       this.authFunctionHandlers[clientID] = {};
     }
-    if (!this.authFunctionHandlers[clientID][authFunctionId]) {
-      this.authFunctionHandlers[clientID][authFunctionId] = [];
+    let handlers = this.authFunctionHandlers[clientID][authFunctionId];
+    if (!handlers) {
+      this.authFunctionHandlers[clientID][authFunctionId] = handlers = [];
     }
-    this.authFunctionHandlers[clientID][authFunctionId].push(client);
+    if (handlers.some(socket => socket.id === client.id)) {
+      return;
+    }
+    handlers.push(client);
 
     client.on('disconnect', () => {
       this.logger.debug(`Client for auth function handler disconnected: ${clientID} '${authFunctionId}'`);
