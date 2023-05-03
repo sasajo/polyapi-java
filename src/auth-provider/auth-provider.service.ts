@@ -179,6 +179,7 @@ export class AuthProviderService {
         },
         clientId,
         clientSecret,
+        eventsClientId,
       },
     });
 
@@ -263,7 +264,7 @@ export class AuthProviderService {
 
     if (error) {
       this.logger.debug(`Auth function callback error: ${error}`);
-      this.eventService.sendAuthFunctionEvent(id, {
+      this.eventService.sendAuthFunctionEvent(id, authToken.eventsClientId, {
         error,
       });
       return null;
@@ -299,7 +300,7 @@ export class AuthProviderService {
           catchError((error: AxiosError) => {
             this.logger.error(`Error while performing token request for auth function (id: ${authProvider.id}): ${error}`);
 
-            this.eventService.sendAuthFunctionEvent(id, {
+            this.eventService.sendAuthFunctionEvent(id, authToken.eventsClientId, {
               url: this.getAuthProviderAuthorizationUrl(authProvider, authToken),
               error: error.response ? error.response.data : error.message,
             });
@@ -325,7 +326,7 @@ export class AuthProviderService {
       },
     });
 
-    this.eventService.sendAuthFunctionEvent(id, {
+    this.eventService.sendAuthFunctionEvent(id, updatedAuthToken.eventsClientId, {
       token: tokenData.access_token,
       url: this.getAuthProviderAuthorizationUrl(authProvider, updatedAuthToken),
     });
@@ -592,16 +593,15 @@ export class AuthProviderService {
           type: 'string',
         },
       },
-      authProvider.audienceRequired
-        ? {
-          name: 'audience',
-          required: true,
-          type: {
-            kind: 'primitive',
-            type: 'string',
-          },
-        }
-        : undefined,
+      authProvider.audienceRequired &&
+      {
+        name: 'audience',
+        required: true,
+        type: {
+          kind: 'primitive',
+          type: 'string',
+        },
+      },
       {
         name: 'scopes',
         required: true,
@@ -677,6 +677,7 @@ export class AuthProviderService {
                 type: 'number',
               },
             },
+            !authProvider.audienceRequired &&
             {
               name: 'audience',
               required: false,
@@ -685,7 +686,23 @@ export class AuthProviderService {
                 type: 'string',
               },
             },
-          ],
+            {
+              name: 'autoCloseOnToken',
+              required: false,
+              type: {
+                kind: 'primitive',
+                type: 'boolean',
+              },
+            },
+            {
+              name: 'userId',
+              required: false,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              }
+            }
+          ].filter(Boolean),
         },
       },
     ].filter(Boolean) as PropertySpecification[];

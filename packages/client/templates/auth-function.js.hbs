@@ -1,6 +1,10 @@
 const axios = require('axios');
 
-module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 0 } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 0 } = {}{{/if}}) {
+module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{/if}}) {
+  if (userId) {
+    eventsClientId = `${eventsClientId}-${userId}`;
+  }
+
   axios.post(`{{apiBaseUrl}}/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
     .then(({ data }) => {
       callback(data.token, data.url, data.error);
@@ -23,6 +27,9 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
       };
       const handleEvent = ({ token, url, error }) => {
         callback(token, url, error);
+        if (token && autoCloseOnToken) {
+          unregisterEventHandler();
+        }
       };
       socket.on(`handleAuthFunctionEvent:{{id}}`, handleEvent);
       socket.emit('registerAuthFunctionEventHandler', {
@@ -32,8 +39,10 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
       });
 
       if (timeout) {
-        timeoutID = setTimeout(() => unregisterEventHandler(), timeout);
-        callback(null, null, { message: 'Timeout reached' });
+        timeoutID = setTimeout(() => {
+          unregisterEventHandler();
+          callback(null, null, { message: 'Timeout reached' });
+        }, timeout);
       }
     });
 

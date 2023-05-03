@@ -6,6 +6,7 @@ import shell from 'shelljs';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import prettier from 'prettier';
 import { compile } from 'json-schema-to-typescript';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
   ApiFunctionSpecification,
@@ -69,6 +70,7 @@ const generateIndexJSFile = async () => {
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
+      clientID: uuidv4(),
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),

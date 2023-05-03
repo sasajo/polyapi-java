@@ -138,11 +138,12 @@ export class EventService {
       .filter(socket => socket.id !== client.id);
   }
 
-  sendAuthFunctionEvent(authFunctionId: string, eventPayload: any) {
+  sendAuthFunctionEvent(authFunctionId: string, clientID: string | null, eventPayload: any) {
     this.logger.debug(`Sending auth function event: '${authFunctionId}'`, eventPayload);
 
-    Object.values(this.authFunctionHandlers).forEach(clientHandlers => {
-      if (!clientHandlers[authFunctionId]) {
+    const handlers = clientID ? [this.authFunctionHandlers[clientID]] : Object.values(this.authFunctionHandlers);
+    handlers.forEach(clientHandlers => {
+      if (!clientHandlers?.[authFunctionId]) {
         return;
       }
       clientHandlers[authFunctionId].forEach(socket => {
