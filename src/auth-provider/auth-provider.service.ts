@@ -359,7 +359,7 @@ export class AuthProviderService {
       },
     });
     if (authToken) {
-      await this.prisma.authToken.delete({
+      await this.prisma.authToken.deleteMany({
         where: {
           id: authToken.id,
         },
