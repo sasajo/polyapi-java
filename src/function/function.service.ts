@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts, { factory } from 'typescript';
 import {
   BadRequestException, ConflictException, ForbiddenException,
   forwardRef,
@@ -852,6 +852,7 @@ export class FunctionService {
   async createCustomFunction(user: User, context: string, name: string, code: string, serverFunction: boolean) {
     let functionArguments: FunctionArgument[] | null = null;
     let returnType: string | null = null;
+    const contextChain: string[] = [];
 
     const result = ts.transpileModule(code, {
       compilerOptions: {
@@ -865,17 +866,55 @@ export class FunctionService {
         before: [
           (context) => {
             return (sourceFile) => {
+
+              let fnDelaration: ts.MethodDeclaration | ts.FunctionDeclaration | null = null;
+
               const visitor = (node: ts.Node): ts.Node => {
-                if (ts.isFunctionDeclaration(node)) {
+
+                if(returnType !== null) {
+                  return node;
+                }
+
+                if (ts.isExportAssignment(node)) {
+                  const result = ts.visitEachChild(node, visitor, context);
+    
+                  if(fnDelaration) {
+                    return fnDelaration;
+                  }
+                  return result;
+                }
+
+                if (ts.isObjectLiteralExpression(node)) {
+                  return ts.visitEachChild(node, visitor, context);
+                }
+    
+                if (ts.isPropertyAssignment(node)) {
+                  contextChain.push(node.name.getText());
+
+                  const result = ts.visitEachChild(node, visitor, context);
+
+                  if(!fnDelaration) {
+                    contextChain.pop();
+                  }
+
+                  return result;
+                }
+
+                if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
                   if (node.name?.getText() === name) {
                     functionArguments = node.parameters.map((param) => ({
                       key: param.name.getText(),
                       name: param.name.getText(),
                       type: param.type?.getText() || 'any',
                     }));
+                    
                     returnType = node.type?.getText() || 'any';
-
-                    return ts.visitEachChild(node, visitor, context);
+    
+                    if (ts.isMethodDeclaration(node)) {
+                      fnDelaration = factory.createFunctionDeclaration([], node.asteriskToken, node.name?.getText(), node.typeParameters, node.parameters, node.type, node.body);
+                    } else {
+                      fnDelaration = node;
+                    }    
                   }
                 }
 
@@ -897,6 +936,9 @@ export class FunctionService {
     }
 
     code = result.outputText;
+
+
+    context = context || contextChain.join('.');
 
     let customFunction = await this.prisma.customFunction.findFirst({
       where: {
