@@ -112,7 +112,7 @@ export class EventService {
     });
   }
 
-  registerAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string) {
+  registerAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string): boolean {
     this.logger.debug(`Registering handler for auth function ${authFunctionId} on ${clientID}`);
     if (!this.authFunctionHandlers[clientID]) {
       this.authFunctionHandlers[clientID] = {};
@@ -122,7 +122,7 @@ export class EventService {
       this.authFunctionHandlers[clientID][authFunctionId] = handlers = [];
     }
     if (handlers.some(socket => socket.id === client.id)) {
-      return;
+      return false;
     }
     handlers.push(client);
 
@@ -130,6 +130,8 @@ export class EventService {
       this.logger.debug(`Client for auth function handler disconnected: ${clientID} '${authFunctionId}'`);
       this.unregisterAuthFunctionEventHandler(client, clientID, authFunctionId);
     });
+
+    return true;
   }
 
   unregisterAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string) {

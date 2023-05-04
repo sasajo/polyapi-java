@@ -113,8 +113,7 @@ export class EventGateway {
     if (!await this.checkAuthFunctionEventHandler(webhookEventHandler)) {
       return false;
     }
-    this.eventService.registerAuthFunctionEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.functionId);
-    return true;
+    return this.eventService.registerAuthFunctionEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.functionId);
   }
 
   @SubscribeMessage('unregisterAuthFunctionEventHandler')
