@@ -243,6 +243,7 @@ export class GptPluginService {
     let name = '';
     let descMarket = '';
     let descModel = '';
+    let iconUrl = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
     if (slug === 'staging') {
       name = 'Poly API Staging';
     } else if (slug == 'develop') {
@@ -252,6 +253,7 @@ export class GptPluginService {
       name = plugin.name;
       descMarket = plugin.descriptionForMarketplace;
       descModel = plugin.descriptionForModel;
+      iconUrl = plugin.iconUrl;
     }
 
     return {
@@ -269,7 +271,7 @@ export class GptPluginService {
         url: this.getOpenApiUrl(host, slug),
         is_user_authenticated: false,
       },
-      logo_url: 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png',
+      logo_url: iconUrl,
       contact_email: 'darko@polyapi.io',
       legal_info_url: 'https://polyapi.io/legal',
     };
