@@ -4,7 +4,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GptPluginModule } from './gptplugin.module';
 
-async function _createFunction(prisma: PrismaService) {
+async function _createApiFunction(prisma: PrismaService) {
   const user = await prisma.user.findFirst();
 
   const defaults = {
@@ -61,7 +61,7 @@ describe('GptPluginService', () => {
       // WARNING THIS TEST USES THE HARDCODED TEMPLATE PATH IN DIST
       // PLEASE RUN `yarn build` BEFORE RUNNING THIS TEST
       await _createPlugin(prisma);
-      const f1 = await _createFunction(prisma);
+      const apiFunc = await _createApiFunction(prisma);
 
       const specStr = await service.getOpenApiSpec('mass-effect.develop.polyapi.io', 'mass-effect');
 
@@ -76,7 +76,7 @@ describe('GptPluginService', () => {
       expect(spec.servers[0].url).toBe('https://mass-effect.develop.polyapi.io');
 
       expect(Object.keys(spec.paths).length).toBe(1);
-      const path1 = spec.paths[`/functions/api/${f1.publicId}/execute`];
+      const path1 = spec.paths[`/functions/api/${apiFunc.publicId}/execute`];
       expect(path1.post.summary).toBe('send a text message');
       expect(path1.post.operationId).toBe('commsMessagingTwilioSendSms');
 
