@@ -10,7 +10,7 @@ import { FunctionService } from 'function/function.service';
 import { ApiFunction, GptPlugin } from '@prisma/client';
 import { Request } from 'express';
 
-const POLY_DEFAULT_ICON_URL = "https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png";
+const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
 
 type PluginFunction = Specification & {
   executePath: string;
@@ -51,10 +51,12 @@ function _getArgumentsRequired(args: PropertySpecification[]): string[] {
   return rv;
 }
 
-const loadTemplate = async () => fs.readFileSync(
-  // HACK this feels super hardcody
-  `${process.cwd()}/dist/gptplugin/templates/openapi.json.hbs`,
-  'utf8');
+const loadTemplate = async () =>
+  fs.readFileSync(
+    // HACK this feels super hardcody
+    `${process.cwd()}/dist/gptplugin/templates/openapi.json.hbs`,
+    'utf8',
+  );
 
 const _getBodySchema = (f: PluginFunction): Schema => {
   const rv: Schema = {
@@ -102,7 +104,7 @@ async function _getResponseSchema(f: PluginFunction) {
     converted = temp as OpenApiResponse;
   }
 
-  const schema: OpenApiResponse  = {
+  const schema: OpenApiResponse = {
     type,
     description: 'response',
   };
@@ -168,10 +170,10 @@ export class GptPluginService {
   }
 
   getOpenApiUrl(host: string, slug: string): string {
-    const protocol = host === "localhost" ? "http" : "https";
-    if (slug === "develop" || slug === "staging") {
+    const protocol = host === 'localhost' ? 'http' : 'https';
+    if (slug === 'develop' || slug === 'staging') {
       // HACK for now staging/develop just use hardcoded manifests
-      return `${protocol}://${host}/openapi-${slug}.yaml`
+      return `${protocol}://${host}/openapi-${slug}.yaml`;
     } else {
       return `${protocol}://${host}/plugin/${slug}/openapi`;
     }
@@ -191,15 +193,27 @@ export class GptPluginService {
     return template({ plugin: plugin, hostname, functions, bodySchemas, responseSchemas });
   }
 
+  async getPlugin(slug: string): Promise<GptPlugin> {
+    return this.prisma.gptPlugin.findUniqueOrThrow({
+      where: { slug },
+    });
+  }
+
   async createPlugin(body: CreatePluginDto): Promise<GptPlugin> {
-    const functionIds = body.functionIds ? JSON.stringify(body.functionIds) : "";
+    // slugs must be lowercase!
+    body.slug = body.slug.toLowerCase();
+
+    const functionIds = body.functionIds ? JSON.stringify(body.functionIds) : '';
 
     const update = {};
     if (body.name) {
       update['name'] = body.name;
     }
-    if (body.description) {
-      update['description'] = body.description;
+    if (body.descriptionForMarketplace) {
+      update['descriptionForMarketplace'] = body.descriptionForMarketplace;
+    }
+    if (body.descriptionForModel) {
+      update['descriptionForModel'] = body.descriptionForModel;
     }
     if (functionIds) {
       update['functionIds'] = functionIds;
@@ -207,44 +221,46 @@ export class GptPluginService {
 
     return this.prisma.gptPlugin.upsert({
       where: {
-        slug: body.slug
+        slug: body.slug,
       },
-      update: {...update},
+      update: { ...update },
       create: {
         slug: body.slug,
         name: body.name ? body.name : body.slug,
-        description: body.description ? body.description : "",
+        descriptionForMarketplace: body.descriptionForMarketplace || '',
+        descriptionForModel: body.descriptionForModel || '',
         iconUrl: body.iconUrl ? body.iconUrl : POLY_DEFAULT_ICON_URL,
-        functionIds
+        functionIds,
       },
     });
   }
 
   async getManifest(req: Request) {
-    const host = req.hostname
-    const slug = host.split(".")[0]
+    const host = req.hostname;
+    const slug = host.split('.')[0];
 
     // make sure this is valid plugin host
-    let name = "";
-    let description = "";
-    if (slug === "staging") {
-      name = "Poly API Staging";
-      description = 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
-    } else if (slug == "develop") {
-      name = "Poly API Develop";
-      description = 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
+    let name = '';
+    let descMarket = '';
+    let descModel = '';
+    if (slug === 'staging') {
+      name = 'Poly API Staging';
+    } else if (slug == 'develop') {
+      name = 'Poly API Develop';
     } else {
-      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({where: {slug}});
+      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug } });
       name = plugin.name;
-      description = plugin.description || 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
+      descMarket = plugin.descriptionForMarketplace;
+      descModel = plugin.descriptionForModel;
     }
 
     return {
       schema_version: 'v1',
       name_for_human: name,
       name_for_model: lodash.snakeCase(name),
-      description_for_human: description,
-      description_for_model: description,
+      description_for_human:
+        descMarket || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
+      description_for_model: descModel || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
       auth: {
         type: 'none',
       },
