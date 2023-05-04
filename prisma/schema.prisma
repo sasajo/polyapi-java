@@ -172,6 +172,7 @@ model GptPlugin {
   id          Int      @id @default(autoincrement())
   slug        String   @unique
   name        String
+  description String   @default("")
   iconUrl     String   @map("icon_url")
   functionIds String  // json array of function publicIds for now
 }

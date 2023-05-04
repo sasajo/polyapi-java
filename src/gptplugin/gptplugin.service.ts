@@ -192,11 +192,14 @@ export class GptPluginService {
   }
 
   async createPlugin(body: CreatePluginDto): Promise<GptPlugin> {
-    const update = {};
     const functionIds = body.functionIds ? JSON.stringify(body.functionIds) : "";
 
+    const update = {};
     if (body.name) {
       update['name'] = body.name;
+    }
+    if (body.description) {
+      update['description'] = body.description;
     }
     if (functionIds) {
       update['functionIds'] = functionIds;
@@ -210,30 +213,38 @@ export class GptPluginService {
       create: {
         slug: body.slug,
         name: body.name ? body.name : body.slug,
+        description: body.description ? body.description : "",
         iconUrl: body.iconUrl ? body.iconUrl : POLY_DEFAULT_ICON_URL,
         functionIds
       },
     });
   }
 
-  async _getHostAndSlug(host: string): Promise<{ slug: string; host: string }> {
-    const slug = host.split(".")[0]
-    // make sure this is valid plugin host
-    if (slug !== "staging" && slug !== "develop") {
-      await this.prisma.gptPlugin.findUniqueOrThrow({where: {slug}});
-    }
-    return {host, slug}
-  }
-
   async getManifest(req: Request) {
-    const {host, slug} = await this._getHostAndSlug(req.hostname)
+    const host = req.hostname
+    const slug = host.split(".")[0]
+
+    // make sure this is valid plugin host
+    let name = "";
+    let description = "";
+    if (slug === "staging") {
+      name = "Poly API Staging";
+      description = 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
+    } else if (slug == "develop") {
+      name = "Poly API Develop";
+      description = 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
+    } else {
+      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({where: {slug}});
+      name = plugin.name;
+      description = plugin.description || 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
+    }
 
     return {
       schema_version: 'v1',
-      name_for_human: `Poly API ${lodash.startCase(slug)}`,
-      name_for_model: 'poly_api',
-      description_for_human: 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
-      description_for_model: 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
+      name_for_human: name,
+      name_for_model: lodash.snakeCase(name),
+      description_for_human: description,
+      description_for_model: description,
       auth: {
         type: 'none',
       },
