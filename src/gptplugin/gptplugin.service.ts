@@ -215,6 +215,9 @@ export class GptPluginService {
     if (body.descriptionForModel) {
       update['descriptionForModel'] = body.descriptionForModel;
     }
+    if (body.iconUrl) {
+      update['iconUrl'] = body.iconUrl;
+    }
     if (functionIds) {
       update['functionIds'] = functionIds;
     }
