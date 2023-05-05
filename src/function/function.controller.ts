@@ -214,7 +214,7 @@ export class FunctionController {
   }
 
   @Post('/server/:id/execute')
-  async executeCustomFunction(@Param('id') id: string, @Body() executeFunctionDto: ExecuteCustomFunctionDto): Promise<any> {
+  async executeServerFunction(@Param('id') id: string, @Body() executeFunctionDto: ExecuteCustomFunctionDto): Promise<any> {
     const customFunction = await this.service.findCustomFunctionByPublicId(id);
     if (!customFunction) {
       throw new NotFoundException(`Function with publicId ${id} not found.`);

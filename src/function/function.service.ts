@@ -1009,11 +1009,14 @@ export class FunctionService {
     });
   }
 
-  async executeServerFunction(customFunction: CustomFunction, args: any[], clientID: string) {
+  async executeServerFunction(customFunction: CustomFunction, args: Record<string, any>, clientID: string) {
     this.logger.debug(`Executing server function ${customFunction.publicId} with arguments ${JSON.stringify(args)}`);
 
+    const functionArguments = JSON.parse(customFunction.arguments || '[]');
+    const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
+
     try {
-      const result = await this.faasService.executeFunction(customFunction.publicId, args);
+      const result = await this.faasService.executeFunction(customFunction.publicId, argumentsList);
       this.logger.debug(
         `Server function ${customFunction.publicId} executed successfully with result: ${JSON.stringify(result)}`,
       );
