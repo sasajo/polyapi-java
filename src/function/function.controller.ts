@@ -226,6 +226,13 @@ export class FunctionController {
     return await this.service.executeServerFunction(customFunction, executeFunctionDto.args, executeFunctionDto.clientID);
   }
 
+  @UseGuards(new ApiKeyGuard([Role.Admin]))
+  @Post('/server/all/update')
+  async updateAllServerFunctions(@Req() req) {
+    void this.service.updateAllServerFunctions(req.user);
+    return 'Functions are being updated in background. Please check logs for more details.';
+  }
+
   @Delete('/')
   @UseGuards(new ApiKeyGuard([Role.Admin]))
   async deleteAllFunctions(@Query() { userId, apiKey }: DeleteAllFunctionsDto): Promise<void> {

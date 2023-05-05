@@ -75,13 +75,23 @@ export class KNativeFaasService implements FaasService {
     );
   }
 
+  async updateFunction(id: string, apiKey: string): Promise<void> {
+    const functionPath = this.getFunctionPath(id);
+    if (!fs.existsSync(functionPath)) {
+      return;
+    }
+
+    await this.stopFunction(id);
+    await this.preparePolyLib(functionPath, apiKey);
+  }
+
   private getFunctionPath(id: string): string {
     return `${BASE_FOLDER}/function-${id}`;
   }
 
   private async preparePolyLib(functionPath: string, apiKey: string) {
-    await exec(`npm install --prefix ${functionPath} polyapi`);
-    fs.mkdirSync(`${functionPath}/node_modules/.poly`);
+    await exec(`npm install --prefix ${functionPath} polyapi@${this.config.polyClientNpmVersion}`);
+    fs.mkdirSync(`${functionPath}/node_modules/.poly`, { recursive: true });
     await exec(`POLY_API_BASE_URL=${this.config.hostUrl} POLY_API_KEY=${apiKey} npx --prefix ${functionPath} poly generate`);
   };
 
@@ -102,12 +112,18 @@ export class KNativeFaasService implements FaasService {
   };
 
   private async cleanUpFunction(id: string, functionPath: string) {
-    fs.rmSync(functionPath, { recursive: true });
+    await this.stopFunction(id);
+
     try {
       await exec(`${KNATIVE_EXEC_FILE} delete ${id}`);
     } catch (e) {
       // ignore
     }
+
+    fs.rmSync(functionPath, { recursive: true });
+  }
+
+  private async stopFunction(id: string) {
     try {
       await exec(`docker stop $(docker ps -q --filter ancestor=${REGISTRY}/${id}:latest)`);
     } catch (e) {
