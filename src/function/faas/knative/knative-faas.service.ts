@@ -49,9 +49,14 @@ export class KNativeFaasService implements FaasService {
     const functionPath = this.getFunctionPath(id);
     const functionPort = this.getRunningPort(functionPath);
 
-    if (!functionPort && maxRetryCount > 0) {
-      await this.run(id);
-      return this.executeFunction(id, args, maxRetryCount - 1);
+    if (!functionPort) {
+      if (maxRetryCount > 0) {
+        await this.run(id);
+        return this.executeFunction(id, args, maxRetryCount - 1);
+      } else {
+        this.logger.error(`Function ${id} is not running`);
+        throw new Error(`Function ${id} is not running`);
+      }
     }
 
     this.logger.debug(`Executing server function '${id}' (maxRetryCount=${maxRetryCount})...`);
@@ -96,6 +101,7 @@ export class KNativeFaasService implements FaasService {
   };
 
   private async run(id: string) {
+    this.logger.debug(`Running server function '${id}'...`);
     const functionPath = this.getFunctionPath(id);
     await exec(
       `${KNATIVE_EXEC_FILE} build --registry ${REGISTRY}`,
