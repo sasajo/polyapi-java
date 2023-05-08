@@ -1,6 +1,6 @@
 openapi: 3.0.1
 info:
-  title: Melia Resorts
+  title: Poly API
   description: Endpoints that allow users to execute functions on PolyAPI
   version: 'v1'
 servers:

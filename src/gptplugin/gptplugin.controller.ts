@@ -22,10 +22,10 @@ export class GptPluginController {
     const host = this.config.hostUrl
     return {
       schema_version: 'v1',
-      name_for_human: `Melia Resorts`,
-      name_for_model: 'melia_resorts',
-      description_for_human: 'Your one stop of the vacation of your dreams.',
-      description_for_model: 'This is the Melia hotels plugin whihc can be used to search for availability of hotel rooms, to book rooms, and to confirm details with SMS messages',
+      name_for_human: `Poly API ${_capitalize(env)}`,
+      name_for_model: 'poly_api',
+      description_for_human: 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
+      description_for_model: 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
       auth: {
         type: 'none',
       },
@@ -34,7 +34,7 @@ export class GptPluginController {
         url: this.service.getOpenApiUrl(env, host),
         is_user_authenticated: false,
       },
-      logo_url: 'https://searchlogovector.com/wp-content/uploads/2018/11/meli%C3%A1-hotels-resorts-logo-vector.png',
+      logo_url: 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png',
       contact_email: 'darko@polyapi.io',
       legal_info_url: 'https://polyapi.io/legal',
     };
