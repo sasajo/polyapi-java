@@ -6,6 +6,23 @@ info:
 servers:
   - url: https://staging.polyapi.io
 paths:
+  /functions/custom/304948f9-6693-4000-a0fb-a1ac25a9ff29/execute:
+    post:
+      operationId: operaCheckIn
+      summary: This function takes in a last name and first name, as strings, looks up the guest reservation, assigns a room, and then checks the guest into the hotel. The date of the reservation must be for today or else the guest will not be checked into the hotel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/operaCheckInArgs'
+      responses:
+        "201":
+          description: details about the check in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/operaCheckInResponse'
   /functions/custom/bdcbd314-afbb-4462-be5f-4c7518c47595/execute:
     post:
       operationId: operaReservation
@@ -202,3 +219,14 @@ components:
           type: string
         MonetaryValue:
           type: number
+    operaCheckInArgs:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: lastName and firstName of the guest checking in
+    operaCheckInResponse:
+      type: string
+      description: A string which confirms that the guest was checked in, or will provide a summary of what failed. If the guest does not have a reservation, please suggest another potential spelling for their name, or to book a reservation for today.
