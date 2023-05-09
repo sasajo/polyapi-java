@@ -24,7 +24,6 @@ export class GptPluginController {
   @UseGuards(ApiKeyGuard)
   @Get('plugins/:slug')
   public async pluginGet(@Req() req: Request, @Param('slug') slug): Promise<unknown> {
-    // HACK this is actually get or create based on slug!
     const plugin = await this.service.getPlugin(slug);
     return {
       plugin: plugin,
