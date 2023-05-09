@@ -246,19 +246,16 @@ def get_completion_prompt_messages(
     rv = []
 
     if library:
-        # from the OpenAI docs:
-        # gpt-3.5-turbo-0301 does not always pay strong attention to system messages. Future models will be trained to pay stronger attention to system messages.
-        # let's try user!
         MessageDict(
             role="user",
             content="Only include actual payload elements and function arguments in the example. Be concise.",
         )
-        # rv.append(
-        #     MessageDict(
-        #         role="user",
-        #         content="To import the Poly API library, use `import poly from 'polyapi';`",
-        #     )
-        # )
+        rv.append(
+            MessageDict(
+                role="user",
+                content="If you suggest using a function, give me an example of how to invoke the function with `import poly from 'polyapi';` at the top.",
+            )
+        )
         rv.append(library)
 
     question_msg = get_question_message_dict(question, bool(library))
