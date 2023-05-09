@@ -77,9 +77,15 @@ const _getBodySchema = (f: PluginFunction): Schema => {
 };
 
 const _getReturnType = (t: PropertyType): string => {
-  if (t.kind === 'void' || t.kind === 'plain') {
-    // HACK just assume these are strings for now
-    return 'string';
+  if (t.kind === 'void') {
+    return "string";
+  } else if (t.kind === 'plain') {
+    if (t.value === "string" || t.value === "number" || t.value === "boolean") {
+      return t.value;
+    } else {
+      // HACK just return string for now
+      return "string";
+    };
   } else if (t.kind === 'primitive') {
     return t.type;
   } else if (t.kind === 'function') {
