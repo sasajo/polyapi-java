@@ -2,7 +2,7 @@ import fs from 'fs';
 import handlebars from 'handlebars';
 import lodash from 'lodash';
 import convert from '@openapi-contrib/json-schema-to-openapi-schema';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
 import { CreatePluginDto, PropertySpecification, PropertyType, Specification } from '@poly/common';
@@ -83,7 +83,7 @@ const _getReturnType = (t: PropertyType): string => {
   } else if (t.kind === 'primitive') {
     return t.type;
   } else if (t.kind === 'function') {
-    throw new Error('Cannot support functions yet');
+    throw new BadRequestException('Cannot support functions as return types yet');
   } else {
     return t.kind;
   }
@@ -245,7 +245,7 @@ export class GptPluginService {
     if (body.functionIds) {
       const functions = await this._getAllFunctions(body.functionIds);
       if (functions.length !== body.functionIds.length) {
-        throw new Error(
+        throw new BadRequestException(
           'Invalid function id passed in functionIds. Are you sure this is the right environment and that the function type is supported?',
         );
       }
