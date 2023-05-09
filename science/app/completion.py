@@ -113,8 +113,9 @@ def get_function_options_prompt(
         if match['type'] == "webhookHandle":
             webhook_parts.append(webhook_prompt(match))
         else:
+            desc = match.get('description', "")
             function_parts.append(
-                f"// {match['description']}\n{func_path_with_args(match)}"
+                f"// {desc}\n{func_path_with_args(match)}"
             )
 
     content = _join_content(function_parts, webhook_parts)
