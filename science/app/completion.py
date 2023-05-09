@@ -253,7 +253,7 @@ def get_completion_prompt_messages(
         rv.append(
             MessageDict(
                 role="user",
-                content="If you suggest using a function, give me an example of how to invoke the function with `import poly from 'polyapi';` at the top.",
+                content="Only suggest functions from the Poly API Library. If you suggest using a function from the Poly API Library, give me an example of how to invoke the function with `import poly from 'polyapi';` at the top.",
             )
         )
         rv.append(library)
