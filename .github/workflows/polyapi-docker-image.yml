@@ -7,11 +7,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+      
     steps:
     - uses: actions/checkout@v3
+
+    - name: Replace
+      run: |
+        cat ./docker/Dockerfile | envsubst > ./docker/DockerfileReplaced
+    
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi:latest -f docker/Dockerfile .
+        docker build -t ghcr.io/polyapi/polyapi:latest -f docker/DockerfileReplaced .
         docker push ghcr.io/polyapi/polyapi:latest
