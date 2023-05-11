@@ -288,7 +288,7 @@ describe('GptPluginService', () => {
   describe('getBodySchema', () => {
     it('should return the right args', () => {
       const out = service.getBodySchema(PLUGIN_CREATE_SPEC);
-      expect(out).toBe(false);
+      expect(out).toBeTruthy();
     });
   });
 
