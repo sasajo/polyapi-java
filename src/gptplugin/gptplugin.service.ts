@@ -19,7 +19,7 @@ type NameContext = {
   context: string;
 };
 
-type PluginFunction = Specification & {
+export type PluginFunction = Specification & {
   executePath: string;
   operationId: string;
 };
@@ -62,31 +62,16 @@ function _getArgumentsRequired(args: PropertySpecification[]): string[] {
   return rv;
 }
 
-const _getBodySchema = (f: PluginFunction): Schema | null => {
-  if (f.function.arguments && f.function.arguments.length > 0) {
-    const rv: Schema = {
-      name: `${f.operationId}Body`,
-      type: 'object',
-      // pretty sure OpenAPI needs a description so just use this!
-      description: 'arguments',
-    };
-    rv.arguments = f.function.arguments;
-    rv.argumentsRequired = _getArgumentsRequired(f.function.arguments);
-    return rv;
-  }
-  return null;
-};
-
 const _getReturnType = (t: PropertyType): string => {
   if (t.kind === 'void') {
-    return "string";
+    return 'string';
   } else if (t.kind === 'plain') {
-    if (t.value === "string" || t.value === "number" || t.value === "boolean") {
+    if (t.value === 'string' || t.value === 'number' || t.value === 'boolean') {
       return t.value;
     } else {
       // HACK just return string for now
-      return "string";
-    };
+      return 'string';
+    }
   } else if (t.kind === 'primitive') {
     return t.type;
   } else if (t.kind === 'function') {
@@ -233,13 +218,28 @@ export class GptPluginService {
     const functions = await this._getAllFunctions(functionIds);
 
     // @ts-expect-error: filter gets rid of nulls
-    const bodySchemas: Schema[] = functions.map((f) => _getBodySchema(f)).filter((s) => s !== null);;
+    const bodySchemas: Schema[] = functions.map((f) => this.getBodySchema(f)).filter((s) => s !== null);
 
     const responseSchemas = await Promise.all(functions.map((f) => _getResponseSchema(f)));
 
     const template = handlebars.compile(this.loadTemplate());
     return template({ plugin: plugin, hostname, functions, bodySchemas, responseSchemas });
   }
+
+  getBodySchema = (f: PluginFunction): Schema | null => {
+    if (f.function.arguments && f.function.arguments.length > 0) {
+      const rv: Schema = {
+        name: `${f.operationId}Body`,
+        type: 'object',
+        // pretty sure OpenAPI needs a description so just use this!
+        description: 'arguments',
+      };
+      rv.arguments = f.function.arguments;
+      rv.argumentsRequired = _getArgumentsRequired(f.function.arguments);
+      return rv;
+    }
+    return null;
+  };
 
   async getPlugin(slug: string): Promise<GptPlugin> {
     return this.prisma.gptPlugin.findUniqueOrThrow({
@@ -256,7 +256,7 @@ export class GptPluginService {
     if (body.functionIds) {
       const functions = await this._getAllFunctions(body.functionIds);
       if (functions.length !== body.functionIds.length) {
-        const badFunctionIds: string[] = []
+        const badFunctionIds: string[] = [];
         const goodFunctionIds = functions.map((f) => f.id);
         for (const fid of body.functionIds) {
           if (!goodFunctionIds.includes(fid)) {
