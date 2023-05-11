@@ -62,18 +62,19 @@ function _getArgumentsRequired(args: PropertySpecification[]): string[] {
   return rv;
 }
 
-const _getBodySchema = (f: PluginFunction): Schema => {
-  const rv: Schema = {
-    name: `${f.operationId}Body`,
-    type: 'object',
-    // pretty sure OpenAPI needs a description so just use this!
-    description: 'arguments',
-  };
+const _getBodySchema = (f: PluginFunction): Schema | null => {
   if (f.function.arguments) {
+    const rv: Schema = {
+      name: `${f.operationId}Body`,
+      type: 'object',
+      // pretty sure OpenAPI needs a description so just use this!
+      description: 'arguments',
+    };
     rv.arguments = f.function.arguments;
     rv.argumentsRequired = _getArgumentsRequired(f.function.arguments);
+    return rv;
   }
-  return rv;
+  return null;
 };
 
 const _getReturnType = (t: PropertyType): string => {
@@ -229,7 +230,10 @@ export class GptPluginService {
 
     const functionIds = JSON.parse(plugin.functionIds);
     const functions = await this._getAllFunctions(functionIds);
-    const bodySchemas = functions.map((f) => _getBodySchema(f));
+
+    // @ts-expect-error: filter gets rid of nulls
+    const bodySchemas: Schema[] = functions.map((f) => _getBodySchema(f)).filter((s) => s !== null);;
+
     const responseSchemas = await Promise.all(functions.map((f) => _getResponseSchema(f)));
 
     const template = handlebars.compile(this.loadTemplate());
