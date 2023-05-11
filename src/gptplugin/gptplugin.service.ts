@@ -166,7 +166,6 @@ function _getArguments(f: PluginFunction) {
   for (const arg of f.function.arguments) {
     rv[arg.name] = { type: _getOpenApiType(arg.type) };
   }
-  rv['required'] = _getArgumentsRequired(f.function.arguments);
   return rv;
   // const rv: object[] = [];
   // for (const arg of f.function.arguments) {
@@ -253,9 +252,10 @@ export class GptPluginService {
         args: {
           type: 'object',
           properties: _getArguments(f),
+          required: _getArgumentsRequired(f.function.arguments)
         },
-        required: ['args'],
       },
+      required: ['args'],
       description: 'arguments',
     };
     return {
