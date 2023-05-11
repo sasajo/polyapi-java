@@ -50,7 +50,6 @@
       {{#each bodySchemas}}
         "{{this.name}}": {
           "type": "object",
-          {{#if this.arguments}}
           "properties": {
             "args": {
               "type": "object",
@@ -70,7 +69,6 @@
             }
           },
           "required": ["args"],
-          {{/if}}
           "description": "{{this.description}}"
         },
       {{/each}}
