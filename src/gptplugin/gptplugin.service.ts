@@ -251,8 +251,15 @@ export class GptPluginService {
     if (body.functionIds) {
       const functions = await this._getAllFunctions(body.functionIds);
       if (functions.length !== body.functionIds.length) {
+        const badFunctionIds: string[] = []
+        const goodFunctionIds = functions.map((f) => f.id);
+        for (const fid of body.functionIds) {
+          if (!goodFunctionIds.includes(fid)) {
+            badFunctionIds.push(fid);
+          }
+        }
         throw new BadRequestException(
-          'Invalid function id passed in functionIds. Are you sure this is the right environment and that the function type is supported?',
+          `Invalid function ids ${badFunctionIds} passed in functionIds. Are you sure this is the right environment and that the function type is supported?`,
         );
       }
     }
