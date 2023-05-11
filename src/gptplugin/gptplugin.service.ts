@@ -161,20 +161,20 @@ async function _customFunctionMap(f: CustomFunction, functionService: FunctionSe
   });
 }
 
-function _getArguments(f: PluginFunction) {
+function _getProperties(props: PropertySpecification[]) {
   const rv: object = {};
-  for (const arg of f.function.arguments) {
-    rv[arg.name] = { type: _getOpenApiType(arg.type) };
+  for (const prop of props) {
+    const type = _getOpenApiType(prop.type)
+    const name = prop.name;
+    rv[name] = { type };
+    if (type === "object") {
+      // @ts-expect-error: we know from previous line this is object!
+      const properties: PropertySpecification[] = prop.type.properties
+      rv[name].properties = _getProperties(properties)
+      rv[name].required = _getArgumentsRequired(properties)
+    }
   }
   return rv;
-  // const rv: object[] = [];
-  // for (const arg of f.function.arguments) {
-  //   const obj = {}
-  //   obj[arg.name] = { type: _getOpenApiType(arg.type) }
-  //   rv.push(obj);
-  // }
-  // rv['required'] = _getArgumentsRequired(f.function.arguments);
-  // return rv;
 }
 
 @Injectable()
@@ -251,7 +251,7 @@ export class GptPluginService {
       properties: {
         args: {
           type: 'object',
-          properties: _getArguments(f),
+          properties: _getProperties(f.function.arguments),
           required: _getArgumentsRequired(f.function.arguments)
         },
       },
