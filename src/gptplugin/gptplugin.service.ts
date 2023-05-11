@@ -63,7 +63,7 @@ function _getArgumentsRequired(args: PropertySpecification[]): string[] {
 }
 
 const _getBodySchema = (f: PluginFunction): Schema | null => {
-  if (f.function.arguments) {
+  if (f.function.arguments && f.function.arguments.length > 0) {
     const rv: Schema = {
       name: `${f.operationId}Body`,
       type: 'object',
