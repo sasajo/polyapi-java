@@ -34,7 +34,7 @@ def _process_property_spec(arg: PropertySpecification) -> str:
         sub_props = "{" + sub_props + "}"
         return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
     elif kind == "function":
-        raise NotImplementedError("TODO how do we do this?")
+        return f"{arg['name']}: {kind}"
     elif kind == "plain":
         return f"{arg['name']}: {arg['type']['value']}"
     else:
