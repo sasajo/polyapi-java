@@ -62,7 +62,7 @@ function _getArgumentsRequired(args: PropertySpecification[]): string[] {
   return rv;
 }
 
-const _getReturnType = (t: PropertyType): string => {
+const _getOpenApiType = (t: PropertyType): string => {
   if (t.kind === 'void') {
     return 'string';
   } else if (t.kind === 'plain') {
@@ -92,7 +92,7 @@ function _cleanupProperties(properties: object) {
 async function _getResponseSchema(f: PluginFunction) {
   // @ts-expect-error: it's ok
   const jsonSchema = f.function.returnType.schema;
-  const type = _getReturnType(f.function.returnType);
+  const type = _getOpenApiType(f.function.returnType);
 
   let converted: null | OpenApiResponse = null;
   if (jsonSchema && type === 'object') {
@@ -161,6 +161,17 @@ async function _customFunctionMap(f: CustomFunction, functionService: FunctionSe
   });
 }
 
+function _getArguments(f: PluginFunction) {
+  const rv = [];
+  for (const arg of f.function.arguments) {
+    rv[arg.name] = {
+      type: _getOpenApiType(arg.type),
+    };
+  }
+  rv['required'] = _getArgumentsRequired(f.function.arguments);
+  return rv;
+}
+
 @Injectable()
 export class GptPluginService {
   private readonly logger = new Logger(GptPluginService.name);
@@ -226,19 +237,25 @@ export class GptPluginService {
     return template({ plugin: plugin, hostname, functions, bodySchemas, responseSchemas });
   }
 
-  getBodySchema = (f: PluginFunction): Schema | null => {
-    if (f.function.arguments && f.function.arguments.length > 0) {
-      const rv: Schema = {
-        name: `${f.operationId}Body`,
-        type: 'object',
-        // pretty sure OpenAPI needs a description so just use this!
-        description: 'arguments',
-      };
-      rv.arguments = f.function.arguments;
-      rv.argumentsRequired = _getArgumentsRequired(f.function.arguments);
-      return rv;
+  getBodySchema = (f: PluginFunction): object | null => {
+    if (!f.function.arguments || f.function.arguments.length === 0) {
+      return null;
     }
-    return null;
+    const schema = {
+      type: 'object',
+      properties: {
+        args: {
+          type: 'object',
+          properties: _getArguments(f),
+        },
+        required: ['args'],
+      },
+      description: 'arguments',
+    };
+    return {
+      name: `${f.operationId}Body`,
+      schema: JSON.stringify(schema, null, 2),
+    };
   };
 
   async getPlugin(slug: string): Promise<GptPlugin> {
