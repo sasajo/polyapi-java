@@ -118,12 +118,11 @@ async function _getResponseSchema(f: PluginFunction) {
   const schema: OpenApiResponse = {
     type,
     description: 'response',
+    properties: {},
   };
   if (converted?.properties) {
     schema.properties = converted.properties;
     _cleanupProperties(schema.properties);
-  } else {
-    schema.properties = {};
   }
 
   return {
