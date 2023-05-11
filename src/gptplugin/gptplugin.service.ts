@@ -162,14 +162,20 @@ async function _customFunctionMap(f: CustomFunction, functionService: FunctionSe
 }
 
 function _getArguments(f: PluginFunction) {
-  const rv = [];
+  const rv: object = {};
   for (const arg of f.function.arguments) {
-    rv[arg.name] = {
-      type: _getOpenApiType(arg.type),
-    };
+    rv[arg.name] = { type: _getOpenApiType(arg.type) };
   }
   rv['required'] = _getArgumentsRequired(f.function.arguments);
   return rv;
+  // const rv: object[] = [];
+  // for (const arg of f.function.arguments) {
+  //   const obj = {}
+  //   obj[arg.name] = { type: _getOpenApiType(arg.type) }
+  //   rv.push(obj);
+  // }
+  // rv['required'] = _getArgumentsRequired(f.function.arguments);
+  // return rv;
 }
 
 @Injectable()
