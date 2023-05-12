@@ -29,10 +29,13 @@ def _process_property_spec(arg: PropertySpecification) -> str:
             name=arg["name"], item_type=item_type
         )
     elif kind == "object":
-        properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
-        sub_props = ", ".join(properties)
-        sub_props = "{" + sub_props + "}"
-        return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
+        if arg["type"].get('properties'):
+            properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
+            sub_props = ", ".join(properties)
+            sub_props = "{" + sub_props + "}"
+            return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
+        else:
+            return "{name}: object".format(name=arg["name"])
     elif kind == "function":
         return f"{arg['name']}: {kind}"
     elif kind == "plain":
