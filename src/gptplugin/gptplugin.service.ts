@@ -170,8 +170,10 @@ function _getProperties(props: PropertySpecification[]) {
     if (type === "object") {
       // @ts-expect-error: we know from previous line this is object!
       const properties: PropertySpecification[] = prop.type.properties
-      rv[name].properties = _getProperties(properties)
-      rv[name].required = _getArgumentsRequired(properties)
+      if (properties && properties.length > 0) {
+        rv[name].properties = _getProperties(properties)
+        rv[name].required = _getArgumentsRequired(properties)
+      }
     }
   }
   return rv;
