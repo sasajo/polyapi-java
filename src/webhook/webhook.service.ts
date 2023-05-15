@@ -10,7 +10,7 @@ import {
 import { Prisma, User, WebhookHandle } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { CommonService } from 'common/common.service';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService, PrismaTransaction } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
 import { AiService } from 'ai/ai.service';
@@ -35,10 +35,8 @@ export class WebhookService {
     private readonly specsService: SpecsService,
   ) {}
 
-  private create(
-    data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>,
-    tx?: Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0],
-  ): Promise<WebhookHandle> {
+  private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
+
     const createData: Parameters<typeof this.prisma.webhookHandle.create>[0] = {
       data: {
         createdAt: new Date(),
