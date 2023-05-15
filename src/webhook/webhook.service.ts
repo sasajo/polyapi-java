@@ -33,17 +33,18 @@ export class WebhookService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
-  ) {
-  }
+  ) {}
 
-  private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]): Promise<WebhookHandle> {
-
+  private create(
+    data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>,
+    tx?: Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0],
+  ): Promise<WebhookHandle> {
     const createData: Parameters<typeof this.prisma.webhookHandle.create>[0] = {
       data: {
         createdAt: new Date(),
         ...data,
-      }
-    }
+      },
+    };
 
     if (tx) {
       return tx.webhookHandle.create(createData);
@@ -55,17 +56,17 @@ export class WebhookService {
   private getWebhookFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
-        return {
-          OR: [
-            {
-              context: { startsWith: `${context}.` },
-            },
-            {
-              context,
-            },
-          ],
-        };
-      })
+          return {
+            OR: [
+              {
+                context: { startsWith: `${context}.` },
+              },
+              {
+                context,
+              },
+            ],
+          };
+        })
       : [];
 
     const filterConditions = [
@@ -81,7 +82,12 @@ export class WebhookService {
     return filterConditions.length > 0 ? { OR: [...filterConditions] } : undefined;
   }
 
-  public async getWebhookHandles(user: User, contexts?: string[], names?: string[], ids?: string[]): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(
+    user: User,
+    contexts?: string[],
+    names?: string[],
+    ids?: string[],
+  ): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for user ${user?.name}...`);
 
     const publicUser = await this.userService.getPublicUser();
@@ -104,6 +110,28 @@ export class WebhookService {
     });
   }
 
+  public async getWebhookHandle(user: User, id: string) {
+    const publicUser = await this.userService.getPublicUser();
+
+    return this.prisma.webhookHandle.findFirst({
+      where: {
+        OR: [
+          {
+            userId: user.id,
+            id,
+          },
+          {
+            userId: publicUser.id,
+            id,
+          },
+        ],
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   private async getAIWebhookData(webhookHandle: WebhookHandle, description: string, eventPayload: any) {
     const {
       name: aiName,
@@ -118,8 +146,8 @@ export class WebhookService {
     return {
       name: aiName,
       description: aiDescription,
-      context: aiContext
-    }
+      context: aiContext,
+    };
   }
 
   public async createOrUpdateWebhookHandle(
@@ -129,22 +157,23 @@ export class WebhookService {
     eventPayload: any,
     description: string,
   ): Promise<WebhookHandle> {
-    
-
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
-      where: context === null ? { name } :  {
-        name,
-        context,
-      },
+      where:
+        context === null
+          ? { name }
+          : {
+              name,
+              context,
+            },
     });
 
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
 
-    if (!await this.checkContextAndNameDuplicates(user, context, name, webhookHandle ? [webhookHandle.id] : [])) {
+    if (!(await this.checkContextAndNameDuplicates(user, context, name, webhookHandle ? [webhookHandle.id] : []))) {
       throw new ConflictException(`Function with ${context}/${name} is already registered.`);
     }
 
@@ -155,7 +184,7 @@ export class WebhookService {
 
       this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
 
-      if(!name || !context || !description) {
+      if (!name || !context || !description) {
         const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
 
         return this.prisma.webhookHandle.update({
@@ -166,11 +195,10 @@ export class WebhookService {
             eventPayload: JSON.stringify(eventPayload),
             context: context || aiResponse.context,
             description: description || aiResponse.description,
-            name: name || aiResponse.name
+            name: name || aiResponse.name,
           },
         });
       }
-
 
       return this.prisma.webhookHandle.update({
         where: {
@@ -180,47 +208,51 @@ export class WebhookService {
           eventPayload: JSON.stringify(eventPayload),
           name,
           context,
-          description: description || webhookHandle.description
+          description: description || webhookHandle.description,
         },
       });
     } else {
       this.logger.debug(`Creating new webhook handle for ${context}/${name}...`);
 
-      return this.prisma.$transaction(async tx => {
-
-        let webhookHandle = await this.create({
-          user: {
-            connect: {
-              id: user.id,
-            },
-          },
-          name,
-          context: context || '',
-          eventPayload: JSON.stringify(eventPayload),
-          description,
-        }, tx);
-        
-        if(!name || !description || !context) {
-          const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
-
-          webhookHandle = await tx.webhookHandle.update({
-            where: {
-              id: webhookHandle.id,
-            },
-            data: {
+      return this.prisma.$transaction(
+        async (tx) => {
+          let webhookHandle = await this.create(
+            {
+              user: {
+                connect: {
+                  id: user.id,
+                },
+              },
+              name,
+              context: context || '',
               eventPayload: JSON.stringify(eventPayload),
-              context: context || aiResponse.context,
-              description: description || aiResponse.description,
-              name: name || aiResponse.name
+              description,
             },
-          });
-        }
+            tx,
+          );
 
-        return webhookHandle;
-      }, {
-        timeout: 10000
-      });
+          if (!name || !description || !context) {
+            const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
 
+            webhookHandle = await tx.webhookHandle.update({
+              where: {
+                id: webhookHandle.id,
+              },
+              data: {
+                eventPayload: JSON.stringify(eventPayload),
+                context: context || aiResponse.context,
+                description: description || aiResponse.description,
+                name: name || aiResponse.name,
+              },
+            });
+          }
+
+          return webhookHandle;
+        },
+        {
+          timeout: 10000,
+        },
+      );
     }
   }
 
@@ -276,7 +308,7 @@ export class WebhookService {
     context = this.normalizeContext(context, webhookHandle);
     description = this.normalizeDescription(description, webhookHandle);
 
-    if (!await this.checkContextAndNameDuplicates(user, context, name, [webhookHandle.id])) {
+    if (!(await this.checkContextAndNameDuplicates(user, context, name, [webhookHandle.id]))) {
       throw new ConflictException(`Function with name ${context}/${name} already exists.`);
     }
 
@@ -299,8 +331,8 @@ export class WebhookService {
   private async checkContextAndNameDuplicates(user: User, context: string, name: string, excludedIds?: string[]) {
     const functionPath = `${context ? `${context}.` : ''}${name.split('.').map(toCamelCase).join('.')}`;
     const paths = (await this.specsService.getSpecificationPaths(user))
-      .filter(path => excludedIds == null || !excludedIds.includes(path.id))
-      .map(path => path.path);
+      .filter((path) => excludedIds == null || !excludedIds.includes(path.id))
+      .map((path) => path.path);
 
     return !paths.includes(functionPath);
   }
@@ -351,7 +383,8 @@ export class WebhookService {
 
   async toWebhookHandleSpecification(webhookHandle: WebhookHandle): Promise<WebhookHandleSpecification> {
     const getEventArgument = async (): Promise<PropertySpecification> => {
-      const schema = await this.commonService.getJsonSchema('WebhookEventType', webhookHandle.eventPayload) || undefined;
+      const schema =
+        (await this.commonService.getJsonSchema('WebhookEventType', webhookHandle.eventPayload)) || undefined;
 
       return {
         name: 'event',

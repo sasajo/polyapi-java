@@ -3,16 +3,13 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   Param,
   Patch,
   Post,
   Put,
   Req,
   UseGuards,
-  Query,
-  UsePipes,
-  ValidationPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import { WebhookService } from 'webhook/webhook.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
@@ -20,14 +17,25 @@ import { CreateWebhookHandleDto, UpdateWebhookHandleDto } from '@poly/common';
 
 @Controller('webhooks')
 export class WebhookController {
-  public constructor(private readonly webhookService: WebhookService) {
-  }
+  public constructor(private readonly webhookService: WebhookService) {}
 
   @UseGuards(ApiKeyGuard)
   @Get()
   public async getWebhookHandles(@Req() req) {
     const webhookHandles = await this.webhookService.getWebhookHandles(req.user);
     return webhookHandles.map((handle) => this.webhookService.toDto(handle));
+  }
+
+  @UseGuards(ApiKeyGuard)
+  @Get(':id')
+  public async getWeebhookHandle(@Req() req, @Param('id') id: string) {
+    const webhookHandle = await this.webhookService.getWebhookHandle(req.user, id);
+
+    if (webhookHandle) {
+      return this.webhookService.toDto(webhookHandle);
+    }
+
+    throw new NotFoundException(`Webhook handle with ID ${id} not found.`);
   }
 
   @UseGuards(ApiKeyGuard)
@@ -76,13 +84,7 @@ export class WebhookController {
     @Param('name') name: string,
     @Body() payload: any,
   ) {
-    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
-      req.user,
-      context,
-      name,
-      payload,
-      '',
-    );
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user, context, name, payload, '');
     return this.webhookService.toDto(webhookHandle);
   }
 
