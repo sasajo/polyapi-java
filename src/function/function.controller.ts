@@ -61,6 +61,8 @@ export class FunctionController {
       context = null,
       description = null,
       arguments: argumentsMetadata = null,
+      response,
+      payload = null
     } = updateFunction;
     const apiFunction = await this.service.findApiFunction(req.user, id);
     if (!apiFunction) {
@@ -68,7 +70,7 @@ export class FunctionController {
     }
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(req.user, apiFunction, name, context, description, argumentsMetadata),
+      await this.service.updateApiFunction(req.user, apiFunction, name, context, description, argumentsMetadata, response, payload),
     );
   }
 

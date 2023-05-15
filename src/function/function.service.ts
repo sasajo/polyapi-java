@@ -232,6 +232,25 @@ export class FunctionService {
     });
   }
 
+  private async throwErrIfInvalidResponse(response: any, payload: string | null, context: string, name: string) {
+    try {
+      const content = this.commonService.getPathContent(response, payload);
+
+      const responseType = await this.commonService.generateTypeDeclaration(
+        'ResponseType',
+        content,
+        toPascalCase(`${context} ${name}`),
+      );
+      this.logger.debug(`Generated response type:\n${responseType}`);
+    } catch (e) {
+      if (e instanceof PathError) {
+        throw new BadRequestException(e.message);
+      } else {
+        throw e;
+      }
+    }
+  }
+
   async updateApiFunctionDetails(
     id: number,
     user: User,
@@ -295,22 +314,7 @@ export class FunctionService {
       `Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`,
     );
 
-    try {
-      const content = this.commonService.getPathContent(response, payload);
-
-      const responseType = await this.commonService.generateTypeDeclaration(
-        'ResponseType',
-        content,
-        toPascalCase(`${context} ${name}`),
-      );
-      this.logger.debug(`Generated response type:\n${responseType}`);
-    } catch (e) {
-      if (e instanceof PathError) {
-        throw new BadRequestException(e.message);
-      } else {
-        throw e;
-      }
-    }
+    await this.throwErrIfInvalidResponse(response, payload, context, name);
 
     await this.prisma.apiFunction.update({
       where: {
@@ -655,7 +659,7 @@ export class FunctionService {
     });
   }
 
-  async updateApiFunction(user: User, apiFunction: ApiFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null) {
+  async updateApiFunction(user: User, apiFunction: ApiFunction, name: string | null, context: string | null, description: string | null, argumentsMetadata: ArgumentsMetadata | null, response: any, payload: string | null) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(user, name, apiFunction.context, false) : null;
 
@@ -688,15 +692,22 @@ export class FunctionService {
     this.logger.debug(
       `Updating URL function ${apiFunction.id} with name ${name}, context ${context}, description ${description}`,
     );
+
+    const finalContext = context == null ? apiFunction.context : context;
+    const finalName = name || apiFunction.name
+
+    await this.throwErrIfInvalidResponse(response, payload, finalContext, finalName);
+
     return this.prisma.apiFunction.update({
       where: {
         id: apiFunction.id,
       },
       data: {
-        name: name || apiFunction.name,
-        context: context == null ? apiFunction.context : context,
+        name: finalName,
+        context: finalContext,
         description: description == null ? apiFunction.description : description,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
+        ...(response ? { response: JSON.stringify(response) } : null)
       },
     });
   }
