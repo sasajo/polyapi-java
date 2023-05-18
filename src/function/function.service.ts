@@ -30,6 +30,7 @@ import {
   FunctionDetailsDto,
   Header,
   Method,
+  PostmanVariableEntry,
   PropertySpecification,
   PropertyType,
   Role,
@@ -166,7 +167,7 @@ export class FunctionService {
     return name;
   }
 
-  private filterDisabledValues<T extends { [k: string]: string | boolean }>(values: T[]) {
+  private filterDisabledValues<T extends PostmanVariableEntry>(values: T[]) {
     return values.filter(({ disabled }) => !disabled);
   }
 
@@ -188,6 +189,7 @@ export class FunctionService {
   }
 
   async teach(
+    id: string | null,
     user: User,
     url: string,
     body: Body,
@@ -210,19 +212,69 @@ export class FunctionService {
       );
     }
 
-    const apiFunction = await this.prisma.apiFunction.findFirst({
-      where: {
-        user: {
-          id: user.id,
+    let apiFunction: ApiFunction | null = null;
+
+    const finalAuth = templateAuth ? JSON.stringify(templateAuth) : null;
+    const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
+    const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
+
+    if (id === null) {
+      const urlObject = new URL(templateUrl);
+
+      const apiFunctions = await this.prisma.apiFunction.findMany({
+        where: {
+          user: {
+            id: user.id,
+          },
+          url: {
+            startsWith: `${urlObject.origin}${urlObject.pathname}`,
+          },
+          method,
         },
-        url: templateUrl,
-        method,
-      },
-    });
+      });
+
+      if (apiFunctions.length) {
+        apiFunction = await this.findApiFunctionForRetraining(
+          apiFunctions,
+          finalBody,
+          finalHeaders,
+          templateUrl,
+          variables,
+          finalAuth,
+        );
+      }
+    } else if (id !== 'new') {
+      apiFunction = await this.prisma.apiFunction.findFirst({
+        where: {
+          publicId: id,
+        },
+      });
+
+      if (!apiFunction) {
+        throw new NotFoundException(`Function not found for id ${id}.`);
+      }
+
+      this.logger.debug(`Explicity retraining function with id ${id}.`);
+    }
+
+    const willRetrain = (id === null || id !== 'new') && apiFunction !== null;
+
+    if (id === 'new') {
+      this.logger.debug(`Explicity avoid retrain.`);
+      this.logger.debug(`Creating a new poly function...`);
+    }
+
+    if (id === null && willRetrain && apiFunction) {
+      this.logger.debug(`Found existing function ${apiFunction.id} for retraining. Updating...`);
+    }
+
+    if (id === null && !apiFunction) {
+      this.logger.debug(`Creating new poly function...`);
+    }
 
     response = this.commonService.trimDownObject(response, 1);
 
-    if (!name || !context || !description) {
+    if ((!name || !context || !description) && !willRetrain) {
       const {
         name: aiName,
         description: aiDescription,
@@ -247,45 +299,41 @@ export class FunctionService {
     }
 
     if (apiFunction) {
-      this.logger.debug(`Found existing URL function ${apiFunction.id}. Updating...`);
-
       name = this.normalizeName(name, apiFunction);
       context = this.normalizeContext(context, apiFunction);
       description = this.normalizeDescription(description, apiFunction);
       payload = this.normalizePayload(payload, apiFunction);
-    } else {
-      this.logger.debug(`Creating new poly function...`);
     }
 
     this.logger.debug(
       `Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`,
     );
 
-    await this.throwErrIfInvalidResponse(response, payload, context || '', name);
-
-    const finalAuth = templateAuth ? JSON.stringify(templateAuth) : null;
-    const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
-    const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
-
     const finalContext = context || '';
+    const finalName = name || '';
+    const finalDescription = description || '';
 
-    const createOrUpdatePayload = {
+    await this.throwErrIfInvalidResponse(response, payload, context || '', finalName);
+
+    const upsertPayload = {
       context: finalContext,
-      description: description || '',
+      description: finalDescription,
       payload,
       response: JSON.stringify(response),
       body: finalBody,
       headers: finalHeaders,
       auth: finalAuth,
+      url: templateUrl,
     };
 
-    if (apiFunction) {
+    if (apiFunction && willRetrain) {
       const updatedApiFunction = await this.prisma.apiFunction.update({
         where: {
           id: apiFunction.id,
         },
         data: {
-          name: await this.resolveFunctionName(user, name, finalContext, true, true, [apiFunction.publicId]),
+          ...upsertPayload,
+          name: await this.resolveFunctionName(user, finalName, finalContext, true, true, [apiFunction.publicId]),
           argumentsMetadata: await this.resolveArgumentsMetadata(
             {
               argumentsMetadata: apiFunction.argumentsMetadata,
@@ -297,7 +345,6 @@ export class FunctionService {
             },
             variables,
           ),
-          ...createOrUpdatePayload,
         },
       });
 
@@ -313,19 +360,18 @@ export class FunctionService {
             id: user.id,
           },
         },
-        name: await this.resolveFunctionName(user, name, finalContext, true, true),
+        ...upsertPayload,
+        name: await this.resolveFunctionName(user, finalName, finalContext, true, true),
         argumentsMetadata: await this.resolveArgumentsMetadata(
           {
-            url: templateUrl,
             argumentsMetadata: null,
+            url: templateUrl,
             auth: finalAuth,
             body: finalBody,
             headers: finalHeaders,
           },
           variables,
         ),
-        ...createOrUpdatePayload,
-        url: templateUrl,
         method,
       },
     });
@@ -1240,19 +1286,25 @@ export class FunctionService {
   private async resolveArgumentsMetadata(
     apiFunction: ApiFunctionArguments & Partial<Pick<ApiFunction, 'id'>>,
     variables: Variables,
+    debug?: boolean,
   ) {
     const functionArgs = this.getFunctionArguments(apiFunction);
+    const newMetadata: ArgumentsMetadata = {};
     const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
 
     const resolveArgumentParameterLimit = () => {
       if (apiFunction.argumentsMetadata || functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
-      this.logger.debug(
-        `Generating arguments metadata for ${
-          apiFunction.id ? `function ${apiFunction.id}` : 'a new function'
-        } with payload 'true' (arguments count: ${functionArgs.length})`,
-      );
+
+      if (debug) {
+        this.logger.debug(
+          `Generating arguments metadata for ${
+            apiFunction.id ? `function ${apiFunction.id}` : 'a new function'
+          } with payload 'true' (arguments count: ${functionArgs.length})`,
+        );
+      }
+
       functionArgs.forEach((arg) => {
         if (metadata[arg.key]) {
           metadata[arg.key].payload = true;
@@ -1264,29 +1316,33 @@ export class FunctionService {
       });
     };
     const resolveArgumentTypes = async () => {
-      if (apiFunction.id) {
-        this.logger.debug(`Resolving argument types for function ${apiFunction.id}...`);
-      } else {
-        this.logger.debug(`Resolving argument types for new function...`);
+      if (debug) {
+        if (apiFunction.id) {
+          this.logger.debug(`Resolving argument types for function ${apiFunction.id}...`);
+        } else {
+          this.logger.debug(`Resolving argument types for new function...`);
+        }
       }
 
       for (const arg of functionArgs) {
         if (metadata[arg.key]?.type) {
+          newMetadata[arg.key] = metadata[arg.key];
           continue;
         }
         const value = variables[arg.key];
 
         if (value == null) {
+          newMetadata[arg.key] = metadata[arg.key];
           continue;
         }
 
         const [type, typeSchema] = await this.resolveArgumentType(value);
 
         if (metadata[arg.key]) {
-          metadata[arg.key].type = type;
-          metadata[arg.key].typeSchema = typeSchema;
+          newMetadata[arg.key].type = type;
+          newMetadata[arg.key].typeSchema = typeSchema;
         } else {
-          metadata[arg.key] = {
+          newMetadata[arg.key] = {
             type,
             typeSchema,
           };
@@ -1295,9 +1351,10 @@ export class FunctionService {
     };
 
     resolveArgumentParameterLimit();
+
     await resolveArgumentTypes();
 
-    return JSON.stringify(metadata);
+    return JSON.stringify(newMetadata);
   }
 
   private async resolveArgumentType(value: string) {
@@ -1379,5 +1436,57 @@ export class FunctionService {
       this.logger.debug(`Updating server function ${serverFunction.id}...`);
       await this.faasService.updateFunction(serverFunction.publicId, user.apiKey);
     }
+  }
+
+  private async findApiFunctionForRetraining(
+    apiFunctions: ApiFunction[],
+    body: string,
+    headers: string,
+    url: string,
+    variables: Variables,
+    auth: string | null,
+  ): Promise<ApiFunction | null> {
+    let apiFunction: ApiFunction | null = null;
+
+    for await (const currentApiFunction of apiFunctions) {
+      const newArgumentsMetaData = await this.resolveArgumentsMetadata(
+        {
+          argumentsMetadata: currentApiFunction.argumentsMetadata,
+          auth,
+          body,
+          headers,
+          url,
+          id: currentApiFunction.id,
+        },
+        variables,
+      );
+
+      const parsedCurrentArgumentsMetaData = JSON.parse(
+        currentApiFunction.argumentsMetadata || '{}',
+      ) as ArgumentsMetadata;
+      const parsedNewArgumentsMetaData = JSON.parse(newArgumentsMetaData) as ArgumentsMetadata;
+
+      // Check arguments length difference.
+      if (Object.keys(parsedCurrentArgumentsMetaData).length !== Object.keys(parsedNewArgumentsMetaData).length) {
+        continue;
+      }
+
+      // Check arguments type difference.
+      if (
+        !Object.keys(parsedCurrentArgumentsMetaData).every((key) => {
+          return (
+            parsedNewArgumentsMetaData.hasOwnProperty(key) &&
+            parsedCurrentArgumentsMetaData[key].type === parsedNewArgumentsMetaData[key].type
+          );
+        })
+      ) {
+        continue;
+      }
+
+      apiFunction = currentApiFunction;
+      break;
+    }
+
+    return apiFunction;
   }
 }

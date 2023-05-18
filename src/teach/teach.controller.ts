@@ -1,11 +1,5 @@
 import { Body, Controller, Logger, Post, Req, UseGuards } from '@nestjs/common';
-import {
-  TeachDto,
-  TeachSystemPromptDto,
-  TeachSystemPromptResponseDto,
-  Role,
-  TeachResponseDto,
-} from '@poly/common';
+import { TeachDto, TeachSystemPromptDto, TeachSystemPromptResponseDto, Role, TeachResponseDto } from '@poly/common';
 import { FunctionService } from 'function/function.service';
 import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
 
@@ -24,10 +18,7 @@ export class TeachController {
 
   @UseGuards(ApiKeyGuard)
   @Post('')
-  async teach(
-    @Req() req,
-    @Body() teachDto: TeachDto,
-  ): Promise<TeachResponseDto> {
+  async teach(@Req() req, @Body() teachDto: TeachDto): Promise<TeachResponseDto> {
     const {
       url,
       body,
@@ -42,13 +33,16 @@ export class TeachController {
       method,
       templateAuth,
       templateUrl,
-      templateBody
+      templateBody,
+      id = null,
     } = teachDto;
     this.logger.debug(`Teaching details of function for user ${req.user.id}...`);
     this.logger.debug(
       `name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}, statusCode: ${statusCode}`,
     );
-    return  this.functionService.teach(
+
+    return this.functionService.teach(
+      id,
       req.user,
       url,
       body,
@@ -63,9 +57,7 @@ export class TeachController {
       method,
       templateUrl,
       templateBody,
-      templateAuth
+      templateAuth,
     );
   }
 }
-
-
