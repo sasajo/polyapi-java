@@ -226,9 +226,16 @@ export class FunctionService {
           user: {
             id: user.id,
           },
-          url: {
-            startsWith: `${urlObject.origin}${urlObject.pathname}`,
-          },
+          OR: [
+            {
+              url: {
+                startsWith: `${urlObject.origin}${urlObject.pathname}?`,
+              }
+            },
+            {
+              url: templateUrl
+            }
+          ],
           method,
         },
       });
