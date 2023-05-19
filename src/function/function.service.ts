@@ -1345,7 +1345,7 @@ export class FunctionService {
 
         const [type, typeSchema] = await this.resolveArgumentType(value);
 
-        if (metadata[arg.key]) {
+        if (newMetadata[arg.key]) {
           newMetadata[arg.key].type = type;
           newMetadata[arg.key].typeSchema = typeSchema;
         } else {
