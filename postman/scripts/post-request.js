@@ -40,7 +40,7 @@ const postRequest = {
       description: description?.context,
       name: pm.info.requestName,
       ...polyData,
-      url,
+      url: `${url.protocol ? `${templateUrl.protocol}://` : ''}${url.getRemote()}${url.getPathWithQuery()}`,
       body,
       templateHeaders,
       method,
