@@ -14,7 +14,7 @@ export const addCustomFunction = async (context: string | null, name: string, fi
       shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom server side function...`));
       await createServerFunction(context, name, code);
     } else {
-      shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom client side function...`));
+      shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom server side function...`));
       await createClientFunction(context, name, code);
     }
     shell.echo(chalk.green('DONE'));

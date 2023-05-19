@@ -21,7 +21,7 @@ let response;
 
 const contentType = pm.response.headers.get('content-type') || '';
 
-if (contentType.match(/application\/json/) !== null) {
+if(contentType.match(/application\/json/) !== null) {
     response = pm.response.json();
 } else {
     response = pm.response.text();
@@ -40,7 +40,7 @@ const postRequest = {
       description: description?.context,
       name: pm.info.requestName,
       ...polyData,
-      url: `${url.protocol ? `${templateUrl.protocol}://` : ''}${url.getRemote()}${url.getPathWithQuery()}`,
+      url,
       body,
       templateHeaders,
       method,
