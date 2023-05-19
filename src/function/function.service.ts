@@ -219,8 +219,6 @@ export class FunctionService {
     const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
 
     if (id === null) {
-      const urlObject = new URL(templateUrl);
-
       const apiFunctions = await this.prisma.apiFunction.findMany({
         where: {
           user: {
@@ -229,7 +227,7 @@ export class FunctionService {
           OR: [
             {
               url: {
-                startsWith: `${urlObject.origin}${urlObject.pathname}?`,
+                startsWith: templateUrl.substring(0, (templateUrl.indexOf('?') + 1) || templateUrl.length),
               }
             },
             {
@@ -1345,7 +1343,7 @@ export class FunctionService {
 
         const [type, typeSchema] = await this.resolveArgumentType(value);
 
-        if (metadata[arg.key]) {
+        if (newMetadata[arg.key]) {
           newMetadata[arg.key].type = type;
           newMetadata[arg.key].typeSchema = typeSchema;
         } else {
