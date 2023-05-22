@@ -148,7 +148,6 @@ export class FunctionService {
   ) {
     if (transformTextCase) {
       name = name.replace(/([\[\]\\/{}()])/g, ' ');
-      name = toCamelCase(name);
     }
 
     if (!fixDuplicate) {

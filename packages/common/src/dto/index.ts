@@ -8,3 +8,4 @@ export * from './webhook';
 export * from './auth-provider';
 export * from './error-handler.dto';
 export * from './specs';
+export * from './validators';
