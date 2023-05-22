@@ -391,10 +391,25 @@ export class FunctionService {
     const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(apiFunction.argumentsMetadata || '{}'));
     const args: FunctionArgument[] = [];
 
-    args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
-    args.push(...(apiFunction.headers?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
-    args.push(...(apiFunction.body?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
-    args.push(...(apiFunction.auth?.match(ARGUMENT_PATTERN)?.map(toArgument) || []));
+    args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
+      ...toArgument(arg),
+      location: 'url'
+    })) || []));
+    args.push(...(apiFunction.headers?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
+      ...toArgument(arg),
+      location: 'headers'
+    })) || []));
+    args.push(...(apiFunction.auth?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
+      ...toArgument(arg),
+      location: 'auth'
+    })) || []));
+    
+    const bodyArgs = (apiFunction.body?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
+      ...toArgument(arg),
+      location: 'body'
+    })) || []).filter(bodyArg => !args.some(arg => arg.key === bodyArg.key));
+
+    args.push(...bodyArgs);
 
     args.sort(compareArgumentsByRequired);
 
@@ -1312,12 +1327,14 @@ export class FunctionService {
       }
 
       functionArgs.forEach((arg) => {
-        if (metadata[arg.key]) {
-          metadata[arg.key].payload = true;
-        } else {
-          metadata[arg.key] = {
-            payload: true,
-          };
+        if (arg.location === 'body') {
+          if (metadata[arg.key]) {
+            metadata[arg.key].payload = true;
+          } else {
+            metadata[arg.key] = {
+              payload: true,
+            };
+          }
         }
       });
     };
