@@ -206,7 +206,10 @@ def get_best_function(user_id: int, question: str) -> Tuple[str, StatsDict]:
     # we tell ChatGPT to send us back "none" if no function matches
 
     try:
-        public_id = json.loads(answer_msg["content"])['id']
+        content = answer_msg["content"]
+        if "```" in content:
+            content = content.split("```")[0]
+        public_id = json.loads(content)['id']
     except Exception as e:
         log(f"invalid function id returned, setting public_id to none: {e}")
         public_id = "none"
@@ -219,7 +222,12 @@ def get_best_function(user_id: int, question: str) -> Tuple[str, StatsDict]:
         return "", stats
 
 
-BEST_FUNCTION_DETAILS_TEMPLATE = "Use this function, and add any additional code you see fit, to answer my question:\n{spec_str}"
+BEST_FUNCTION_DETAILS_TEMPLATE = """Please be concise.
+To import the Poly API Library:
+`import poly from 'polyapi'`
+Use the following function, and add any additional code you see fit, to answer my question:
+{spec_str}
+"""
 BEST_FUNCTION_QUESTION_TEMPLATE = "My question:\n{question}"
 
 
