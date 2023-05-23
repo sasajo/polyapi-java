@@ -996,10 +996,11 @@ export class FunctionService {
                 if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
                   if (node.name?.getText() === name) {
                     functionArguments = node.parameters.map((param) => ({
-                      key: param.name.getText(),
-                      name: param.name.getText(),
-                      type: param.type?.getText() || 'any',
-                    }));
+                        key: param.name.getText(),
+                        name: param.name.getText(),
+                        type: param.type?.getText() || 'any',
+                        ...(param.questionToken ? { required: false } : {})
+                      }));
 
                     returnType = node.type?.getText() || 'any';
 
@@ -1221,7 +1222,7 @@ export class FunctionService {
 
     const toArgumentSpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
       name: arg.name,
-      required: true,
+      required: typeof arg.required === 'undefined' ? true : arg.required,
       type: {
         kind: 'plain',
         value: arg.type,
