@@ -38,6 +38,9 @@ def _process_property_spec(arg: PropertySpecification) -> str:
             sub_props = "{" + sub_props + "}"
             return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
         else:
+            log(
+                f"WARNING: object with no properties in args - {arg}"
+            )
             return "{name}: object".format(name=arg["name"])
     elif kind == "function":
         return f"{arg['name']}: {kind}"
