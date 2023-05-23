@@ -106,11 +106,15 @@ export class FunctionController {
 
   @Post('/client')
   @UseGuards(ApiKeyGuard)
-  async createClientFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+  async createClientFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const { context = '', name, code } = createCustomFunctionDto;
 
     try {
-      return await this.service.createCustomFunction(req.user, context, name, code, false);
+
+      return this.service.customFunctionToDetailsDto(
+        await this.service.createCustomFunction(req.user, context, name, code, false)
+      );
+
     } catch (e) {
       throw new BadRequestException(e.message);
     }
@@ -129,7 +133,7 @@ export class FunctionController {
 
   @Patch('/client/:id')
   @UseGuards(ApiKeyGuard)
-  async updateClientFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<any> {
+  async updateClientFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const {
       context = null,
       description = null,
@@ -166,11 +170,13 @@ export class FunctionController {
 
   @Post('/server')
   @UseGuards(ApiKeyGuard)
-  async createServerFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
+  async createServerFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const { context = '', name, code } = createCustomFunctionDto;
 
     try {
-      return await this.service.createCustomFunction(req.user, context, name, code, true);
+      return this.service.customFunctionToDetailsDto(
+        await this.service.createCustomFunction(req.user, context, name, code, true)
+      );
     } catch (e) {
       throw new BadRequestException(e.message);
     }
@@ -189,7 +195,7 @@ export class FunctionController {
 
   @Patch('/server/:id')
   @UseGuards(ApiKeyGuard)
-  async updateServerFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<any> {
+  async updateServerFunction(@Req() req, @Param('id') id: string, @Body() updateFunction: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const {
       context = null,
       description = null,

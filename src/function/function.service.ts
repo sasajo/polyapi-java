@@ -944,7 +944,7 @@ export class FunctionService {
     });
   }
 
-  async createCustomFunction(user: User, context: string, name: string, code: string, serverFunction: boolean) {
+  async createCustomFunction(user: User, context: string, name: string, code: string, serverFunction: boolean): Promise<CustomFunction> {
     let functionArguments: FunctionArgument[] | null = null;
     let returnType: string | null = null;
     const contextChain: string[] = [];
@@ -1085,7 +1085,7 @@ export class FunctionService {
 
       try {
         await this.faasService.createFunction(customFunction.publicId, name, code, user.apiKey);
-        return this.prisma.customFunction.update({
+        await this.prisma.customFunction.update({
           where: {
             id: customFunction.id,
           },
@@ -1096,10 +1096,12 @@ export class FunctionService {
       } catch (e) {
         this.logger.error(
           `Error creating server side custom function ${name}: ${e.message}. Function created as client side.`,
-        );
-        throw e;
+          );
+          throw e;
+        }
       }
-    }
+      
+      return customFunction;
   }
 
   async findCustomFunctionByPublicId(publicId: string): Promise<CustomFunction | null> {

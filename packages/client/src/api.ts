@@ -1,10 +1,10 @@
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import {
   HEADER_ACCEPT_FUNCTION_DEFINITION,
   HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION,
   POLY_HEADER_API_KEY,
 } from './constants';
-import { FunctionDefinitionDto, Specification, WebhookHandleDefinitionDto } from '@poly/common';
+import { FunctionDefinitionDto, Specification, WebhookHandleDefinitionDto, CustomFunctionDefinitionDto } from '@poly/common';
 
 export const getSpecs = async (contexts?: string[], names?: string[], ids?: string[]) => {
   return (
@@ -55,7 +55,7 @@ export const getWebhookHandles = async (contexts?: string[], names?: string[], i
 
 export const createServerFunction = async (context: string | null, name: string, code: string) => {
   return (
-    await axios.post(
+    await axios.post<any, AxiosResponse<CustomFunctionDefinitionDto>>(
       `${process.env.POLY_API_BASE_URL}/functions/server`,
       {
         context,
@@ -74,7 +74,7 @@ export const createServerFunction = async (context: string | null, name: string,
 
 export const createClientFunction = async (context: string | null, name: string, code: string) => {
   return (
-    await axios.post(
+    await axios.post<any, AxiosResponse<CustomFunctionDefinitionDto>>(
       `${process.env.POLY_API_BASE_URL}/functions/client`,
       {
         context,
