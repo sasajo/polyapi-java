@@ -141,7 +141,7 @@ BEST_FUNCTION_CHOICE_TEMPLATE = """
 Which function can be used to accomplish this user prompt:
 %s
 
-Please return valid JSON with just the id of the function in this format:
+Please return just the id of the function in this format:
 
 ```
 {"id": functionId}
@@ -206,10 +206,7 @@ def get_best_function(user_id: int, question: str) -> Tuple[str, StatsDict]:
     # we tell ChatGPT to send us back "none" if no function matches
 
     try:
-        content = answer_msg["content"]
-        if "```" in content:
-            content = content.split("```")[0]
-        public_id = json.loads(content)['id']
+        public_id = _extract_json_from_completion(answer_msg["content"])['id']
     except Exception as e:
         log(f"invalid function id returned, setting public_id to none: {e}")
         public_id = "none"
@@ -220,6 +217,23 @@ def get_best_function(user_id: int, question: str) -> Tuple[str, StatsDict]:
     else:
         # we received invalid public id, just send back nothing
         return "", stats
+
+
+def _extract_json_from_completion(content: str) -> Dict:
+    """ sometimes OpenAI returns straight JSON, sometimes it gets chatty
+    this extracts just the code snippet wrapped in ``` if it is valid JSON
+    """
+    parts = content.split("```")
+    for part in parts:
+        try:
+            return json.loads(part)
+        except json.JSONDecodeError:
+            # move on to the next part, hopefully valid JSON!
+            pass
+
+    # if we get here we have invalid JSON
+    # just reraise last error!
+    raise
 
 
 BEST_FUNCTION_DETAILS_TEMPLATE = """Please be concise.
