@@ -141,7 +141,7 @@ BEST_FUNCTION_CHOICE_TEMPLATE = """
 Which function can be used to accomplish this user prompt:
 %s
 
-Please return just the id of the function in this format:
+Please return valid JSON with just the id of the function in this format:
 
 ```
 {"id": functionId}
