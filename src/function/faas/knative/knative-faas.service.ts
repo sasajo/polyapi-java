@@ -9,41 +9,6 @@ import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
 import { FaasService } from '../faas.service';
 
-// NodeJS built-in libraries + polyapi
-// https://www.w3schools.com/nodejs/ref_modules.asp
-const EXCLUDED_REQUIREMENTS = [
-  'polyapi',
-  'assert',
-  'buffer',
-  'child_process',
-  'cluster',
-  'crypto',
-  'dgram',
-  'dns',
-  'domain',
-  'events',
-  'fs',
-  'http',
-  'https',
-  'net',
-  'os',
-  'path',
-  'process',
-  'punycode',
-  'querystring',
-  'readline',
-  'stream',
-  'string_decoder',
-  'timers',
-  'tls',
-  'tty',
-  'url',
-  'util',
-  'v8',
-  'vm',
-  'zlib',
-];
-
 // sleep function from SO
 // https://stackoverflow.com/a/39914235
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -138,7 +103,6 @@ export class KNativeFaasService implements FaasService {
   };
 
   private async prepareRequirements(functionPath: string, requirements: string[]) {
-    requirements = requirements.filter(library => !EXCLUDED_REQUIREMENTS.includes(library));
     if (requirements.length === 0) {
       return;
     }

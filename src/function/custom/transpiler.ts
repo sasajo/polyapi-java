@@ -9,6 +9,42 @@ export interface TranspileResult {
   requirements: string[];
 }
 
+
+// NodeJS built-in libraries + polyapi
+// https://www.w3schools.com/nodejs/ref_modules.asp
+const EXCLUDED_REQUIREMENTS = [
+  'polyapi',
+  'assert',
+  'buffer',
+  'child_process',
+  'cluster',
+  'crypto',
+  'dgram',
+  'dns',
+  'domain',
+  'events',
+  'fs',
+  'http',
+  'https',
+  'net',
+  'os',
+  'path',
+  'process',
+  'punycode',
+  'querystring',
+  'readline',
+  'stream',
+  'string_decoder',
+  'timers',
+  'tls',
+  'tty',
+  'url',
+  'util',
+  'v8',
+  'vm',
+  'zlib',
+];
+
 export const transpileCode = (functionName: string, code: string): TranspileResult => {
   let functionArguments: FunctionArgument[] | null = null;
   let returnType: string | null = null;
@@ -132,6 +168,7 @@ export const transpileCode = (functionName: string, code: string): TranspileResu
     args: functionArguments,
     returnType,
     contextChain,
-    requirements: Array.from(importedLibraries),
+    requirements: Array.from(importedLibraries)
+      .filter(library => !EXCLUDED_REQUIREMENTS.includes(library)),
   };
 };

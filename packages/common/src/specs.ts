@@ -79,6 +79,7 @@ export interface ApiFunctionSpecification extends ISpecification {
 
 export interface CustomFunctionSpecification extends ISpecification {
   type: 'customFunction';
+  requirements: string[];
   code: string;
 }
 

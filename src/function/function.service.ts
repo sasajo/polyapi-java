@@ -760,6 +760,7 @@ export class FunctionService {
       context: customFunction.context,
       name: customFunction.name,
       description: customFunction.description,
+      requirements: JSON.parse(customFunction.requirements || '[]'),
       function: {
         arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
         returnType: customFunction.returnType

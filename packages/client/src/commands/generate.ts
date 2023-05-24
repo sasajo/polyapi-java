@@ -382,6 +382,7 @@ const generateTSContextDeclarationFile = async (
 
     return {
       name: specification.name.split('.').pop(),
+      comment: getSpecificationComment(specification),
       arguments: specification.function.arguments.map(toArgumentDeclaration),
       returnType: toTypeDeclaration(specification.function.returnType, specification.function.synchronous === true),
     };
@@ -504,6 +505,20 @@ const generateSingleCustomFunction = async (functionId: string) => {
   await generateSpecs(specs);
 };
 
+const getSpecificationComment = (specification: Specification) => {
+  switch (specification.type) {
+    case 'customFunction':
+      if (!specification.requirements.length) {
+        return null;
+      }
+      return `This function requires you to have the following libraries installed:\n- ${specification.requirements.join(
+        '\n- ',
+      )}`;
+    default:
+      return null;
+  }
+};
+
 const generate = async (contexts?: string[], names?: string[], functionIds?: string[]) => {
   let specs: Specification[] = [];
 
@@ -534,6 +549,6 @@ const generateSpecs = async (specs: Specification[]) => {
     showErrGeneratingFiles(error);
     return;
   }
-}
+};
 
 export { generate, generateSingleCustomFunction };

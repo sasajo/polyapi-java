@@ -10,6 +10,11 @@ declare module "./index" {
       {{name}}: {{interfaceName}};
     {{/each}}
     {{#each functionDeclarations}}
+      {{#if comment}}
+      /**
+      {{{comment}}}
+      */
+      {{/if}}
       {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnType}}};
     {{/each}}
   }
