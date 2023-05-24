@@ -10,7 +10,6 @@ export const addCustomFunction = async (context: string | null, name: string, fi
   loadConfig();
 
   try {
-
     let customFunction: FunctionDetailsDto;
 
     const code = fs.readFileSync(file, 'utf8');
@@ -24,7 +23,6 @@ export const addCustomFunction = async (context: string | null, name: string, fi
     shell.echo(chalk.green('DONE'));
 
     await generateSingleCustomFunction(customFunction.id);
-
   } catch (e) {
     shell.echo(chalk.red('ERROR\n'));
     shell.echo(`${e.response?.data?.message || e.message}`);

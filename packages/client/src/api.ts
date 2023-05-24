@@ -11,8 +11,8 @@ export const getSpecs = async (contexts?: string[], names?: string[], ids?: stri
       params: {
         contexts,
         names,
-        ids
-      }
+        ids,
+      },
     })
   ).data;
 };

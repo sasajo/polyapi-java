@@ -218,7 +218,6 @@ const generateTSDeclarationFiles = async (specs: Specification[]) => {
   );
 
   await generateTSIndexDeclarationFile(contexts);
-  generateContextDataFile(contextData);
 };
 
 const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
@@ -410,10 +409,9 @@ const getContextDataFileContent = () => {
 
   try {
     return JSON.parse(contents) as Record<string, any>;
-  } catch(err) {
+  } catch (err) {
     return {};
   }
-
 };
 
 const getContextData = (specs: Specification[]) => {
@@ -429,16 +427,14 @@ const getSpecsFromContextData = (contextData) => {
   const specs: Specification[] = [];
 
   const traverseAndGetSpec = (data) => {
-    for(const key of Object.keys(data)) {
-
-      if(typeof data[key].context !== 'undefined') {
+    for (const key of Object.keys(data)) {
+      if (typeof data[key].context !== 'undefined') {
         specs.push(data[key]);
       } else {
         traverseAndGetSpec(data[key]);
       }
-
     }
-  }
+  };
 
   traverseAndGetSpec(contextData);
 
@@ -452,32 +448,31 @@ const prettyPrint = (code: string, parser = 'typescript') =>
     printWidth: 160,
   });
 
-
 const showErrGettingSpecs = (error: any) => {
   shell.echo(chalk.red('ERROR'));
   shell.echo('Error while getting data from Poly server. Make sure the version of library/server is up to date.');
   shell.echo(chalk.red(error.message), chalk.red(JSON.stringify(error.response?.data)));
-}
+};
 
 const showErrGeneratingFiles = (error: any) => {
   shell.echo(chalk.red('ERROR'));
   shell.echo('Error while generating code files. Make sure the version of library/server is up to date.');
   shell.echo(chalk.red(error.message));
   shell.echo(chalk.red(error.stack));
-}
+};
 
-const generateSingleCustomFunction = async(functionId: string)  => {
+const generateSingleCustomFunction = async (functionId: string) => {
   shell.echo('-n', chalk.rgb(255, 255, 255)(`Generating new custom function...`));
 
   let contextData: Record<string, any> = {};
-  
+
   try {
     contextData = getContextDataFileContent();
-  } catch(error) {
+  } catch (error) {
     shell.echo(chalk.red('ERROR'));
     shell.echo('Error while fetching local context data.');
     shell.echo(chalk.red(error.message));
-    shell.echo(chalk.red(error.stack));  
+    shell.echo(chalk.red(error.stack));
     return;
   }
 
@@ -494,9 +489,9 @@ const generateSingleCustomFunction = async(functionId: string)  => {
 
   const [customFunction] = specs;
 
-  if (prevSpecs.some(prevSpec => prevSpec.id === customFunction.id)) {
-    specs = prevSpecs.map(prevSpec => {
-      if(prevSpec.id === customFunction.id) {
+  if (prevSpecs.some((prevSpec) => prevSpec.id === customFunction.id)) {
+    specs = prevSpecs.map((prevSpec) => {
+      if (prevSpec.id === customFunction.id) {
         return customFunction;
       }
       return prevSpec;
@@ -506,13 +501,8 @@ const generateSingleCustomFunction = async(functionId: string)  => {
     specs = prevSpecs;
   }
 
-  try {
-    await generateJSFiles(specs);
-    await generateTSDeclarationFiles(specs);
-  } catch (error) {
-    showErrGeneratingFiles(error);
-  }
-}
+  await generateSpecs(specs);
+};
 
 const generate = async (contexts?: string[], names?: string[], functionIds?: string[]) => {
   let specs: Specification[] = [];
@@ -521,26 +511,29 @@ const generate = async (contexts?: string[], names?: string[], functionIds?: str
 
   prepareDir();
   loadConfig();
-  
+
   try {
-    // functions = await getFunctions(contexts, names, functionIds);
-    // webhookHandles = await getWebhookHandles();
     specs = await getSpecs(contexts, names, functionIds);
   } catch (error) {
     showErrGettingSpecs(error);
     return;
   }
-  
-  try {
-    await generateJSFiles(specs);
-    await generateTSDeclarationFiles(specs);
-  } catch (error) {
-    showErrGeneratingFiles(error);
-    return;
-  }
+
+  await generateSpecs(specs);
 
   shell.echo(chalk.green('DONE'));
   shell.echo(chalk.rgb(255, 255, 255)(`\nPlease, restart your TS server to see the changes.`));
 };
+
+const generateSpecs = async (specs: Specification[]) => {
+  try {
+    await generateJSFiles(specs);
+    await generateTSDeclarationFiles(specs);
+    generateContextDataFile(getContextData(specs));
+  } catch (error) {
+    showErrGeneratingFiles(error);
+    return;
+  }
+}
 
 export { generate, generateSingleCustomFunction };
