@@ -384,7 +384,8 @@ const generateTSContextDeclarationFile = async (
       name: specification.name.split('.').pop(),
       comment: getSpecificationComment(specification),
       arguments: specification.function.arguments.map(toArgumentDeclaration),
-      returnType: toTypeDeclaration(specification.function.returnType, specification.function.synchronous === true),
+      returnType: toTypeDeclaration(specification.function.returnType),
+      synchronous: specification.function.synchronous === true,
     };
   };
 

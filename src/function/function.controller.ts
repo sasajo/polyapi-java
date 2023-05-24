@@ -16,6 +16,7 @@ import { ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import {
+  ApiFunctionResponseDto,
   CreateCustomFunctionDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
@@ -82,7 +83,7 @@ export class FunctionController {
 
   // @UseGuards(PolyKeyGuard)
   @Post('/api/:id/execute')
-  async executeApiFunction(@Req() req, @Param('id') id: string, @Body() data: ExecuteApiFunctionDto): Promise<any> {
+  async executeApiFunction(@Req() req, @Param('id') id: string, @Body() data: ExecuteApiFunctionDto): Promise<ApiFunctionResponseDto | null> {
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);

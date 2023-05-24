@@ -18,6 +18,7 @@ import mergeWith from 'lodash/mergeWith';
 import { ApiFunction, CustomFunction, Environment, Prisma, SystemPrompt } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
+  ApiFunctionResponseDto,
   ArgumentsMetadata,
   ArgumentType,
   Auth,
@@ -388,7 +389,7 @@ export class FunctionService {
     });
   }
 
-  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientID: string) {
+  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientID: string): Promise<ApiFunctionResponseDto | null> {
     this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const argumentsMap = this.getArgumentsMap(apiFunction, args);
@@ -424,22 +425,30 @@ export class FunctionService {
           data: this.getBodyData(body),
         })
         .pipe(
-          map((response) => response.data),
           map((response) => {
-            try {
-              this.logger.debug(`Response (id: ${apiFunction.id}):\n${JSON.stringify(response)}`);
-              const payloadResponse = this.commonService.getPathContent(response, apiFunction.payload);
-              if (response !== payloadResponse) {
-                this.logger.debug(
-                  `Payload response (id: ${apiFunction.id}, payload: ${apiFunction.payload}):\n${JSON.stringify(
-                    payloadResponse,
-                  )}`,
-                );
+            const processData = () => {
+              try {
+                const payloadResponse = this.commonService.getPathContent(response.data, apiFunction.payload);
+                if (response.data !== payloadResponse) {
+                  this.logger.debug(
+                    `Payload response (id: ${apiFunction.id}, payload: ${apiFunction.payload}):\n${JSON.stringify(
+                      payloadResponse,
+                    )}`,
+                  );
+                }
+                return payloadResponse;
+              } catch (e) {
+                return response;
               }
-              return payloadResponse;
-            } catch (e) {
-              return response;
             }
+
+            this.logger.debug(`Raw response (id: ${apiFunction.id}):\nStatus: ${response.status}\n${JSON.stringify(response.data)}`);
+
+            return {
+              status: response.status,
+              headers: response.headers,
+              data: processData(),
+            } as ApiFunctionResponseDto;
           }),
         )
         .pipe(
