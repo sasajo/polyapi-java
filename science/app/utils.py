@@ -76,7 +76,7 @@ def log(*args, **kwargs) -> None:
 
 
 def store_message(
-    user_id: Optional[int], data: MessageDict
+    user_id: Optional[str], data: MessageDict
 ) -> Optional[ConversationMessage]:
     if not user_id:
         return None
@@ -84,20 +84,21 @@ def store_message(
     db = get_client()
     create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
 
-    if data.get("function_ids"):
-        create_input["functions"] = {
-            "create": [{"functionPublicId": fid} for fid in data["function_ids"]]
-        }
-    if data.get("webhook_ids"):
-        create_input["webhooks"] = {
-            "create": [{"webhookPublicId": wid} for wid in data["webhook_ids"]]
-        }
+    # FOR NOW IGNORE FUNCTION_IDS AND WEBHOOK_IDS
+    # if data.get("function_ids"):
+    #     create_input["functions"] = {
+    #         "create": [{"functionId": fid} for fid in data["function_ids"]]
+    #     }
+    # if data.get("webhook_ids"):
+    #     create_input["webhooks"] = {
+    #         "create": [{"webhookId": wid} for wid in data["webhook_ids"]]
+    #     }
 
     rv = db.conversationmessage.create(data=create_input)  # type: ignore
     return rv
 
 
-def clear_conversation(user_id: int):
+def clear_conversation(user_id: str):
     db = get_client()
     db.functiondefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
     db.webhookdefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
@@ -132,7 +133,7 @@ def quick_db_connect():
     return db
 
 
-def is_vip_user(user_id: Optional[int]) -> bool:
+def is_vip_user(user_id: Optional[str]) -> bool:
     if not user_id:
         return False
 
@@ -154,11 +155,11 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
     db = get_client()
     result: Union[AnyFunction, None]
 
-    result = db.apifunction.find_first(where={"publicId": public_id})
+    result = db.apifunction.find_first(where={"id": public_id})
     if result:
         return result
 
-    result = db.customfunction.find_first(where={"publicId": public_id})
+    result = db.customfunction.find_first(where={"id": public_id})
     if result:
         return result
 
@@ -175,13 +176,17 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
 
 def query_node_server(path: str) -> Response:
     db = get_client()
-    user = db.user.find_first(where={"role": "ADMIN"})
+    user = db.user.find_first(where={"role": "SUPER_ADMIN"})
     if not user:
         raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
+    userkey = db.userkey.find_first(where={"userId": user.id})
+    if not userkey:
+        raise NotImplementedError("No valid key to access node server?")
+
     headers = {
         "Content-Type": "application/json",
-        "X-PolyApiKey": user.apiKey,
+        "X-PolyApiKey": userkey.key,
         "Accept": "application/poly.function-definition+json",
     }
     base = current_app.config["NODE_API_URL"]

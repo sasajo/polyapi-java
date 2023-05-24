@@ -1,112 +1,202 @@
 import crypto from 'crypto';
-import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
-import { User } from '@prisma/client';
+import _ from 'lodash';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { ConfigService } from 'config/config.service';
-import { Role } from '@poly/common';
-
-const PUBLIC_USER_NAME = 'publicUser';
+import { Permission, Permissions, Role, UserDto, UserKeyDto } from '@poly/common';
+import { User, UserKey } from '@prisma/client';
 
 @Injectable()
-export class UserService implements OnModuleInit {
-  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {
+export class UserService {
+  constructor(private readonly prisma: PrismaService) {
   }
 
-  async onModuleInit() {
-    await this.checkAdmin();
+  toUserDto(user: User): UserDto {
+    return {
+      id: user.id,
+      name: user.name,
+      role: user.role as Role,
+    };
   }
 
-  private async checkAdmin() {
-    const admin = await this.prisma.user.findFirst({
-      where: {
-        role: 'ADMIN',
-      },
-    });
-
-    if (!admin) {
-      await this.prisma.user.create({
-        data: {
-          name: 'admin',
-          role: Role.Admin,
-          apiKey: this.config.adminApiKey,
-        },
-      });
-    } else if (admin.apiKey !== this.config.adminApiKey) {
-      await this.prisma.user.update({
-        where: {
-          id: admin.id,
-        },
-        data: {
-          apiKey: this.config.adminApiKey,
-        },
-      });
-    }
+  toUserKeyDto(userKey: UserKey): UserKeyDto {
+    return {
+      id: userKey.id,
+      environmentId: userKey.environmentId,
+      key: userKey.key,
+      permissions: this.fillPermissions(JSON.parse(userKey.permissions)),
+    };
   }
 
-  async createUser(name: string) {
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        name,
-      },
-    });
-    if (existingUser) {
-      throw new BadRequestException('User with such name already exists.');
-    }
-
-    return this.prisma.user.create({
-      data: {
-        name,
-        role: Role.User,
-        apiKey: crypto.randomBytes(16).toString('hex'),
-      },
-    });
-  }
-
-  public async findByApiKey(apiKey: string): Promise<User | null> {
-    if (!apiKey) {
-      return null;
-    }
-
-    return this.prisma.user.findFirst({
-      where: {
-        apiKey,
-      },
-    });
-  }
-
-  async deleteUserByApiKey(apiKey: string) {
-    await this.prisma.user.delete({
-      where: {
-        apiKey,
-      },
-    });
-  }
-
-  public async getPublicUser(): Promise<User> {
-    const publicUser = await this.prisma.user.findFirst({
-      where: {
-        apiKey: '',
-      },
-    });
-    if (publicUser) {
-      return publicUser;
-    }
-
-    return this.prisma.user.create({
-      data: {
-        apiKey: '',
-        name: PUBLIC_USER_NAME,
-      },
-    });
-  }
-
-  async getUsers() {
+  async getAllUsersByTeam(teamId: string) {
     return this.prisma.user.findMany({
       where: {
-        name: {
-          not: PUBLIC_USER_NAME,
+        teamId,
+      },
+    });
+  }
+
+  async findUserById(id: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        id,
+      },
+    });
+  }
+
+  async findAdminUserByEnvironmentId(environmentId: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        team: {
+          tenant: {
+            environments: {
+              some: {
+                id: environmentId,
+              },
+            },
+          },
+        },
+        role: {
+          in: [Role.SuperAdmin, Role.Admin],
         },
       },
     });
+  }
+
+  async createUser(teamId: string, name: string, role: Role) {
+    return this.prisma.user.create({
+      data: {
+        team: {
+          connect: {
+            id: teamId,
+          },
+        },
+        name,
+        role,
+      },
+    });
+  }
+
+  async updateUser(user: User, name: string | undefined, role: Role | undefined) {
+    return this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        name,
+        role,
+      },
+    });
+  }
+
+  async deleteUser(id: string) {
+    this.prisma.user.delete({
+      where: {
+        id,
+      },
+    });
+  }
+
+  async getAllUserKeys(userId: string) {
+    return this.prisma.userKey.findMany({
+      where: {
+        userId,
+      },
+    });
+  }
+
+  async findUserKeyById(userKey: string, includeUser = false, includeEnvironment = false) {
+    return this.prisma.userKey.findFirst({
+      where: {
+        key: userKey,
+      },
+      include: {
+        user: includeUser,
+        environment: includeEnvironment
+          ? {
+            include: {
+              tenant: true,
+            },
+          }
+          : false,
+      },
+    });
+  }
+
+  async createOrUpdateUserKey(user: User, environmentId: string, permissions?: Permissions) {
+    if (!permissions) {
+      permissions = this.getDefaultUserKeyPermissions(user.role as Role);
+    }
+
+    return this.prisma.userKey.upsert({
+      where: {
+        userId_environmentId: {
+          userId: user.id,
+          environmentId,
+        },
+      },
+      create: {
+        key: crypto.randomUUID(),
+        environment: {
+          connect: {
+            id: environmentId,
+          },
+        },
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
+        permissions: JSON.stringify(this.pickPermissions(permissions)),
+      },
+      update: {
+        permissions: JSON.stringify(this.pickPermissions(permissions)),
+      },
+    });
+  }
+
+  private getDefaultUserKeyPermissions(role: Role): Permissions {
+    switch (role) {
+      case Role.User:
+        return {
+          use: true,
+        };
+      default:
+        return {};
+    }
+  }
+
+  async updateUserKey(userKey: UserKey, permissions: Permissions) {
+    return this.prisma.userKey.update({
+      where: {
+        id: userKey.id,
+      },
+      data: {
+        permissions: JSON.stringify({
+          ...JSON.parse(userKey.permissions),
+          ...this.pickPermissions(permissions),
+        }),
+      },
+    });
+  }
+
+  async deleteUserKey(id: string) {
+    this.prisma.userKey.delete({
+      where: {
+        id,
+      },
+    });
+  }
+
+  private pickPermissions(permissions: Permissions) {
+    return _.pick(permissions, Object.values(Permission));
+  }
+
+  private fillPermissions(permissions: Permissions) {
+    return Object.values(Permission)
+      .reduce((acc, permission) => {
+          acc[permission] = permissions[permission] === true;
+          return acc;
+        }, {} as Permissions,
+      );
   }
 }
