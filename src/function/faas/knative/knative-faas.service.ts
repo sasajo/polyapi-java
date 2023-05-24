@@ -9,6 +9,41 @@ import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
 import { FaasService } from '../faas.service';
 
+// NodeJS built-in libraries + polyapi
+// https://www.w3schools.com/nodejs/ref_modules.asp
+const EXCLUDED_REQUIREMENTS = [
+  'polyapi',
+  'assert',
+  'buffer',
+  'child_process',
+  'cluster',
+  'crypto',
+  'dgram',
+  'dns',
+  'domain',
+  'events',
+  'fs',
+  'http',
+  'https',
+  'net',
+  'os',
+  'path',
+  'process',
+  'punycode',
+  'querystring',
+  'readline',
+  'stream',
+  'string_decoder',
+  'timers',
+  'tls',
+  'tty',
+  'url',
+  'util',
+  'v8',
+  'vm',
+  'zlib',
+];
+
 // sleep function from SO
 // https://stackoverflow.com/a/39914235
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -26,7 +61,7 @@ export class KNativeFaasService implements FaasService {
   constructor(private readonly config: ConfigService, private readonly http: HttpService) {
   }
 
-  async createFunction(id: string, name: string, code: string, appKey: string): Promise<void> {
+  async createFunction(id: string, name: string, code: string, requirements: string[], appKey: string): Promise<void> {
     const functionPath = this.getFunctionPath(id);
     if (fs.existsSync(functionPath)) {
       await this.cleanUpFunction(id, functionPath);
@@ -34,6 +69,7 @@ export class KNativeFaasService implements FaasService {
     await exec(`${KNATIVE_EXEC_FILE} create ${functionPath} -l node`);
 
     await this.preparePolyLib(functionPath, appKey);
+    await this.prepareRequirements(functionPath, requirements);
 
     const template = fs.readFileSync(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8');
     const indexFileContent = handlebars.compile(template)({
@@ -80,7 +116,7 @@ export class KNativeFaasService implements FaasService {
     );
   }
 
-  async updateFunction(id: string, apiKey: string): Promise<void> {
+  async updateFunction(id: string, requirements: string[], apiKey: string): Promise<void> {
     const functionPath = this.getFunctionPath(id);
     if (!fs.existsSync(functionPath)) {
       return;
@@ -88,6 +124,7 @@ export class KNativeFaasService implements FaasService {
 
     await this.stopFunction(id);
     await this.preparePolyLib(functionPath, apiKey);
+    await this.prepareRequirements(functionPath, requirements);
   }
 
   private getFunctionPath(id: string): string {
@@ -99,6 +136,17 @@ export class KNativeFaasService implements FaasService {
     fs.mkdirSync(`${functionPath}/node_modules/.poly`, { recursive: true });
     await exec(`POLY_API_BASE_URL=${this.config.hostUrl} POLY_API_KEY=${apiKey} npx --prefix ${functionPath} poly generate`);
   };
+
+  private async prepareRequirements(functionPath: string, requirements: string[]) {
+    requirements = requirements.filter(library => !EXCLUDED_REQUIREMENTS.includes(library));
+    if (requirements.length === 0) {
+      return;
+    }
+
+    for (const library of requirements) {
+      await exec(`npm install --prefix ${functionPath} ${library}`);
+    }
+  }
 
   private async run(id: string) {
     this.logger.debug(`Running server function '${id}'...`);

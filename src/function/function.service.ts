@@ -1,4 +1,3 @@
-import ts, { factory } from 'typescript';
 import {
   BadRequestException,
   ConflictException,
@@ -16,7 +15,7 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
 import mergeWith from 'lodash/mergeWith';
-import { CustomFunction, Prisma, SystemPrompt, ApiFunction, Environment } from '@prisma/client';
+import { ApiFunction, CustomFunction, Environment, Prisma, SystemPrompt } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ArgumentsMetadata,
@@ -26,7 +25,8 @@ import {
   CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
-  FunctionDetailsDto, Visibility,
+  FunctionDetailsDto,
+  Visibility,
   Header,
   Method,
   PostmanVariableEntry,
@@ -46,6 +46,7 @@ import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
 import { FaasService } from 'function/faas/faas.service';
 import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
+import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
 import { uniqBy } from 'lodash';
@@ -551,100 +552,14 @@ export class FunctionService {
     };
   }
 
-  async createCustomFunction(env: Environment, context: string, name: string, code: string, serverFunction: boolean): Promise<CustomFunction> {
-    let functionArguments: FunctionArgument[] | null = null;
-    let returnType: string | null = null;
-    const contextChain: string[] = [];
-
-    const result = ts.transpileModule(code, {
-      compilerOptions: {
-        target: ts.ScriptTarget.ES2020,
-        module: ts.ModuleKind.CommonJS,
-        esModuleInterop: true,
-        noImplicitUseStrict: true,
-      },
-      fileName: 'customFunction.ts',
-      transformers: {
-        before: [
-          (context) => {
-            return (sourceFile) => {
-              let fnDelaration: ts.MethodDeclaration | ts.FunctionDeclaration | null = null;
-
-              const visitor = (node: ts.Node): ts.Node => {
-                if (returnType !== null) {
-                  return node;
-                }
-
-                if (ts.isExportAssignment(node)) {
-                  const result = ts.visitEachChild(node, visitor, context);
-
-                  if (fnDelaration) {
-                    return fnDelaration;
-                  }
-                  return result;
-                }
-
-                if (ts.isObjectLiteralExpression(node)) {
-                  return ts.visitEachChild(node, visitor, context);
-                }
-
-                if (ts.isPropertyAssignment(node)) {
-                  contextChain.push(node.name.getText());
-
-                  const result = ts.visitEachChild(node, visitor, context);
-
-                  if (!fnDelaration) {
-                    contextChain.pop();
-                  }
-
-                  return result;
-                }
-
-                if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
-                  if (node.name?.getText() === name) {
-                    functionArguments = node.parameters.map((param) => ({
-                      key: param.name.getText(),
-                      name: param.name.getText(),
-                      type: param.type?.getText() || 'any',
-                      ...(param.questionToken ? { required: false } : {}),
-                    }));
-
-                    returnType = node.type?.getText() || 'any';
-
-                    if (ts.isMethodDeclaration(node)) {
-                      fnDelaration = factory.createFunctionDeclaration(
-                        [],
-                        node.asteriskToken,
-                        node.name?.getText(),
-                        node.typeParameters,
-                        node.parameters,
-                        node.type,
-                        node.body,
-                      );
-                    } else {
-                      fnDelaration = node;
-                    }
-                  }
-                }
-
-                return node;
-              };
-
-              return ts.visitEachChild(sourceFile, visitor, context);
-            };
-          },
-        ],
-      },
-    });
-
-    if (!functionArguments) {
-      throw new Error(`Function ${name} not found.`);
-    }
-    if (!returnType) {
-      throw new Error(`Return type not specified. Please add return type explicitly to function ${name}.`);
-    }
-
-    code = result.outputText;
+  async createCustomFunction(env: Environment, context: string, name: string, customCode: string, serverFunction: boolean) {
+    const {
+      code,
+      args,
+      returnType,
+      contextChain,
+      requirements,
+    } = transpileCode(name, customCode);
 
     context = context || contextChain.join('.');
 
@@ -657,19 +572,20 @@ export class FunctionService {
     });
 
     if (customFunction) {
-      this.logger.debug(`Updating custom function ${name} with context ${context} and code:\n${code}`);
+      this.logger.debug(`Updating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
       customFunction = await this.prisma.customFunction.update({
         where: {
           id: customFunction.id,
         },
         data: {
           code,
-          arguments: JSON.stringify(functionArguments),
+          arguments: JSON.stringify(args),
           returnType,
+          requirements: JSON.stringify(requirements),
         },
       });
     } else {
-      this.logger.debug(`Creating custom function ${name} with context ${context} and code:\n${code}`);
+      this.logger.debug(`Creating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
       customFunction = await this.prisma.customFunction.create({
         data: {
           environment: {
@@ -680,8 +596,9 @@ export class FunctionService {
           context,
           name,
           code,
-          arguments: JSON.stringify(functionArguments),
+          arguments: JSON.stringify(args),
           returnType,
+          requirements: JSON.stringify(requirements),
         },
       });
     }
@@ -690,7 +607,7 @@ export class FunctionService {
       this.logger.debug(`Creating server side custom function ${name}`);
 
       try {
-        await this.faasService.createFunction(customFunction.id, name, code, env.appKey);
+        await this.faasService.createFunction(customFunction.id, name, code, requirements, env.appKey);
         customFunction = await this.prisma.customFunction.update({
           where: {
             id: customFunction.id,
@@ -821,7 +738,7 @@ export class FunctionService {
 
     for (const serverFunction of serverFunctions) {
       this.logger.debug(`Updating server function ${serverFunction.id}...`);
-      await this.faasService.updateFunction(serverFunction.id, environment.appKey);
+      await this.faasService.updateFunction(serverFunction.id, JSON.parse(serverFunction.requirements || '[]'), environment.appKey);
     }
   }
 

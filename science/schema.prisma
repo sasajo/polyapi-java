@@ -109,6 +109,7 @@ model CustomFunction {
   code          String
   arguments     String
   returnType    String?     @map("return_type")
+  requirements  String?     @map("requirements")
   trained       Boolean     @default(false)
   serverSide    Boolean     @default(false) @map("server_side")
   visibility    String      @default("TENANT")
