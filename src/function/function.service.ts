@@ -492,7 +492,7 @@ export class FunctionService {
       id: apiFunction.id,
       type: 'apiFunction',
       context: apiFunction.context,
-      name: apiFunction.name,
+      name: toCamelCase(apiFunction.name),
       description: apiFunction.description,
       function: {
         arguments: [

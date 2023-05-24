@@ -329,7 +329,7 @@ export class WebhookService {
     return {
       type: 'webhookHandle',
       id: webhookHandle.id,
-      name: webhookHandle.name,
+      name: toCamelCase(webhookHandle.name),
       context: webhookHandle.context,
       description: '',
       function: {
