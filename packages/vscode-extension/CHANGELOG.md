@@ -1,3 +1,6 @@
+### 0.1.20
+* Fixed tree label
+
 ### 0.1.19
 * Fixed auth function copy action
 
