@@ -12,6 +12,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import {
@@ -28,6 +29,7 @@ import {
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
+@ApiSecurity('X-PolyApiKey')
 @Controller('functions')
 export class FunctionController {
   private logger: Logger = new Logger(FunctionController.name);

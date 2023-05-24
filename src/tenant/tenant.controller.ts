@@ -13,6 +13,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import {ApiSecurity} from '@nestjs/swagger'
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { TenantService } from 'tenant/tenant.service';
 import {
@@ -40,6 +41,7 @@ import { AuthService } from 'auth/auth.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 
+@ApiSecurity('X-PolyApiKey')
 @Controller('tenants')
 export class TenantController {
   constructor(

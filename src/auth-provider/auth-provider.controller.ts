@@ -15,6 +15,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
 import {
   AuthTokenDto,
@@ -28,6 +29,7 @@ import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
+@ApiSecurity('X-PolyApiKey')
 @Controller('auth-providers')
 export class AuthProviderController {
   private readonly logger = new Logger(AuthProviderController.name);

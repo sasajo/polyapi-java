@@ -7,12 +7,14 @@ import {
   TeachSystemPromptResponseDto,
   TeachResponseDto
 } from '@poly/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 import { UserService } from 'user/user.service';
 
+@ApiSecurity('X-PolyApiKey')
 @Controller('teach')
 export class TeachController {
   private logger: Logger = new Logger(TeachController.name);

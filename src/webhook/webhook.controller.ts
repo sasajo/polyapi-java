@@ -12,12 +12,14 @@ import {
   UseGuards,
   NotFoundException,
 } from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { WebhookService } from 'webhook/webhook.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { CreateWebhookHandleDto, Permission, UpdateWebhookHandleDto } from '@poly/common';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
+@ApiSecurity('X-PolyApiKey')
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);

@@ -1,19 +1,22 @@
 import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CreatePluginDto } from '@poly/common';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { GptPluginService } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
 
-
+@ApiSecurity('X-PolyApiKey')
 @Controller()
 export class GptPluginController {
   private readonly logger = new Logger(GptPluginController.name);
-  constructor(private readonly service: GptPluginService) {}
+
+  constructor(private readonly service: GptPluginService) {
+  }
 
   @Get('.well-known/ai-plugin.json')
   public async aiPluginJson(@Req() req: Request): Promise<unknown> {
-    return this.service.getManifest(req)
+    return this.service.getManifest(req);
   }
 
   @Get('plugin/:slug/openapi')

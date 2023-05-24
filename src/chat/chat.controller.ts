@@ -1,11 +1,13 @@
 import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException } from '@nestjs/common';
 import { SendQuestionDto, SendQuestionResponseDto, SendCommandDto, SendConfigureDto, Role } from '@poly/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { ChatService } from 'chat/chat.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { AiService } from 'ai/ai.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 
+@ApiSecurity('X-PolyApiKey')
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
