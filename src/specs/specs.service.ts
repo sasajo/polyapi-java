@@ -31,10 +31,10 @@ export class SpecsService {
   async getSpecifications(environmentId: string, contexts?: string[], names?: string[], ids?: string[]): Promise<Specification[]> {
     this.logger.debug(`Getting specifications for environment ${environmentId} with contexts ${contexts}, names ${names}, and ids ${ids}`);
 
-    const apiFunctions = await this.functionService.getApiFunctions(environmentId, contexts, names, ids);
-    const customFunctions = await this.functionService.getCustomFunctions(environmentId, contexts, names, ids);
-    const webhookHandles = await this.webhookService.getWebhookHandles(environmentId, contexts, names, ids);
-    const authProviders = await this.authProviderService.getAuthProviders(environmentId, contexts);
+    const apiFunctions = await this.functionService.getApiFunctions(environmentId, contexts, names, ids, true);
+    const customFunctions = await this.functionService.getCustomFunctions(environmentId, contexts, names, ids, true);
+    const webhookHandles = await this.webhookService.getWebhookHandles(environmentId, contexts, names, ids, true);
+    const authProviders = await this.authProviderService.getAuthProviders(environmentId, contexts, true);
 
     return [
       ...(await Promise.all(apiFunctions.map(apiFunction => this.functionService.toApiFunctionSpecification(apiFunction)))),

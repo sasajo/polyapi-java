@@ -89,6 +89,7 @@ export class AuthProviderController {
       introspectUrl,
       audienceRequired,
       refreshEnabled,
+      visibility
     } = data;
 
     const authProvider = await this.service.getAuthProvider(id);
@@ -99,7 +100,7 @@ export class AuthProviderController {
     await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.AuthConfig);
 
     return this.service.toAuthProviderDto(
-      await this.service.updateAuthProvider(authProvider, name, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired, refreshEnabled),
+      await this.service.updateAuthProvider(authProvider, name, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired, refreshEnabled, visibility),
     );
   }
 

@@ -1,8 +1,10 @@
-import { IsString, Validate } from 'class-validator';
+import { IsString, Validate, IsEnum, IsOptional } from 'class-validator';
 import { ArgumentsMetadata } from '../../function';
 import { NotContainDots } from '../validators';
+import { Visibility } from '../../specs';
 
 export class UpdateApiFunctionDto {
+  @IsOptional()
   @IsString()
   @Validate(NotContainDots)
   name?: string;
@@ -11,4 +13,8 @@ export class UpdateApiFunctionDto {
   arguments?: ArgumentsMetadata;
   response?: any;
   payload?: string;
+  @IsOptional()
+  @IsString()
+  @IsEnum(Visibility)
+  visibility?: Visibility;
 }

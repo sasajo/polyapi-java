@@ -26,7 +26,7 @@ import {
   CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
-  FunctionDetailsDto,
+  FunctionDetailsDto, Visibility,
   Header,
   Method,
   PostmanVariableEntry,
@@ -79,10 +79,13 @@ export class FunctionService {
     this.faasService = new KNativeFaasService(config, httpService);
   }
 
-  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
+  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
     return this.prisma.apiFunction.findMany({
       where: {
-        environmentId,
+        OR: [
+          { environmentId },
+          includePublic ? { visibility: Visibility.Public } : {},
+        ],
         ...this.getFunctionFilterConditions(contexts, names, ids),
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -103,6 +106,7 @@ export class FunctionService {
       name: apiFunction.name,
       context: apiFunction.context,
       description: apiFunction.description,
+      visibility: apiFunction.visibility as Visibility,
     };
   }
 
@@ -162,11 +166,11 @@ export class FunctionService {
             {
               url: {
                 startsWith: `${urlObject.origin}${urlObject.pathname}?`,
-              }
+              },
             },
             {
-              url: templateUrl
-            }
+              url: templateUrl,
+            },
           ],
           method,
         },
@@ -297,7 +301,7 @@ export class FunctionService {
         environment: {
           connect: {
             id: environmentId,
-          }
+          },
         },
         ...upsertPayload,
         name: await this.resolveFunctionName(environmentId, finalName, finalContext, true, true),
@@ -327,8 +331,9 @@ export class FunctionService {
     description: string | null,
     argumentsMetadata: ArgumentsMetadata | null,
     response: any,
-    payload: string | null
-) {
+    payload: string | null,
+    visibility: Visibility | null,
+  ) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, false) : null;
 
@@ -363,7 +368,7 @@ export class FunctionService {
     );
 
     const finalContext = context == null ? apiFunction.context : context;
-    const finalName = name || apiFunction.name
+    const finalName = name || apiFunction.name;
 
     await this.throwErrIfInvalidResponse(response, payload, finalContext, finalName);
 
@@ -376,7 +381,8 @@ export class FunctionService {
         context: finalContext,
         description: description == null ? apiFunction.description : description,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
-        ...(response ? { response: JSON.stringify(response) } : null)
+        ...(response ? { response: JSON.stringify(response) } : null),
+        visibility: visibility == null ? apiFunction.visibility : visibility,
       },
     });
   }
@@ -516,10 +522,13 @@ export class FunctionService {
     };
   }
 
-  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
+  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
     return this.prisma.customFunction.findMany({
       where: {
-        environmentId,
+        OR: [
+          { environmentId },
+          includePublic ? { visibility: Visibility.Public } : {},
+        ],
         ...this.getFunctionFilterConditions(contexts, names, ids),
       },
     });
@@ -531,6 +540,7 @@ export class FunctionService {
       name: customFunction.name,
       description: customFunction.description,
       context: customFunction.context,
+      visibility: customFunction.visibility as Visibility,
     };
   }
 
@@ -700,7 +710,7 @@ export class FunctionService {
     return customFunction;
   }
 
-  async updateCustomFunction(customFunction: CustomFunction, context: string | null, description: string | null) {
+  async updateCustomFunction(customFunction: CustomFunction, context: string | null, description: string | null, visibility: Visibility | null) {
     const { id, name } = customFunction;
 
     if (context != null) {
@@ -719,6 +729,7 @@ export class FunctionService {
       data: {
         context: context == null ? customFunction.context : context,
         description: description == null ? customFunction.description : description,
+        visibility: visibility == null ? customFunction.visibility : visibility,
       },
     });
   }
@@ -735,7 +746,10 @@ export class FunctionService {
   async getClientFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
-        environmentId,
+        OR: [
+          { environmentId },
+          { visibility: Visibility.Public },
+        ],
         ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: false,
       },
@@ -754,7 +768,10 @@ export class FunctionService {
   async getServerFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
-        environmentId,
+        OR: [
+          { environmentId },
+          { visibility: Visibility.Public },
+        ],
         ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: true,
       },
@@ -868,20 +885,20 @@ export class FunctionService {
 
     args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
       ...toArgument(arg),
-      location: 'url'
+      location: 'url',
     })) || []));
     args.push(...(apiFunction.headers?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
       ...toArgument(arg),
-      location: 'headers'
+      location: 'headers',
     })) || []));
     args.push(...(apiFunction.auth?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
       ...toArgument(arg),
-      location: 'auth'
+      location: 'auth',
     })) || []));
 
     const bodyArgs = (apiFunction.body?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
       ...toArgument(arg),
-      location: 'body'
+      location: 'body',
     })) || []).filter(bodyArg => !args.some(arg => arg.key === bodyArg.key));
 
     args.push(...bodyArgs);

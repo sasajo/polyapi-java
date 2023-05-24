@@ -1,4 +1,5 @@
-import { IsOptional, IsUrl } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUrl } from 'class-validator';
+import { Visibility } from '../../specs';
 
 export class UpdateAuthProviderDto {
   @IsOptional()
@@ -27,4 +28,8 @@ export class UpdateAuthProviderDto {
   })
   @IsOptional()
   introspectUrl?: string | null;
+  @IsOptional()
+  @IsString()
+  @IsEnum(Visibility)
+  visibility?: Visibility;
 }

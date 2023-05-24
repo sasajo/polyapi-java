@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Visibility } from '../../specs';
 
 export class UpdateWebhookHandleDto {
   @IsOptional()
@@ -8,4 +9,7 @@ export class UpdateWebhookHandleDto {
   context?: string;
   @IsOptional()
   description?: string;
+  @IsString()
+  @IsEnum(Visibility)
+  visibility?: Visibility;
 }

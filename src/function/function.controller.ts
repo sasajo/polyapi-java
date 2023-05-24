@@ -66,7 +66,8 @@ export class FunctionController {
       description = null,
       arguments: argumentsMetadata = null,
       response,
-      payload = null
+      payload = null,
+      visibility = null,
     } = data;
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
@@ -75,7 +76,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload),
+      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility),
     );
   }
 
@@ -147,6 +148,7 @@ export class FunctionController {
     const {
       context = null,
       description = null,
+      visibility = null,
     } = data;
     const clientFunction = await this.service.findClientFunction(id);
     if (!clientFunction) {
@@ -156,7 +158,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(clientFunction, context, description),
+      await this.service.updateCustomFunction(clientFunction, context, description, visibility),
     );
   }
 
@@ -217,6 +219,7 @@ export class FunctionController {
     const {
       context = null,
       description = null,
+      visibility = null,
     } = data;
     const serverFunction = await this.service.findServerFunction(id);
     if (!serverFunction) {
@@ -226,7 +229,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(serverFunction, context, description),
+      await this.service.updateCustomFunction(serverFunction, context, description, visibility),
     );
   }
 

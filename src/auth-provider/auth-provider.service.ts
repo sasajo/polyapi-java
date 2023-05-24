@@ -16,7 +16,7 @@ import {
   AuthFunctionSpecification,
   AuthProviderDto,
   ExecuteAuthProviderResponseDto,
-  PropertySpecification,
+  PropertySpecification, Visibility,
 } from '@poly/common';
 import { ConfigService } from 'config/config.service';
 import { EventService } from 'event/event.service';
@@ -37,7 +37,7 @@ export class AuthProviderService {
   ) {
   }
 
-  async getAuthProviders(environmentId: string, contexts?: string[]): Promise<AuthProvider[]> {
+  async getAuthProviders(environmentId: string, contexts?: string[], includePublic = false): Promise<AuthProvider[]> {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
         return {
@@ -55,7 +55,10 @@ export class AuthProviderService {
 
     return this.prisma.authProvider.findMany({
       where: {
-        environmentId,
+        OR: [
+          { environmentId },
+          includePublic ? { visibility: Visibility.Public } : {},
+        ],
         ...contextConditions.length && {
           OR: contextConditions,
         },
@@ -116,6 +119,7 @@ export class AuthProviderService {
     introspectUrl: string | null | undefined,
     audienceRequired: boolean | undefined,
     refreshEnabled: boolean | undefined,
+    visibility: Visibility | undefined,
   ) {
     context = context || authProvider.context;
     authorizeUrl = authorizeUrl || authProvider.authorizeUrl;
@@ -124,6 +128,7 @@ export class AuthProviderService {
     introspectUrl = introspectUrl === undefined ? authProvider.introspectUrl : introspectUrl;
     audienceRequired = audienceRequired === undefined ? authProvider.audienceRequired : audienceRequired;
     refreshEnabled = refreshEnabled === undefined ? authProvider.refreshEnabled : refreshEnabled;
+    visibility = visibility === undefined ? authProvider.visibility as Visibility : visibility;
 
     if (!await this.checkContextDuplicates(authProvider.environmentId, context, !!revokeUrl, !!introspectUrl, [authProvider.id])) {
       throw new ConflictException(`Auth functions within context ${context} already exist`);
@@ -143,6 +148,7 @@ export class AuthProviderService {
         introspectUrl,
         audienceRequired,
         refreshEnabled,
+        visibility,
       },
     });
   }
@@ -168,6 +174,7 @@ export class AuthProviderService {
       revokeUrl: authProvider.revokeUrl,
       introspectUrl: authProvider.introspectUrl,
       callbackUrl: this.getAuthProviderCallbackUrl(authProvider),
+      visibility: authProvider.visibility as Visibility,
     };
   }
 

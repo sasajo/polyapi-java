@@ -71,7 +71,12 @@ export class WebhookController {
     @Param('id') id: string,
     @Body() updateWebhookHandleDto: UpdateWebhookHandleDto,
   ) {
-    const { context = null, name = null, description = null } = updateWebhookHandleDto;
+    const {
+      context = null,
+      name = null,
+      description = null,
+      visibility = null,
+    } = updateWebhookHandleDto;
 
     const webhookHandle = await this.webhookService.findWebhookHandle(id);
     if (!webhookHandle) {
@@ -81,7 +86,7 @@ export class WebhookController {
     await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
 
     return this.webhookService.toDto(
-      await this.webhookService.updateWebhookHandle(webhookHandle, context, name, description),
+      await this.webhookService.updateWebhookHandle(webhookHandle, context, name, description, visibility),
     );
   }
 

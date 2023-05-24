@@ -1,4 +1,4 @@
-import { ArgumentType } from '../..';
+import { ArgumentType, Visibility } from '../..';
 
 export interface FunctionArgument {
   key: string;
@@ -17,6 +17,7 @@ export interface FunctionBasicDto {
   context: string;
   name: string;
   description: string;
+  visibility: Visibility;
 }
 
 export interface FunctionDetailsDto extends FunctionBasicDto {

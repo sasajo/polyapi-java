@@ -9,7 +9,7 @@ interface ISpecification {
 
 export type SpecificationType = 'apiFunction' | 'customFunction' | 'authFunction' | 'webhookHandle' | 'serverFunction';
 
-export enum FunctionVisibility {
+export enum Visibility {
   Tenant = 'TENANT',
   Team = 'TEAM',
   User = 'USER',

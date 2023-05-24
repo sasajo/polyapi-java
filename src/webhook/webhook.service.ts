@@ -1,20 +1,12 @@
-import {
-  BadRequestException,
-  ConflictException,
-  forwardRef,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma, User, WebhookHandle } from '@prisma/client';
+import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { Prisma, WebhookHandle } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { CommonService } from 'common/common.service';
 import { PrismaService, PrismaTransaction } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
 import { AiService } from 'ai/ai.service';
-import { PropertySpecification, WebhookHandleDto, WebhookHandleSpecification } from '@poly/common';
+import { PropertySpecification, Visibility, WebhookHandleDto, WebhookHandleSpecification } from '@poly/common';
 import { ConfigService } from 'config/config.service';
 import { SpecsService } from 'specs/specs.service';
 import { toCamelCase } from '@guanghechen/helper-string';
@@ -37,7 +29,7 @@ export class WebhookService {
 
   private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
 
-    const createData: Parameters<typeof this.prisma.webhookHandle.create>[0] = {
+    const createData = {
       data: {
         createdAt: new Date(),
         ...data,
@@ -88,12 +80,15 @@ export class WebhookService {
     });
   }
 
-  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[]): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for environment ${environmentId}...`);
 
     return this.prisma.webhookHandle.findMany({
       where: {
-        environmentId,
+        OR: [
+          { environmentId },
+          includePublic ? { visibility: Visibility.Public } : {},
+        ],
         ...this.getWebhookFilterConditions(contexts, names, ids),
       },
       orderBy: {
@@ -237,6 +232,7 @@ export class WebhookService {
       context: webhookHandle.context,
       description: webhookHandle.description,
       url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
+      visibility: webhookHandle.visibility as Visibility,
     };
   }
 
@@ -245,10 +241,12 @@ export class WebhookService {
     context: string | null,
     name: string | null,
     description: string | null,
+    visibility: Visibility | null,
   ) {
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
     description = this.normalizeDescription(description, webhookHandle);
+    visibility = this.normalizeVisibility(visibility, webhookHandle);
 
     if (!(await this.checkContextAndNameDuplicates(webhookHandle.environmentId, context, name, [webhookHandle.id]))) {
       throw new ConflictException(`Function with name ${context}/${name} already exists.`);
@@ -266,6 +264,7 @@ export class WebhookService {
         context,
         name,
         description,
+        visibility,
       },
     });
   }
@@ -300,6 +299,14 @@ export class WebhookService {
     }
 
     return description;
+  }
+
+  private normalizeVisibility(visibility: Visibility | null, webhookHandle?: WebhookHandle) {
+    if (visibility == null) {
+      visibility = webhookHandle?.visibility as Visibility || Visibility.Tenant;
+    }
+
+    return visibility;
   }
 
   async deleteWebhookHandle(id: string) {

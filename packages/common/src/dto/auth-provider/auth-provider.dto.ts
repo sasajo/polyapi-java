@@ -1,3 +1,5 @@
+import { Visibility } from '../../specs';
+
 export class AuthProviderDto {
   id: string;
   name: string | null;
@@ -9,4 +11,5 @@ export class AuthProviderDto {
   revokeUrl: string | null;
   introspectUrl: string | null;
   callbackUrl: string;
+  visibility: Visibility;
 }
