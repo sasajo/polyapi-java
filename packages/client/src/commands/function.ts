@@ -4,14 +4,14 @@ import shell from 'shelljs';
 import { createServerFunction, createClientFunction } from '../api';
 import { loadConfig } from '../config';
 import { generateSingleCustomFunction } from './generate';
-import { CustomFunctionDefinitionDto } from '@poly/common'
+import { FunctionDetailsDto } from '@poly/common';
 
 export const addCustomFunction = async (context: string | null, name: string, file: string, server: boolean) => {
   loadConfig();
 
   try {
 
-    let customFunction: CustomFunctionDefinitionDto;
+    let customFunction: FunctionDetailsDto;
 
     const code = fs.readFileSync(file, 'utf8');
     if (server) {
