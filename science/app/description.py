@@ -2,7 +2,7 @@ from typing import Dict, Union
 import json
 import openai
 from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
-from app.utils import log
+from app.utils import camel_case, log
 
 
 NAME_CONTEXT_DESCRIPTION_PROMPT = """
@@ -26,7 +26,7 @@ For example, to create a new product on shopify the context should be "shopify.p
 
 Resources should be plural. For example, shopify.products, shopify.orders, shopify.customers, etc.
 
-The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but 
+The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but
 needs to remain human readable. It should be limited to 300 characters without losing meaning and also can be less than
 300 characters if it makes sense.
 
@@ -158,6 +158,6 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
     )
 
     # make sure there are no spaces or dashes in context or name
-    rv["name"] = rv["name"].replace(" ", "").replace("-", "")
-    rv["context"] = rv["context"].replace(" ", "").replace("-", "")
+    rv["name"] = camel_case(rv["name"])
+    rv["context"] = camel_case(rv["context"])
     return rv

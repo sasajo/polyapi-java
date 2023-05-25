@@ -208,3 +208,11 @@ def public_id_to_spec(public_id: str) -> Optional[SpecificationDto]:
         if item["id"] == public_id:
             return item
     return None
+
+
+def camel_case(text: str) -> str:
+    text = text.replace("-", " ").replace("_", " ")
+    s = text.split()
+    if len(s) == 0:
+        return ""
+    return s[0] + ''.join(i.capitalize() for i in s[1:])

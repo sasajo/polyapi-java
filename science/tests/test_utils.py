@@ -2,7 +2,7 @@ import uuid
 from .testing import DbTestCase
 from app.typedefs import SpecificationDto
 from load_fixtures import load_functions, test_user_get_or_create, united_get_status_get_or_create
-from app.utils import func_args, func_path, func_path_with_args, get_public_id, store_message
+from app.utils import camel_case, func_args, func_path, func_path_with_args, get_public_id, store_message
 
 FUNC: SpecificationDto = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",
@@ -97,3 +97,8 @@ class T(DbTestCase):
         united = united_get_status_get_or_create(user)
         result = get_public_id(united.id)
         self.assertEqual(result, united)
+
+    def test_camel_case(self):
+        # should keep camel case
+        out = camel_case("fooBar")
+        self.assertEqual(out, "fooBar")
