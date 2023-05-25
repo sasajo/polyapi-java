@@ -37,6 +37,7 @@ export class TenantService implements OnModuleInit {
     if (!tenant) {
       await this.create(this.config.polyTenantName, {
         teamName: this.config.polyAdminsTeamName,
+        environmentAppKey: this.config.polyEnvironmentAppKey,
         userName: this.config.polyAdminUserName,
         userRole: Role.SuperAdmin,
         userKey: this.config.polySuperAdminUserKey,

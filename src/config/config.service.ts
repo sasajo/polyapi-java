@@ -70,12 +70,12 @@ export class ConfigService {
     return this.get('SCIENCE_SERVER_BASE_URL');
   }
 
-  get polyTenantAppKey(): string {
-    return this.get('POLY_TENANT_APP_KEY');
+  get polyEnvironmentAppKey(): string {
+    return this.get('POLY_ENVIRONMENT_APP_KEY');
   }
 
   get polyTenantName(): string {
-    return this.get('POLY_TENANT_NAME') || 'poly';
+    return this.get('POLY_TENANT_NAME') || 'poly-system';
   }
 
   get polySuperAdminUserKey(): string {
@@ -87,7 +87,7 @@ export class ConfigService {
   }
 
   get polyAdminUserName(): string {
-    return this.get('POLY_ADMIN_USER_NAME') || 'poly';
+    return this.get('POLY_ADMIN_USER_NAME') || 'Super Admin';
   }
 
   get functionArgsParameterLimit(): number {
