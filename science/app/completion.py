@@ -57,13 +57,15 @@ def log_matches(question: str, type: str, matches: int, total: int):
 
 
 def get_function_options_prompt(
+    user_id: str,
+    environment_id: str,
     keywords: Optional[ExtractKeywordDto],
 ) -> Tuple[Optional[MessageDict], StatsDict]:
     """get all matching functions that need to be injected into the prompt"""
     if not keywords:
         return None, {"match_count": 0}
 
-    specs_resp = query_node_server("specs")
+    specs_resp = query_node_server(user_id, environment_id, "specs")
     items: List[SpecificationDto] = specs_resp.json()
 
     top_matches, stats = get_top_function_matches(items, keywords)
@@ -113,7 +115,9 @@ def spec_prompt(match: SpecificationDto) -> str:
     return "\n".join(parts)
 
 
-def get_chat_completion(messages: List[MessageDict], *, temperature=1.0, stage="") -> ChatCompletionResponse:
+def get_chat_completion(
+    messages: List[MessageDict], *, temperature=1.0, stage=""
+) -> ChatCompletionResponse:
     """send the messages to OpenAI and get a response"""
     stripped = copy.deepcopy(messages)
     for s in stripped:
@@ -131,7 +135,7 @@ def get_chat_completion(messages: List[MessageDict], *, temperature=1.0, stage="
         parts.append("PROMPT:")
         parts += [str(s) for s in stripped]
         parts.append("ANSWER:")
-        parts.append(str(resp['choices'][0]))
+        parts.append(str(resp["choices"][0]))
         log("\n".join(parts))
 
     return resp
@@ -156,10 +160,12 @@ If no function is suitable, please return the following:
 
 
 def get_best_function_messages(
+    user_id: str,
+    environment_id: str,
     question: str,
 ) -> Tuple[List[MessageDict], StatsDict]:
     keywords = extract_keywords(question)
-    library, stats = get_function_options_prompt(keywords)
+    library, stats = get_function_options_prompt(user_id, environment_id, keywords)
     stats["prompt"] = question
 
     # system_prompt = get_system_prompt()
@@ -183,8 +189,10 @@ def get_system_prompt() -> Optional[SystemPrompt]:
     return system_prompt
 
 
-def get_best_function(user_id: str, question: str) -> Tuple[str, StatsDict]:
-    messages, stats = get_best_function_messages(question)
+def get_best_function(
+    user_id: str, environment_id: str, question: str
+) -> Tuple[str, StatsDict]:
+    messages, stats = get_best_function_messages(user_id, environment_id, question)
     if not messages:
         # we have no candidate functions whatsoever, abort!
         clear_conversation(user_id)
@@ -206,7 +214,7 @@ def get_best_function(user_id: str, question: str) -> Tuple[str, StatsDict]:
     # we tell ChatGPT to send us back "none" if no function matches
 
     try:
-        public_id = _extract_json_from_completion(answer_msg["content"])['id']
+        public_id = _extract_json_from_completion(answer_msg["content"])["id"]
     except Exception as e:
         log(f"invalid function id returned, setting public_id to none: {e}")
         public_id = "none"
@@ -220,7 +228,7 @@ def get_best_function(user_id: str, question: str) -> Tuple[str, StatsDict]:
 
 
 def _extract_json_from_completion(content: str) -> Dict:
-    """ sometimes OpenAI returns straight JSON, sometimes it gets chatty
+    """sometimes OpenAI returns straight JSON, sometimes it gets chatty
     this extracts just the code snippet wrapped in ``` if it is valid JSON
     """
     parts = content.split("```")
@@ -245,31 +253,37 @@ Use the following function, and add any additional code you see fit, to answer m
 BEST_FUNCTION_QUESTION_TEMPLATE = "My question:\n{question}"
 
 
-def get_best_function_example(public_id: str, question: str) -> ChatGptChoice:
+def get_best_function_example(user_id: str, environment_id: str, public_id: str, question: str) -> ChatGptChoice:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
-    spec = public_id_to_spec(public_id)
+    spec = public_id_to_spec(user_id, environment_id, public_id)
     if not spec:
-        raise NotImplementedError(f"spec doesnt exist for {public_id}? was is somehow deleted?")
+        raise NotImplementedError(
+            f"spec doesnt exist for {public_id}? was is somehow deleted?"
+        )
 
-    best_function_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(spec_str=spec_prompt(spec))
+    best_function_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
+        spec_str=spec_prompt(spec)
+    )
     question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
     messages = [
         MessageDict(role="user", content=best_function_prompt),
-        MessageDict(role="user", content=question_prompt)
+        MessageDict(role="user", content=question_prompt),
     ]
     resp = get_chat_completion(messages, stage="get_best_function_example")
     return resp["choices"][0]
 
 
-def get_completion_answer(user_id: str, question: str) -> Dict:
-    best_function_id, stats = get_best_function(user_id, question)
+def get_completion_answer(user_id: str, environment_id: str, question: str) -> Dict:
+    best_function_id, stats = get_best_function(user_id, environment_id, question)
     if best_function_id:
         # we found a function that we think should answer this question
         # lets pass ChatGPT the function and ask the question to make this work
-        choice = get_best_function_example(best_function_id, question)
+        choice = get_best_function_example(user_id, environment_id, best_function_id, question)
     else:
-        resp = get_chat_completion([{"role": "user", "content": question}], stage="no_best_function")
+        resp = get_chat_completion(
+            [{"role": "user", "content": question}], stage="no_best_function"
+        )
         choice = resp["choices"][0]
 
     answer, hit_token_limit = answer_processing(choice)

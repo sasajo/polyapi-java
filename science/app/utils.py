@@ -11,7 +11,7 @@ from app.typedefs import (
     AnyFunction,
 )
 from prisma import Prisma, get_client, register
-from prisma.models import ConversationMessage, ConfigVariable
+from prisma.models import ConversationMessage, ConfigVariable, UserKey
 
 
 # HACK should have better name
@@ -177,22 +177,26 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
     return None
 
 
-def query_node_server(path: str, user_key: str = "") -> Response:
+def get_user_key(user_id: str, environment_id: str) -> Optional[UserKey]:
     db = get_client()
+    return db.userkey.find_first(where={"userId": user_id, "environmentId": environment_id})
+
+
+def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
+    user_key = get_user_key(user_id, environment_id)
+    # if not user_key:
+    # db = get_client()
+    #     # HACK just use the default environment for now
+    #     tenant = db.tenant.find_first(where={'name': "poly-trial"})
+    #     environment = db.environment.find_first(where={'name': 'default', 'tenantId': tenant.id})
+    #     user_key = db.userkey.find_first(where={'environmentId': environment.id})
 
     if not user_key:
-        # HACK just use the default environment for now
-        tenant = db.tenant.find_first(where={'name': "poly-trial"})
-        environment = db.environment.find_first(where={'name': 'default', 'tenantId': tenant.id})
-        uk = db.userkey.find_first(where={'environmentId': environment.id})
-        user_key = uk.key
-
-    if not user_key:
-        raise NotImplementedError("No valid key to access node server?")
+        raise NotImplementedError(f"No user key found for user {user_id} and environment {environment_id}")
 
     headers = {
         "Content-Type": "application/json",
-        "X-PolyApiKey": user_key,
+        "X-PolyApiKey": user_key.key,
         "Accept": "application/poly.function-definition+json",
     }
     base = current_app.config["NODE_API_URL"]
@@ -201,8 +205,8 @@ def query_node_server(path: str, user_key: str = "") -> Response:
     return resp
 
 
-def public_id_to_spec(public_id: str) -> Optional[SpecificationDto]:
-    specs_resp = query_node_server("specs")
+def public_id_to_spec(user_id: str, environment_id: str, public_id: str) -> Optional[SpecificationDto]:
+    specs_resp = query_node_server(user_id, environment_id, "specs")
     items: List[SpecificationDto] = specs_resp.json()
     for item in items:
         if item["id"] == public_id:

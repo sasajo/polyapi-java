@@ -3,7 +3,7 @@ import datetime
 import csv
 from typing import List, TypedDict
 from prisma import Prisma, register, get_client
-from prisma.models import User, ApiFunction
+from prisma.models import User, ApiFunction, Environment
 from app.utils import url_function_path
 
 
@@ -29,8 +29,25 @@ def test_user_get_or_create() -> User:
     db = get_client()
     user = db.user.find_first(where={"name": "test"})
     if not user:
-        user = db.user.create(
-            data={"name": "test", "role": "ADMIN"}
+        user = db.user.create(data={"name": "test", "role": "ADMIN"})
+    return user
+
+
+def test_environment_get_or_create() -> Environment:
+    db = get_client()
+    tenant = db.tenant.find_first(where={"name": "test"})
+    if not tenant:
+        tenant = db.tenant.create(data={"name": "test"})
+
+    user = db.environment.find_first(where={"name": "test"})
+    if not user:
+        user = db.environment.create(
+            data={
+                "name": "test",
+                "tenantId": tenant.id,
+                "subdomain": "test",
+                "appKey": "test",
+            }
         )
     return user
 
@@ -45,7 +62,7 @@ def load_functions(user: User) -> None:
             # replace single quotes with double to make this valid json
             headers = headers.replace("'", '"')
 
-        func = db.apifunction.find_first(where={"name": data['name']})
+        func = db.apifunction.find_first(where={"name": data["name"]})
         if func:
             print(f"{url_function_path(func)} already exists.")
         else:

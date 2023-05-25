@@ -44,6 +44,7 @@ class T(DbTestCase):
         mock_input = {
             "question": "hi world",
             "user_id": 1,
+            "environment_id": 1,
         }
 
         # execute

@@ -1,7 +1,7 @@
 import copy
 from typing import List
 from mock import Mock, patch
-from load_fixtures import test_user_get_or_create
+from load_fixtures import test_environment_get_or_create, test_user_get_or_create
 from app.completion import (
     get_best_function_example,
     get_conversations_for_user,
@@ -29,12 +29,18 @@ FUNCTIONS: List[SpecificationDto] = [
         "type": "apiFunction",
         "function": {
             "arguments": [
-                {"name": "locationId", "type": {"kind": "primitive", "type": "string"}, "required": True},
-                {"name": "AAPIKey", "type": {"kind": "primitive", "type": "string"}, "required": True},
+                {
+                    "name": "locationId",
+                    "type": {"kind": "primitive", "type": "string"},
+                    "required": True,
+                },
+                {
+                    "name": "AAPIKey",
+                    "type": {"kind": "primitive", "type": "string"},
+                    "required": True,
+                },
             ],
-            "returnType": {
-                "kind": "void"
-            }
+            "returnType": {"kind": "void"},
         },
     },
     {
@@ -45,12 +51,18 @@ FUNCTIONS: List[SpecificationDto] = [
         "type": "apiFunction",
         "function": {
             "arguments": [
-                {"name": "locationId", "type": {"kind": "primitive", "type": "string"}, "required": True},
-                {"name": "GAPIKey", "type": {"kind": "primitive", "type": "string"}, "required": True},
+                {
+                    "name": "locationId",
+                    "type": {"kind": "primitive", "type": "string"},
+                    "required": True,
+                },
+                {
+                    "name": "GAPIKey",
+                    "type": {"kind": "primitive", "type": "string"},
+                    "required": True,
+                },
             ],
-            "returnType": {
-                "kind": "void"
-            }
+            "returnType": {"kind": "void"},
         },
     },
     {
@@ -61,12 +73,14 @@ FUNCTIONS: List[SpecificationDto] = [
         "type": "apiFunction",
         "function": {
             "arguments": [
-                {"name": "impact", "type": {"kind": "primitive", "type": "string"}, "required": True},
+                {
+                    "name": "impact",
+                    "type": {"kind": "primitive", "type": "string"},
+                    "required": True,
+                },
             ],
-            "returnType": {
-                "kind": "void"
-            },
-        }
+            "returnType": {"kind": "void"},
+        },
     },
 ]
 
@@ -80,10 +94,8 @@ WEBHOOKS: List[SpecificationDto] = [
         "type": "webhookHandle",
         "function": {
             "arguments": [],
-            "returnType": {
-                "kind": "void"
-            },
-        }
+            "returnType": {"kind": "void"},
+        },
     }
 ]
 
@@ -103,6 +115,11 @@ def _fake_threshold(*args, **kwargs):
 
 
 class T(DbTestCase):
+    def setUp(self):
+        super().setUp()
+        self.user = test_user_get_or_create()
+        self.environment = test_environment_get_or_create()
+
     def test_get_conversations_for_user(self) -> None:
         user = test_user_get_or_create()
         self.db.functiondefined.delete_many()
@@ -121,9 +138,11 @@ class T(DbTestCase):
     @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
     @patch("app.completion.query_node_server")
     def test_library_message_no_keywords(self, query_node_server: Mock) -> None:
-        query_node_server.return_value = Mock(status_code=200, json=lambda: get_functions())
+        query_node_server.return_value = Mock(
+            status_code=200, json=lambda: get_functions()
+        )
 
-        d, stats = get_function_options_prompt(None)
+        d, stats = get_function_options_prompt(self.user.id, self.environment.id, None)
         self.assertEqual(query_node_server.call_count, 0)
         self.assertIsNone(d)
 
@@ -139,7 +158,9 @@ class T(DbTestCase):
         keyword_data = ExtractKeywordDto(
             keywords=keywords, semantically_similar_keywords="", http_methods=""
         )
-        d, stats = get_function_options_prompt(keyword_data)
+        d, stats = get_function_options_prompt(
+            self.user.id, self.environment.id, keyword_data
+        )
         assert d
         self.assertEqual(query_node_server.call_count, 1)
         self.assertEqual(stats["match_count"], 3)
@@ -152,7 +173,7 @@ class T(DbTestCase):
             Mock(status_code=200, json=lambda: get_webhooks()),
         ]
 
-        d, stats = get_function_options_prompt({"keywords": "foo bar"})  # type: ignore
+        d, stats = get_function_options_prompt(self.user.id, self.environment.id, {"keywords": "foo bar"})  # type: ignore
         assert d
         self.assertEqual(query_node_server.call_count, 1)
         self.assertEqual(stats["match_count"], 1)
@@ -169,7 +190,9 @@ class T(DbTestCase):
         ]
 
         messages, stats = get_best_function_messages(
-            "how do I create a new incident in ServiceNow?"
+            self.user.id,
+            self.environment.id,
+            "how do I create a new incident in ServiceNow?",
         )
         self.assertEqual(query_node_server.call_count, 1)
         self.assertEqual(stats["match_count"], 1)
@@ -181,14 +204,17 @@ class T(DbTestCase):
         get_chat_completion.return_value = {"choices": ["foobar"]}
         query_node_server.return_value = Mock(status_code=200, json=get_functions)
 
-        # user = test_user_get_or_create()
-        # united = united_get_status_get_or_create(user)
-        result = get_best_function_example("60062c03-dcfd-437d-832c-6cba9543f683", "how do I check flight?")
+        result = get_best_function_example(
+            self.user.id,
+            self.environment.id,
+            "f7588018-2364-4586-b60d-b08a285f1ea3",
+            "how do I check flight?",
+        )
 
         self.assertEqual(get_chat_completion.call_count, 1)
         messages = get_chat_completion.call_args[0][0]
-        print(messages[0]['content'])
-        print(messages[1]['content'])
+        print(messages[0]["content"])
+        print(messages[1]["content"])
         self.assertEqual(len(messages), 2)
         self.assertEqual(query_node_server.call_count, 1)
 
