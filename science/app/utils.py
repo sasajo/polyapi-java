@@ -4,7 +4,12 @@ from requests import Response
 from flask import current_app
 from typing import List, Optional, Union
 from app.constants import VarName
-from app.typedefs import MessageDict, PropertySpecification, SpecificationDto, AnyFunction
+from app.typedefs import (
+    MessageDict,
+    PropertySpecification,
+    SpecificationDto,
+    AnyFunction,
+)
 from prisma import Prisma, get_client, register
 from prisma.models import ConversationMessage, ConfigVariable
 
@@ -32,15 +37,13 @@ def _process_property_spec(arg: PropertySpecification) -> str:
             name=arg["name"], item_type=item_type
         )
     elif kind == "object":
-        if arg["type"].get('properties'):
+        if arg["type"].get("properties"):
             properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
             sub_props = ", ".join(properties)
             sub_props = "{" + sub_props + "}"
             return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
         else:
-            log(
-                f"WARNING: object with no properties in args - {arg}"
-            )
+            log(f"WARNING: object with no properties in args - {arg}")
             return "{name}: object".format(name=arg["name"])
     elif kind == "function":
         return f"{arg['name']}: {kind}"
@@ -149,7 +152,7 @@ def remove_punctuation(s: str) -> str:
 
 
 def get_public_id(public_id: str) -> Optional[AnyFunction]:
-    """ check all possible tables for a public uuid
+    """check all possible tables for a public uuid
     return the corresponding object if it exists
     """
     db = get_client()
@@ -174,19 +177,22 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
     return None
 
 
-def query_node_server(path: str) -> Response:
+def query_node_server(path: str, user_key: str = "") -> Response:
     db = get_client()
-    user = db.user.find_first(where={"role": "SUPER_ADMIN"})
-    if not user:
-        raise NotImplementedError("ERROR: no admin user, cannot access Node API")
 
-    userkey = db.userkey.find_first(where={"userId": user.id})
-    if not userkey:
+    if not user_key:
+        # HACK just use the default environment for now
+        tenant = db.tenant.find_first(where={'name': "poly-trial"})
+        environment = db.environment.find_first(where={'name': 'default', 'tenantId': tenant.id})
+        uk = db.userkey.find_first(where={'environmentId': environment.id})
+        user_key = uk.key
+
+    if not user_key:
         raise NotImplementedError("No valid key to access node server?")
 
     headers = {
         "Content-Type": "application/json",
-        "X-PolyApiKey": userkey.key,
+        "X-PolyApiKey": user_key,
         "Accept": "application/poly.function-definition+json",
     }
     base = current_app.config["NODE_API_URL"]
@@ -199,6 +205,6 @@ def public_id_to_spec(public_id: str) -> Optional[SpecificationDto]:
     specs_resp = query_node_server("specs")
     items: List[SpecificationDto] = specs_resp.json()
     for item in items:
-        if item['id'] == public_id:
+        if item["id"] == public_id:
             return item
     return None
