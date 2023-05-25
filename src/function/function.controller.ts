@@ -89,6 +89,7 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
+    // TODO: temporarily disabled for GPT plugin purposes
     // await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, Permission.Use);
 
     return await this.service.executeApiFunction(apiFunction, data.args, data.clientID);

@@ -1,11 +1,19 @@
 import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException } from '@nestjs/common';
-import { SendQuestionDto, SendQuestionResponseDto, SendCommandDto, SendConfigureDto, Role } from '@poly/common';
+import {
+  SendQuestionDto,
+  SendQuestionResponseDto,
+  SendCommandDto,
+  SendConfigureDto,
+  Role,
+  Permission,
+} from '@poly/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { ChatService } from 'chat/chat.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { AiService } from 'ai/ai.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
+import { AuthService } from 'auth/auth.service';
 
 @ApiSecurity('X-PolyApiKey')
 @Controller('chat')
@@ -16,6 +24,7 @@ export class ChatController {
     private readonly service: ChatService,
     private readonly aiService: AiService,
     private readonly userService: UserService,
+    private readonly authService: AuthService,
   ) {
   }
 
@@ -28,6 +37,8 @@ export class ChatController {
     if (!userId) {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
+
+    await this.authService.checkPermissions(req.user, Permission.Use);
 
     const responseTexts = await this.service.getMessageResponseTexts(environmentId, userId, body.message);
     return {
@@ -44,6 +55,8 @@ export class ChatController {
     if (!userId) {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
+
+    await this.authService.checkPermissions(req.user, Permission.Use);
 
     await this.service.processCommand(environmentId, userId, body.command);
   }
