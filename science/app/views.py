@@ -32,7 +32,9 @@ def function_completion() -> Dict:
 @bp.route("/function-description", methods=["POST"])
 def function_description() -> Response:
     data: DescInputDto = request.get_json(force=True)
-    return jsonify(get_function_description(data))
+    desc = get_function_description(data)
+    log(desc)
+    return jsonify(desc)
 
 
 @bp.route("/webhook-description", methods=["POST"])
