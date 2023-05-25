@@ -1,3 +1,6 @@
+### 0.1.21
+* Fixed publisher name
+
 ### 0.1.20
 * Fixed tree label
 
