@@ -248,7 +248,7 @@ export class FunctionController {
     await this.service.deleteCustomFunction(id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  // @UseGuards(PolyKeyGuard)
   @Post('/server/:id/execute')
   async executeServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: ExecuteCustomFunctionDto): Promise<any> {
     const customFunction = await this.service.findServerFunction(id);
