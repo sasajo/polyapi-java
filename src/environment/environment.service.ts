@@ -16,12 +16,7 @@ export class EnvironmentService {
       id: environment.id,
       name: environment.name,
       subdomain: environment.subdomain,
-      appKey: environment.appKey,
     };
-  }
-
-  generateAppKey() {
-    return crypto.randomUUID();
   }
 
   generateSubdomainID() {
@@ -33,17 +28,6 @@ export class EnvironmentService {
       where: {
         tenantId,
       },
-    });
-  }
-
-  async findByKey(appKey: string) {
-    return this.prisma.environment.findFirst({
-      where: {
-        appKey,
-      },
-      include: {
-        tenant: true,
-      }
     });
   }
 
@@ -62,7 +46,6 @@ export class EnvironmentService {
     return this.prisma.environment.create({
       data: {
         name,
-        appKey: this.generateAppKey(),
         subdomain: this.generateSubdomainID(),
         tenant: {
           connect: {

@@ -561,7 +561,7 @@ export class FunctionService {
     };
   }
 
-  async createCustomFunction(env: Environment, context: string, name: string, customCode: string, serverFunction: boolean) {
+  async createCustomFunction(env: Environment, context: string, name: string, customCode: string, serverFunction: boolean, apiKey: string) {
     const {
       code,
       args,
@@ -616,7 +616,7 @@ export class FunctionService {
       this.logger.debug(`Creating server side custom function ${name}`);
 
       try {
-        await this.faasService.createFunction(customFunction.id, name, code, requirements, env.appKey);
+        await this.faasService.createFunction(customFunction.id, name, code, requirements, apiKey);
         customFunction = await this.prisma.customFunction.update({
           where: {
             id: customFunction.id,
@@ -736,7 +736,7 @@ export class FunctionService {
     }
   }
 
-  async updateAllServerFunctions(environment: Environment) {
+  async updateAllServerFunctions(environment: Environment, apiKey: string) {
     this.logger.debug(`Updating all server functions in environment ${environment.id}...`);
     const serverFunctions = await this.prisma.customFunction.findMany({
       where: {
@@ -747,7 +747,7 @@ export class FunctionService {
 
     for (const serverFunction of serverFunctions) {
       this.logger.debug(`Updating server function ${serverFunction.id}...`);
-      await this.faasService.updateFunction(serverFunction.id, JSON.parse(serverFunction.requirements || '[]'), environment.appKey);
+      await this.faasService.updateFunction(serverFunction.id, JSON.parse(serverFunction.requirements || '[]'), apiKey);
     }
   }
 

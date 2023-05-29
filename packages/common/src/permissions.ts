@@ -6,5 +6,8 @@ export enum Permission {
 }
 
 export type Permissions = {
-  [key in Permission]?: boolean;
+  [Permission.Use]?: boolean;
+  [Permission.Teach]?: boolean;
+  [Permission.CustomDev]?: boolean;
+  [Permission.AuthConfig]?: boolean;
 }

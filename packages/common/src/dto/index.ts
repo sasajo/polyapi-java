@@ -13,3 +13,4 @@ export * from './tenant';
 export * from './environment';
 export * from './team';
 export * from './user';
+export * from './application';

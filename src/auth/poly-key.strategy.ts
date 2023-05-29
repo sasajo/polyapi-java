@@ -13,9 +13,9 @@ export class PolyKeyStrategy extends PassportStrategy(HeaderAPIKeyStrategy) {
     super(
       { header: 'X-PolyApiKey', prefix: '' },
       false,
-      async (polyKey, done) => {
+      async (apiKey, done) => {
         try {
-          const authData = await authService.getAuthData(polyKey);
+          const authData = await authService.getAuthData(apiKey);
 
           if (authData) {
             done(null, authData);

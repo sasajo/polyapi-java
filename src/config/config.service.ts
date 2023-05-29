@@ -70,10 +70,6 @@ export class ConfigService {
     return this.get('SCIENCE_SERVER_BASE_URL');
   }
 
-  get polyEnvironmentAppKey(): string {
-    return this.get('POLY_ENVIRONMENT_APP_KEY');
-  }
-
   get polyTenantName(): string {
     return this.get('POLY_TENANT_NAME') || 'poly-system';
   }

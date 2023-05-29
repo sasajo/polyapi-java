@@ -7,14 +7,15 @@ import { TeamService } from 'team/team.service';
 import { UserService } from 'user/user.service';
 import { Role, TenantDto, TenantFullDto } from '@poly/common';
 import crypto from 'crypto';
+import { ApplicationService } from 'application/application.service';
+import { AuthService } from 'auth/auth.service';
 
-type CreateTenantDefaults = {
+type CreateTenantOptions = {
   environmentName?: string;
-  environmentAppKey?: string;
   teamName?: string;
   userName?: string;
   userRole?: Role;
-  userKey?: string;
+  userApiKey?: string;
 }
 
 @Injectable()
@@ -22,7 +23,9 @@ export class TenantService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly authService: AuthService,
     private readonly environmentService: EnvironmentService,
+    private readonly applicationService: ApplicationService,
     private readonly teamService: TeamService,
     private readonly userService: UserService,
   ) {
@@ -37,10 +40,9 @@ export class TenantService implements OnModuleInit {
     if (!tenant) {
       await this.create(this.config.polyTenantName, {
         teamName: this.config.polyAdminsTeamName,
-        environmentAppKey: this.config.polyEnvironmentAppKey,
         userName: this.config.polyAdminUserName,
         userRole: Role.SuperAdmin,
-        userKey: this.config.polySuperAdminUserKey,
+        userApiKey: this.config.polySuperAdminUserKey,
       });
     }
   }
@@ -58,14 +60,19 @@ export class TenantService implements OnModuleInit {
         id: tenant.id,
       },
       include: {
-        environments: true,
+        environments: {
+          include: {
+            applications: true,
+            apiKeys: {
+              include: {
+                user: true
+              }
+            },
+          }
+        },
         teams: {
           include: {
-            users: {
-              include: {
-                userKeys: true,
-              },
-            },
+            users: true
           },
         },
       },
@@ -74,18 +81,19 @@ export class TenantService implements OnModuleInit {
       throw new Error(`Tenant ${tenant.id} not found`);
     }
 
-    const toUserFullDto = user => ({
-      ...this.userService.toUserDto(user),
-      userKeys: user.userKeys.map(userKey => this.userService.toUserKeyDto(userKey)),
+    const toEnvironmentFullDto = environment => ({
+      ...this.environmentService.toDto(environment),
+      applications: environment.applications.map(application => this.applicationService.toApplicationDto(application)),
+      apiKeys: environment.apiKeys.map(apiKey => this.authService.toApiKeyDto(apiKey)),
     });
     const toTeamFullDto = team => ({
       ...this.teamService.toDto(team),
-      users: team.users.map(toUserFullDto),
+      users: team.users.map(user => this.userService.toUserDto(user)),
     });
     return {
       id: fullTenant.id,
       name: fullTenant.name,
-      environments: fullTenant.environments?.map(environment => this.environmentService.toDto(environment)),
+      environments: fullTenant.environments.map(toEnvironmentFullDto),
       teams: fullTenant.teams.map(toTeamFullDto),
     };
   }
@@ -102,8 +110,8 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async create(name: string, defaults: CreateTenantDefaults = {}): Promise<Tenant> {
-    const { environmentName, environmentAppKey, teamName, userName, userRole, userKey } = defaults;
+  async create(name: string, options: CreateTenantOptions = {}): Promise<Tenant> {
+    const { environmentName, teamName, userName, userRole, userApiKey } = options;
 
     return this.prisma.$transaction(async tx => {
       const tenant = await tx.tenant.create({
@@ -113,7 +121,6 @@ export class TenantService implements OnModuleInit {
             create: [
               {
                 name: environmentName || 'default',
-                appKey: environmentAppKey || this.environmentService.generateAppKey(),
                 subdomain: this.environmentService.generateSubdomainID(),
               },
             ],
@@ -144,9 +151,10 @@ export class TenantService implements OnModuleInit {
         },
       });
 
-      await tx.userKey.create({
+      await tx.apiKey.create({
         data: {
-          key: userKey || crypto.randomUUID(),
+          name: `api-key-${userRole || Role.Admin}`,
+          key: userApiKey || crypto.randomUUID(),
           user: {
             connect: {
               id: tenant.teams[0].users[0].id,
@@ -183,27 +191,11 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async findByName(name: string): Promise<Tenant | null> {
+  private async findByName(name: string): Promise<Tenant | null> {
     return this.prisma.tenant.findFirst({
       where: {
         name,
       },
     });
-  }
-
-  async getByEnvironment(environmentId: string) {
-    const tenant = await this.prisma.tenant.findFirst({
-      where: {
-        environments: {
-          some: {
-            id: environmentId,
-          },
-        },
-      },
-    });
-    if (!tenant) {
-      throw new Error(`Tenant not found for environment ${environmentId}`);
-    }
-    return tenant;
   }
 }

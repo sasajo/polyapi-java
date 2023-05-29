@@ -1,4 +1,4 @@
-import { EnvironmentDto } from '../environment';
+import { EnvironmentFullDto } from '../environment';
 import { TeamFullDto } from '../team';
 
 export class TenantDto {
@@ -7,6 +7,6 @@ export class TenantDto {
 }
 
 export class TenantFullDto extends TenantDto {
-  environments: EnvironmentDto[];
+  environments: EnvironmentFullDto[];
   teams: TeamFullDto[];
 }

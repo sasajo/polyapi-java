@@ -124,7 +124,7 @@ export class FunctionController {
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, code, false)
+        await this.service.createCustomFunction(req.user.environment, context, name, code, false, req.user.key)
       );
     } catch (e) {
       throw new BadRequestException(e.message);
@@ -195,7 +195,7 @@ export class FunctionController {
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, code, true)
+        await this.service.createCustomFunction(req.user.environment, context, name, code, true, req.user.key)
       );
     } catch (e) {
       throw new BadRequestException(e.message);
@@ -267,7 +267,7 @@ export class FunctionController {
   @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
   @Post('/server/all/update')
   async updateAllServerFunctions(@Req() req: AuthRequest) {
-    void this.service.updateAllServerFunctions(req.user.environment);
+    void this.service.updateAllServerFunctions(req.user.environment, req.user.key);
     return 'Functions are being updated in background. Please check logs for more details.';
   }
 }

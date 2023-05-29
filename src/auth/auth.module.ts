@@ -1,3 +1,4 @@
+import { PrismaModule } from 'prisma/prisma.module';
 import { forwardRef, Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { PolyKeyStrategy } from 'auth/poly-key.strategy';
@@ -7,7 +8,7 @@ import { EnvironmentModule } from 'environment/environment.module';
 import { TenantModule } from 'tenant/tenant.module';
 
 @Module({
-  imports: [PassportModule, forwardRef(() => TenantModule), EnvironmentModule, UserModule],
+  imports: [PrismaModule, PassportModule, forwardRef(() => TenantModule), EnvironmentModule, UserModule],
   providers: [PolyKeyStrategy, AuthService],
   exports: [AuthService],
 })

@@ -18,6 +18,7 @@ import { GptPluginModule } from 'gptplugin/gptplugin.module';
 import { TenantModule } from 'tenant/tenant.module';
 import { TeamModule } from 'team/team.module';
 import { EnvironmentModule } from 'environment/environment.module';
+import { ApplicationModule } from 'application/application.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { EnvironmentModule } from 'environment/environment.module';
     AiModule,
     ChatModule,
     GptPluginModule,
+    ApplicationModule,
   ],
   exports: [
     ConfigModule,

@@ -1,20 +1,154 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AuthData } from 'common/types';
-import { Permission, Permissions, Role } from '@poly/common';
-import { Environment, Tenant, User } from '@prisma/client';
-import { TenantService } from 'tenant/tenant.service';
-import { EnvironmentService } from 'environment/environment.service';
-import { UserService } from 'user/user.service';
+import { ApiKeyDto, Permission, Permissions, Role } from '@poly/common';
+import { ApiKey, Application, Environment, Tenant, User } from '@prisma/client';
+import { PrismaService } from 'prisma/prisma.service';
+import crypto from 'crypto';
+import _ from 'lodash';
+import { application } from 'express';
+
+type ApiKeyWithUser = ApiKey & { user: User | null };
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly userService: UserService,
-    private readonly tenantService: TenantService,
-    private readonly environmentService: EnvironmentService,
+    private readonly prisma: PrismaService,
   ) {
+  }
+
+  toApiKeyDto(apiKey: ApiKeyWithUser): ApiKeyDto {
+    return {
+      id: apiKey.id,
+      name: apiKey.name,
+      environmentId: apiKey.environmentId,
+      key: apiKey.key,
+      applicationId: apiKey.applicationId,
+      userId: apiKey.userId,
+      permissions: this.fillPermissions(JSON.parse(apiKey.permissions), apiKey.user),
+    };
+  }
+
+  async getAllApiKeys(environmentId: string): Promise<ApiKeyWithUser[]> {
+    return this.prisma.apiKey.findMany({
+      where: {
+        environmentId,
+      },
+      include: {
+        user: true,
+      },
+    });
+  }
+
+  async findApiKeyById(id: string, includeEnvironment = false) {
+    return this.prisma.apiKey.findFirst({
+      where: {
+        id,
+      },
+      include: {
+        environment: includeEnvironment,
+        user: true,
+      },
+    });
+  }
+
+  async findApiKeyByKey(key: string, includeEnvironment = false, includeApplication = false, includeUser = false) {
+    return this.prisma.apiKey.findFirst({
+      where: {
+        key,
+      },
+      include: {
+        application: includeApplication,
+        user: includeUser,
+        environment: includeEnvironment
+          ? {
+            include: {
+              tenant: true,
+            },
+          }
+          : false,
+      },
+    });
+  }
+
+  async createApiKey(environmentId: string, name: string, application: Application | null, user: User | null, permissions?: Permissions, key?: string): Promise<ApiKey & {
+    user: User | null,
+  }> {
+    return this.prisma.apiKey.create({
+      data: {
+        environmentId,
+        name,
+        key: key || crypto.randomUUID(),
+        userId: user ? user.id : null,
+        applicationId: application ? application.id : null,
+        permissions: JSON.stringify(this.pickPermissions(permissions || this.getDefaultApiKeyPermissions(application, user))),
+      },
+      include: {
+        user: true,
+      },
+    });
+  }
+
+  async updateApiKey(apiKey: ApiKey, name?: string, permissions?: Permissions): Promise<ApiKeyWithUser> {
+    return this.prisma.apiKey.update({
+      where: {
+        id: apiKey.id,
+      },
+      data: {
+        name: name || apiKey.name,
+        permissions: JSON.stringify({
+          ...JSON.parse(apiKey.permissions),
+          ...this.pickPermissions(permissions || {}),
+        }),
+      },
+      include: {
+        user: true,
+      },
+    });
+  }
+
+  async deleteApiKey(id: string) {
+    this.prisma.apiKey.delete({
+      where: {
+        id,
+      },
+    });
+  }
+
+  private getDefaultApiKeyPermissions(application: Application | null, user: User | null): Permissions {
+    if (application) {
+      return {
+        [Permission.Use]: true,
+      };
+    } else if (user) {
+      switch (user.role) {
+        case Role.User: {
+          return {
+            [Permission.Use]: true,
+          };
+        }
+      }
+    }
+
+    return {};
+  }
+
+  private pickPermissions(permissions: Permissions) {
+    return _.pick(permissions, Object.values(Permission));
+  }
+
+  private fillPermissions(permissions: Permissions, user: User | null) {
+    const isAdmin = user?.role === Role.SuperAdmin || user?.role === Role.Admin;
+
+    console.log('%c ADMIN', 'background: yellow; color: black', isAdmin);
+
+    return Object.values(Permission)
+      .reduce((acc, permission) => ({
+          ...acc,
+          [permission]: isAdmin || permissions[permission] === true,
+        }), {} as Permissions,
+      );
   }
 
   public async checkTenantAccess(
@@ -45,7 +179,7 @@ export class AuthService {
     authData: AuthData,
     ...permissions: Permission[]
   ) {
-    const { environment, user} = authData;
+    const { environment, user } = authData;
 
     if (user?.role === Role.SuperAdmin) {
       return true;
@@ -60,12 +194,8 @@ export class AuthService {
     return true;
   }
 
-  async checkPermissions({ user, userKey }: AuthData, ...permissions: Permission[]) {
-    if (!permissions.length) {
-      return true;
-    }
-    if (!userKey) {
-      // not restricted by user permissions
+  async checkPermissions({ user, permissions }: AuthData, ...permissionsToCheck: Permission[]) {
+    if (!permissionsToCheck.length) {
       return true;
     }
 
@@ -73,46 +203,31 @@ export class AuthService {
       return true;
     }
 
-    const userPermissions = JSON.parse(userKey.permissions) as Permissions;
-    permissions.forEach(permission => {
-      if (!userPermissions[permission]) {
+    permissionsToCheck.forEach(permission => {
+      if (!permissions[permission]) {
         throw new ForbiddenException(`Missing '${permission}' permission`);
       }
     });
   }
 
-  async getAuthData(polyKey: string) {
-    let user: User | null = null;
-    let environment: Environment & { tenant: Tenant } | null = null;
-
-    const userKey = await this.userService.findUserKeyById(polyKey, true, true);
-    if (userKey) {
-      environment = userKey.environment as Environment & { tenant: Tenant };
-      user = userKey.user;
-      if (!user) {
-        this.logger.error(`User key ${polyKey} has no valid user`);
-        return null;
-      }
-      if (!environment) {
-        this.logger.error(`User key ${polyKey} has no valid environment`);
-        return null;
-      }
-    }
-
-    if (!environment) {
-      environment = await this.environmentService.findByKey(polyKey);
-    }
-    if (!environment) {
-      this.logger.error(`Key ${polyKey} has no valid environment`);
+  async getAuthData(key: string): Promise<AuthData | null> {
+    const apiKey = await this.findApiKeyByKey(key, true, true, true);
+    if (!apiKey) {
       return null;
     }
 
-    // valid key
+    const environment: Environment & { tenant: Tenant } = apiKey.environment as Environment & { tenant: Tenant };
+    const tenant = environment.tenant;
+    const application = apiKey.application;
+    const user = apiKey.user;
+
     return {
-      tenant: environment.tenant,
+      key,
+      tenant,
       environment,
+      application,
       user,
-      userKey,
+      permissions: this.fillPermissions(JSON.parse(apiKey.permissions), user),
     } as AuthData;
   }
 }
