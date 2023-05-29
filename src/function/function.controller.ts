@@ -259,7 +259,8 @@ export class FunctionController {
       throw new BadRequestException(`Function with id ${id} is not server function.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
+    // TODO: temporarily disabled for GPT plugin purposes
+    // await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
 
     return await this.service.executeServerFunction(customFunction, data.args, data.clientID);
   }
