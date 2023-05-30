@@ -75,7 +75,7 @@ export class TeachController {
     );
   }
 
-  @UseGuards(new PolyKeyGuard([Role.Admin]))
+  @UseGuards(new PolyKeyGuard([Role.Admin, Role.SuperAdmin]))
   @Post('/system-prompt')
   async teachSystemPrompt(@Req() req: AuthRequest, @Body() body: TeachSystemPromptDto): Promise<TeachSystemPromptResponseDto> {
     const environmentId = req.user.environment.id;
