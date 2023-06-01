@@ -115,7 +115,7 @@ export class FunctionService {
   apiFunctionToDetailsDto(apiFunction: ApiFunction): FunctionDetailsDto {
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
-      arguments: this.getFunctionArguments(apiFunction),
+      arguments: this.getFunctionArguments(apiFunction).map(({ location, ...rest }) => rest),
     };
   }
 
@@ -1174,7 +1174,8 @@ export class FunctionService {
     const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
 
     const resolveArgumentParameterLimit = () => {
-      if (apiFunction.argumentsMetadata || functionArgs.length <= this.config.functionArgsParameterLimit) {
+
+      if (functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
 
@@ -1188,10 +1189,10 @@ export class FunctionService {
 
       functionArgs.forEach((arg) => {
         if (arg.location === 'body') {
-          if (metadata[arg.key]) {
-            metadata[arg.key].payload = true;
+          if (newMetadata[arg.key]) {
+            newMetadata[arg.key].payload = true;
           } else {
-            metadata[arg.key] = {
+            newMetadata[arg.key] = {
               payload: true,
             };
           }
@@ -1207,19 +1208,18 @@ export class FunctionService {
         }
       }
 
-      for (const arg of functionArgs) {
+      for (const arg of functionArgs) { 
         if (metadata[arg.key]?.type) {
-          newMetadata[arg.key] = metadata[arg.key];
+          const { payload, ...rest} = metadata[arg.key];
+          newMetadata[arg.key] = {
+            ...newMetadata[arg.key],
+            ...rest
+          };
           continue;
         }
         const value = variables[arg.key];
 
-        if (value == null) {
-          newMetadata[arg.key] = metadata[arg.key];
-          continue;
-        }
-
-        const [type, typeSchema] = await this.resolveArgumentType(value);
+        const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
 
         if (newMetadata[arg.key]) {
           newMetadata[arg.key].type = type;
