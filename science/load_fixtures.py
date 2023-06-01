@@ -72,12 +72,11 @@ def load_functions(user: User) -> None:
                     "context": data["context"],
                     "name": data["name"],
                     "description": data["description"],
-                    "userId": user.id,
                     "url": data["url"],
                     "headers": headers,
                     "method": data["method"],
                     "createdAt": datetime.datetime.now(),
-                    "environmentId": environment.id
+                    "environmentId": environment.id,
                 }  # type: ignore
             )
             print(f"Created {url_function_path(func)}")
