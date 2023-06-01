@@ -645,11 +645,11 @@ export class FunctionService {
     return customFunction;
   }
 
-  async updateCustomFunction(customFunction: CustomFunction, context: string | null, description: string | null, visibility: Visibility | null) {
-    const { id, name } = customFunction;
+  async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null) {
+    const { id, name: currentName, context: currentContext } = customFunction;
 
-    if (context != null) {
-      if (!(await this.checkContextAndNameDuplicates(customFunction.environmentId, context, name, [id]))) {
+    if (context != null || name != null) {
+      if (!(await this.checkContextAndNameDuplicates(customFunction.environmentId, context || currentContext, name || currentName, [id]))) {
         throw new ConflictException(`Function with name ${name} and context ${context} already exists.`);
       }
     }
@@ -662,6 +662,7 @@ export class FunctionService {
         id,
       },
       data: {
+        name: name == null ? customFunction.name : name,
         context: context == null ? customFunction.context : context,
         description: description == null ? customFunction.description : description,
         visibility: visibility == null ? customFunction.visibility : visibility,
