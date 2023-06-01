@@ -252,7 +252,7 @@ def _extract_json_from_completion(content: str) -> Dict:
 BEST_FUNCTION_DETAILS_TEMPLATE = """Please be concise.
 To import the Poly API Library:
 `import poly from 'polyapi'`
-Use the following function, and add any additional code you see fit, to answer my question:
+Use the following function (only if it makes sense) to answer my question:
 {spec_str}
 """
 BEST_FUNCTION_QUESTION_TEMPLATE = "My question:\n{question}"
