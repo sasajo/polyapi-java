@@ -256,7 +256,7 @@ export class FunctionService {
     );
 
     const finalContext = context || '';
-    const finalName = name?.trim() ? name: requestName;
+    const finalName = name?.trim() ? name : requestName;
     const finalDescription = description || '';
 
     if (!finalName) {
@@ -445,7 +445,7 @@ export class FunctionService {
               } catch (e) {
                 return response;
               }
-            }
+            };
 
             this.logger.debug(`Raw response (id: ${apiFunction.id}):\nStatus: ${response.status}\n${JSON.stringify(response.data)}`);
 
@@ -562,7 +562,11 @@ export class FunctionService {
   customFunctionToDetailsDto(customFunction: CustomFunction): FunctionDetailsDto {
     return {
       ...this.customFunctionToBasicDto(customFunction),
-      arguments: JSON.parse(customFunction.arguments),
+      arguments: JSON.parse(customFunction.arguments).map((arg) => ({
+        ...arg,
+        required: arg.required == null ? true : arg.required,
+        secure: arg.secure == null ? false : arg.secure,
+      })),
     };
   }
 
