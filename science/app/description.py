@@ -116,7 +116,8 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         short_description=short,
         payload=data.get("payload", "None"),
         response=data.get("response", "None"),
-        call_type="Event handler"
+        call_type="Event handler",
+        description_length_limit=DESCRIPTION_LENGTH_LIMIT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}

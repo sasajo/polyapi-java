@@ -7,9 +7,38 @@ from app.completion import (
     get_conversations_for_user,
     get_function_options_prompt,
     get_best_function_messages,
+    _extract_json_from_completion,
 )
 from app.typedefs import ExtractKeywordDto, SpecificationDto
 from .testing import DbTestCase
+
+STEP_2_RESPONSE_EXAMPLE = """The function that can be used to search flight information is:
+
+```
+{"id": "9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2"}
+```
+
+Here's an example of how to use it in Python:
+
+```python
+import requests
+
+url = "https://api.poly.com/astra/datastax/flights/flightSearch"
+
+querystring = {
+    "originAirportCode": "LAX",
+    "destinationAirportCode": "JFK",
+    "startDateTimeRange": "2022-01-01T00:00:00Z",
+    "endDateTimeRange": "2022-01-07T00:00:00Z"
+}
+
+response = requests.request("GET", url, params=querystring)
+
+print(response.text)
+```
+
+Note: This is just an example and you will need to replace the query parameters with your own values.
+"""
 
 
 def _fake_extract(keyword):
@@ -201,7 +230,7 @@ class T(DbTestCase):
     @patch("app.utils.query_node_server")
     @patch("app.completion.get_chat_completion")
     def test_get_best_function_example(self, get_chat_completion, query_node_server):
-        get_chat_completion.return_value = {"choices": ["foobar"]}
+        get_chat_completion.return_value = {"choices": [{"message": {"role": "assistant", "content": "foobar"}}]}
         query_node_server.return_value = Mock(status_code=200, json=get_functions)
 
         result = get_best_function_example(
@@ -215,7 +244,11 @@ class T(DbTestCase):
         messages = get_chat_completion.call_args[0][0]
         print(messages[0]["content"])
         print(messages[1]["content"])
-        self.assertEqual(len(messages), 2)
+        self.assertEqual(len(messages), 3)
         self.assertEqual(query_node_server.call_count, 1)
 
-        self.assertEqual(result, "foobar")
+        self.assertTrue(result)
+
+    def test_extract_json_from_completion(self):
+        public_id = _extract_json_from_completion(STEP_2_RESPONSE_EXAMPLE)["id"]
+        self.assertEqual(public_id, "9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2")
