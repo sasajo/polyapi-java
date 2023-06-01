@@ -255,9 +255,12 @@ def _extract_json_from_completion(content: str) -> Dict:
 
 
 BEST_FUNCTION_DETAILS_TEMPLATE = """Please be concise.
+
 To import the Poly API Library:
 `import poly from 'polyapi'`
-Use the following function (only if it makes sense) to answer my question:
+
+Use any combination of the following functions to answer my question:
+
 {spec_str}
 """
 BEST_FUNCTION_QUESTION_TEMPLATE = "My question:\n{question}"
@@ -274,7 +277,7 @@ def get_best_function_example(user_id: str, environment_id: str, public_ids: Lis
         )
 
     best_function_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
-        spec_str="\n".join(spec_prompt(spec) for spec in valid_specs)
+        spec_str="\n\n".join(spec_prompt(spec) for spec in valid_specs)
     )
     question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
     messages = [
