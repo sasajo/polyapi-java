@@ -153,7 +153,7 @@ def get_chat_completion(
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
-Which functions could be used to accomplish this user prompt:
+Which functions are necessary, if any, to implement this user prompt:
 %s
 
 Please return just the ids of the functions in this format:
@@ -207,7 +207,7 @@ def get_best_functions(
         clear_conversation(user_id)
         return [], stats
 
-    resp = get_chat_completion(messages, stage="get_best_function", temperature=0.2)
+    resp = get_chat_completion(messages, stage="get_best_function", temperature=0.0)
     answer_msg = resp["choices"][0]["message"]
     messages.append(answer_msg)
 
