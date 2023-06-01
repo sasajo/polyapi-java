@@ -5,6 +5,11 @@ from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
 from app.utils import camel_case, log
 from app.constants import CHAT_GPT_MODEL
 
+# this needs to be 300 or less for the OpenAPI spec
+# however, OpenAI counts characters slightly differently than us (html escaped entities like `&29;`)
+# so we set this 290 just to be safe
+DESCRIPTION_LENGTH_LIMIT = 290
+
 
 NAME_CONTEXT_DESCRIPTION_PROMPT = """
 I will provide you information about an {call_type}.
@@ -28,8 +33,8 @@ For example, to create a new product on shopify the context should be "shopify.p
 Resources should be plural. For example, shopify.products, shopify.orders, shopify.customers, etc.
 
 The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but
-needs to remain human readable. It should be limited to 300 characters without losing meaning and also can be less than
-300 characters if it makes sense.
+needs to remain human readable. It should be limited to {description_length_limit} characters without losing meaning and also can be less than
+{description_length_limit} characters if it makes sense.
 
 Here is the {call_type}:
 
@@ -76,6 +81,7 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         payload=data.get("payload", "None"),
         response=data.get("response", "None"),
         call_type="API call",
+        description_length_limit=DESCRIPTION_LENGTH_LIMIT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
@@ -128,7 +134,7 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         log_error(data, completion, prompt)
     else:
         # for now log EVERYTHING
-        rv['description'] = rv['description'][:300]
+        rv['description'] = rv['description'][:DESCRIPTION_LENGTH_LIMIT]
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
