@@ -11,6 +11,7 @@ export class UpdateCustomFunctionDto {
   @IsOptional()
   @IsString()
   description?: string;
+  @IsOptional()
   @IsString()
   @IsEnum(Visibility)
   visibility?: Visibility;
