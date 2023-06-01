@@ -78,6 +78,14 @@ def log(*args, **kwargs) -> None:
     print(*args, **kwargs, flush=True)
 
 
+def store_messages(user_id: Optional[str], messages: List[MessageDict]) -> None:
+    for message in messages:
+        store_message(
+            user_id,
+            message,
+        )
+
+
 def store_message(
     user_id: Optional[str], data: MessageDict
 ) -> Optional[ConversationMessage]:

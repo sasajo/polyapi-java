@@ -46,7 +46,6 @@ def test_environment_get_or_create() -> Environment:
                 "name": "test",
                 "tenantId": tenant.id,
                 "subdomain": "test",
-                "appKey": "test",
             }
         )
     return user
@@ -54,6 +53,8 @@ def test_environment_get_or_create() -> Environment:
 
 def load_functions(user: User) -> None:
     db = get_client()
+    environment = test_environment_get_or_create()
+    assert environment
     data_list: List[FunctionDict] = _get_data_list()
 
     for data in data_list:
@@ -76,6 +77,7 @@ def load_functions(user: User) -> None:
                     "headers": headers,
                     "method": data["method"],
                     "createdAt": datetime.datetime.now(),
+                    "environmentId": environment.id
                 }  # type: ignore
             )
             print(f"Created {url_function_path(func)}")

@@ -24,7 +24,7 @@ from app.utils import (
     clear_conversation,
     func_path_with_args,
     query_node_server,
-    store_message,
+    store_messages,
 )
 from app.constants import CHAT_GPT_MODEL
 
@@ -214,13 +214,9 @@ def get_best_function(
     # HACK just store convo for debugging
     # always clear for now
     clear_conversation(user_id)
-    for message in messages:
-        store_message(
-            user_id,
-            message,
-        )
 
     # we tell ChatGPT to send us back "none" if no function matches
+    store_messages(user_id, messages)
 
     try:
         public_id = _extract_json_from_completion(answer_msg["content"])["id"]
@@ -281,7 +277,13 @@ def get_best_function_example(user_id: str, environment_id: str, public_id: str,
     ]
     insert_system_prompt(environment_id, messages)
     resp = get_chat_completion(messages, stage="get_best_function_example")
-    return resp["choices"][0]
+    rv = resp["choices"][0]
+
+    # lets store them to look at
+    messages.append(rv['message'])
+    store_messages(user_id, messages)
+
+    return rv
 
 
 def get_completion_answer(user_id: str, environment_id: str, question: str) -> Dict:
