@@ -236,7 +236,7 @@ class T(DbTestCase):
         result = get_best_function_example(
             self.user.id,
             self.environment.id,
-            "f7588018-2364-4586-b60d-b08a285f1ea3",
+            ["f7588018-2364-4586-b60d-b08a285f1ea3"],
             "how do I check flight?",
         )
 

@@ -159,13 +159,13 @@ Which function can be used to accomplish this user prompt:
 Please return just the id of the function in this format:
 
 ```
-{"id": functionId}
+{"ids": [functionId1, functionId2, ...]}
 ```
 
 If no function is suitable, please return the following:
 
 ```
-{"id": "none"}
+{"ids": []}
 ```
 """
 
@@ -198,14 +198,14 @@ def get_system_prompt() -> Optional[SystemPrompt]:
     return system_prompt
 
 
-def get_best_function(
+def get_best_functions(
     user_id: str, environment_id: str, question: str
-) -> Tuple[str, StatsDict]:
+) -> Tuple[List[str], StatsDict]:
     messages, stats = get_best_function_messages(user_id, environment_id, question)
     if not messages:
         # we have no candidate functions whatsoever, abort!
         clear_conversation(user_id)
-        return "", stats
+        return [], stats
 
     resp = get_chat_completion(messages, stage="get_best_function", temperature=0.2)
     answer_msg = resp["choices"][0]["message"]
@@ -219,17 +219,22 @@ def get_best_function(
     store_messages(user_id, messages)
 
     try:
-        public_id = _extract_json_from_completion(answer_msg["content"])["id"]
+        public_ids = _extract_json_from_completion(answer_msg["content"])["ids"]
     except Exception as e:
-        log(f"invalid function id returned, setting public_id to none: {e}")
-        public_id = "none"
+        log(f"invalid function ids returned, setting public_id to none: {e}")
+        public_ids = []
 
-    if public_id != "none" and get_public_id(public_id):
+    if public_ids:
         # valid public id, send it back!
-        return public_id, stats
+        rv = []
+        for public_id in public_ids:
+            if get_public_id(public_id):
+                rv.append(public_id)
+
+        return rv, stats
     else:
         # we received invalid public id, just send back nothing
-        return "", stats
+        return [], stats
 
 
 def _extract_json_from_completion(content: str) -> Dict:
@@ -258,17 +263,18 @@ Use the following function (only if it makes sense) to answer my question:
 BEST_FUNCTION_QUESTION_TEMPLATE = "My question:\n{question}"
 
 
-def get_best_function_example(user_id: str, environment_id: str, public_id: str, question: str) -> ChatGptChoice:
+def get_best_function_example(user_id: str, environment_id: str, public_ids: List[str], question: str) -> ChatGptChoice:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
-    spec = public_id_to_spec(user_id, environment_id, public_id)
-    if not spec:
+    specs = [public_id_to_spec(user_id, environment_id, public_id) for public_id in public_ids]
+    valid_specs = [spec for spec in specs if spec]
+    if len(specs) != len(valid_specs):
         raise NotImplementedError(
-            f"spec doesnt exist for {public_id}? was is somehow deleted?"
+            f"spec doesnt exist for {public_ids}? was one somehow deleted?"
         )
 
     best_function_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
-        spec_str=spec_prompt(spec)
+        spec_str="\n".join(spec_prompt(spec) for spec in valid_specs)
     )
     question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
     messages = [
@@ -287,11 +293,11 @@ def get_best_function_example(user_id: str, environment_id: str, public_id: str,
 
 
 def get_completion_answer(user_id: str, environment_id: str, question: str) -> Dict:
-    best_function_id, stats = get_best_function(user_id, environment_id, question)
-    if best_function_id:
+    best_function_ids, stats = get_best_functions(user_id, environment_id, question)
+    if best_function_ids:
         # we found a function that we think should answer this question
         # lets pass ChatGPT the function and ask the question to make this work
-        choice = get_best_function_example(user_id, environment_id, best_function_id, question)
+        choice = get_best_function_example(user_id, environment_id, best_function_ids, question)
     else:
         resp = get_chat_completion(
             [{"role": "user", "content": question}], stage="no_best_function"
