@@ -283,7 +283,7 @@ def get_best_function_example(user_id: str, environment_id: str, public_ids: Lis
         MessageDict(role="user", content=question_prompt),
     ]
     insert_system_prompt(environment_id, messages)
-    resp = get_chat_completion(messages, temperature=0.5, stage="get_best_function_example")
+    resp = get_chat_completion(messages, temperature=0.2, stage="get_example")
     rv = resp["choices"][0]
 
     # lets store them to look at
