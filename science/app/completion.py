@@ -153,7 +153,7 @@ def get_chat_completion(
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
-Which functions can be used to accomplish this user prompt:
+Which functions could be used to accomplish this user prompt:
 %s
 
 Please return just the ids of the functions in this format:
@@ -254,9 +254,7 @@ def _extract_json_from_completion(content: str) -> Dict:
     raise
 
 
-BEST_FUNCTION_DETAILS_TEMPLATE = """Please be concise.
-
-To import the Poly API Library:
+BEST_FUNCTION_DETAILS_TEMPLATE = """To import the Poly API Library:
 `import poly from 'polyapi'`
 
 Use any combination of the following functions to answer my question:
