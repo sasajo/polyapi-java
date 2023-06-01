@@ -207,7 +207,7 @@ def get_best_functions(
         clear_conversation(user_id)
         return [], stats
 
-    resp = get_chat_completion(messages, stage="get_best_function", temperature=0.0)
+    resp = get_chat_completion(messages, stage="get_best_function", temperature=0.2)
     answer_msg = resp["choices"][0]["message"]
     messages.append(answer_msg)
 
@@ -283,7 +283,7 @@ def get_best_function_example(user_id: str, environment_id: str, public_ids: Lis
         MessageDict(role="user", content=question_prompt),
     ]
     insert_system_prompt(environment_id, messages)
-    resp = get_chat_completion(messages, temperature=0.2, stage="get_example")
+    resp = get_chat_completion(messages, temperature=0.5, stage="get_example")
     rv = resp["choices"][0]
 
     # lets store them to look at
