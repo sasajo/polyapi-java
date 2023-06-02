@@ -158,10 +158,10 @@ Which functions could be invoked as is, if any, to implement this user prompt:
 
 Please return the ids of the functions and how confident you are the function will be useful, on a scale of 1-5.
 
-Return the data in this format:
+Return the ids and confidence scores in this format:
 
 ```
-{"ids": {functionId1: confidenceScore1, functionId2: confidenceScore2, ...}}
+{"ids": {"111111-1111-1111-1111-1111111111": 5, "2222222-2222-2222-2222-2222222222": 4, ...}}
 ```
 
 If no function is suitable, please return the following:
