@@ -72,6 +72,9 @@ def error():
     raise NotImplementedError("Intentional error successfully triggered!")
 
 
+# That model is currently overloaded with other requests. You can retry your request, or contact us through our help center at help.openai.com if the error persists. (Please include the request ID 24a8fd8388c92fd978dcc1a7caa31520 in your message.)
+# OpenAI is overloaded, please try
+
 @bp.errorhandler(OpenAIError)
 def handle_exception(e):
     # now you're handling non-HTTP exceptions only

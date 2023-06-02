@@ -115,7 +115,7 @@ def get_top_function_matches(
     """get top function matches based on keywords"""
     match_limit = get_function_match_limit()
 
-    items = filter_items_based_on_http_method(items, keyword_data.get("http_methods"))
+    # items = filter_items_based_on_http_method(items, keyword_data.get("http_methods"))
 
     keyword_matches, keyword_stats = _get_top(
         match_limit, items, keyword_data["keywords"]
