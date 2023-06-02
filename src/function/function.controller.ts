@@ -17,6 +17,7 @@ import { FunctionService } from 'function/function.service';
 import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import {
   ApiFunctionResponseDto,
+  CreateApiFunctionDto,
   CreateCustomFunctionDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
@@ -43,6 +44,59 @@ export class FunctionController {
   async getApiFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
     const apiFunctions = await this.service.getApiFunctions(req.user.environment.id);
     return apiFunctions.map((apiFunction) => this.service.apiFunctionToBasicDto(apiFunction));
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Post('/api')
+  async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<FunctionBasicDto> {
+    const {
+      url,
+      body,
+      requestName,
+      name = null,
+      context = null,
+      description = null,
+      payload = null,
+      response,
+      variables = {},
+      statusCode,
+      templateHeaders,
+      method,
+      templateAuth,
+      templateUrl,
+      templateBody,
+      id = null,
+    } = data;
+    const environmentId = req.user.environment.id;
+
+    await this.authService.checkPermissions(req.user, Permission.Teach);
+
+    this.logger.debug(`Creating API function in environment ${environmentId}...`);
+    this.logger.debug(
+      `name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}, statusCode: ${statusCode}`,
+    );
+
+    return this.service.apiFunctionToBasicDto(
+      await this.service.createOrUpdateApiFunction(
+        id,
+        environmentId,
+        url,
+        body,
+        requestName,
+        name,
+        context,
+        description,
+        payload,
+        response,
+        variables,
+        statusCode,
+        templateHeaders,
+        method,
+        templateUrl,
+        templateBody,
+        templateAuth,
+      )
+    );
   }
 
   @UseGuards(PolyKeyGuard)
