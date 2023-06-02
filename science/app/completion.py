@@ -153,19 +153,21 @@ def get_chat_completion(
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
-Which functions are necessary, if any, to implement this user prompt:
+Which functions are useful, if any, to implement this user prompt:
 %s
 
-Please return just the ids of the functions in this format:
+Please return the ids of the functions and how confident you are the function will be useful, on a scale of 1-5.
+
+Return the data in this format:
 
 ```
-{"ids": [functionId1, functionId2, ...]}
+{"ids": {functionId1: confidenceScore1, functionId2: confidenceScore2, ...}}
 ```
 
 If no function is suitable, please return the following:
 
 ```
-{"ids": []}
+{"ids": {} }
 ```
 """
 
@@ -219,7 +221,7 @@ def get_best_functions(
     store_messages(user_id, messages)
 
     try:
-        public_ids = _extract_json_from_completion(answer_msg["content"])["ids"]
+        public_ids = list(_extract_json_from_completion(answer_msg["content"])["ids"].keys())
     except Exception as e:
         log(f"invalid function ids returned, setting public_id to none: {e}")
         public_ids = []
