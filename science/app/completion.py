@@ -153,7 +153,7 @@ def get_chat_completion(
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
-Which functions are useful, if any, to implement this user prompt:
+Which functions could be invoked as is, if any, to implement this user prompt:
 %s
 
 Please return the ids of the functions and how confident you are the function will be useful, on a scale of 1-5.
