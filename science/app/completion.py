@@ -221,7 +221,8 @@ def get_best_functions(
     store_messages(user_id, messages)
 
     try:
-        public_ids = list(_extract_json_from_completion(answer_msg["content"])["ids"])
+        ids_with_scores = list(_extract_json_from_completion(answer_msg["content"])["ids"])
+        public_ids = [t[0] for t in ids_with_scores]
     except Exception as e:
         log(f"invalid function ids returned, setting public_id to none: {e}")
         public_ids = []
