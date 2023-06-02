@@ -161,13 +161,13 @@ Please return the ids of the functions and how confident you are the function wi
 Return the ids and confidence scores in this format:
 
 ```
-{"ids": {"111111-1111-1111-1111-1111111111": 5, "2222222-2222-2222-2222-2222222222": 4, ...}}
+{"ids": [ ["111111-1111-1111-1111-1111111111", 5], ["2222222-2222-2222-2222-2222222222", 4] ] }}
 ```
 
 If no function is suitable, please return the following:
 
 ```
-{"ids": {} }
+{"ids": [] }
 ```
 """
 
@@ -221,7 +221,7 @@ def get_best_functions(
     store_messages(user_id, messages)
 
     try:
-        public_ids = list(_extract_json_from_completion(answer_msg["content"])["ids"].keys())
+        public_ids = list(_extract_json_from_completion(answer_msg["content"])["ids"])
     except Exception as e:
         log(f"invalid function ids returned, setting public_id to none: {e}")
         public_ids = []
