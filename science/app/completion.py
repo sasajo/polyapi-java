@@ -222,7 +222,11 @@ def get_best_functions(
 
     try:
         ids_with_scores = _extract_json_from_completion(answer_msg["content"])
-        public_ids = [t['id'] for t in ids_with_scores]
+        if isinstance(ids_with_scores, dict):
+            # sometimes OpenAI messes up and doesn't put it in a List when there's a single item
+            public_ids = [ids_with_scores['id']]
+        else:
+            public_ids = [t['id'] for t in ids_with_scores]
     except Exception as e:
         log(f"invalid function ids returned, setting public_id to none: {e}")
         public_ids = []
