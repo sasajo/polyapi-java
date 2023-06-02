@@ -180,9 +180,8 @@ export class FunctionController {
   @UseGuards(PolyKeyGuard)
   @Get('/server')
   async getServerFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
-    const customFunctions = await this.service.getCustomFunctions(req.user.environment.id);
+    const customFunctions = await this.service.getServerFunctions(req.user.environment.id);
     return customFunctions
-      .filter((customFunction) => customFunction.serverSide)
       .map((serverFunction) => this.service.customFunctionToBasicDto(serverFunction));
   }
 

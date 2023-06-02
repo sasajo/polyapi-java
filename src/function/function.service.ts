@@ -546,6 +546,7 @@ export class FunctionService {
         ],
         ...this.getFunctionFilterConditions(contexts, names, ids),
       },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
   }
 
@@ -689,6 +690,7 @@ export class FunctionService {
         ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: false,
       },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
   }
 
@@ -711,6 +713,7 @@ export class FunctionService {
         ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: true,
       },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
   }
 
