@@ -51,7 +51,7 @@ class T(DbTestCase):
         resp = self.client.post("/function-completion", json=mock_input)
 
         # test
-        self.assertEqual(resp.status_code, 500)
+        self.assertStatus(resp, 500)
         self.assertEqual(get_answer.call_count, 1)
 
     @patch("app.description.openai.ChatCompletion.create")
@@ -118,3 +118,8 @@ class T(DbTestCase):
         self.assertEqual(resp.status_code, 201)
         out = get_function_match_limit()
         self.assertEqual(out, 4)
+
+    def test_rate_limit_error(self):
+        resp = self.client.get("/error-rate-limit")
+        self.assertStatus(resp, 500)
+        self.assertTrue(resp.text.startswith("OpenAI is overloaded"))

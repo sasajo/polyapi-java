@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 from typing import Dict, Optional, Tuple
 from flask import Blueprint, Response, request, jsonify
-from openai import OpenAIError
+from openai.error import OpenAIError, RateLimitError
 from app.completion import get_completion_answer
 from app.description import get_function_description, get_webhook_description
 from app.typedefs import DescInputDto
 from app.utils import clear_conversation, is_vip_user, log, set_config_variable
 
-bp = Blueprint('views', __name__)
+bp = Blueprint("views", __name__)
 
 
 @bp.route("/")
@@ -57,8 +57,8 @@ def clear_conversation_view() -> str:
 @bp.route("/configure", methods=["POST"])
 def configure() -> Tuple[str, int]:
     data = request.get_json(force=True)
-    name = data['name']
-    value = data['value']
+    name = data["name"]
+    value = data["value"]
     try:
         set_config_variable(name, value)
     except ValueError:
@@ -72,13 +72,21 @@ def error():
     raise NotImplementedError("Intentional error successfully triggered!")
 
 
-# That model is currently overloaded with other requests. You can retry your request, or contact us through our help center at help.openai.com if the error persists. (Please include the request ID 24a8fd8388c92fd978dcc1a7caa31520 in your message.)
-# OpenAI is overloaded, please try
+@bp.route("/error-rate-limit")
+def error_rate_limit():
+    raise RateLimitError(
+        "That model is currently overloaded with other requests. You can retry your request, or contact us through our help center at help.openai.com if the error persists. (Please include the request ID 1a63543dd9855ee708b9020f73d50a38 in your message."
+    )
+
 
 @bp.errorhandler(OpenAIError)
-def handle_exception(e):
+def handle_open_ai_error(e):
     # now you're handling non-HTTP exceptions only
     from flask import current_app
-    msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
+
+    if isinstance(e, RateLimitError):
+        msg = "OpenAI is overloaded with other requests at the moment. Please wait a few seconds and try your request again!"
+    else:
+        msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
     current_app.log_exception(msg)
     return msg, 500

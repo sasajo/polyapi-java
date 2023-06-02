@@ -28,8 +28,12 @@ def _get_data_list():
 def test_user_get_or_create() -> User:
     db = get_client()
     user = db.user.find_first(where={"name": "test"})
+
     if not user:
-        user = db.user.create(data={"name": "test", "role": "ADMIN"})
+        tenant = db.tenant.find_first()
+        assert tenant
+        user = db.user.create(data={"name": "test", "role": "ADMIN", "tenantId": tenant.id})
+
     return user
 
 
