@@ -212,7 +212,7 @@ export class GptPluginService {
       // HACK for now staging/develop just use hardcoded manifests
       return `${protocol}://${host}/openapi-${slug}.yaml`;
     } else {
-      return `${protocol}://${host}/plugin/${slug}/openapi`;
+      return `${protocol}://${host}/plugins/${slug}/openapi`;
     }
   }
 

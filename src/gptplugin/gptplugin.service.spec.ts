@@ -311,7 +311,7 @@ describe('GptPluginService', () => {
   describe('getOpenApiUrl', () => {
     it('should return the right url for the environment', async () => {
       const url = service.getOpenApiUrl('mass-effect.polyapi.io', 'mass-effect');
-      expect(url).toBe('https://mass-effect.polyapi.io/plugin/mass-effect/openapi');
+      expect(url).toBe('https://mass-effect.polyapi.io/plugins/mass-effect/openapi');
     });
   });
 
