@@ -172,13 +172,13 @@ export class FunctionController {
   @UseGuards(PolyKeyGuard)
   @Post('/client')
   async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, code } = data;
+    const { context = '', name, description = '', code } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, code, false, req.user.key)
+        await this.service.createCustomFunction(req.user.environment, context, name, description, code, false, req.user.key)
       );
     } catch (e) {
       throw new BadRequestException(e.message);
@@ -242,13 +242,13 @@ export class FunctionController {
   @UseGuards(PolyKeyGuard)
   @Post('/server')
   async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, code } = data;
+    const { context = '', name, description = '', code } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, code, true, req.user.key)
+        await this.service.createCustomFunction(req.user.environment, context, name, description, code, true, req.user.key)
       );
     } catch (e) {
       throw new BadRequestException(e.message);

@@ -553,7 +553,7 @@ export class FunctionService {
     };
   }
 
-  async createCustomFunction(env: Environment, context: string, name: string, customCode: string, serverFunction: boolean, apiKey: string) {
+  async createCustomFunction(env: Environment, context: string, name: string, description: string, customCode: string, serverFunction: boolean, apiKey: string) {
     const {
       code,
       args,
@@ -580,6 +580,7 @@ export class FunctionService {
         },
         data: {
           code,
+          description: description || customFunction.description,
           arguments: JSON.stringify(args),
           returnType,
           requirements: JSON.stringify(requirements),
@@ -596,6 +597,7 @@ export class FunctionService {
           },
           context,
           name,
+          description,
           code,
           arguments: JSON.stringify(args),
           returnType,
