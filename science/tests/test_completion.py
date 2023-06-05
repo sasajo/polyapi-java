@@ -3,14 +3,40 @@ from typing import List
 from mock import Mock, patch
 from load_fixtures import test_environment_get_or_create, test_user_get_or_create
 from app.completion import (
+    _id_extraction_fallback,
     get_best_function_example,
     get_conversations_for_user,
     get_function_options_prompt,
     get_best_function_messages,
-    _extract_json_from_completion,
+    _extract_ids_from_completion,
 )
 from app.typedefs import ExtractKeywordDto, SpecificationDto
 from .testing import DbTestCase
+
+EXTRACTION_FALLBACK_EXAMPLE = """The following function can be used to get a list of products from a Shopify store and then log the first product:
+
+- `poly.shopify.products.getProducts` (id: 3d02d0a3-dcf8-4bc3-8f03-a8619291f936, score: 5)
+- `poly.shopify.products.deleteProducts` (id: 4442d0a3-dcf8-4bc3-8f03-a8619291f936, score: 5)
+{}
+
+Here's an example implementation in TypeScript:
+
+```typescript
+import poly from 'poly-api-library';
+
+const shop = 'darko-demo-store';
+
+poly.shopify.products.getProducts(shop)
+  .then((products) => {
+    console.log(products[0]);
+  })
+  .catch((error) => {
+    console.error(error);
+  });
+```
+
+This function retrieves a list of all products in the store and returns product details including id, title, vendor, price, inventory, and images. It is useful for displaying a catalog of products or for inventory management. The confidence score is 5 as this function is specifically designed to retrieve a list of products from a Shopify store.
+"""
 
 STEP_2_RESPONSE_EXAMPLE = """The function that can be used to search flight information is:
 
@@ -250,5 +276,9 @@ class T(DbTestCase):
         self.assertTrue(result)
 
     def test_extract_json_from_completion(self):
-        public_id = _extract_json_from_completion(STEP_2_RESPONSE_EXAMPLE)["id"]
-        self.assertEqual(public_id, "9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2")
+        public_ids = _extract_ids_from_completion(STEP_2_RESPONSE_EXAMPLE)
+        self.assertEqual(public_ids, ["9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2"])
+
+    def test_id_extraction_fallback(self):
+        rv = _id_extraction_fallback(EXTRACTION_FALLBACK_EXAMPLE)
+        self.assertEqual(rv, ["3d02d0a3-dcf8-4bc3-8f03-a8619291f936", "4442d0a3-dcf8-4bc3-8f03-a8619291f936"])

@@ -1,3 +1,4 @@
+import re
 import json
 import copy
 import openai
@@ -27,6 +28,8 @@ from app.utils import (
     store_messages,
 )
 from app.constants import CHAT_GPT_MODEL
+
+UUID_REGEX = re.compile(r'[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}')
 
 
 def insert_system_prompt(environment_id: str, messages: List[MessageDict]) -> None:
@@ -220,21 +223,12 @@ def get_best_functions(
     # we tell ChatGPT to send us back "none" if no function matches
     store_messages(user_id, messages)
 
-    try:
-        ids_with_scores = _extract_json_from_completion(answer_msg["content"])
-        if isinstance(ids_with_scores, dict):
-            # sometimes OpenAI messes up and doesn't put it in a List when there's a single item
-            public_ids = [ids_with_scores['id']]
-        else:
-            public_ids = [t['id'] for t in ids_with_scores]
-    except Exception as e:
-        log(f"invalid function ids returned, setting public_id to none: {e}")
-        public_ids = []
+    public_ids = _extract_ids_from_completion(answer_msg["content"])
 
     if public_ids:
         # valid public id, send it back!
         rv = []
-        for public_id in public_ids:
+        for public_id in set(public_ids):
             if get_public_id(public_id):
                 rv.append(public_id)
 
@@ -244,21 +238,40 @@ def get_best_functions(
         return [], stats
 
 
-def _extract_json_from_completion(content: str) -> Dict:
+def _extract_ids_from_completion(content: str) -> List[str]:
     """sometimes OpenAI returns straight JSON, sometimes it gets chatty
     this extracts just the code snippet wrapped in ``` if it is valid JSON
     """
     parts = content.split("```")
     for part in parts:
         try:
-            return json.loads(part)
+            data = json.loads(part)
         except json.JSONDecodeError:
             # move on to the next part, hopefully valid JSON!
-            pass
+            continue
 
-    # if we get here we have invalid JSON
-    # just reraise last error!
-    raise
+        try:
+            if isinstance(data, dict):
+                # sometimes OpenAI messes up and doesn't put it in a List when there's a single item
+                public_ids = [data['id']]
+            else:
+                public_ids = [t['id'] for t in data]
+            return public_ids
+        except Exception as e:
+            # OpenAI has returned weird JSON, lets try something else!
+            log(f"invalid function ids returned, setting public_id to none: {e}")
+            continue
+
+    public_ids = _id_extraction_fallback(content)
+    if public_ids:
+        return public_ids
+    else:
+        log("invalid function ids returned, setting public_id to none")
+        return []
+
+
+def _id_extraction_fallback(content: str) -> List[str]:
+    return UUID_REGEX.findall(content)
 
 
 BEST_FUNCTION_DETAILS_TEMPLATE = """To import the Poly API Library:
