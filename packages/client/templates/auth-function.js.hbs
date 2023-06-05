@@ -1,11 +1,11 @@
-const axios = require('axios');
+const axios = require('../axios');
 
 module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{/if}}) {
   if (userId) {
     eventsClientId = `${eventsClientId}-${userId}`;
   }
 
-  axios.post(`{{apiBaseUrl}}/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
+  axios.post(`/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl })
     .then(({ data }) => {
       if (data.token) {
         callback(data.token, data.url, data.error);
@@ -51,6 +51,6 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
     });
 
   return {
-    revoke: () => axios.post(`{{apiBaseUrl}}/functions/auth/{{id}}/revoke`, { clientId, clientSecret }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }}),
+    revoke: () => axios.post(`/functions/auth/{{id}}/revoke`, { clientId, clientSecret }),
   };
 }

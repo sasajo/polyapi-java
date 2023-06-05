@@ -58,6 +58,7 @@ const generateJSFiles = async (specs: Specification[]) => {
   const serverFunctions = specs.filter((spec) => spec.type === 'serverFunction') as ServerFunctionSpecification[];
 
   await generateIndexJSFile();
+  await generateAxiosJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
   await generateWebhookHandlesJSFiles(webhookHandles);
@@ -71,6 +72,17 @@ const generateIndexJSFile = async () => {
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
       clientID: uuidv4(),
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
+    }),
+  );
+};
+
+const generateAxiosJSFile = async () => {
+  const axiosJSTemplate = handlebars.compile(await loadTemplate('axios.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/axios.js`,
+    axiosJSTemplate({
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),
@@ -504,6 +516,8 @@ const generateSingleCustomFunction = async (functionId: string) => {
   }
 
   await generateSpecs(specs);
+
+  shell.echo(chalk.green('DONE'));
 };
 
 const getSpecificationComment = (specification: Specification) => {

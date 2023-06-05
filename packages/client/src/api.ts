@@ -1,6 +1,30 @@
-import axios, { AxiosResponse } from 'axios';
+import Axios, { AxiosResponse } from 'axios';
+import { HttpProxyAgent } from 'http-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import https from 'https';
+import dotenv from 'dotenv';
 import { POLY_HEADER_API_KEY } from './constants';
 import { FunctionDetailsDto, Specification } from '@poly/common';
+
+dotenv.config();
+
+const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy || process.env.npm_config_proxy;
+const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.npm_config_https_proxy;
+const nodeEnv = process.env.NODE_ENV;
+
+const axios = Axios.create({
+  httpAgent: httpProxy
+    ? new HttpProxyAgent(httpProxy)
+    : undefined,
+  httpsAgent: httpsProxy
+    ? new HttpsProxyAgent(httpsProxy, {
+      rejectUnauthorized: nodeEnv !== 'development',
+    })
+    : nodeEnv === 'development'
+      ? new https.Agent({ rejectUnauthorized: false })
+      : undefined,
+  proxy: false,
+});
 
 export const getSpecs = async (contexts?: string[], names?: string[], ids?: string[]) => {
   return (
