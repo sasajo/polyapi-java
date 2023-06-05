@@ -63,7 +63,6 @@ export class TenantService implements OnModuleInit {
         users: true,
         environments: {
           include: {
-            applications: true,
             apiKeys: {
               include: {
                 user: true,
@@ -71,6 +70,7 @@ export class TenantService implements OnModuleInit {
             },
           },
         },
+        applications: true,
         teams: {
           include: {
             teamMembers: {
@@ -88,7 +88,6 @@ export class TenantService implements OnModuleInit {
 
     const toEnvironmentFullDto = environment => ({
       ...this.environmentService.toDto(environment),
-      applications: environment.applications.map(application => this.applicationService.toApplicationDto(application)),
       apiKeys: environment.apiKeys.map(apiKey => this.authService.toApiKeyDto(apiKey)),
     });
     const toTeamFullDto = team => ({
@@ -100,6 +99,7 @@ export class TenantService implements OnModuleInit {
       name: fullTenant.name,
       users: fullTenant.users.map(user => this.userService.toUserDto(user)),
       environments: fullTenant.environments.map(toEnvironmentFullDto),
+      applications: fullTenant.applications.map(application => this.applicationService.toApplicationDto(application)),
       teams: fullTenant.teams.map(toTeamFullDto),
     };
   }

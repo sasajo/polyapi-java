@@ -364,19 +364,22 @@ export class TenantController {
     @Param('environmentId') environmentId: string,
     @Body() data: CreateApiKeyDto,
   ): Promise<ApiKeyDto> {
-    const { name, key, applicationId = null, userId = null, permissions } = data;
+    const { name, applicationId = null, userId = null, permissions } = data;
     await this.findEnvironment(tenantId, environmentId);
 
     if (!userId && !applicationId) {
       throw new BadRequestException('Either userId or applicationId must be provided');
     }
-    const application = applicationId ? await this.findApplication(tenantId, environmentId, applicationId) : null;
+    if (userId && applicationId) {
+      throw new BadRequestException('Either userId or applicationId must be provided, not both');
+    }
+    const application = applicationId ? await this.findApplication(tenantId, applicationId) : null;
     const user = userId ? await this.findUser(tenantId, userId) : null;
 
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
     return this.authService.toApiKeyDto(
-      await this.authService.createApiKey(environmentId, name, application, user, permissions, key),
+      await this.authService.createApiKey(environmentId, name, application, user, permissions),
     );
   }
 
@@ -430,43 +433,41 @@ export class TenantController {
   }
 
   @UseGuards(PolyKeyGuard)
-  @Get(':id/environments/:environmentId/applications')
-  async getApplications(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('environmentId') environmentId: string): Promise<ApplicationDto[]> {
-    await this.findEnvironment(tenantId, environmentId);
+  @Get(':id/applications')
+  async getApplications(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<ApplicationDto[]> {
+    await this.findTenant(tenantId);
 
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
-    return (await this.applicationService.getAll(environmentId))
+    return (await this.applicationService.getAll(tenantId))
       .map(application => this.applicationService.toApplicationDto(application));
   }
 
   @UseGuards(PolyKeyGuard)
-  @Post(':id/environments/:environmentId/applications')
+  @Post(':id/applications')
   async createApplication(
     @Req() req: AuthRequest,
     @Param('id') tenantId: string,
-    @Param('environmentId') environmentId: string,
     @Body() data: CreateApplicationDto,
   ): Promise<ApplicationDto> {
     const { name, description } = data;
-    await this.findEnvironment(tenantId, environmentId);
+    await this.findTenant(tenantId);
 
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
     return this.applicationService.toApplicationDto(
-      await this.applicationService.create(environmentId, name, description),
+      await this.applicationService.create(tenantId, name, description),
     );
   }
 
   @UseGuards(PolyKeyGuard)
-  @Get(':id/environments/:environmentId/applications/:applicationId')
+  @Get(':id/applications/:applicationId')
   async getApplication(
     @Req() req: AuthRequest,
     @Param('id') tenantId: string,
-    @Param('environmentId') environmentId: string,
     @Param('applicationId') applicationId: string,
   ): Promise<ApplicationDto> {
-    const application = await this.findApplication(tenantId, environmentId, applicationId);
+    const application = await this.findApplication(tenantId, applicationId);
 
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
@@ -474,15 +475,14 @@ export class TenantController {
   }
 
   @UseGuards(PolyKeyGuard)
-  @Patch(':id/environments/:environmentId/applications/:applicationId')
+  @Patch(':id/applications/:applicationId')
   async updateApplication(
     @Req() req: AuthRequest,
     @Param('id') tenantId: string,
-    @Param('environmentId') environmentId: string,
     @Param('applicationId') applicationId: string,
     @Body() data: UpdateApplicationDto,
   ): Promise<ApplicationDto> {
-    const application = await this.findApplication(tenantId, environmentId, applicationId);
+    const application = await this.findApplication(tenantId, applicationId);
     const { name, description } = data;
 
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
@@ -493,14 +493,13 @@ export class TenantController {
   }
 
   @UseGuards(PolyKeyGuard)
-  @Delete(':id/environments/:environmentId/applications/:applicationId')
+  @Delete(':id/applications/:applicationId')
   async deleteApplication(
     @Req() req: AuthRequest,
     @Param('id') tenantId: string,
-    @Param('environmentId') environmentId: string,
     @Param('applicationId') applicationId: string,
   ) {
-    const application = await this.findApplication(tenantId, environmentId, applicationId);
+    const application = await this.findApplication(tenantId, applicationId);
 
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
@@ -564,11 +563,11 @@ export class TenantController {
     return apiKey;
   }
 
-  private async findApplication(tenantId: string, environmentId: string, applicationId: string) {
-    await this.findEnvironment(tenantId, environmentId);
+  private async findApplication(tenantId: string, applicationId: string) {
+    await this.findTenant(tenantId);
     const application = await this.applicationService.findById(applicationId);
 
-    if (!application || application.environmentId !== environmentId) {
+    if (!application || application.tenantId !== tenantId) {
       throw new NotFoundException(`Application with id ${applicationId} not found`);
     }
     return application;

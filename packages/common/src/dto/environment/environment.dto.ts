@@ -1,4 +1,4 @@
-import { ApplicationDto, ApiKeyDto } from '../..';
+import { ApiKeyDto } from '../..';
 
 export class EnvironmentDto {
   id: string;
@@ -7,6 +7,5 @@ export class EnvironmentDto {
 }
 
 export class EnvironmentFullDto extends EnvironmentDto {
-  applications: ApplicationDto[];
   apiKeys: ApiKeyDto[];
 }

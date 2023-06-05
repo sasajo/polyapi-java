@@ -72,14 +72,14 @@ export class AuthService {
     });
   }
 
-  async createApiKey(environmentId: string, name: string, application: Application | null, user: User | null, permissions?: Permissions, key?: string): Promise<ApiKey & {
+  async createApiKey(environmentId: string, name: string, application: Application | null, user: User | null, permissions?: Permissions): Promise<ApiKey & {
     user: User | null,
   }> {
     return this.prisma.apiKey.create({
       data: {
         environmentId,
         name,
-        key: key || crypto.randomUUID(),
+        key: crypto.randomUUID(),
         userId: user ? user.id : null,
         applicationId: application ? application.id : null,
         permissions: JSON.stringify(this.pickPermissions(permissions || this.getDefaultApiKeyPermissions(application, user))),

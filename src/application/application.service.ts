@@ -18,10 +18,10 @@ export class ApplicationService {
     };
   }
 
-  async getAll(environmentId: string) {
+  async getAll(tenantId: string) {
     return this.prisma.application.findMany({
       where: {
-        environmentId,
+        tenantId,
       },
     });
   }
@@ -34,10 +34,10 @@ export class ApplicationService {
     });
   }
 
-  async create(environmentId: string, name: string, description?: string) {
+  async create(tenantId: string, name: string, description?: string) {
     return this.prisma.application.create({
       data: {
-        environmentId,
+        tenantId,
         name,
         description,
       },

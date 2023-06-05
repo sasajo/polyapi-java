@@ -5,8 +5,6 @@ export class CreateApiKeyDto {
   @IsNotEmpty()
   name: string;
   @IsOptional()
-  key?: string;
-  @IsOptional()
   applicationId?: string;
   @IsOptional()
   userId?: string;

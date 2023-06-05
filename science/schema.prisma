@@ -16,6 +16,7 @@ model Tenant {
   users        User[]
   teams        Team[]
   environments Environment[]
+  applications Application[]
 
   @@map("tenant")
 }
@@ -69,7 +70,6 @@ model Environment {
   customFunctions CustomFunction[]
   authProviders   AuthProvider[]
   systemPrompts   SystemPrompt[]
-  applications    Application[]
   apiKeys         ApiKey[]
   gptPlugins      GptPlugin[]
 
@@ -77,13 +77,13 @@ model Environment {
 }
 
 model Application {
-  id            String      @id @default(uuid())
-  createdAt     DateTime    @default(now()) @map("created_at")
-  environment   Environment @relation(fields: [environmentId], references: [id])
-  environmentId String      @map("environment_id")
-  name          String
-  description   String      @default("")
-  apiKeys       ApiKey[]
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now()) @map("created_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId    String   @map("tenant_id")
+  name        String
+  description String   @default("")
+  apiKeys     ApiKey[]
 
   @@map("application")
 }
