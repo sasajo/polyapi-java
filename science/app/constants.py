@@ -9,4 +9,4 @@ class VarName(Enum):
     extract_keywords_temperature = "extract_keywords_temperature"
 
 
-CHAT_GPT_MODEL = "gpt-3.5-turbo-0301"
+CHAT_GPT_MODEL = "gpt-4-0314"
