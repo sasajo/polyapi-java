@@ -159,9 +159,7 @@ BEST_FUNCTION_CHOICE_TEMPLATE = """
 Which functions could be invoked as is, if any, to implement this user prompt:
 %s
 
-Please return the ids of the functions and how confident you are the function will be useful, on a scale of 1-5.
-
-Return the ids and confidence scores in this format:
+Please return only the ids of the functions and confidence scores, on a scale of 1-5, in this format:
 
 ```
 [ {"id": "111111-1111-1111-1111-1111111111", "score": 5}, {"id": "222222-2222-2222-2222-222222222", "score": 1} ]
