@@ -10,7 +10,7 @@ Docker and docker-compose must be installed. [Click here](https://docs.docker.co
 
 ## Building the container
 
-To build the container run the following command from the project root folder:
+To build the poly container run the following command from the project root folder:
 
 ```zsh
 ./docker/scripts/build.sh 
@@ -42,7 +42,7 @@ docker-compose --verbose -f docker/docker-compose.yaml up -d
 
 > this will start docker-compose in the background. To start in the foreground remove `-d`
 
-Poly will be accessible via `https://localhost` in port `80`. To change this port modify `80:8000` accordingly in the `docker/docker-compose.yaml`.
+Poly will be accessible via `https://localhost` in port `8000`. To change this port modify `<new port>:8000` accordingly in the `docker/docker-compose.yaml`.
 
 ### Stop docker-compose
 
@@ -56,8 +56,37 @@ docker-compose --verbose -f docker/docker-compose.yaml down
 
 ## Adjust /etc/hosts (optional)
 
-If you want to access poly e.g. via `https://local.polyapi.io` add the following entry in `/etc/hosts`
+If you want to access poly or the docker registry e.g. via `https://*local*.polyapi.io` add the following entry in `/etc/hosts`
 
 ```bash
-127.0.0.1   local.polyapi.io
+127.0.0.1   local.polyapi.io registry.polyapi.io
 ```
+
+### Docker Registry
+
+A docker registry is needed by knative to deploy custom function containers. A docker registry has been added to the docker-compose file and will respond to url `registry.polyapi.io` therefore an entry is needed in `/etc/hosts` as per previous section.
+
+Users and passwords are stored in the `/docker/conf/htpasswd` file. The default user and password is `poly`. This can be changed by running the following command:
+
+```sh
+docker run \                                                                              ──(Sun,May28)─┘
+  --entrypoint htpasswd \
+  httpd:2 -Bbn <user> <password> docker/conf/htpasswd
+```
+
+To list all containers pushed to the registry you can run:
+
+```curl
+curl --insecure --user poly:poly https://registry.polyapi.io/v2/_catalog
+```
+
+ > Using local registry isn't working yet (see error below)  however adding this for future reference.
+
+```bash
+┌─(~/Code/poly/hello)─────────────────────────────────────────────────────(lweir@lweir-mac:s027)─┐
+└─(10:49:47)──> func deploy                                                 ──(Mon,May29)─┘
+   🙌 Function image built: registry.polyapi.io/polyapi/damnworld:latest
+Error: failed to get credentials: creating push check transport for registry.polyapi.io failed: Get "https://registry.polyapi.io/v2/": tls: failed to verify certificate: x509: “*.polyapi.io” certificate is not trusted
+```
+
+> this could potentially be solved by either finding a way to get `func deploy` to trust a self-signed cert or by using a real trusted CA to sign the cert

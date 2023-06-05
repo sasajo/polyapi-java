@@ -1,7 +1,8 @@
 import util from 'util';
-import { exec as execAsync, spawn } from 'child_process';
+import { exec as execAsync } from 'child_process';
 import handlebars from 'handlebars';
 import fs from 'fs';
+import path from 'path';
 import { Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
@@ -17,13 +18,35 @@ const exec = util.promisify(execAsync);
 
 const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
 const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
-const FAAS_HOST_BASE_URL = process.env.FAAS_HOST_BASE_URL || 'http://127.0.0.1';
-const REGISTRY = 'polyapi.io/server-functions';
 
 export class KNativeFaasService implements FaasService {
   private logger = new Logger(KNativeFaasService.name);
 
   constructor(private readonly config: ConfigService, private readonly http: HttpService) {
+  }
+
+  async init(): Promise<void> {
+    if (!this.config.faasDockerUsername || !this.config.faasDockerPassword) {
+      this.logger.debug('No docker credentials provided, skipping docker config creation');
+      return;
+    }
+
+    const getConfig = () => {
+      const config = {
+        auths: {},
+      };
+      if (fs.existsSync(this.config.faasDockerConfigFile)) {
+        Object.assign(config, JSON.parse(fs.readFileSync(this.config.faasDockerConfigFile, 'utf8')));
+      }
+      config.auths[this.config.faasDockerContainerRegistry.split('/')[0]] = {
+        auth: Buffer.from(`${this.config.faasDockerUsername}:${this.config.faasDockerPassword}`).toString('base64'),
+      };
+      return config;
+    };
+
+    this.logger.debug(`Writing docker config to ${this.config.faasDockerConfigFile}`);
+    fs.mkdirSync(path.dirname(this.config.faasDockerConfigFile), { recursive: true });
+    fs.writeFileSync(this.config.faasDockerConfigFile, JSON.stringify(getConfig(), null, 2));
   }
 
   async createFunction(id: string, name: string, code: string, requirements: string[], apiKey: string): Promise<void> {
@@ -43,16 +66,16 @@ export class KNativeFaasService implements FaasService {
     });
     fs.writeFileSync(`${functionPath}/index.js`, indexFileContent);
 
-    await this.run(id);
+    await this.deploy(id);
   }
 
   async executeFunction(id: string, args: any[], maxRetryCount = 3): Promise<any> {
     const functionPath = this.getFunctionPath(id);
-    const functionPort = this.getRunningPort(functionPath);
+    const functionUrl = await this.getFunctionUrl(functionPath);
 
-    if (!functionPort) {
+    if (!functionUrl) {
       if (maxRetryCount > 0) {
-        await this.run(id);
+        await this.deploy(id);
         return this.executeFunction(id, args, maxRetryCount - 1);
       } else {
         this.logger.error(`Function ${id} is not running`);
@@ -61,9 +84,10 @@ export class KNativeFaasService implements FaasService {
     }
 
     this.logger.debug(`Executing server function '${id}' (maxRetryCount=${maxRetryCount})...`);
-
+    this.logger.verbose(`Calling ${functionUrl}`);
+    this.logger.verbose({ args });
     return await lastValueFrom(
-      this.http.post(`${FAAS_HOST_BASE_URL}:${functionPort}`, { args })
+      this.http.post(`${functionUrl}`, { args })
         .pipe(
           map(response => response.data),
         )
@@ -87,7 +111,6 @@ export class KNativeFaasService implements FaasService {
       return;
     }
 
-    await this.stopFunction(id);
     await this.preparePolyLib(functionPath, apiKey);
     await this.prepareRequirements(functionPath, requirements);
   }
@@ -99,7 +122,7 @@ export class KNativeFaasService implements FaasService {
   private async preparePolyLib(functionPath: string, apiKey: string) {
     await exec(`npm install --prefix ${functionPath} polyapi@${this.config.polyClientNpmVersion}`);
     fs.mkdirSync(`${functionPath}/node_modules/.poly`, { recursive: true });
-    await exec(`POLY_API_BASE_URL=${this.config.hostUrl} POLY_API_KEY=${apiKey} npx --prefix ${functionPath} poly generate`);
+    await exec(`POLY_API_BASE_URL=${this.config.faasPolyServerUrl} POLY_API_KEY=${apiKey} npx --prefix ${functionPath} poly generate`);
   };
 
   private async prepareRequirements(functionPath: string, requirements: string[]) {
@@ -112,45 +135,50 @@ export class KNativeFaasService implements FaasService {
     }
   }
 
-  private async run(id: string) {
-    this.logger.debug(`Running server function '${id}'...`);
+  private async deploy(id: string) {
     const functionPath = this.getFunctionPath(id);
+
+    this.logger.debug(`Building server function '${id}'...`);
     await exec(
-      `${KNATIVE_EXEC_FILE} build --registry ${REGISTRY}`,
+      `${KNATIVE_EXEC_FILE} build --registry ${this.config.faasDockerContainerRegistry}`,
       { cwd: functionPath },
     );
 
-    spawn(`${KNATIVE_EXEC_FILE}`, ['run', '--build=false'], {
-      cwd: functionPath,
-      stdio: ['ignore', process.stdout, process.stderr],
-      detached: true,
-    });
+    this.logger.debug(`Deploying server function '${id}'...`);
+    await exec(
+      `${KNATIVE_EXEC_FILE} deploy --registry ${this.config.faasDockerContainerRegistry}`,
+      { cwd: functionPath },
+    );
 
     await sleep(5000);
   };
 
   private async cleanUpFunction(id: string, functionPath: string) {
-    await this.stopFunction(id);
-
     try {
       await exec(`${KNATIVE_EXEC_FILE} delete ${id}`);
     } catch (e) {
-      // ignore
+      this.logger.error(`Error while deleting KNative function: ${e.message}`);
     }
 
     fs.rmSync(functionPath, { recursive: true });
   }
 
-  private async stopFunction(id: string) {
+  private async getFunctionUrl(functionPath: string): Promise<string | null> {
     try {
-      await exec(`docker stop $(docker ps -q --filter ancestor=${REGISTRY}/${id}:latest)`);
+      const { stdout, stderr } = await exec(
+        `${KNATIVE_EXEC_FILE} describe -o url`,
+        { cwd: functionPath },
+      );
+      if (stdout) {
+        return stdout;
+      }
+      if (stderr) {
+        this.logger.error(`Function not running: ${stderr}`);
+      }
     } catch (e) {
-      // ignore
+      this.logger.error(`Error while building function: ${e}`);
     }
-  }
 
-  private getRunningPort(functionPath: string): number | null {
-    const runningInstanceFile = fs.readdirSync(`${functionPath}/.func/instances`).pop();
-    return !runningInstanceFile ? null : Number(runningInstanceFile);
+    return null;
   }
 }

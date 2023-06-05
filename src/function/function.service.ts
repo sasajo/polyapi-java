@@ -8,7 +8,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
-  NotFoundException,
+  NotFoundException, OnModuleInit,
 } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
@@ -63,7 +63,7 @@ mustache.escape = (text) => {
 };
 
 @Injectable()
-export class FunctionService {
+export class FunctionService implements OnModuleInit {
   private readonly logger: Logger = new Logger(FunctionService.name);
   private readonly faasService: FaasService;
 
@@ -78,6 +78,10 @@ export class FunctionService {
     private readonly specsService: SpecsService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
+  }
+
+  async onModuleInit() {
+    await this.faasService.init();
   }
 
   async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {

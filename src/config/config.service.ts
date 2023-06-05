@@ -93,4 +93,24 @@ export class ConfigService {
   get polyClientNpmVersion(): string {
     return this.get('POLY_CLIENT_NPM_VERSION', 'latest');
   }
+
+  get faasPolyServerUrl(): string {
+    return this.get('FAAS_POLY_SERVER_URL', this.hostUrl);
+  }
+
+  get faasDockerContainerRegistry(): string {
+    return this.get('FAAS_DOCKER_CONTAINER_REGISTRY', 'ghcr.io/polyapi/poly-alpha');
+  }
+
+  get faasDockerUsername(): string {
+    return this.get('FAAS_DOCKER_USERNAME');
+  }
+
+  get faasDockerPassword(): string {
+    return this.get('FAAS_DOCKER_PASSWORD');
+  }
+
+  get faasDockerConfigFile(): string {
+    return this.get('FAAS_DOCKER_CONFIG_FILE', `${process.env.HOME}/.docker/config.json`);
+  }
 }
