@@ -157,7 +157,8 @@ def get_chat_completion(
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
 Which functions could be invoked as is, if any, to implement this user prompt:
-%s
+
+"%s"
 
 Please return only the ids of the functions and confidence scores, on a scale of 1-5, in this format:
 
