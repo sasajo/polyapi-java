@@ -160,10 +160,10 @@ Which functions could be invoked as is, if any, to implement this user prompt:
 
 "%s"
 
-Please return only the ids of the functions and confidence scores, on a scale of 1-5, in this format:
+Please return only the ids of the functions and confidence scores, on a scale of 1-3, in this format:
 
 ```
-[ {"id": "111111-1111-1111-1111-1111111111", "score": 5}, {"id": "222222-2222-2222-2222-222222222", "score": 1} ]
+[ {"id": "111111-1111-1111-1111-1111111111", "score": 3}, {"id": "222222-2222-2222-2222-222222222", "score": 1} ]
 ```
 
 If no function is suitable, please return the following:
@@ -172,13 +172,11 @@ If no function is suitable, please return the following:
 []
 ```
 
-Here's what each confidence score means:
+Here's what each confidence score means, rate it from the bottom up stopping when a match is achieved:
 
-1: Function is totally irrelevant to the user's prompt
-2: Function is similar, but for a different system, resource, or operation
-3: It could be used, but would require more investigation to be sure
-4: Function partially addresses the users prompt, but more functions are needed
-5: The function is totally right and can be used as is
+1: Function is similar, but for a different system, resource, or operation and cannot be used as is
+2: It might be useful, but would require more investigation to be sure
+3: The function can be used as is to address the users prompt.
 """
 
 
