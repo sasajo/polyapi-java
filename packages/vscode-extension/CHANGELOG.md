@@ -1,3 +1,6 @@
+### 0.1.23
+* Removed "Copy selection to Poly" button due a vscode issue on Windows plattform.
+
 ### 0.1.22
 * Added webhook description
 
