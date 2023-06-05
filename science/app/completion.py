@@ -175,7 +175,7 @@ If no function is suitable, please return the following:
 Here's what each confidence score means:
 
 1: Function is totally irrelevant to the user's prompt
-2: Function is similar, but for a different system or resource
+2: Function is similar, but for a different system, resource, or operation
 3: It could be used, but would require more investigation to be sure
 4: Function partially addresses the users prompt, but more functions are needed
 5: The function is totally right and can be used as is
@@ -284,7 +284,7 @@ def _id_extraction_fallback(content: str) -> List[str]:
 BEST_FUNCTION_DETAILS_TEMPLATE = """To import the Poly API Library:
 `import poly from 'polyapi'`
 
-Use any combination of the following functions to answer my question:
+Use any combination of only the following functions to answer my question:
 
 {spec_str}
 """
