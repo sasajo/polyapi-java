@@ -236,14 +236,14 @@ const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
   const template = handlebars.compile(await loadTemplate('index.d.ts.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.d.ts`,
-    prettyPrint(
+    // prettyPrint(
       template({
         contexts: contexts.map((context) => ({
           ...context,
           firstLevel: context.level === 1,
         })),
       }),
-    ),
+    // ),
   );
 };
 
@@ -403,14 +403,14 @@ const generateTSContextDeclarationFile = async (
 
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${context.fileName}`,
-    prettyPrint(
+    // prettyPrint(
       template({
         interfaceName: context.interfaceName,
         typeDeclarations,
         functionDeclarations: specifications.map(toFunctionDeclaration),
         subContexts,
       }),
-    ),
+    // ),
   );
 };
 
@@ -442,7 +442,7 @@ const getSpecsFromContextData = (contextData) => {
 
   const traverseAndGetSpec = (data) => {
     for (const key of Object.keys(data)) {
-      if (typeof data[key].context !== 'undefined') {
+      if (typeof data[key].context === 'string') {
         specs.push(data[key]);
       } else {
         traverseAndGetSpec(data[key]);
