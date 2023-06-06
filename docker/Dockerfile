@@ -1,6 +1,6 @@
 FROM node:18
 RUN apt-get update && apt-get install -y \
-    python3-pip
+    python3-pip sqlite3
 # Install Knative CLI (needed for server side functions)
 RUN mkdir -p /poly/funcs/bin && \
     mkdir -p /poly/funcs/serverfx && \
@@ -18,7 +18,7 @@ RUN prisma generate
 WORKDIR /poly/app
 # Could not find a way to run prisma generate as non-root, so took a different approach which is a bit of hack and needs relooking at later on
 # Basically installed the app as root under /poly then changed ownership and voila, it works
-# Also note that had to define DATABASE_URL to ensure binaries were not placed under /root/.cache/prisma-python/binaries 
+# Also note that had to define DATABASE_URL to ensure binaries were not placed under /root/.cache/prisma-python/binaries
 RUN groupadd -r poly && \
     useradd -r -g poly -d /poly poly && \
     chown -R poly:poly /poly
