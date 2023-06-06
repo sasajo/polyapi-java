@@ -1,4 +1,4 @@
-import { ArgumentType } from '../..';
+import { ArgumentType, Visibility } from '../..';
 
 export interface FunctionArgument {
   key: string;
@@ -6,9 +6,10 @@ export interface FunctionArgument {
   required?: boolean;
   secure?: boolean;
   type: ArgumentType;
-  typeDeclarations?: string;
+  typeSchema?: string;
   typeObject?: object;
   payload?: boolean;
+  location?: 'url' | 'body' | 'headers' | 'auth';
 }
 
 export interface FunctionBasicDto {
@@ -16,31 +17,9 @@ export interface FunctionBasicDto {
   context: string;
   name: string;
   description: string;
+  visibility: Visibility;
 }
-
-type FunctionType = 'url' | 'custom' | 'auth' | 'server';
 
 export interface FunctionDetailsDto extends FunctionBasicDto {
-  arguments: FunctionArgument[];
-  type: FunctionType;
-}
-
-export interface FunctionDefinitionDto {
-  id: string;
-  context: string;
-  name: string;
-  description: string;
-  arguments: FunctionArgument[];
-  returnTypeName: string;
-  returnType?: string;
-  customCode?: string;
-  type: FunctionType;
-}
-
-export interface AuthFunctionDto {
-  id: string;
-  name: string;
-  context: string;
-  description: string;
-  callbackUrl: string;
+  arguments: Omit<FunctionArgument, 'location'>[];
 }

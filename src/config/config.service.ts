@@ -21,7 +21,7 @@ export class ConfigService {
     };
   }
 
-  get(key: string, defaultValue?: any): string | null {
+  get(key: string, defaultValue?: any): string {
     const value = this.envConfig[key];
     if (value?.startsWith('file://')) {
       const fileName = value.substring(7);
@@ -33,13 +33,13 @@ export class ConfigService {
   }
 
   get hostUrl(): string {
-    return this.get('HOST_URL');
+    return this.get('HOST_URL') || 'http://localhost:8000';
   }
 
   get env(): string {
     const host = this.get('HOST_URL');
     if (!host) {
-      return "local"
+      return 'local';
     }
     // HACK todo add production?
     if (host.includes('develop')) {
@@ -47,7 +47,7 @@ export class ConfigService {
     } else if (host.includes('staging')) {
       return 'staging';
     } else {
-      return 'local'
+      return 'local';
     }
   }
 
@@ -55,6 +55,9 @@ export class ConfigService {
     return Number(this.get('PORT', 8000));
   }
 
+  get useSwaggerUI(): boolean {
+    return Boolean(this.get('USE_SWAGGER_UI'));
+  }
   get logLevel(): string {
     return this.get('LOG_LEVEL', 'info');
   }
@@ -67,15 +70,47 @@ export class ConfigService {
     return this.get('SCIENCE_SERVER_BASE_URL');
   }
 
-  get autoRegisterWebhookHandle() {
-    return this.get('AUTO_REGISTER_WEBHOOK_HANDLE') === 'true';
+  get polyTenantName(): string {
+    return this.get('POLY_TENANT_NAME') || 'poly-system';
   }
 
-  get adminApiKey(): string {
-    return this.get('ADMIN_API_KEY');
+  get polySuperAdminUserKey(): string {
+    return this.get('POLY_SUPER_ADMIN_USER_KEY');
+  }
+
+  get polyAdminsTeamName(): string {
+    return this.get('POLY_ADMINS_TEAM_NAME') || 'Admins';
+  }
+
+  get polyAdminUserName(): string {
+    return this.get('POLY_ADMIN_USER_NAME') || 'Super Admin';
   }
 
   get functionArgsParameterLimit(): number {
     return Number(this.get('FUNCTION_ARGS_PARAMETER_LIMIT', 5));
+  }
+
+  get polyClientNpmVersion(): string {
+    return this.get('POLY_CLIENT_NPM_VERSION', 'latest');
+  }
+
+  get faasPolyServerUrl(): string {
+    return this.get('FAAS_POLY_SERVER_URL', this.hostUrl);
+  }
+
+  get faasDockerContainerRegistry(): string {
+    return this.get('FAAS_DOCKER_CONTAINER_REGISTRY', 'ghcr.io/polyapi/poly-alpha');
+  }
+
+  get faasDockerUsername(): string {
+    return this.get('FAAS_DOCKER_USERNAME');
+  }
+
+  get faasDockerPassword(): string {
+    return this.get('FAAS_DOCKER_PASSWORD');
+  }
+
+  get faasDockerConfigFile(): string {
+    return this.get('FAAS_DOCKER_CONFIG_FILE', `${process.env.HOME}/.docker/config.json`);
   }
 }

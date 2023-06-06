@@ -1,10 +1,14 @@
-const axios = require('axios');
+const axios = require('../axios');
 
-module.exports = function(eventsClientId, getSocket, clientId, clientSecret, scopes, callback, timeout = 0) {
-  axios.post(`{{apiBaseUrl}}/functions/auth/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes }, { headers: { 'X-PolyApiKey': '{{apiKey}}' }})
+module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{/if}}) {
+  if (userId) {
+    eventsClientId = `${eventsClientId}-${userId}`;
+  }
+
+  axios.post(`/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl })
     .then(({ data }) => {
-      callback(data.url, data.token);
       if (data.token) {
+        callback(data.token, data.url, data.error);
         return;
       }
 
@@ -21,22 +25,32 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, sco
           clearTimeout(timeoutID);
         }
       };
-      const handleEvent = (event) => {
-        if (event.token) {
-
+      const handleEvent = ({ token, url, error }) => {
+        callback(token, url, error);
+        if (token && autoCloseOnToken) {
+          unregisterEventHandler();
         }
-        callback(event.url, event.token, event.error);
       };
-      socket.on(`handleAuthFunctionEvent:{{id}}`, handleEvent);
       socket.emit('registerAuthFunctionEventHandler', {
         clientID: eventsClientId,
         functionId: '{{id}}',
         apiKey: '{{apiKey}}'
+      }, registered => {
+        if (registered) {
+          socket.on(`handleAuthFunctionEvent:{{id}}`, handleEvent);
+          callback(data.token, data.url, data.error);
+        }
       });
 
       if (timeout) {
-        timeoutID = setTimeout(() => unregisterEventHandler(), timeout);
-        callback(null, null, { message: 'Timeout reached' });
+        timeoutID = setTimeout(() => {
+          unregisterEventHandler();
+          callback(null, null, { message: 'Timeout reached' });
+        }, timeout);
       }
     });
+
+  return {
+    revoke: () => axios.post(`/functions/auth/{{id}}/revoke`, { clientId, clientSecret }),
+  };
 }

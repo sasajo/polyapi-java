@@ -5,6 +5,42 @@ import { PathError } from './path-error';
 
 @Injectable()
 export class CommonService {
+
+  public async getJsonSchema(typeName: string, content: any): Promise<Record<string, any> | null> {
+    if (!content) {
+      return null;
+    }
+
+    const jsonInput = jsonInputForTargetLanguage('json-schema');
+    await jsonInput.addSource({
+      name: typeName,
+      samples: [
+        typeof content === 'string' ? content : JSON.stringify(content),
+      ],
+    });
+    const inputData = new InputData();
+    inputData.addInput(jsonInput);
+
+    const { lines } = await quicktype({
+      lang: 'json-schema',
+      inputData,
+      indentation: '  ',
+    });
+    const schema = JSON.parse(lines.join('\n'));
+
+    if (schema.$ref) {
+      // fix root $ref
+      Object.assign(
+        schema,
+        schema.definitions[schema.$ref.replace('#/definitions/', '')],
+      );
+      delete schema.definitions[schema.$ref.replace('#/definitions/', '')];
+      delete schema.$ref;
+    }
+
+    return schema;
+  }
+
   public async generateTypeDeclaration(typeName: string, content: any, namespace: string) {
     const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n}`;
 
@@ -52,7 +88,7 @@ export class CommonService {
     return wrapToNamespace(typeDeclaration);
   }
 
-  public getPathContent(content: any, path: string | null): unknown {
+  public getPathContent(content: any, path: string | null): any {
     if (!path) {
       return content;
     }
@@ -71,7 +107,7 @@ export class CommonService {
     }
   }
 
-  public async resolveType(typeName: string, namespace: string, value: string): Promise<[string, string?]> {
+  public async resolveType(typeName: string, value: any): Promise<[string, Record<string, any>?]> {
     const numberRegex = /^-?\d+\.?\d*$/;
     const booleanRegex = /^(true|false)$/;
 
@@ -84,8 +120,8 @@ export class CommonService {
     try {
       const obj = JSON.parse(value);
       if (obj && typeof obj === 'object') {
-        const type = await this.generateTypeDeclaration(typeName, obj, namespace);
-        return [`${namespace}.${typeName}`, type];
+        const type = await this.getJsonSchema(typeName, obj);
+        return ['object', type || undefined];
       }
     } catch (e) {
       // not json

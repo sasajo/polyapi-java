@@ -5,9 +5,22 @@ import chalk from 'chalk';
 import shell from 'shelljs';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import prettier from 'prettier';
+import { compile } from 'json-schema-to-typescript';
+import { v4 as uuidv4 } from 'uuid';
 
-import { FunctionArgument, FunctionDefinitionDto, WebhookHandleDefinitionDto } from '@poly/common';
-import { getFunctions, getWebhookHandles } from '../api';
+import {
+  ApiFunctionSpecification,
+  AuthFunctionSpecification,
+  CustomFunctionSpecification,
+  FunctionPropertyType,
+  ObjectPropertyType,
+  PropertySpecification,
+  PropertyType,
+  ServerFunctionSpecification,
+  Specification,
+  WebhookHandleSpecification,
+} from '@poly/common';
+import { getSpecs } from '../api';
 import { POLY_USER_FOLDER_NAME } from '../constants';
 import { loadConfig } from '../config';
 
@@ -28,136 +41,154 @@ const getApiKey = () => process.env.POLY_API_KEY;
 const prepareDir = () => {
   fs.rmSync(POLY_LIB_PATH, { recursive: true, force: true });
   fs.mkdirSync(POLY_LIB_PATH, { recursive: true });
-  fs.mkdirSync(`${POLY_LIB_PATH}/url`);
+  fs.mkdirSync(`${POLY_LIB_PATH}/api`);
+  fs.mkdirSync(`${POLY_LIB_PATH}/client`);
   fs.mkdirSync(`${POLY_LIB_PATH}/auth`);
-  fs.mkdirSync(`${POLY_LIB_PATH}/custom`);
+  fs.mkdirSync(`${POLY_LIB_PATH}/webhooks`);
   fs.mkdirSync(`${POLY_LIB_PATH}/server`);
 };
 
 const loadTemplate = async (fileName: string) => fs.readFileSync(`${__dirname}/../templates/${fileName}`, 'utf8');
 
-const generateJSFiles = async (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
-  const urlFunctions = functions.filter((func) => func.type === 'url');
-  const customFunctions = functions.filter((func) => func.type === 'custom');
-  const serverFunctions = functions.filter((func) => func.type === 'server');
-  const authFunctions = functions.filter((func) => func.type === 'auth');
+const generateJSFiles = async (specs: Specification[]) => {
+  const apiFunctions = specs.filter((spec) => spec.type === 'apiFunction') as ApiFunctionSpecification[];
+  const customFunctions = specs.filter((spec) => spec.type === 'customFunction') as CustomFunctionSpecification[];
+  const webhookHandles = specs.filter((spec) => spec.type === 'webhookHandle') as WebhookHandleSpecification[];
+  const authFunctions = specs.filter((spec) => spec.type === 'authFunction') as AuthFunctionSpecification[];
+  const serverFunctions = specs.filter((spec) => spec.type === 'serverFunction') as ServerFunctionSpecification[];
 
-  await generateIndexJSFile(urlFunctions, webhookHandles);
-  await generateUrlFunctionJSFiles(urlFunctions);
+  await generateIndexJSFile();
+  await generateAxiosJSFile();
+  await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
-  await generateServerFunctionJSFiles(serverFunctions);
+  await generateWebhookHandlesJSFiles(webhookHandles);
   await generateAuthFunctionJSFiles(authFunctions);
+  await generateServerFunctionJSFiles(serverFunctions);
 };
 
-const generateIndexJSFile = async (
-  functions: FunctionDefinitionDto[],
-  webhookHandles: WebhookHandleDefinitionDto[],
-) => {
+const generateIndexJSFile = async () => {
   const indexJSTemplate = handlebars.compile(await loadTemplate('index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
-      functions,
-      webhookHandles,
+      clientID: uuidv4(),
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),
   );
 };
 
-const generateUrlFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
-  const urlIndexJSTemplate = handlebars.compile(await loadTemplate('url-index.js.hbs'));
+const generateAxiosJSFile = async () => {
+  const axiosJSTemplate = handlebars.compile(await loadTemplate('axios.js.hbs'));
   fs.writeFileSync(
-    `${POLY_LIB_PATH}/url/index.js`,
-    urlIndexJSTemplate({
-      functions,
+    `${POLY_LIB_PATH}/axios.js`,
+    axiosJSTemplate({
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),
   );
 };
 
-const generateCustomFunctionJSFiles = async (customFunctions: FunctionDefinitionDto[]) => {
+const generateApiFunctionJSFiles = async (specifications: ApiFunctionSpecification[]) => {
+  const template = handlebars.compile(await loadTemplate('api-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/api/index.js`,
+    template({
+      specifications,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
+    }),
+  );
+};
+
+const generateCustomFunctionJSFiles = async (specifications: CustomFunctionSpecification[]) => {
   const customIndexJSTemplate = handlebars.compile(await loadTemplate('custom-index.js.hbs'));
   fs.writeFileSync(
-    `${POLY_LIB_PATH}/custom/index.js`,
+    `${POLY_LIB_PATH}/client/index.js`,
     customIndexJSTemplate({
-      customFunctions,
+      specifications,
     }),
   );
 
-  if (customFunctions.length === 0) {
+  if (specifications.length === 0) {
     return;
   }
   const customFunctionJSTemplate = handlebars.compile(await loadTemplate('custom-function.js.hbs'));
-  customFunctions.forEach((customFunction) => {
+  specifications.forEach((spec) => {
     fs.writeFileSync(
-      `${POLY_LIB_PATH}/custom/${customFunction.context ? `${customFunction.context}-` : ''}${customFunction.name}.js`,
-      prettyPrint(
-        customFunctionJSTemplate({
-          ...customFunction,
-        }),
-        'babel',
-      ),
+      `${POLY_LIB_PATH}/client/${spec.context ? `${spec.context}-` : ''}${spec.name}.js`,
+      prettyPrint(customFunctionJSTemplate(spec), 'babel'),
     );
   });
 };
 
-const generateServerFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+const generateWebhookHandlesJSFiles = async (specifications: WebhookHandleSpecification[]) => {
+  const template = handlebars.compile(await loadTemplate('webhook-handles-index.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/webhooks/index.js`,
+    template({
+      specifications,
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
+    }),
+  );
+};
+
+const generateServerFunctionJSFiles = async (specifications: ServerFunctionSpecification[]) => {
   const serverIndexJSTemplate = handlebars.compile(await loadTemplate('server-index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/server/index.js`,
     serverIndexJSTemplate({
-      functions,
+      specifications,
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),
   );
 };
 
-const generateAuthFunctionJSFiles = async (functions: FunctionDefinitionDto[]) => {
+const generateAuthFunctionJSFiles = async (specifications: AuthFunctionSpecification[]) => {
   const authIndexJSTemplate = handlebars.compile(await loadTemplate('auth-index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/auth/index.js`,
     authIndexJSTemplate({
-      functions,
+      getTokenFunctions: specifications.filter((spec) => spec.name === 'getToken'),
+      subResourceFunctions: specifications.filter((spec) => spec.subResource),
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
     }),
   );
 
-  if (functions.length === 0) {
+  if (specifications.length === 0) {
     return;
   }
   const authFunctionJSTemplate = handlebars.compile(await loadTemplate('auth-function.js.hbs'));
-  functions.forEach((authFunction) => {
-    fs.writeFileSync(
-      `${POLY_LIB_PATH}/auth/${authFunction.context ? `${authFunction.context}-` : ''}${authFunction.name}.js`,
-      prettyPrint(
-        authFunctionJSTemplate({
-          ...authFunction,
-          apiBaseUrl: getApiBaseUrl(),
-          apiKey: getApiKey(),
-        }),
-        'babel',
-      ),
-    );
-  });
+  specifications
+    .filter((spec) => !spec.subResource)
+    .forEach((spec) => {
+      fs.writeFileSync(
+        `${POLY_LIB_PATH}/auth/${spec.context ? `${spec.context}-` : ''}${spec.name}.js`,
+        prettyPrint(
+          authFunctionJSTemplate({
+            ...spec,
+            audienceRequired: spec.function.arguments.some((arg) => arg.name === 'audience'),
+            apiBaseUrl: getApiBaseUrl(),
+            apiKey: getApiKey(),
+          }),
+          'babel',
+        ),
+      );
+    });
 };
 
 const generateTSDeclarationFilesForContext = async (
   context: Context,
-  contextData: any,
+  contextData: Record<string, any>,
   contextCollector: Context[] = [],
 ) => {
   const contextDataKeys = Object.keys(contextData);
-  const contextDataFunctions = contextDataKeys
-    .filter((key) => ['url', 'custom', 'server'].includes(contextData[key].type))
-    .map((key) => contextData[key]);
-  const contextDataAuthFunctions = contextDataKeys
-    .filter((key) => contextData[key].type === 'auth')
-    .map((key) => contextData[key]);
-  const contextDataWebhookHandles = contextDataKeys
-    .filter((key) => contextData[key].type === 'webhookHandle')
-    .map((key) => contextData[key]);
+  const contextDataSpecifications = contextDataKeys
+    .map((key) => contextData[key])
+    .filter((value) => typeof value.type === 'string') as Specification[];
   const contextDataSubContexts = contextDataKeys
     .filter((key) => !contextData[key].type)
     .map((key) => {
@@ -171,13 +202,7 @@ const generateTSDeclarationFilesForContext = async (
       };
     });
 
-  await generateTSContextDeclarationFile(
-    context,
-    contextDataFunctions,
-    contextDataAuthFunctions,
-    contextDataWebhookHandles,
-    contextDataSubContexts,
-  );
+  await generateTSContextDeclarationFile(context, contextDataSpecifications, contextDataSubContexts);
   contextCollector = [...contextCollector, context];
 
   for await (const subContext of contextDataSubContexts) {
@@ -191,11 +216,8 @@ const generateTSDeclarationFilesForContext = async (
   return contextCollector;
 };
 
-const generateTSDeclarationFiles = async (
-  functions: FunctionDefinitionDto[],
-  webhookHandles: WebhookHandleDefinitionDto[],
-) => {
-  const contextData = getContextData(functions, webhookHandles);
+const generateTSDeclarationFiles = async (specs: Specification[]) => {
+  const contextData = getContextData(specs);
   const contexts = await generateTSDeclarationFilesForContext(
     {
       name: '',
@@ -208,107 +230,229 @@ const generateTSDeclarationFiles = async (
   );
 
   await generateTSIndexDeclarationFile(contexts);
-  await generateContextDataFile(contextData);
 };
 
 const generateTSIndexDeclarationFile = async (contexts: Context[]) => {
   const template = handlebars.compile(await loadTemplate('index.d.ts.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/index.d.ts`,
-    prettyPrint(
+    // prettyPrint(
       template({
         contexts: contexts.map((context) => ({
           ...context,
           firstLevel: context.level === 1,
         })),
       }),
-    ),
+    // ),
   );
+};
+
+const schemaToDeclarations = async (namespace: string, typeName: string, schema: Record<string, any>) => {
+  const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n}`;
+
+  schema.title = typeName;
+  const result = await compile(schema, typeName, {
+    format: false,
+    bannerComment: '',
+  });
+  return wrapToNamespace(result);
+};
+
+const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
+  const wrapInPromiseIfNeeded = (code: string) => (synchronous ? code : `Promise<${code}>`);
+
+  switch (type.kind) {
+    case 'plain':
+      return type.value;
+    case 'primitive':
+      return wrapInPromiseIfNeeded(type.type);
+    case 'void':
+      return wrapInPromiseIfNeeded('void');
+    case 'array':
+      return wrapInPromiseIfNeeded(`${toTypeDeclaration(type.items)}[]`);
+    case 'object':
+      if (type.typeName) {
+        return wrapInPromiseIfNeeded(type.typeName);
+      } else if (type.properties) {
+        return wrapInPromiseIfNeeded(
+          `{ ${type.properties
+            .map((prop) => `'${prop.name}'${prop.required === false ? '?' : ''}: ${toTypeDeclaration(prop.type)}`)
+            .join(';\n')} }`,
+        );
+      } else {
+        return wrapInPromiseIfNeeded('any');
+      }
+    case 'function':
+      if (type.name) {
+        return type.name;
+      }
+      const toArgument = (arg: PropertySpecification) =>
+        `${arg.name}${arg.required === false ? '?' : ''}: ${toTypeDeclaration(arg.type)}${
+          arg.nullable === true ? ' | null' : ''
+        }`;
+
+      return `(${type.spec.arguments.map(toArgument).join(', ')}) => ${toTypeDeclaration(
+        type.spec.returnType,
+        type.spec.synchronous === true,
+      )}`;
+  }
+};
+
+const getReturnTypeDeclarations = async (
+  namespace: string,
+  objectProperty: ObjectPropertyType,
+  typeName = 'ReturnType',
+): Promise<string> => {
+  const declarations = await schemaToDeclarations(namespace, typeName, objectProperty.schema);
+  objectProperty.typeName = `${namespace}.ReturnType`;
+  return declarations;
+};
+
+const getArgumentsTypeDeclarations = async (
+  parentType: string,
+  properties: PropertySpecification[],
+  typeName = 'Argument',
+) => {
+  const typeDeclarations: string[] = [];
+  const objectProperties = properties.filter((property) => property.type.kind === 'object');
+  const functionProperties = properties.filter((property) => property.type.kind === 'function');
+
+  for (const property of objectProperties) {
+    const objectProperty = property.type as ObjectPropertyType;
+    if (objectProperty.schema) {
+      const namespace = `${parentType}$${toPascalCase(property.name)}`;
+      objectProperty.typeName = `${namespace}.${typeName}`;
+
+      typeDeclarations.push(await schemaToDeclarations(namespace, typeName, objectProperty.schema));
+    } else if (objectProperty.properties) {
+      typeDeclarations.push(
+        ...(await getArgumentsTypeDeclarations(
+          `${parentType}$${toPascalCase(property.name)}`,
+          objectProperty.properties,
+        )),
+      );
+    }
+  }
+
+  for (const property of functionProperties) {
+    const functionProperty = property.type as FunctionPropertyType;
+    if (functionProperty.name) {
+      // predefined type name
+      continue;
+    }
+
+    typeDeclarations.push(
+      ...(await getArgumentsTypeDeclarations(
+        `${parentType}$${toPascalCase(property.name)}`,
+        functionProperty.spec.arguments.filter((arg) => arg.type.kind === 'object'),
+      )),
+    );
+    if (functionProperty.spec.returnType.kind === 'object' && functionProperty.spec.returnType.schema) {
+      typeDeclarations.push(
+        await getReturnTypeDeclarations(
+          `${parentType}$${toPascalCase(property.name)}`,
+          functionProperty.spec.returnType as ObjectPropertyType,
+        ),
+      );
+    }
+  }
+
+  return typeDeclarations;
+};
+
+const getSpecificationsTypeDeclarations = async (specifications: Specification[]): Promise<string> => {
+  const argumentsTypeDeclarations = (
+    await Promise.all(
+      specifications.map((spec) => getArgumentsTypeDeclarations(toPascalCase(spec.name), spec.function.arguments)),
+    )
+  ).flat();
+  const returnTypeDeclarations = await Promise.all(
+    specifications
+      .filter((spec) => spec.function.returnType.kind === 'object' && spec.function.returnType.schema)
+      .map((spec) =>
+        getReturnTypeDeclarations(toPascalCase(spec.name), spec.function.returnType as ObjectPropertyType),
+      ),
+  );
+
+  return [...argumentsTypeDeclarations, ...returnTypeDeclarations].join('\n');
 };
 
 const generateTSContextDeclarationFile = async (
   context: Context,
-  functions: FunctionDefinitionDto[],
-  authFunctions: FunctionDefinitionDto[],
-  webhookHandles: WebhookHandleDefinitionDto[],
+  specifications: Specification[],
   subContexts: Context[],
 ) => {
   const template = handlebars.compile(await loadTemplate('{{context}}.d.ts.hbs'));
-  const returnTypeDefinitions = functions
-    .filter((func) => func.returnType)
-    .reduce((result, func) => `${result}${func.returnType}\n`, '');
-  const functionArgumentsTypeDeclarations = functions
-    .reduce(
-      (result, func) => result.concat(...func.arguments.filter((arg) => arg.typeDeclarations)),
-      [] as FunctionArgument[],
-    )
-    .reduce((result, arg) => `${result}${arg.typeDeclarations}\n`, '');
-  const webhookHandlesEventTypeDefinitions = webhookHandles
-    .filter((handle) => handle.eventType)
-    .reduce((result, handle) => `${result}${handle.eventType}\n`, '');
+  const typeDeclarations = await getSpecificationsTypeDeclarations(specifications);
 
-  const toFunctionData = (func: FunctionDefinitionDto) => {
-    const functionArguments = func.arguments
-      .filter((arg) => !arg.payload)
-      .map((arg) => ({
-        ...arg,
-        name: toCamelCase(arg.name),
-      }));
+  const toFunctionDeclaration = (specification: Specification) => {
+    const toArgumentDeclaration = (arg: PropertySpecification) => ({
+      name: toCamelCase(arg.name),
+      required: arg.required,
+      type: toTypeDeclaration(arg.type),
+    });
 
     return {
-      ...func,
-      arguments: functionArguments,
-      requiredArguments: functionArguments.filter((arg) => arg.required),
-      optionalArguments: functionArguments.filter((arg) => !arg.required),
-      payloadArguments: func.arguments.filter((arg) => arg.payload),
-      hasPayloadArguments: func.arguments.some((arg) => arg.payload),
+      name: specification.name.split('.').pop(),
+      comment: getSpecificationComment(specification),
+      arguments: specification.function.arguments.map(toArgumentDeclaration),
+      returnType: toTypeDeclaration(specification.function.returnType),
+      synchronous: specification.function.synchronous === true,
     };
   };
+
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${context.fileName}`,
-    prettyPrint(
+    // prettyPrint(
       template({
         interfaceName: context.interfaceName,
-        functions: functions.map(toFunctionData),
-        webhookHandles,
-        authFunctions,
+        typeDeclarations,
+        functionDeclarations: specifications.map(toFunctionDeclaration),
         subContexts,
-        returnTypeDefinitions,
-        functionArgumentsTypeDeclarations,
-        webhookHandlesEventTypeDefinitions,
       }),
-    ),
+    // ),
   );
 };
 
-const generateContextDataFile = async (contextData: Record<string, any>) => {
-  fs.writeFileSync(`${POLY_LIB_PATH}/context-data.json`, JSON.stringify(contextData, null, 2));
+const generateContextDataFile = (contextData: Record<string, any>) => {
+  fs.writeFileSync(`${POLY_LIB_PATH}/specs.json`, JSON.stringify(contextData, null, 2));
 };
 
-const getContextData = (functions: FunctionDefinitionDto[], webhookHandles: WebhookHandleDefinitionDto[]) => {
+const getContextDataFileContent = () => {
+  const contents = fs.readFileSync(`${POLY_LIB_PATH}/specs.json`, 'utf-8');
+
+  try {
+    return JSON.parse(contents) as Record<string, any>;
+  } catch (err) {
+    return {};
+  }
+};
+
+const getContextData = (specs: Specification[]) => {
   const contextData = {} as Record<string, any>;
-
-  functions.forEach((func) => {
-    const path = func.context ? `${func.context}.${func.name}` : func.name;
-    set(contextData, path, {
-      ...func,
-      name: func.name.split('.').pop(),
-      arguments: func.arguments.map((arg) => ({
-        ...arg,
-        name: toCamelCase(arg.name),
-      })),
-    });
+  specs.forEach((spec) => {
+    const path = spec.context ? `${spec.context}.${spec.name}` : spec.name;
+    set(contextData, path, spec);
   });
-  webhookHandles.forEach((handle) => {
-    const path = handle.context ? `${handle.context}.${handle.name}` : handle.name;
-    set(contextData, path, {
-      ...handle,
-      type: 'webhookHandle',
-      name: handle.name.split('.').pop(),
-    });
-  });
-
   return contextData;
+};
+
+const getSpecsFromContextData = (contextData) => {
+  const specs: Specification[] = [];
+
+  const traverseAndGetSpec = (data) => {
+    for (const key of Object.keys(data)) {
+      if (typeof data[key].context === 'string') {
+        specs.push(data[key]);
+      } else {
+        traverseAndGetSpec(data[key]);
+      }
+    }
+  };
+
+  traverseAndGetSpec(contextData);
+
+  return specs;
 };
 
 const prettyPrint = (code: string, parser = 'typescript') =>
@@ -318,9 +462,80 @@ const prettyPrint = (code: string, parser = 'typescript') =>
     printWidth: 160,
   });
 
+const showErrGettingSpecs = (error: any) => {
+  shell.echo(chalk.red('ERROR'));
+  shell.echo('Error while getting data from Poly server. Make sure the version of library/server is up to date.');
+  shell.echo(chalk.red(error.message), chalk.red(JSON.stringify(error.response?.data)));
+};
+
+const showErrGeneratingFiles = (error: any) => {
+  shell.echo(chalk.red('ERROR'));
+  shell.echo('Error while generating code files. Make sure the version of library/server is up to date.');
+  shell.echo(chalk.red(error.message));
+  shell.echo(chalk.red(error.stack));
+};
+
+const generateSingleCustomFunction = async (functionId: string) => {
+  shell.echo('-n', chalk.rgb(255, 255, 255)(`Generating new custom function...`));
+
+  let contextData: Record<string, any> = {};
+
+  try {
+    contextData = getContextDataFileContent();
+  } catch (error) {
+    shell.echo(chalk.red('ERROR'));
+    shell.echo('Error while fetching local context data.');
+    shell.echo(chalk.red(error.message));
+    shell.echo(chalk.red(error.stack));
+    return;
+  }
+
+  const prevSpecs = getSpecsFromContextData(contextData);
+
+  let specs: Specification[] = [];
+
+  try {
+    specs = await getSpecs([], [], [functionId]);
+  } catch (error) {
+    showErrGettingSpecs(error);
+    return;
+  }
+
+  const [customFunction] = specs;
+
+  if (prevSpecs.some((prevSpec) => prevSpec.id === customFunction.id)) {
+    specs = prevSpecs.map((prevSpec) => {
+      if (prevSpec.id === customFunction.id) {
+        return customFunction;
+      }
+      return prevSpec;
+    });
+  } else {
+    prevSpecs.push(customFunction);
+    specs = prevSpecs;
+  }
+
+  await generateSpecs(specs);
+
+  shell.echo(chalk.green('DONE'));
+};
+
+const getSpecificationComment = (specification: Specification) => {
+  switch (specification.type) {
+    case 'customFunction':
+      if (!specification.requirements.length) {
+        return null;
+      }
+      return `This function requires you to have the following libraries installed:\n- ${specification.requirements.join(
+        '\n- ',
+      )}`;
+    default:
+      return null;
+  }
+};
+
 const generate = async (contexts?: string[], names?: string[], functionIds?: string[]) => {
-  let functions: FunctionDefinitionDto[] = [];
-  let webhookHandles: WebhookHandleDefinitionDto[] = [];
+  let specs: Specification[] = [];
 
   shell.echo('-n', chalk.rgb(255, 255, 255)(`Generating Poly functions...`));
 
@@ -328,28 +543,26 @@ const generate = async (contexts?: string[], names?: string[], functionIds?: str
   loadConfig();
 
   try {
-    functions = await getFunctions(contexts, names, functionIds);
-    webhookHandles = await getWebhookHandles();
+    specs = await getSpecs(contexts, names, functionIds);
   } catch (error) {
-    shell.echo(chalk.red('ERROR'));
-    shell.echo('Error while getting data from Poly server. Make sure the version of library/server is up to date.');
-    shell.echo(chalk.red(error.message), chalk.red(JSON.stringify(error.response?.data)));
+    showErrGettingSpecs(error);
     return;
   }
 
-  try {
-    await generateJSFiles(functions, webhookHandles);
-    await generateTSDeclarationFiles(functions, webhookHandles);
-  } catch (error) {
-    shell.echo(chalk.red('ERROR'));
-    shell.echo('Error while generating code files. Make sure the version of library/server is up to date.');
-    shell.echo(chalk.red(error.message));
-    shell.echo(chalk.red(error.stack));
-    return;
-  }
+  await generateSpecs(specs);
 
   shell.echo(chalk.green('DONE'));
-  shell.echo(chalk.rgb(255, 255, 255)(`\nPlease, restart your TS server to see the changes.`));
 };
 
-export default generate;
+const generateSpecs = async (specs: Specification[]) => {
+  try {
+    await generateJSFiles(specs);
+    await generateTSDeclarationFiles(specs);
+    generateContextDataFile(getContextData(specs));
+  } catch (error) {
+    showErrGeneratingFiles(error);
+    return;
+  }
+};
+
+export { generate, generateSingleCustomFunction };

@@ -1,32 +1,26 @@
 import poly = require("./index");
 
-type UnregisterWebhookEventListenerType = () => void;
-type AuthFunctionCallbackType = (url?: string, token?: string, error?: any) => any;
+type UnregisterWebhookEventListener = () => void;
+type AuthFunctionCallback = (token?: string, url?: string, error?: any) => any;
+interface Response<T> {
+  status: number;
+  data: T;
+  headers: Record<string, string>;
+}
 
-{{{returnTypeDefinitions}}}
-{{{functionArgumentsTypeDeclarations}}}
-{{{webhookHandlesEventTypeDefinitions}}}
+{{{typeDeclarations}}}
 declare module "./index" {
   interface {{interfaceName}} {
     {{#each subContexts}}
       {{name}}: {{interfaceName}};
     {{/each}}
-    {{#each functions}}
-      {{#if hasPayloadArguments}}
-        {{name}}({{#each requiredArguments}}{{name}}: {{{type}}}, {{/each}}payload: {
-          {{#each payloadArguments}}
-            {{name}}{{#unless required}}?{{/unless}}: {{type}},
-          {{/each}}
-        }, {{#each optionalArguments}}{{name}}?: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnTypeName}}};
-      {{else}}
-        {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{{returnTypeName}}};
+    {{#each functionDeclarations}}
+      {{#if comment}}
+      /**
+      {{{comment}}}
+      */
       {{/if}}
-    {{/each}}
-    {{#each webhookHandles}}
-      {{name}}(callback: (event: {{{eventTypeName}}}) => any): UnregisterWebhookEventListenerType;
-    {{/each}}
-    {{#each authFunctions}}
-      {{name}}(clientId: string, clientSecret: string, scopes: string[], callback: AuthFunctionCallbackType, timeout?: number): void;
+      {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{#if synchronous}}Response<{{{returnType}}}>{{else}}Promise<Response<{{{returnType}}}>>{{/if}};
     {{/each}}
   }
 }

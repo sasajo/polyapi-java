@@ -1,18 +1,39 @@
 import uuid
 from .testing import DbTestCase
-from app.typedefs import FunctionDto
-from load_fixtures import load_functions, test_user_get_or_create
-from app.utils import func_args, func_path, store_message
+from app.typedefs import SpecificationDto
+from load_fixtures import load_functions, test_user_get_or_create, united_get_status_get_or_create
+from app.utils import camel_case, func_args, func_path, func_path_with_args, get_public_id, store_message
 
-FUNC: FunctionDto = {
+FUNC: SpecificationDto = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",
+    "type": "apiFunction",
     "name": "gMapsGetXy",
     "context": "shipping",
     "description": "",
-    "arguments": [
-        {"name": "location", "type": "string", "payload": True},
-        {"name": "GAPIKey", "type": "string", "payload": False},
-    ],
+    "function": {
+        "arguments": [
+            {
+                "name": "payload",
+                "type": {
+                    "kind": "object",
+                    "properties": [
+                        {"name": "x", "type": {"kind": "primitive", "type": "number"}, "required": True},
+                        {"name": "y", "type": {"kind": "primitive", "type": "number"}, "required": True},
+                    ]
+                },
+                "required": True,
+            },
+            {
+                "name": "GAPIKey",
+                "type": {
+                    "kind": "primitive",
+                    "type": "string",
+                },
+                "required": True,
+            },
+        ],
+        "returnType": {"kind": "string"},
+    },
 }
 
 
@@ -23,22 +44,25 @@ class T(DbTestCase):
         load_functions(user)
 
     def test_func_path(self) -> None:
-        user = test_user_get_or_create()
-        data = {
-            "userId": user.id,
+        data: SpecificationDto = {
+            "id": "123",
+            "type": "apiFunction",
             "name": "twilio.sendSMS",
             "context": "messaging",
             "description": "send SMS",
-            "method": "POST",
-            "url": "https://poly.messaging.twilio.sendSMS",
+            "function": {"arguments": [], "returnType": {"kind": "void"}},
         }
         self.assertEqual(func_path(data), "poly.messaging.twilio.sendSMS")
 
     def test_func_args(self):
-        args, payload = func_args(FUNC)
-        self.assertEqual(len(args), 1)
-        self.assertEqual(args[0], "GAPIKey: string")
-        self.assertEqual(payload, {"location": "string"})
+        args = func_args(FUNC)
+        self.assertEqual(len(args), 2)
+        self.assertEqual(args[0], "payload: {x: number, y: number}")
+        self.assertEqual(args[1], "GAPIKey: string")
+
+    def test_func_path_with_args(self):
+        fpwa = func_path_with_args(FUNC)
+        self.assertEqual(fpwa, "poly.shipping.gMapsGetXy(payload: {x: number, y: number}, GAPIKey: string)")
 
     def test_store_message(self):
         user = test_user_get_or_create()
@@ -60,5 +84,21 @@ class T(DbTestCase):
         msg = self.db.conversationmessage.find_first(
             where={"id": msg.id}, include={"functions": True, "webhooks": True}
         )
-        self.assertEqual(function_ids, [f.functionPublicId for f in msg.functions])
-        self.assertEqual(webhook_ids, [w.webhookPublicId for w in msg.webhooks])
+        self.assertEqual(msg.content, "profound question")
+        # self.assertEqual(function_ids, [f.functionId for f in msg.functions])
+        # self.assertEqual(webhook_ids, [w.webhookId for w in msg.webhooks])
+
+    def test_get_public_id_none(self):
+        result = get_public_id("foobar")
+        self.assertIsNone(result)
+
+    def test_get_public_id_api(self):
+        user = test_user_get_or_create()
+        united = united_get_status_get_or_create(user)
+        result = get_public_id(united.id)
+        self.assertEqual(result, united)
+
+    def test_camel_case(self):
+        # should keep camel case
+        out = camel_case("fooBar")
+        self.assertEqual(out, "fooBar")

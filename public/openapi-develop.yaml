@@ -40,7 +40,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/operaAvailabilityResponse'
-  /functions/url/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
+  /functions/api/ec66c324-80fe-4d9a-a5fa-2f7f38384155/execute:
     post:
       operationId: twilioSendSms
       summary: Send an sms message to a phone number. When a user receives a confirmation, offer to send the details to the user's phone using this function.
@@ -91,7 +91,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/upsRateEstimateResponse'
-  /functions/url/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
+  /functions/api/0ede78ac-124d-440f-be6a-65c86fd0275d/execute:
     post:
       operationId: shopifyGetProducts
       summary: Get the products from a particular shopify store. If a store name is not specified, use 'darko-demo-store' for the store name
@@ -130,10 +130,13 @@ components:
       type: object
       properties:
         args:
-          type: array
-          items:
-            type: string
-          description: first argument is phone number and second is the message
+          type: object
+          properties:
+            My_Phone_Number:
+              type: string
+            message:
+              type: string
+          description: phone number to send the sms to and the message to send
     twilioSendSmsResponse:
       type: object
       properties:

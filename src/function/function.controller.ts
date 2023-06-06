@@ -1,219 +1,328 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
-  HttpException,
-  HttpStatus,
   Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
-  Query,
   Req,
   UseGuards,
-  Headers,
-  ValidationPipe,
-  UsePipes,
 } from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
-import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
+import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import {
+  ApiFunctionResponseDto,
+  CreateApiFunctionDto,
   CreateCustomFunctionDto,
-  DeleteAllFunctionsDto,
-  ExecuteUrlFunctionDto,
-  FunctionDefinitionDto,
-  FunctionBasicDto,
-  GetAllFunctionsDto,
-  Role,
-  UpdateFunctionDto,
-  FunctionDetailsDto,
-  CreateAuthFunctionDto,
-  AuthFunctionDto,
-  ExecuteAuthFunctionDto,
-  ExecuteAuthFunctionResponseDto,
+  ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
+  FunctionBasicDto,
+  FunctionDetailsDto,
+  Permission,
+  Role,
+  UpdateApiFunctionDto,
+  UpdateCustomFunctionDto,
 } from '@poly/common';
+import { AuthRequest } from 'common/types';
+import { AuthService } from 'auth/auth.service';
 
-export const HEADER_ACCEPT_FUNCTION_DEFINITION = 'application/poly.function-definition+json';
-
+@ApiSecurity('X-PolyApiKey')
 @Controller('functions')
 export class FunctionController {
   private logger: Logger = new Logger(FunctionController.name);
 
-  constructor(private readonly service: FunctionService) {
+  constructor(private readonly service: FunctionService, private readonly authService: AuthService) {
   }
 
-  @Get()
-  @UseGuards(ApiKeyGuard)
-  @UsePipes(new ValidationPipe({ transform: true }))
-  async getAll(@Req() req, @Headers('Accept') acceptHeader: string, @Query() {
-    contexts,
-    names,
-    ids,
-  }: GetAllFunctionsDto): Promise<FunctionBasicDto[] | FunctionDefinitionDto[]> {
-    this.logger.debug(`Getting all functions for user ${req.user.id} with contexts ${JSON.stringify(contexts)}, names ${JSON.stringify(names)}, ids ${JSON.stringify(ids)}`);
+  @UseGuards(PolyKeyGuard)
+  @Get('/api')
+  async getApiFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
+    const apiFunctions = await this.service.getApiFunctions(req.user.environment.id);
+    return apiFunctions.map((apiFunction) => this.service.apiFunctionToBasicDto(apiFunction));
+  }
 
-    const useDefinitionDto = acceptHeader === HEADER_ACCEPT_FUNCTION_DEFINITION;
-    const urlFunctions = await this.service.getUrlFunctionsByUser(req.user, contexts, names, ids);
-    const customFunctions = await this.service.getCustomFunctionsByUser(req.user, contexts, names, ids);
-    const authFunctions = await this.service.getAuthFunctionsByUser(req.user, contexts, names, ids);
+  @UseGuards(PolyKeyGuard)
+  @Post('/api')
+  async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<FunctionBasicDto> {
+    const {
+      url,
+      body,
+      requestName,
+      name = null,
+      context = null,
+      description = null,
+      payload = null,
+      response,
+      variables = {},
+      statusCode,
+      templateHeaders,
+      method,
+      templateAuth,
+      templateUrl,
+      templateBody,
+      id = null,
+    } = data;
+    const environmentId = req.user.environment.id;
 
-    if (useDefinitionDto) {
-      return (await Promise.all(urlFunctions.map(urlFunction => this.service.urlFunctionToDefinitionDto(urlFunction))))
-        .concat(...customFunctions.map(customFunction => this.service.customFunctionToDefinitionDto(customFunction)))
-        .concat(...authFunctions.map(authFunction => this.service.authFunctionToDefinitionDto(authFunction)))
-        ;
-    } else {
-      return urlFunctions.map(urlFunction => this.service.urlFunctionToBasicDto(urlFunction))
-        .concat(...customFunctions.map(customFunction => this.service.customFunctionToBasicDto(customFunction)))
-        .concat(...authFunctions.map(authFunction => this.service.authFunctionToBasicDto(authFunction)))
-        ;
+    await this.authService.checkPermissions(req.user, Permission.Teach);
+
+    this.logger.debug(`Creating API function in environment ${environmentId}...`);
+    this.logger.debug(
+      `name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}, statusCode: ${statusCode}`,
+    );
+
+    return this.service.apiFunctionToBasicDto(
+      await this.service.createOrUpdateApiFunction(
+        id,
+        environmentId,
+        url,
+        body,
+        requestName,
+        name,
+        context,
+        description,
+        payload,
+        response,
+        variables,
+        statusCode,
+        templateHeaders,
+        method,
+        templateUrl,
+        templateBody,
+        templateAuth,
+      )
+    );
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Get('/api/:id')
+  async getApiFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
+    const apiFunction = await this.service.findApiFunction(id);
+    if (!apiFunction) {
+      throw new NotFoundException(`Function with ID ${id} not found.`);
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+
+    return this.service.apiFunctionToDetailsDto(apiFunction);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Patch('/api/:id')
+  async updateApiFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateApiFunctionDto): Promise<any> {
+    const {
+      name = null,
+      context = null,
+      description = null,
+      arguments: argumentsMetadata = null,
+      response,
+      payload = null,
+      visibility = null,
+    } = data;
+    const apiFunction = await this.service.findApiFunction(id);
+    if (!apiFunction) {
+      throw new NotFoundException('Function not found');
+    }
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+
+    return this.service.apiFunctionToDetailsDto(
+      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility),
+    );
+  }
+
+  // @UseGuards(PolyKeyGuard)
+  @Post('/api/:id/execute')
+  async executeApiFunction(@Req() req, @Param('id') id: string, @Body() data: ExecuteApiFunctionDto): Promise<ApiFunctionResponseDto | null> {
+    const apiFunction = await this.service.findApiFunction(id);
+    if (!apiFunction) {
+      throw new NotFoundException(`Function with id ${id} not found.`);
+    }
+
+    // TODO: temporarily disabled for GPT plugin purposes
+    // await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, Permission.Use);
+
+    return await this.service.executeApiFunction(apiFunction, data.args, data.clientID);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Delete('/api/:id')
+  async deleteApiFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<any> {
+    const apiFunction = await this.service.findApiFunction(id);
+    if (!apiFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+    await this.service.deleteApiFunction(id);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Get('/client')
+  async getClientFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
+    const functions = await this.service.getClientFunctions(req.user.environment.id);
+    return functions
+      .map((clientFunction) => this.service.customFunctionToBasicDto(clientFunction));
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Post('/client')
+  async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
+    const { context = '', name, description = '', code } = data;
+
+    await this.authService.checkPermissions(req.user, Permission.CustomDev);
+
+    try {
+      return this.service.customFunctionToDetailsDto(
+        await this.service.createCustomFunction(req.user.environment, context, name, description, code, false, req.user.key)
+      );
+    } catch (e) {
+      throw new BadRequestException(e.message);
     }
   }
 
-  @Get(':publicId')
-  @UseGuards(ApiKeyGuard)
-  async getFunction(@Req() req, @Param('publicId') publicId: string): Promise<FunctionDetailsDto> {
-    const urlFunction = await this.service.findUrlFunction(req.user, publicId);
-    if (urlFunction) {
-      return this.service.urlFunctionToDetailsDto(urlFunction);
+  @UseGuards(PolyKeyGuard)
+  @Get('/client/:id')
+  async getClientFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
+    const clientFunction = await this.service.findClientFunction(id);
+    if (!clientFunction) {
+      throw new NotFoundException(`Function with ID ${id} not found.`);
     }
 
-    const customFunction = await this.service.findCustomFunction(req.user, publicId);
-    if (customFunction) {
-      return this.service.customFunctionToDetailsDto(customFunction);
-    }
+    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user);
 
-    throw new HttpException(`Function with ID ${publicId} not found.`, HttpStatus.NOT_FOUND);
+    return this.service.customFunctionToDetailsDto(clientFunction);
   }
 
-  @Post('/url/:publicId/execute')
-  async executeUrlFunction(@Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteUrlFunctionDto): Promise<any> {
-    const urlFunction = await this.service.findUrlFunctionByPublicId(publicId);
-    if (!urlFunction) {
-      throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
+  @UseGuards(PolyKeyGuard)
+  @Patch('/client/:id')
+  async updateClientFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
+    const {
+      context = null,
+      description = null,
+      visibility = null,
+    } = data;
+    const clientFunction = await this.service.findClientFunction(id);
+    if (!clientFunction) {
+      throw new NotFoundException('Function not found');
     }
 
-    return await this.service.executeUrlFunction(urlFunction, executeFunctionDto.args, executeFunctionDto.clientID);
+    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, Permission.CustomDev);
+
+    return this.service.customFunctionToDetailsDto(
+      await this.service.updateCustomFunction(clientFunction, null, context, description, visibility),
+    );
   }
 
-  @Post('/custom/:publicId/execute')
-  async executeCustomFunction(@Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteCustomFunctionDto): Promise<any> {
-    const customFunction = await this.service.findCustomFunctionByPublicId(publicId);
+  @UseGuards(PolyKeyGuard)
+  @Delete('/client/:id')
+  async deleteClientFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<any> {
+    const clientFunction = await this.service.findClientFunction(id);
+    if (!clientFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, Permission.CustomDev);
+
+    await this.service.deleteCustomFunction(id);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Get('/server')
+  async getServerFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
+    const customFunctions = await this.service.getServerFunctions(req.user.environment.id);
+    return customFunctions
+      .map((serverFunction) => this.service.customFunctionToBasicDto(serverFunction));
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Post('/server')
+  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
+    const { context = '', name, description = '', code } = data;
+
+    await this.authService.checkPermissions(req.user, Permission.CustomDev);
+
+    try {
+      return this.service.customFunctionToDetailsDto(
+        await this.service.createCustomFunction(req.user.environment, context, name, description, code, true, req.user.key)
+      );
+    } catch (e) {
+      throw new BadRequestException(e.message);
+    }
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Get('/server/:id')
+  async getServerFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
+    const serverFunction = await this.service.findServerFunction(id);
+    if (!serverFunction) {
+      throw new NotFoundException(`Function with ID ${id} not found.`);
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user);
+
+    return this.service.customFunctionToDetailsDto(serverFunction);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Patch('/server/:id')
+  async updateServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
+    const {
+      name = null,
+      context = null,
+      description = null,
+      visibility = null,
+    } = data;
+    const serverFunction = await this.service.findServerFunction(id);
+    if (!serverFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, Permission.CustomDev);
+
+    return this.service.customFunctionToDetailsDto(
+      await this.service.updateCustomFunction(serverFunction, name, context, description, visibility),
+    );
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Delete('/server/:id')
+  async deleteServerFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<any> {
+    const serverFunction = await this.service.findServerFunction(id);
+    if (!serverFunction) {
+      throw new NotFoundException('Function not found');
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, Permission.CustomDev);
+
+    await this.service.deleteCustomFunction(id);
+  }
+
+  // @UseGuards(PolyKeyGuard)
+  @Post('/server/:id/execute')
+  async executeServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: ExecuteCustomFunctionDto): Promise<any> {
+    const customFunction = await this.service.findServerFunction(id);
     if (!customFunction) {
-      throw new HttpException(`Function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
+      throw new NotFoundException(`Function with id ${id} not found.`);
     }
     if (!customFunction.serverSide) {
-      throw new HttpException(`Function with publicId ${publicId} is not server function.`, HttpStatus.BAD_REQUEST);
+      throw new BadRequestException(`Function with id ${id} is not server function.`);
     }
 
-    return await this.service.executeServerFunction(customFunction, executeFunctionDto.args, executeFunctionDto.clientID);
+    // TODO: temporarily disabled for GPT plugin purposes
+    // await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
+
+    return await this.service.executeServerFunction(customFunction, data.args, data.clientID);
   }
 
-  @Patch('/:publicId')
-  @UseGuards(ApiKeyGuard)
-  async updateFunction(@Req() req, @Param('publicId') publicId: string, @Body() {
-    name = null,
-    context = null,
-    description = null,
-    arguments: argumentsMetadata = null,
-  }: UpdateFunctionDto): Promise<any> {
-    const urlFunction = await this.service.findUrlFunction(req.user, publicId);
-    if (urlFunction) {
-      return this.service.urlFunctionToDetailsDto(
-        await this.service.updateUrlFunction(req.user, urlFunction, name, context, description, argumentsMetadata),
-      );
-    }
-
-    const customFunction = await this.service.findCustomFunction(req.user, publicId);
-    if (customFunction) {
-      if (argumentsMetadata) {
-        throw new HttpException('Arguments cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
-      }
-      if (name != null) {
-        throw new HttpException('Name cannot be updated for a custom function.', HttpStatus.BAD_REQUEST);
-      }
-      return this.service.customFunctionToDetailsDto(
-        await this.service.updateCustomFunction(req.user, customFunction, context, description),
-      );
-    }
-
-    const authFunction = await this.service.findAuthFunction(req.user, publicId);
-    if (authFunction) {
-      if (argumentsMetadata) {
-        throw new HttpException('Arguments cannot be updated for a auth function.', HttpStatus.BAD_REQUEST);
-      }
-      return this.service.authFunctionToBasicDto(
-        await this.service.updateAuthFunction(req.user, authFunction, context, name, description),
-      );
-    }
-
-    throw new HttpException('Function not found', HttpStatus.NOT_FOUND);
-  }
-
-  @Delete('/all')
-  @UseGuards(new ApiKeyGuard([Role.Admin]))
-  async deleteAllFunctions(@Query() { userId, apiKey }: DeleteAllFunctionsDto): Promise<void> {
-    if (!Number.isNaN(Number(userId))) {
-      await this.service.deleteAllByUser(Number(userId));
-    } else if (apiKey) {
-      await this.service.deleteAllApiKey(apiKey);
-    } else {
-      throw new HttpException('Missing userId or apiKey parameter', HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  @Delete('/:publicId')
-  @UseGuards(ApiKeyGuard)
-  async deleteFunction(@Req() req, @Param('publicId') publicId: string): Promise<void> {
-    await this.service.deleteFunction(req.user, publicId);
-  }
-
-  @Post('/custom')
-  @UseGuards(ApiKeyGuard)
-  async createCustomFunction(@Req() req, @Body() createCustomFunctionDto: CreateCustomFunctionDto): Promise<any> {
-    // temporarily increase timeout for custom function creation
-    req.setTimeout(300000);
-
-    const { context = '', name, code, server = false } = createCustomFunctionDto;
-
-    try {
-      return await this.service.createCustomFunction(req.user, context, name, code, server);
-    } catch (e) {
-      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  @Post('/auth')
-  @UseGuards(ApiKeyGuard)
-  async createAuthFunction(@Req() req, @Body() createAuthFunctionDto: CreateAuthFunctionDto): Promise<AuthFunctionDto> {
-    const { context = '', name, description = null, authUrl, accessTokenUrl } = createAuthFunctionDto;
-
-    try {
-      return this.service.authFunctionToDto(
-        await this.service.createAuthFunction(req.user, context, name, description, authUrl, accessTokenUrl),
-      );
-    } catch (e) {
-      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  @Post('/auth/:publicId/execute')
-  @UseGuards(ApiKeyGuard)
-  async executeAuthFunction(@Req() req, @Param('publicId') publicId: string, @Body() executeFunctionDto: ExecuteAuthFunctionDto): Promise<ExecuteAuthFunctionResponseDto> {
-    const authFunction = await this.service.findAuthFunctionByPublicId(publicId);
-    if (!authFunction) {
-      throw new HttpException(`Auth function with publicId ${publicId} not found.`, HttpStatus.NOT_FOUND);
-    }
-
-    const { eventsClientId, clientId, clientSecret, scopes } = executeFunctionDto;
-    return await this.service.executeAuthFunction(req.user, authFunction, eventsClientId, clientId, clientSecret, scopes);
-  }
-
-  @Get('/auth/:publicId/callback')
-  async authFunctionCallback(@Param('publicId') publicId: string, @Query() query: any): Promise<void> {
-    this.logger.debug(`Auth function callback for ${publicId} with query ${JSON.stringify(query)}`);
-    await this.service.processAuthFunctionCallback(publicId, query);
+  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @Post('/server/all/update')
+  async updateAllServerFunctions(@Req() req: AuthRequest) {
+    void this.service.updateAllServerFunctions(req.user.environment, req.user.key);
+    return 'Functions are being updated in background. Please check logs for more details.';
   }
 }

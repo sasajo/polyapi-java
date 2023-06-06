@@ -1,6 +1,7 @@
 # compiled output
 /dist
 /node_modules
+*.tgz
 
 # data / env
 prisma/data/poly.db
@@ -45,3 +46,7 @@ lerna-debug.log*
 # pycache
 __pycache__
 .mypy_cache/
+
+# docker file to be ignired
+/docker/certs
+/docker/data

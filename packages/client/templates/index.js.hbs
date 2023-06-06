@@ -1,13 +1,13 @@
 const set = require('lodash/set');
 const merge = require('lodash/merge');
 const { io } = require("socket.io-client");
-const { v4: uuidv4 } = require('uuid');
-const urlFunctions = require('./url');
-const customFunctions = require('./custom');
+const apiFunctions = require('./api');
+const clientFunctions = require('./client');
+const webhooks = require('./webhooks');
 const authFunctions = require('./auth');
 const serverFunctions = require('./server');
 
-const clientID = uuidv4();
+const clientID = '{{clientID}}';
 let socket = null;
 const getSocket = () => {
   if (!socket) {
@@ -15,16 +15,6 @@ const getSocket = () => {
   }
   return socket;
 };
-
-const webhookHandles = [
-{{#each webhookHandles}}
-  {{#if context}}
-    ['{{context}}.{{name}}', '{{id}}'],
-  {{else}}
-    ['{{name}}', '{{id}}'],
-  {{/if}}
-{{/each}}
-];
 
 const errorHandler = {
   on: (path, callback) => {
@@ -46,35 +36,14 @@ const errorHandler = {
   }
 };
 
-const registerWebhookEventListener = (webhookHandleID, callback) => {
-  const socket = getSocket();
-  socket.emit('registerWebhookEventHandler', {
-    clientID,
-    webhookHandleID,
-    apiKey: '{{apiKey}}'
-  });
-  socket.on(`handleWebhookEvent:${webhookHandleID}`, callback);
-
-  return () => {
-    socket.emit('unregisterWebhookEventHandler', {
-      clientID,
-      webhookHandleID,
-      apiKey: '{{apiKey}}'
-    });
-  }
-};
-
 const poly = {};
 module.exports = merge(
   poly,
-  urlFunctions(clientID),
-  customFunctions(poly),
+  apiFunctions(clientID),
+  clientFunctions(poly),
   serverFunctions(clientID),
   authFunctions(clientID, getSocket),
-  webhookHandles.reduce(
-    (acc, [path, id]) => set(acc, path, (callback) => registerWebhookEventListener(id, callback)),
-    {}
-  ),
+  webhooks(clientID, getSocket),
   {
     errorHandler
   }

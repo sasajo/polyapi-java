@@ -1,98 +1,146 @@
-import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Logger,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
 import { WebhookService } from 'webhook/webhook.service';
-import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
-import { RegisterWebhookHandleDto, UpdateWebhookHandleDto } from '@poly/common';
+import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { CreateWebhookHandleDto, Permission, UpdateWebhookHandleDto } from '@poly/common';
+import { AuthRequest } from 'common/types';
+import { AuthService } from 'auth/auth.service';
 
-export const HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION = 'application/poly.webhook-handle-definition+json';
-
+@ApiSecurity('X-PolyApiKey')
 @Controller('webhooks')
 export class WebhookController {
-  public constructor(private readonly webhookService: WebhookService) {}
+  private readonly logger = new Logger(WebhookController.name);
 
-  @UseGuards(ApiKeyGuard)
+  public constructor(private readonly webhookService: WebhookService, private readonly authService: AuthService) {}
+
+  @UseGuards(PolyKeyGuard)
   @Get()
-  public async getWebhookHandles(@Req() req, @Headers('Accept') acceptHeader: string) {
-    const useDefinitionDto = acceptHeader === HEADER_ACCEPT_WEBHOOK_HANDLE_DEFINITION;
-
-    // TODO: temporarily disabled to allow all users to see all webhooks
-    // const webhookHandles = await this.webhookService.getWebhookHandles(req.user);
-    const webhookHandles = await this.webhookService.getAllWebhookHandles();
-
-    if (useDefinitionDto) {
-      return await Promise.all(webhookHandles.map((handle) => this.webhookService.toDefinitionDto(handle)));
-    } else {
-      return webhookHandles.map((handle) => this.webhookService.toDto(handle));
-    }
+  public async getWebhookHandles(@Req() req: AuthRequest) {
+    const webhookHandles = await this.webhookService.getWebhookHandles(req.user.environment.id);
+    return webhookHandles.map((handle) => this.webhookService.toDto(handle));
   }
 
-  @UseGuards(ApiKeyGuard)
-  @Post('register')
-  public async registerWebhookHandle(@Req() req, @Body() registerWebhookHandleDto: RegisterWebhookHandleDto) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(
-      req.user,
-      registerWebhookHandleDto.context,
-      registerWebhookHandleDto.name,
-      registerWebhookHandleDto.eventPayload,
-      registerWebhookHandleDto.description,
-    );
+  @UseGuards(PolyKeyGuard)
+  @Get(':id')
+  public async getWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
+    const webhookHandle = await this.webhookService.findWebhookHandle(id);
+
+    if (!webhookHandle) {
+      throw new NotFoundException();
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+
     return this.webhookService.toDto(webhookHandle);
   }
 
-  @UseGuards(ApiKeyGuard)
-  @Put(':context/:name')
-  public async registerWebhookContextFunction(
-    @Req() req,
-    @Param('context') context: string,
-    @Param('name') name: string,
-    @Body() payload: any,
-  ) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(
-      req.user,
+  @UseGuards(PolyKeyGuard)
+  @Post()
+  public async createWebhookHandle(@Req() req: AuthRequest, @Body() createWebhookHandle: CreateWebhookHandleDto) {
+    const { context = '', name, eventPayload, description = '' } = createWebhookHandle;
+
+    await this.authService.checkPermissions(req.user, Permission.Teach);
+
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
+      req.user.environment.id,
       context,
       name,
-      payload,
-      '',
+      eventPayload,
+      description,
     );
     return this.webhookService.toDto(webhookHandle);
-  }
-
-  @UseGuards(ApiKeyGuard)
-  @Put(':name')
-  public async registerWebhookFunction(@Req() req, @Param('name') name: string, @Body() payload: any) {
-    const webhookHandle = await this.webhookService.registerWebhookContextFunction(req.user, null, name, payload, '');
-    return this.webhookService.toDto(webhookHandle);
-  }
-
-  @Post(':context/:name')
-  public async triggerWebhookContextFunction(
-    @Param('context') context: string,
-    @Param('name') name: string,
-    @Body() payload: any,
-  ) {
-    return await this.webhookService.triggerWebhookContextFunction(context, name, payload);
   }
 
   @Patch(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(PolyKeyGuard)
   public async updateWebhookHandle(
-    @Req() req,
+    @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() updateWebhookHandleDto: UpdateWebhookHandleDto,
   ) {
-    const { context = null, name = null, description = null } = updateWebhookHandleDto;
+    const {
+      context = null,
+      name = null,
+      description = null,
+      visibility = null,
+    } = updateWebhookHandleDto;
+
+    const webhookHandle = await this.webhookService.findWebhookHandle(id);
+    if (!webhookHandle) {
+      throw new NotFoundException();
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+
     return this.webhookService.toDto(
-      await this.webhookService.updateWebhookHandle(req.user, id, context, name, description),
+      await this.webhookService.updateWebhookHandle(webhookHandle, context, name, description, visibility),
     );
   }
 
   @Post(':id')
-  public async triggerWebhookFunctionByID(@Param('id') id: string, @Body() payload: any) {
-    return await this.webhookService.triggerWebhookContextFunctionByID(id, payload);
+  public async triggerWebhookHandle(@Param('id') id: string, @Body() payload: any) {
+    const webhookHandle = await this.webhookService.findWebhookHandle(id);
+
+    if (!webhookHandle) {
+      this.logger.debug(`Webhook handle not found for ${id} - skipping trigger...`);
+      return;
+    }
+
+    return await this.webhookService.triggerWebhookHandle(webhookHandle, payload);
   }
 
   @Delete(':id')
-  @UseGuards(ApiKeyGuard)
-  public async deleteWebhookHandle(@Req() req, @Param('id') id: string) {
-    await this.webhookService.deleteWebhookHandle(req.user, id);
+  @UseGuards(PolyKeyGuard)
+  public async deleteWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
+    const webhookHandle = await this.webhookService.findWebhookHandle(id);
+    if (!webhookHandle) {
+      throw new NotFoundException();
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+
+    await this.webhookService.deleteWebhookHandle(id);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Put(':context/:name')
+  public async registerWebhookContextFunction(
+    @Req() req: AuthRequest,
+    @Param('context') context: string,
+    @Param('name') name: string,
+    @Body() payload: any,
+  ) {
+    await this.authService.checkPermissions(req.user, Permission.Teach);
+
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
+      req.user.environment.id,
+      context,
+      name,
+      payload,
+      ''
+    );
+    return this.webhookService.toDto(webhookHandle);
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Put(':name')
+  public async registerWebhookFunction(@Req() req: AuthRequest, @Param('name') name: string, @Body() payload: any) {
+    await this.authService.checkPermissions(req.user, Permission.Teach);
+
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user.environment.id, null, name, payload, '');
+    return this.webhookService.toDto(webhookHandle);
   }
 }

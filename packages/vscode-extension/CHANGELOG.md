@@ -1,3 +1,21 @@
+### 0.1.23
+* Removed "Copy selection to Poly" button due a vscode issue on Windows plattform.
+
+### 0.1.22
+* Added webhook description
+
+### 0.1.21
+* Fixed publisher name
+
+### 0.1.20
+* Fixed tree label
+
+### 0.1.19
+* Fixed auth function copy action
+
+### 0.1.18
+* Updated tooltips and copied code for changed specifications
+
 ### 0.1.17
 * Fixed tooltip for server functions
 

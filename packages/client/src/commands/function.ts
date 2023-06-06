@@ -1,20 +1,34 @@
 import fs from 'fs';
 import chalk from 'chalk';
 import shell from 'shelljs';
-import { createCustomFunction } from '../api';
+import { createServerFunction, createClientFunction } from '../api';
 import { loadConfig } from '../config';
-import generate from './generate';
+import { generateSingleCustomFunction } from './generate';
+import { FunctionDetailsDto } from '@poly/common';
 
-export const addCustomFunction = async (context: string | null, name: string, file: string, server: boolean) => {
+export const addCustomFunction = async (
+  context: string | null,
+  name: string,
+  description: string | null,
+  file: string,
+  server: boolean,
+) => {
   loadConfig();
 
-  shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom ${server ? 'server' : 'client'} side function...`));
-
   try {
+    let customFunction: FunctionDetailsDto;
+
     const code = fs.readFileSync(file, 'utf8');
-    await createCustomFunction(context, name, code, server);
+    if (server) {
+      shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom server side function...`));
+      customFunction = await createServerFunction(context, name, description, code);
+    } else {
+      shell.echo('-n', chalk.rgb(255, 255, 255)(`Adding custom client side function...`));
+      customFunction = await createClientFunction(context, name, description, code);
+    }
     shell.echo(chalk.green('DONE'));
-    await generate();
+
+    await generateSingleCustomFunction(customFunction.id);
   } catch (e) {
     shell.echo(chalk.red('ERROR\n'));
     shell.echo(`${e.response?.data?.message || e.message}`);

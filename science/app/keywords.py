@@ -1,10 +1,11 @@
 import json
 import openai
 from thefuzz import fuzz
-from typing import Optional, Tuple, Union, List
-from app.constants import VarName
-from app.typedefs import StatsDict, ExtractKeywordDto, FunctionDto, WebhookDto
+from typing import Optional, Tuple, List
+from app.constants import CHAT_GPT_MODEL, VarName
+from app.typedefs import StatsDict, ExtractKeywordDto, SpecificationDto
 from app.utils import func_path, get_config_variable, log, remove_punctuation
+from prisma import get_client
 
 
 KEYWORD_PROMPT = """For the following prompt, give me back both the keywords from my prompt and semantically similar keywords.
@@ -42,7 +43,7 @@ def get_extract_keywords_temperature() -> float:
 def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
     prompt = KEYWORD_PROMPT.format(prompt=question)
     resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=CHAT_GPT_MODEL,
         temperature=get_extract_keywords_temperature(),
         messages=[
             {"role": "user", "content": prompt},
@@ -81,7 +82,7 @@ def remove_blacklist(keywords: str) -> str:
 
 
 def keywords_similar(
-    keywords: str, func: Union[FunctionDto, WebhookDto], debug=False
+    keywords: str, func: SpecificationDto, debug=False
 ) -> Tuple[bool, int]:
     if not keywords:
         # when we have no keywords, just assume everything matches for now
@@ -96,7 +97,6 @@ def keywords_similar(
         func_parts.append(func["name"])
     func_str = " ".join(func_parts).lower()
 
-    # HACK just add description for now
     if func.get("description"):
         func_str += f"\n{func.get('description')}"
 
@@ -106,24 +106,16 @@ def keywords_similar(
     if debug:
         log(keywords, similarity_score, func_str)
 
-    # separate description ratio
-    # commented out for now
-    #
-    # desc_ratio = 0
-    # if func.get("description"):
-    #     desc_ratio = fuzz.partial_ratio(keywords, func["description"])
-    #     if debug:
-    #         log(keywords, desc_ratio, func['description'])
-
     return similarity_score > get_similarity_threshold(), similarity_score
 
 
 def get_top_function_matches(
-    items: List[Union[FunctionDto, WebhookDto]], keyword_data: ExtractKeywordDto
-) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
+    items: List[SpecificationDto], keyword_data: ExtractKeywordDto
+) -> Tuple[List[SpecificationDto], StatsDict]:
     """get top function matches based on keywords"""
-    # for now ignore http_methods
     match_limit = get_function_match_limit()
+
+    # items = filter_items_based_on_http_method(items, keyword_data.get("http_methods"))
 
     keyword_matches, keyword_stats = _get_top(
         match_limit, items, keyword_data["keywords"]
@@ -157,6 +149,27 @@ def get_top_function_matches(
     return keyword_matches, stats
 
 
+def filter_items_based_on_http_method(
+    items: List[SpecificationDto], http_methods: Optional[str]
+) -> List[SpecificationDto]:
+    if not http_methods:
+        return items
+
+    db = get_client()
+    ids = [item.get("id", "") for item in items]
+    result = db.apifunction.find_many(
+        where={
+            "id": {"in": ids},
+        }
+    )
+    http_methods_set = {http_method.strip() for http_method in http_methods.split(",")}
+    items_to_remove = {
+        rs.id for rs in result if rs.method not in http_methods_set
+    }
+    items = [item for item in items if item.get("id") not in items_to_remove]
+    return items
+
+
 def _generate_match_count(stats: StatsDict) -> int:
     threshold = get_similarity_threshold()
     matches = set()
@@ -171,9 +184,9 @@ def _generate_match_count(stats: StatsDict) -> int:
 
 def _get_top(
     match_limit: int,
-    items: List[Union[FunctionDto, WebhookDto]],
+    items: List[SpecificationDto],
     keywords: str,
-) -> Tuple[List[Union[FunctionDto, WebhookDto]], StatsDict]:
+) -> Tuple[List[SpecificationDto], StatsDict]:
     threshold = get_similarity_threshold()
 
     if not keywords:
@@ -191,9 +204,7 @@ def _get_top(
     return top_matches[:match_limit], stats
 
 
-def _get_stats(
-    items_with_scores: List[Tuple[Union[FunctionDto, WebhookDto], int]]
-) -> StatsDict:
+def _get_stats(items_with_scores: List[Tuple[SpecificationDto, int]]) -> StatsDict:
     stats: StatsDict = {"total": len(items_with_scores)}
     match_count = 0
 

@@ -1,59 +1,47 @@
 import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nestjs/common';
+import { ApiSecurity } from '@nestjs/swagger';
+import { Request } from 'express';
 import { CreatePluginDto } from '@poly/common';
-import { ApiKeyGuard } from 'auth/api-key-auth-guard.service';
+import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { GptPluginService } from 'gptplugin/gptplugin.service';
-import { ConfigService } from 'config/config.service';
+import { AuthRequest } from 'common/types';
 
-
-// HACK
-function _capitalize(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-
+@ApiSecurity('X-PolyApiKey')
 @Controller()
 export class GptPluginController {
   private readonly logger = new Logger(GptPluginController.name);
-  constructor(private readonly service: GptPluginService, private readonly config: ConfigService) {}
 
-  @Get('.well-known/ai-plugin.json')
-  public async aiPluginJson(): Promise<unknown> {
-    const env = this.config.env
-    const host = this.config.hostUrl
-    return {
-      schema_version: 'v1',
-      name_for_human: `Melia Resorts`,
-      name_for_model: 'melia_resorts',
-      description_for_human: 'Your one stop of the vacation of your dreams.',
-      description_for_model: 'This is the Melia hotels plugin whihc can be used to search for availability of hotel rooms, to book rooms, and to confirm details with SMS messages',
-      auth: {
-        type: 'none',
-      },
-      api: {
-        type: 'openapi',
-        url: this.service.getOpenApiUrl(env, host),
-        is_user_authenticated: false,
-      },
-      logo_url: 'https://searchlogovector.com/wp-content/uploads/2018/11/meli%C3%A1-hotels-resorts-logo-vector.png',
-      contact_email: 'darko@polyapi.io',
-      legal_info_url: 'https://polyapi.io/legal',
-    };
+  constructor(private readonly service: GptPluginService) {
   }
 
-  @Get('plugin/:name/openapi')
-  public async pluginOpenApi(@Param('name') name: string): Promise<unknown> {
-    // TODO move over existing openapi.yaml to openapi.yaml.hbs?
-    // and pass in the name and functions to the hbs?
-    const spec = await this.service.getOpenApiSpec(name);
+  @Get('.well-known/ai-plugin.json')
+  public async aiPluginJson(@Req() req: Request): Promise<unknown> {
+    return this.service.getManifest(req);
+  }
+
+  @Get('plugins/:slug/openapi')
+  public async pluginOpenApi(@Req() req: Request, @Param('slug') slug: string): Promise<unknown> {
+    const spec = await this.service.getOpenApiSpec(req.hostname, slug);
     return spec;
   }
 
-  @UseGuards(ApiKeyGuard)
-  @Post('plugin/create')
-  public async pluginCreate(@Req() req, @Body() body: CreatePluginDto): Promise<unknown> {
-    const domain = await this.service.createPlugin(body.slug, body.functionIds);
+  @UseGuards(PolyKeyGuard)
+  @Get('plugins/:slug')
+  public async pluginGet(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
+    const plugin = await this.service.getPlugin(slug);
     return {
-      domain: domain,
+      plugin: plugin,
+      plugin_url: `https://${plugin.slug}.${req.hostname}`,
+    };
+  }
+
+  @UseGuards(PolyKeyGuard)
+  @Post('plugins')
+  public async pluginCreateOrUpdate(@Req() req: AuthRequest, @Body() body: CreatePluginDto): Promise<unknown> {
+    const plugin = await this.service.createOrUpdatePlugin(req.user.environment, body);
+    return {
+      plugin: plugin,
+      plugin_url: `https://${plugin.slug}.${req.hostname}`,
     };
   }
 }

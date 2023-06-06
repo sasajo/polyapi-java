@@ -5,8 +5,11 @@ export class CreateAuthFunctionDto {
   name: string;
   context?: string;
   description?: string;
+  audienceRequired?: boolean;
   @IsNotEmpty()
   authUrl: string;
   @IsNotEmpty()
   accessTokenUrl: string;
+  @IsNotEmpty()
+  revokeUrl: string;
 }

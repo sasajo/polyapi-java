@@ -4,7 +4,7 @@ import ChatViewProvider from './chat-view-provider';
 import LibraryIndexViewProvider from './library-index-view-provider';
 
 import { start as startLibraryWatcher } from './library-watcher';
-import { registerPolyDataChangedListener } from './events';
+import { registerPolySpecsChangedListener } from './events';
 
 const isPolyExpression = (node: ts.Node) => {
   if (!node.parent) {
@@ -28,7 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const chatViewProvider = new ChatViewProvider(context);
   const libraryIndexViewProvider = new LibraryIndexViewProvider();
 
-  const unregisterPolyFunctionsRegeneratedListener = registerPolyDataChangedListener(contexData => {
+  const unregisterPolyFunctionsRegeneratedListener = registerPolySpecsChangedListener(contexData => {
     console.log('POLY: Restarting TS server...');
     vscode.commands.executeCommand('typescript.restartTsServer');
 
@@ -41,9 +41,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('poly.focusMessageInput', () => {
       chatViewProvider.focusMessageInput();
-    }),
-    vscode.commands.registerCommand('poly.copySelection', () => {
-      vscode.commands.executeCommand('editor.action.clipboardCopyAction');
     }),
     vscode.commands.registerCommand('poly.copyLibraryItem', LibraryIndexViewProvider.copyLibraryItem),
     vscode.window.registerWebviewViewProvider(

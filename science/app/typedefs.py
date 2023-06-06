@@ -1,4 +1,9 @@
-from typing import Dict, Tuple, TypedDict, List, Literal
+from typing import Dict, Tuple, TypedDict, List, Literal, Union
+from typing_extensions import NotRequired
+from prisma.models import ApiFunction, CustomFunction, AuthProvider, WebhookHandle
+
+
+AnyFunction = Union[ApiFunction, CustomFunction, AuthProvider, WebhookHandle]
 
 
 class DescInputDto(TypedDict):
@@ -26,19 +31,42 @@ class ExtractKeywordDto(TypedDict):
     http_methods: str
 
 
-class FunctionDto(TypedDict):
+# TODO: Not sure how to define this
+class JsonSchema(TypedDict):
+    todo: str
+
+
+class PropertySpecification(TypedDict):
+    name: str
+    required: bool
+    nullable: NotRequired[bool]
+    type: "PropertyType"
+
+
+class PropertyType(TypedDict):
+    kind: Literal['void', 'primitive', 'array', 'object', 'function', 'plain']
+    name: NotRequired[str]
+    type: NotRequired[str]
+    items: NotRequired['PropertyType']
+    schema: NotRequired[JsonSchema]
+    properties: NotRequired[List[PropertySpecification]]
+    typeName: NotRequired[str]
+    value: NotRequired[str]
+
+
+class FunctionSpecification(TypedDict):
+    arguments: List[PropertySpecification]
+    returnType: Dict[str, str]
+    synchronous: NotRequired[bool]
+
+
+class SpecificationDto(TypedDict):
     id: str
     context: str
     name: str
     description: str
-    arguments: List[Dict[str, str]]
-
-
-class WebhookDto(TypedDict):
-    id: str
-    context: str
-    name: str
-    urls: List[str]
+    function: FunctionSpecification
+    type: Literal['apiFunction', 'customFunction', 'serverFunction', 'authFunction', 'webhookHandle']
 
 
 class MessageDict(TypedDict, total=False):
@@ -52,6 +80,10 @@ class ChatGptChoice(TypedDict):
     message: MessageDict  # no function_ids or webhook_ids
     finish_reason: Literal['stop', 'length', 'content_filter', None]
     index: int
+
+
+class ChatCompletionResponse(TypedDict):
+    choices: List[ChatGptChoice]
 
 
 class StatsDict(TypedDict, total=False):

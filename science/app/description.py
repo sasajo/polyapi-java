@@ -1,27 +1,22 @@
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, Union
 import json
 import openai
 from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
-from app.utils import log
-from prisma import get_client
-from thefuzz import fuzz
+from app.utils import camel_case, log
+from app.constants import CHAT_GPT_MODEL
 
-# trim
-# The name should allow me to understand if I am doing a get, post, delete, it should include a verb and the object. It should use the name of the system that it's for follow a convention of product.verbObject if possible. It should be as concise as possible and can use common product acronyms such as MS for microsoft, SFDC for salesforce etc... The name should be as short as possible and ideally only consist of two words and one "." Lastly dont use the same word for the name as found in the context, default to only one word if that is the case.
-
-#  For example, if the context is "comms.twilio" and the name is "twilio.sendSMS", then the name should be "sendSMS" and not "twilio.sendSMS".
-
-# Here are the existing contexts and names separated by dots:
-# {contexts}
-# Try to use an existing context if possible.
+# this needs to be 300 or less for the OpenAPI spec
+# however, OpenAI counts characters slightly differently than us (html escaped entities like `&29;`)
+# so we set this 290 just to be safe
+DESCRIPTION_LENGTH_LIMIT = 290
 
 
 NAME_CONTEXT_DESCRIPTION_PROMPT = """
-I will provide you information about an API call.
+I will provide you information about an {call_type}.
 
-Please give me a context, name and description for the API call.
+Please give me a context, name and description for the {call_type}.
 
-The context is a way of grouping similar API calls.
+The context is a way of grouping similar {call_type}s.
 
 The context and name can use '.' notation but cannot have any spaces or dashes.
 
@@ -37,9 +32,11 @@ For example, to create a new product on shopify the context should be "shopify.p
 
 Resources should be plural. For example, shopify.products, shopify.orders, shopify.customers, etc.
 
-The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but needs to remain human readable. It should be three to five sentences long.
+The description should use keywords that makes search efficient. It can be a little redundant if that adds keywords but
+needs to remain human readable. It should be limited to {description_length_limit} characters without losing meaning and also can be less than
+{description_length_limit} characters if it makes sense.
 
-Here is the API call:
+Here is the {call_type}:
 
 {short_description}
 {method} {url}
@@ -83,11 +80,14 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         short_description=short,
         payload=data.get("payload", "None"),
         response=data.get("response", "None"),
+        call_type="API call",
+        description_length_limit=DESCRIPTION_LENGTH_LIMIT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
+
     resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", temperature=0.2, messages=[prompt_msg]
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
     )
     completion = resp["choices"][0]["message"]["content"].strip()
     try:
@@ -100,75 +100,45 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         log_error(data, completion, prompt)
     else:
         # for now log EVERYTHING
+        rv['description'] = rv['description'][:300]
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
-
-    # if rv["context"] and rv['name']:
-    #     revision = _revise_to_match_existing_context_and_patterns(rv['context'], rv['name'])
-    #     if revision:
-    #         rv['context'] = revision['context']
-    #         rv['name'] = revision['name']
 
     return rv
 
 
-def _revise_to_match_existing_context_and_patterns(context: str, name: str) -> Optional[Dict]:
-    existing = _get_existing_context_and_names()
-    prompt = REVISION_PROMPT.format(
-        existing="\n".join(json.dumps(e) for e in existing),
-        new=json.dumps({"context": context, "name": name}),
+def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
+    # contexts = _get_context_and_names()
+    short = data.get("short_description", "")
+    short = f"User given name: {short}" if short else ""
+    prompt = NAME_CONTEXT_DESCRIPTION_PROMPT.format(
+        url=data.get("url", ""),
+        method=data.get("method", ""),
+        short_description=short,
+        payload=data.get("payload", "None"),
+        response=data.get("response", "None"),
+        call_type="Event handler",
+        description_length_limit=DESCRIPTION_LENGTH_LIMIT,
+        # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", temperature=0.2, messages=[prompt_msg]
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
     )
     completion = resp["choices"][0]["message"]["content"].strip()
-
-    # just log it all for now!
-    log("REVISION", "input:", f"{context}, {name}", "output:", completion, "prompt:", prompt, sep="\n")
-
     try:
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
-        return None
+        log_error(data, completion, prompt)
+        return {"error": "Error parsing JSON from OpenAI: " + completion}
 
-    if rv["context"] and rv["name"]:
-        return {"context": rv["context"], "name": rv["name"]}
+    if not rv["context"] or not rv["name"] or not rv["description"]:
+        log_error(data, completion, prompt)
     else:
-        return None
+        # for now log EVERYTHING
+        rv['description'] = rv['description'][:DESCRIPTION_LENGTH_LIMIT]
+        log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
-
-def _get_existing_context_and_names() -> List[Dict]:
-    db = get_client()
-    rv = []
-    for f in db.urlfunction.find_many():
-        rv.append({"context": f.context, "name": f.name})
     return rv
-
-
-def try_to_match_existing_context(from_openai: str) -> str:
-    """ UNUSED ATM
-    lets try to see if an existing context is highly similar
-    to the context we get from openai
-    if it is, let's use the existing context rather than the new one from openai
-    """
-    db = get_client()
-    contexts = list({f.context for f in db.urlfunction.find_many()})
-    # try to match the longest context first
-    # otherwise we will match something like `weather` when `weather.forecast` is a better match
-    contexts = sorted(contexts, key=lambda x: len(x), reverse=True)
-    for context in contexts:
-        if fuzz.token_set_ratio(from_openai, context) > 90:
-            return context
-
-    return from_openai
-
-
-def _get_context_and_names() -> Set[str]:
-    db = get_client()
-    funcs = {
-        ".".join([f.context, f.name]).lstrip(".") for f in db.urlfunction.find_many()
-    }
-    return funcs
 
 
 def log_error(data: DescInputDto, completion: str, prompt: str) -> None:
@@ -196,51 +166,6 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
     )
 
     # make sure there are no spaces or dashes in context or name
-    rv["name"] = rv["name"].replace(" ", "").replace("-", "")
-    rv["context"] = rv["context"].replace(" ", "").replace("-", "")
-
-    # parts = completion.split("\n")
-    # for idx in range(len(parts)):
-    #     part = parts[idx]
-    #     part = part.strip()
-    #     part_lowered = part.lower()  # sometimes OpenAI returns "context:", sometimes "Context:"
-
-    #     if part_lowered.startswith("context:"):
-    #         rv["context"] = part.split(":")[1].strip()
-    #         if not rv["context"] and _value_on_next_line(parts, idx):
-    #             # next line is context, grab it and move forward!
-    #             rv['context'] = parts[idx + 1].strip()
-    #             idx += 1
-
-    #     elif part_lowered.startswith("name:"):
-    #         rv["name"] = part.split(":")[1].strip()
-    #         if not rv["name"] and _value_on_next_line(parts, idx):
-    #             # next line is name, grab it and move forward!
-    #             rv['name'] = parts[idx + 1].strip()
-    #             idx += 1
-
-    #     elif part_lowered.startswith("description:"):
-    #         rv["description"] = part.split(":")[1].strip()
-    #         if not rv["description"] and _value_on_next_line(parts, idx):
-    #             # next line is description, grab it and move forward!
-    #             rv['description'] = parts[idx + 1].strip()
-    #             idx += 1
-
-    #     idx += 1
-
+    rv["name"] = camel_case(rv["name"])
+    rv["context"] = camel_case(rv["context"])
     return rv
-
-
-def _value_on_next_line(parts: list, idx: int) -> bool:
-    try:
-        next_line = parts[idx + 1].strip()
-    except IndexError:
-        return False
-
-    next_line = next_line.lower()
-    return (
-        next_line
-        and not next_line.startswith("context:")
-        and not next_line.startswith("name:")
-        and not next_line.startswith("description:")
-    )

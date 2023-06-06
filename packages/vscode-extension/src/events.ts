@@ -1,15 +1,15 @@
 import EventEmitter from 'events';
 
 enum Events {
-  polyDataChanged = 'poly-data-changed',
+  polySpecsChanged = 'poly-data-changed',
 }
 
 const eventEmitter = new EventEmitter();
 
-export const registerPolyDataChangedListener = (listener: (contextData: Record<string, any>) => any) => {
-  eventEmitter.on(Events.polyDataChanged, listener);
+export const registerPolySpecsChangedListener = (listener: (contextData: Record<string, any>) => any) => {
+  eventEmitter.on(Events.polySpecsChanged, listener);
 
-  return () => eventEmitter.off(Events.polyDataChanged, listener);
+  return () => eventEmitter.off(Events.polySpecsChanged, listener);
 };
 
-export const polyDataChanged = (functions: Record<string, any>) => eventEmitter.emit(Events.polyDataChanged, functions);
+export const polySpecsChanged = (functions: Record<string, any>) => eventEmitter.emit(Events.polySpecsChanged, functions);
