@@ -256,11 +256,11 @@ def _extract_ids_from_completion(content: str) -> List[str]:
             continue
 
         try:
-            if isinstance(data, dict):
+            if isinstance(data, dict) and data['score'] != 1:
                 # sometimes OpenAI messes up and doesn't put it in a List when there's a single item
                 public_ids = [data['id']]
             else:
-                public_ids = [t['id'] for t in data]
+                public_ids = [d['id'] for d in data if d['score'] != 1]
             return public_ids
         except Exception as e:
             # OpenAI has returned weird JSON, lets try something else!

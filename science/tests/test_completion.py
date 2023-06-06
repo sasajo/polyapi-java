@@ -276,6 +276,14 @@ class T(DbTestCase):
         self.assertTrue(result)
 
     def test_extract_json_from_completion(self):
+        response = '''[
+            {"id": "9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2", "score": 3},
+            {"id": "8ce603a4-5b5f-4e1c-8a43-994b2d7e8df2", "score": 1}
+        ]'''
+        public_ids = _extract_ids_from_completion(response)
+        self.assertEqual(public_ids, ["9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2"])
+
+    def test_extract_json_from_completion_fallback(self):
         public_ids = _extract_ids_from_completion(STEP_2_RESPONSE_EXAMPLE)
         self.assertEqual(public_ids, ["9ce603a4-5b5f-4e1c-8a43-994b2d7e8df2"])
 
