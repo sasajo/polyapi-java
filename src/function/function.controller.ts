@@ -228,7 +228,7 @@ export class FunctionController {
 
     await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, Permission.CustomDev);
 
-    await this.service.deleteCustomFunction(id);
+    await this.service.deleteCustomFunction(id, req.user.environment);
   }
 
   @UseGuards(PolyKeyGuard)
@@ -299,7 +299,7 @@ export class FunctionController {
 
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, Permission.CustomDev);
 
-    await this.service.deleteCustomFunction(id);
+    await this.service.deleteCustomFunction(id, req.user.environment);
   }
 
   // @UseGuards(PolyKeyGuard)
@@ -316,7 +316,7 @@ export class FunctionController {
     // TODO: temporarily disabled for GPT plugin purposes
     // await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
 
-    return await this.service.executeServerFunction(customFunction, data.args, data.clientID);
+    return await this.service.executeServerFunction(customFunction, req.user.environment, data.args, data.clientID);
   }
 
   @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))

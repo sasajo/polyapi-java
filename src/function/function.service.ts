@@ -468,7 +468,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   async deleteApiFunction(id: string) {
-    this.logger.debug(`Deleting URL function ${id}`);
+    this.logger.debug(`Deleting API function ${id}`);
     await this.prisma.apiFunction.delete({
       where: {
         id,
@@ -544,7 +544,7 @@ export class FunctionService implements OnModuleInit {
           }
         ]
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -569,7 +569,15 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async createCustomFunction(env: Environment, context: string, name: string, description: string, customCode: string, serverFunction: boolean, apiKey: string) {
+  async createCustomFunction(
+    environment: Environment,
+    context: string,
+    name: string,
+    description: string,
+    customCode: string,
+    serverFunction: boolean,
+    apiKey: string,
+  ) {
     const {
       code,
       args,
@@ -582,7 +590,7 @@ export class FunctionService implements OnModuleInit {
 
     let customFunction = await this.prisma.customFunction.findFirst({
       where: {
-        environmentId: env.id,
+        environmentId: environment.id,
         name,
         context,
       },
@@ -590,6 +598,8 @@ export class FunctionService implements OnModuleInit {
 
     if (customFunction) {
       this.logger.debug(`Updating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
+      const serverSide = customFunction.serverSide;
+
       customFunction = await this.prisma.customFunction.update({
         where: {
           id: customFunction.id,
@@ -600,15 +610,21 @@ export class FunctionService implements OnModuleInit {
           arguments: JSON.stringify(args),
           returnType,
           requirements: JSON.stringify(requirements),
+          serverSide: serverFunction,
         },
       });
+
+      if (serverSide && !serverFunction) {
+        // server side function was changed to client side function
+        await this.faasService.deleteFunction(customFunction.id, environment.tenantId, environment.id);
+      }
     } else {
       this.logger.debug(`Creating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
       customFunction = await this.prisma.customFunction.create({
         data: {
           environment: {
             connect: {
-              id: env.id,
+              id: environment.id,
             },
           },
           context,
@@ -626,7 +642,7 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug(`Creating server side custom function ${name}`);
 
       try {
-        await this.faasService.createFunction(customFunction.id, name, code, requirements, apiKey);
+        await this.faasService.createFunction(customFunction.id, environment.tenantId, environment.id, name, code, requirements, apiKey);
         customFunction = await this.prisma.customFunction.update({
           where: {
             id: customFunction.id,
@@ -671,13 +687,17 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async deleteCustomFunction(id: string) {
+  async deleteCustomFunction(id: string, environment: Environment) {
     this.logger.debug(`Deleting custom function ${id}`);
-    await this.prisma.customFunction.delete({
+    const customFunction = await this.prisma.customFunction.delete({
       where: {
         id,
       },
     });
+
+    if (customFunction.serverSide) {
+      await this.faasService.deleteFunction(id, environment.tenantId, environment.id);
+    }
   }
 
   async getClientFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
@@ -696,7 +716,7 @@ export class FunctionService implements OnModuleInit {
         ],
         serverSide: false,
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -725,7 +745,7 @@ export class FunctionService implements OnModuleInit {
         ],
         serverSide: true,
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -738,14 +758,14 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async executeServerFunction(customFunction: CustomFunction, args: Record<string, any>, clientID: string) {
+  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientID: string) {
     this.logger.debug(`Executing server function ${customFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
     const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, argumentsList);
+      const result = await this.faasService.executeFunction(customFunction.id, environment.tenantId, environment.id, argumentsList);
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );
@@ -772,7 +792,13 @@ export class FunctionService implements OnModuleInit {
 
     for (const serverFunction of serverFunctions) {
       this.logger.debug(`Updating server function ${serverFunction.id}...`);
-      await this.faasService.updateFunction(serverFunction.id, JSON.parse(serverFunction.requirements || '[]'), apiKey);
+      await this.faasService.updateFunction(
+        serverFunction.id,
+        environment.tenantId,
+        environment.id,
+        JSON.parse(serverFunction.requirements || '[]'),
+        apiKey,
+      );
     }
   }
 
@@ -1228,10 +1254,10 @@ export class FunctionService implements OnModuleInit {
 
       for (const arg of functionArgs) {
         if (metadata[arg.key]?.type) {
-          const { payload, ...rest} = metadata[arg.key];
+          const { payload, ...rest } = metadata[arg.key];
           newMetadata[arg.key] = {
             ...newMetadata[arg.key],
-            ...rest
+            ...rest,
           };
           continue;
         }
