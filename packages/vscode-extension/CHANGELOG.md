@@ -1,3 +1,6 @@
+### 0.1.24
+* Set textarea disabled when sending a question through chat.
+
 ### 0.1.23
 * Removed "Copy selection to Poly" button due a vscode issue on Windows plattform.
 
