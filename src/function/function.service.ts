@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   forwardRef,
-  HttpException,
   HttpStatus,
   Inject,
   Injectable,
@@ -454,14 +453,20 @@ export class FunctionService implements OnModuleInit {
             this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
 
             const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
-            if (this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error))) {
-              return of(null);
-            }
+            const errorEventSent = this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error));
 
             if (error.response) {
-              throw new HttpException(error.response.data as any, error.response.status);
-            } else {
+              return of(
+                {
+                  status: error.response.status,
+                  headers: error.response.headers,
+                  data: error.response.data,
+                } as ApiFunctionResponseDto,
+              );
+            } else if (!errorEventSent) {
               throw new InternalServerErrorException(error.message);
+            } else {
+              return of(null);
             }
           }),
         ),
