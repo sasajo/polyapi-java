@@ -447,14 +447,20 @@ export class FunctionService implements OnModuleInit {
             this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
 
             const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
-            if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
-              return of(null);
-            }
+            const errorEventSent = this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error));
 
             if (error.response) {
-              throw new HttpException(error.response.data as any, error.response.status);
-            } else {
+              return of(
+                {
+                  status: error.response.status,
+                  headers: error.response.headers,
+                  data: error.response.data,
+                } as ApiFunctionResponseDto,
+              );
+            } else if (!errorEventSent) {
               throw new InternalServerErrorException(error.message);
+            } else {
+              return of(null);
             }
           }),
         ),
@@ -532,7 +538,7 @@ export class FunctionService implements OnModuleInit {
         ],
         ...this.getFunctionFilterConditions(contexts, names, ids),
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -678,7 +684,7 @@ export class FunctionService implements OnModuleInit {
         ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: false,
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -701,7 +707,7 @@ export class FunctionService implements OnModuleInit {
         ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: true,
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -1201,10 +1207,10 @@ export class FunctionService implements OnModuleInit {
 
       for (const arg of functionArgs) {
         if (metadata[arg.key]?.type) {
-          const { payload, ...rest} = metadata[arg.key];
+          const { payload, ...rest } = metadata[arg.key];
           newMetadata[arg.key] = {
             ...newMetadata[arg.key],
-            ...rest
+            ...rest,
           };
           continue;
         }
