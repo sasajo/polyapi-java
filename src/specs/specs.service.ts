@@ -2,7 +2,6 @@ import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { FunctionService } from 'function/function.service';
 import { WebhookService } from 'webhook/webhook.service';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
-import { Environment, User } from '@prisma/client';
 import { Specification, SpecificationPath } from '@poly/common';
 import { toCamelCase } from '@guanghechen/helper-string';
 

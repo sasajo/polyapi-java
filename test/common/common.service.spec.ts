@@ -1,4 +1,4 @@
-import { CommonService } from './common.service';
+import { CommonService } from '../../src/common/common.service';
 
 describe('CommonService', () => {
   let commonService: CommonService;

@@ -8,6 +8,6 @@ import { AuthModule } from 'auth/auth.module';
 @Module({
   imports: [AiModule, UserModule, AuthModule],
   providers: [ChatService],
-  controllers: [ChatController]
+  controllers: [ChatController],
 })
 export class ChatModule {}

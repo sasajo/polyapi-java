@@ -17,11 +17,11 @@ export class EventGateway {
 
   private async checkErrorHandler({ clientID, apiKey }: ErrorHandlerDto) {
     if (!clientID) {
-      this.logger.debug(`Missing client ID.`);
+      this.logger.debug('Missing client ID.');
       return false;
     }
     if (!apiKey) {
-      this.logger.debug(`Missing API key.`);
+      this.logger.debug('Missing API key.');
       return false;
     }
     const authData = await this.authService.getAuthData(apiKey);
@@ -51,15 +51,15 @@ export class EventGateway {
 
   private async checkWebhookEventHandler({ clientID, webhookHandleID, apiKey }: WebhookEventHandlerDto) {
     if (!clientID) {
-      this.logger.debug(`Missing client ID.`);
+      this.logger.debug('Missing client ID.');
       return false;
     }
     if (!webhookHandleID) {
-      this.logger.debug(`Missing webhook handle ID.`);
+      this.logger.debug('Missing webhook handle ID.');
       return false;
     }
     if (!apiKey) {
-      this.logger.debug(`Missing API key.`);
+      this.logger.debug('Missing API key.');
       return false;
     }
     const authData = await this.authService.getAuthData(apiKey);
@@ -89,15 +89,15 @@ export class EventGateway {
 
   private async checkAuthFunctionEventHandler({ clientID, functionId, apiKey }: AuthFunctionEventHandlerDto) {
     if (!clientID) {
-      this.logger.debug(`Missing client ID.`);
+      this.logger.debug('Missing client ID.');
       return false;
     }
     if (!functionId) {
-      this.logger.debug(`Missing function ID.`);
+      this.logger.debug('Missing function ID.');
       return false;
     }
     if (!apiKey) {
-      this.logger.debug(`Missing API key.`);
+      this.logger.debug('Missing API key.');
       return false;
     }
     const authData = await this.authService.getAuthData(apiKey);

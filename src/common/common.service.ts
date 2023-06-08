@@ -5,7 +5,6 @@ import { PathError } from './path-error';
 
 @Injectable()
 export class CommonService {
-
   public async getJsonSchema(typeName: string, content: any): Promise<Record<string, any> | null> {
     if (!content) {
       return null;

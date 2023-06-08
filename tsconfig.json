@@ -14,5 +14,5 @@
       "path": "./packages/common"
     }
   ],
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "test/**/*"]
 }

@@ -118,7 +118,7 @@ export class AiService {
       });
     }
 
-    this.logger.debug(`Creating new SystemPrompt...`);
+    this.logger.debug('Creating new SystemPrompt...');
     return this.prisma.systemPrompt.create({
       data: {
         environmentId,

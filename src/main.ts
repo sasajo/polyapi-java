@@ -1,16 +1,18 @@
 import { NestFactory } from '@nestjs/core';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from 'app.module';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from 'config/config.service';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
+const logger = new Logger('main');
 
 const initSwagger = (app: INestApplication) => {
   const options = new DocumentBuilder()
     .setTitle('Poly Server API')
     .setDescription('API description')
     .setVersion('1.0')
-    .addApiKey({name: 'X-PolyApiKey', in: 'header', type: 'apiKey', description: 'API Key'}, 'X-PolyApiKey')
+    .addApiKey({ name: 'X-PolyApiKey', in: 'header', type: 'apiKey', description: 'API Key' }, 'X-PolyApiKey')
     .build();
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('swagger', app, document);
@@ -35,4 +37,5 @@ async function bootstrap() {
   await app.listen(config.port);
 }
 
-void bootstrap();
+bootstrap()
+  .then(() => logger.log('Poly Server is ready!'));

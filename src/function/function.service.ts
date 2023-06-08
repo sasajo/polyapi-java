@@ -8,13 +8,13 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
-  NotFoundException, OnModuleInit,
+  NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import mergeWith from 'lodash/mergeWith';
 import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
@@ -49,14 +49,14 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { uniqBy } from 'lodash';
+import { uniqBy, mergeWith, omit } from 'lodash';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
-    return text.replace(/"/g, `\\"`);
+    return text.replace(/"/g, '\\"');
   } else {
     return text;
   }
@@ -95,9 +95,9 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids)
-          }
-        ]
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
+        ],
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
@@ -124,7 +124,8 @@ export class FunctionService implements OnModuleInit {
   apiFunctionToDetailsDto(apiFunction: ApiFunction): FunctionDetailsDto {
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
-      arguments: this.getFunctionArguments(apiFunction).map(({ location, ...rest }) => rest),
+      arguments: this.getFunctionArguments(apiFunction)
+        .map(arg => omit(arg, 'location')),
     };
   }
 
@@ -200,14 +201,14 @@ export class FunctionService implements OnModuleInit {
         throw new NotFoundException(`Function not found for id ${id}.`);
       }
 
-      this.logger.debug(`Explicity retraining function with id ${id}.`);
+      this.logger.debug(`Explicitly retraining function with id ${id}.`);
     }
 
     const willRetrain = (id === null || id !== 'new') && apiFunction !== null;
 
     if (id === 'new') {
-      this.logger.debug(`Explicity avoid retrain.`);
-      this.logger.debug(`Creating a new poly function...`);
+      this.logger.debug('Explicitly avoid retrain.');
+      this.logger.debug('Creating a new poly function...');
     }
 
     if (id === null && willRetrain && apiFunction) {
@@ -215,7 +216,7 @@ export class FunctionService implements OnModuleInit {
     }
 
     if (id === null && !apiFunction) {
-      this.logger.debug(`Creating new poly function...`);
+      this.logger.debug('Creating new poly function...');
     }
 
     response = this.commonService.trimDownObject(response, 1);
@@ -513,13 +514,13 @@ export class FunctionService implements OnModuleInit {
           ...(
             payloadArguments.length > 0
               ? [{
-                name: 'payload',
-                required: true,
-                type: {
-                  kind: 'object',
-                  properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
-                },
-              }]
+                  name: 'payload',
+                  required: true,
+                  type: {
+                    kind: 'object',
+                    properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+                  },
+                }]
               : []
           ),
           ...(await Promise.all(optionalArguments.map(toPropertySpecification))),
@@ -537,12 +538,12 @@ export class FunctionService implements OnModuleInit {
             OR: [
               { environmentId },
               includePublic ? { visibility: Visibility.Public } : {},
-            ]
+            ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids)
-          }
-        ]
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
+        ],
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
@@ -711,8 +712,8 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids)
-          }
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
         ],
         serverSide: false,
       },
@@ -737,11 +738,11 @@ export class FunctionService implements OnModuleInit {
             OR: [
               { environmentId },
               { visibility: Visibility.Public },
-            ]
+            ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids)
-          }
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
         ],
         serverSide: true,
       },
@@ -825,12 +826,12 @@ export class FunctionService implements OnModuleInit {
         arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
         returnType: customFunction.returnType
           ? {
-            kind: 'plain',
-            value: customFunction.returnType,
-          }
+              kind: 'plain',
+              value: customFunction.returnType,
+            }
           : {
-            kind: 'void',
-          },
+              kind: 'void',
+            },
       },
       code: customFunction.code,
     };
@@ -960,7 +961,7 @@ export class FunctionService implements OnModuleInit {
 
     const filterConditions = [
       {
-        OR: contextConditions
+        OR: contextConditions,
       },
       names?.length ? { name: { in: names } } : undefined,
     ].filter(Boolean) as any[];
@@ -994,7 +995,7 @@ export class FunctionService implements OnModuleInit {
     while (!(await this.checkContextAndNameDuplicates(environmentId, context, name, excludedIds))) {
       name = `${originalName}${nameIdentifier++}`;
       if (nameIdentifier > 100) {
-        throw new BadRequestException(`Failed to create poly function: unambiguous function name`);
+        throw new BadRequestException('Failed to create poly function: unambiguous function name');
       }
     }
 
@@ -1036,7 +1037,7 @@ export class FunctionService implements OnModuleInit {
         };
       }
       default:
-        this.logger.debug(`Unknown auth type:`, auth);
+        this.logger.debug('Unknown auth type:', auth);
         return {};
     }
   }
@@ -1218,7 +1219,6 @@ export class FunctionService implements OnModuleInit {
     const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
 
     const resolveArgumentParameterLimit = () => {
-
       if (functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
@@ -1248,16 +1248,15 @@ export class FunctionService implements OnModuleInit {
         if (apiFunction.id) {
           this.logger.debug(`Resolving argument types for function ${apiFunction.id}...`);
         } else {
-          this.logger.debug(`Resolving argument types for new function...`);
+          this.logger.debug('Resolving argument types for new function...');
         }
       }
 
       for (const arg of functionArgs) {
         if (metadata[arg.key]?.type) {
-          const { payload, ...rest } = metadata[arg.key];
           newMetadata[arg.key] = {
             ...newMetadata[arg.key],
-            ...rest,
+            ...omit(metadata[arg.key], 'payload'),
           };
           continue;
         }

@@ -1,8 +1,8 @@
 import fs from 'fs';
-import { GptPluginService, PluginFunction } from './gptplugin.service';
+import { GptPluginService, PluginFunction } from 'gptplugin/gptplugin.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { GptPluginModule } from './gptplugin.module';
+import { GptPluginModule } from 'gptplugin/gptplugin.module';
 import { Environment } from '@prisma/client';
 
 const PLUGIN_CREATE_SPEC: PluginFunction = {
@@ -143,14 +143,14 @@ const PLUGIN_CREATE_SPEC: PluginFunction = {
 const TEST_PUBLIC_IDS = ['123', '456'];
 
 function isEnvironment(env: Environment | null): asserts env is Environment {
-  if (!env) throw new Error("environment is null!")
+  if (!env) throw new Error('environment is null!');
 }
 
 async function _createTestEnvironment(prisma) {
   // HACK we should really create an environment instead of clobbering whichever is first
-  const env = prisma.environment.findFirst({orderBy: {id: 'asc'}});
-  isEnvironment(env)
-  return env
+  const env = prisma.environment.findFirst({ orderBy: { id: 'asc' } });
+  isEnvironment(env);
+  return env;
 }
 
 async function _createApiFunction(prisma: PrismaService) {
@@ -197,7 +197,7 @@ async function _createServerFunction(prisma: PrismaService) {
 }
 
 async function _createPlugin(prisma: PrismaService) {
-  const environment = await _createTestEnvironment(prisma)
+  const environment = await _createTestEnvironment(prisma);
   const defaults = {
     name: 'Mass Effect',
     iconUrl: 'http://example.com/image.png',
@@ -290,7 +290,7 @@ describe('GptPluginService', () => {
         functionIds: ['bad'],
       };
 
-      const environment = await _createTestEnvironment(prisma)
+      const environment = await _createTestEnvironment(prisma);
       try {
         await service.createOrUpdatePlugin(environment, body);
         expect(0).toBe(1); // force error here if no error thrown

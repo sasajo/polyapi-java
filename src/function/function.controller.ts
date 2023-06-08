@@ -22,7 +22,7 @@ import {
   ExecuteApiFunctionDto, ExecuteApiFunctionQueryParams,
   ExecuteCustomFunctionDto, ExecuteCustomFunctionQueryParams,
   FunctionBasicDto,
-  FunctionDetailsDto, GetSpecsDto,
+  FunctionDetailsDto,
   Permission,
   Role,
   UpdateApiFunctionDto,
@@ -332,7 +332,10 @@ export class FunctionController {
   @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
   @Post('/server/all/update')
   async updateAllServerFunctions(@Req() req: AuthRequest) {
-    void this.service.updateAllServerFunctions(req.user.environment, req.user.key);
+    this.service.updateAllServerFunctions(req.user.environment, req.user.key)
+      .then(() => {
+        this.logger.debug('All functions are being updated in background.');
+      });
     return 'Functions are being updated in background. Please check logs for more details.';
   }
 }

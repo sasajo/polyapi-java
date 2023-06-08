@@ -76,7 +76,7 @@ export class TenantService implements OnModuleInit {
             teamMembers: {
               include: {
                 user: true,
-              }
+              },
             },
           },
         },

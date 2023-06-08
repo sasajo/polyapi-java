@@ -164,15 +164,15 @@ async function _customFunctionMap(f: CustomFunction, functionService: FunctionSe
 function _getProperties(props: PropertySpecification[]) {
   const rv: object = {};
   for (const prop of props) {
-    const type = _getOpenApiType(prop.type)
+    const type = _getOpenApiType(prop.type);
     const name = prop.name;
     rv[name] = { type };
-    if (type === "object") {
+    if (type === 'object') {
       // @ts-expect-error: we know from previous line this is object!
-      const properties: PropertySpecification[] = prop.type.properties
+      const properties: PropertySpecification[] = prop.type.properties;
       if (properties && properties.length > 0) {
-        rv[name].properties = _getProperties(properties)
-        rv[name].required = _getArgumentsRequired(properties)
+        rv[name].properties = _getProperties(properties);
+        rv[name].required = _getArgumentsRequired(properties);
       }
     }
   }
@@ -243,7 +243,7 @@ export class GptPluginService {
     const responseSchemas = await Promise.all(functions.map((f) => _getResponseSchema(f)));
 
     const template = handlebars.compile(this.loadTemplate());
-    return template({ plugin: plugin, hostname, functions, bodySchemas, responseSchemas });
+    return template({ plugin, hostname, functions, bodySchemas, responseSchemas });
   }
 
   getBodySchema = (f: PluginFunction): object | null => {
@@ -253,7 +253,7 @@ export class GptPluginService {
     const schema = {
       type: 'object',
       properties: _getProperties(f.function.arguments),
-      required: _getArgumentsRequired(f.function.arguments)
+      required: _getArgumentsRequired(f.function.arguments),
     };
     return {
       name: `${f.operationId}Body`,
@@ -272,9 +272,9 @@ export class GptPluginService {
     body.slug = body.slug.toLowerCase();
 
     // permission check
-    const plugin = await this.prisma.gptPlugin.findUnique({where: {slug: body.slug}})
-    if (plugin && plugin.environmentId != environment.id) {
-      throw new Error("Plugin is in different environment, cannot access with this key")
+    const plugin = await this.prisma.gptPlugin.findUnique({ where: { slug: body.slug } });
+    if (plugin && plugin.environmentId !== environment.id) {
+      throw new Error('Plugin is in different environment, cannot access with this key');
     }
 
     // function check
@@ -342,7 +342,7 @@ export class GptPluginService {
     let iconUrl = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
     if (slug === 'staging') {
       name = 'Poly API Staging';
-    } else if (slug == 'develop') {
+    } else if (slug === 'develop') {
       name = 'Poly API Develop';
     } else {
       const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug } });

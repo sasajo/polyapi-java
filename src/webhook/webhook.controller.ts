@@ -130,7 +130,7 @@ export class WebhookController {
       context,
       name,
       payload,
-      ''
+      '',
     );
     return this.webhookService.toDto(webhookHandle);
   }

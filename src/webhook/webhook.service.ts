@@ -28,7 +28,6 @@ export class WebhookService {
   ) {}
 
   private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
-
     const createData = {
       data: {
         createdAt: new Date(),
@@ -46,26 +45,26 @@ export class WebhookService {
   private getWebhookFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
-          return {
-            OR: [
-              {
-                context: { startsWith: `${context}.` },
-              },
-              {
-                context,
-              },
-            ],
-          };
-        })
+        return {
+          OR: [
+            {
+              context: { startsWith: `${context}.` },
+            },
+            {
+              context,
+            },
+          ],
+        };
+      })
       : [];
 
     const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
 
     const filterConditions = [
       {
-        OR: contextConditions
+        OR: contextConditions,
       },
-      names?.length ? { name: { in: names } } : undefined
+      names?.length ? { name: { in: names } } : undefined,
     ].filter(Boolean) as any[];
 
     if (filterConditions.length > 0) {
@@ -92,11 +91,11 @@ export class WebhookService {
             OR: [
               { environmentId },
               includePublic ? { visibility: Visibility.Public } : {},
-            ]
+            ],
           },
           {
-           OR: this.getWebhookFilterConditions(contexts, names, ids)
-          }
+            OR: this.getWebhookFilterConditions(contexts, names, ids),
+          },
         ],
       },
       orderBy: {
@@ -134,11 +133,13 @@ export class WebhookService {
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
-      where: context === null ? { name } : {
-        name,
-        context,
-        environmentId,
-      },
+      where: context === null
+        ? { name }
+        : {
+            name,
+            context,
+            environmentId,
+          },
     });
 
     name = this.normalizeName(name, webhookHandle);

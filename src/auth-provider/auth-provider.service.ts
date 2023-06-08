@@ -8,7 +8,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { AuthProvider, AuthToken, User } from '@prisma/client';
+import { AuthProvider, AuthToken } from '@prisma/client';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
@@ -63,7 +63,7 @@ export class AuthProviderService {
           OR: contextConditions,
         },
       },
-  });
+    });
   }
 
   async getAuthProvider(id: string): Promise<AuthProvider | null> {
@@ -283,7 +283,7 @@ export class AuthProviderService {
           url: authProvider.tokenUrl,
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: {
@@ -442,13 +442,13 @@ export class AuthProviderService {
       throw new BadRequestException(`No auth token found for auth function ${authProvider.id}`);
     }
 
-    const { access_token } = await lastValueFrom(
+    const { access_token: accessToken } = await lastValueFrom(
       await this.httpService
         .request({
           url: authProvider.tokenUrl,
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: {
@@ -478,11 +478,11 @@ export class AuthProviderService {
         id: authToken.id,
       },
       data: {
-        accessToken: access_token,
+        accessToken,
       },
     });
 
-    return access_token;
+    return accessToken;
   }
 
   async toAuthFunctionSpecifications(authProvider: AuthProvider): Promise<AuthFunctionSpecification[]> {

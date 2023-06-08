@@ -62,7 +62,6 @@ export const mockedAuthData: AuthData = {
  * Get mocked `PolyApiKeyGuard`.
  */
 export function getMockedPolyKeyGuard(user: AuthData = mockedAuthData): TypedMock<PolyKeyGuard> {
-
   return {
     async canActivate(context: ExecutionContext): Promise<any> {
       context.switchToHttp().getRequest().user = user;
@@ -74,6 +73,6 @@ export function getMockedPolyKeyGuard(user: AuthData = mockedAuthData): TypedMoc
 /**
  * Get typed mock using `jest.fn`.
  */
-export function getFnMock<T extends (...args: any) => any>() {
+export function getFnMock<T extends(...args: any) => any>() {
   return jest.fn<ReturnType<T>, Parameters<T>>();
 }

@@ -30,7 +30,7 @@ export class GptPluginController {
   public async pluginGet(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
     const plugin = await this.service.getPlugin(slug);
     return {
-      plugin: plugin,
+      plugin,
       plugin_url: `https://${plugin.slug}.${req.hostname}`,
     };
   }
@@ -40,7 +40,7 @@ export class GptPluginController {
   public async pluginCreateOrUpdate(@Req() req: AuthRequest, @Body() body: CreatePluginDto): Promise<unknown> {
     const plugin = await this.service.createOrUpdatePlugin(req.user.environment, body);
     return {
-      plugin: plugin,
+      plugin,
       plugin_url: `https://${plugin.slug}.${req.hostname}`,
     };
   }

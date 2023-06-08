@@ -47,7 +47,6 @@ import { AuthService } from 'auth/auth.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { ApplicationService } from 'application/application.service';
-import { ApiImplicitQuery } from '@nestjs/swagger/dist/decorators/api-implicit-query.decorator';
 
 @ApiSecurity('X-PolyApiKey')
 @Controller('tenants')

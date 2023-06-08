@@ -5,7 +5,6 @@ import { ApiKey, Application, Environment, Tenant, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import crypto from 'crypto';
 import _ from 'lodash';
-import { application } from 'express';
 
 type ApiKeyWithUser = ApiKey & { user: User | null };
 
@@ -63,10 +62,10 @@ export class AuthService {
         user: includeUser,
         environment: includeEnvironment
           ? {
-            include: {
-              tenant: true,
-            },
-          }
+              include: {
+                tenant: true,
+              },
+            }
           : false,
       },
     });
@@ -143,9 +142,9 @@ export class AuthService {
 
     return Object.values(Permission)
       .reduce((acc, permission) => ({
-          ...acc,
-          [permission]: isAdmin || permissions[permission] === true,
-        }), {} as Permissions,
+        ...acc,
+        [permission]: isAdmin || permissions[permission] === true,
+      }), {} as Permissions,
       );
   }
 

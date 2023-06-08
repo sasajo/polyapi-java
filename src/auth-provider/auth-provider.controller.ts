@@ -89,7 +89,7 @@ export class AuthProviderController {
       introspectUrl,
       audienceRequired,
       refreshEnabled,
-      visibility
+      visibility,
     } = data;
 
     const authProvider = await this.service.getAuthProvider(id);
