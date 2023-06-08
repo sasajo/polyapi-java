@@ -95,7 +95,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids) 
+            OR: this.getFunctionFilterConditions(contexts, names, ids)
           }
         ]
       },
@@ -386,7 +386,7 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientID: string): Promise<ApiFunctionResponseDto | null> {
+  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientId: string | null = null): Promise<ApiFunctionResponseDto | null> {
     this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const argumentsMap = this.getArgumentsMap(apiFunction, args);
@@ -453,7 +453,7 @@ export class FunctionService implements OnModuleInit {
             this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
 
             const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
-            if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
+            if (this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error))) {
               return of(null);
             }
 
@@ -529,7 +529,7 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {    
+  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
     return this.prisma.customFunction.findMany({
       where: {
         AND: [
@@ -758,7 +758,7 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientID: string) {
+  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientId: string | null = null) {
     this.logger.debug(`Executing server function ${customFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
@@ -773,7 +773,7 @@ export class FunctionService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Error executing server function ${customFunction.id}: ${error.message}`);
       const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
-      if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
+      if (this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error))) {
         return;
       }
 

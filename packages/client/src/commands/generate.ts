@@ -61,7 +61,7 @@ const generateJSFiles = async (specs: Specification[]) => {
   await generateAxiosJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
-  await generateWebhookHandlesJSFiles(webhookHandles);
+  await generateWebhooksJSFiles(webhookHandles);
   await generateAuthFunctionJSFiles(authFunctions);
   await generateServerFunctionJSFiles(serverFunctions);
 };
@@ -122,8 +122,8 @@ const generateCustomFunctionJSFiles = async (specifications: CustomFunctionSpeci
   });
 };
 
-const generateWebhookHandlesJSFiles = async (specifications: WebhookHandleSpecification[]) => {
-  const template = handlebars.compile(await loadTemplate('webhook-handles-index.js.hbs'));
+const generateWebhooksJSFiles = async (specifications: WebhookHandleSpecification[]) => {
+  const template = handlebars.compile(await loadTemplate('webhooks-index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/webhooks/index.js`,
     template({

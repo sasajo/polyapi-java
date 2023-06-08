@@ -8,7 +8,7 @@ import {
   NotFoundException,
   Param,
   Patch,
-  Post,
+  Post, Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -19,10 +19,10 @@ import {
   ApiFunctionResponseDto,
   CreateApiFunctionDto,
   CreateCustomFunctionDto,
-  ExecuteApiFunctionDto,
-  ExecuteCustomFunctionDto,
+  ExecuteApiFunctionDto, ExecuteApiFunctionQueryParams,
+  ExecuteCustomFunctionDto, ExecuteCustomFunctionQueryParams,
   FunctionBasicDto,
-  FunctionDetailsDto,
+  FunctionDetailsDto, GetSpecsDto,
   Permission,
   Role,
   UpdateApiFunctionDto,
@@ -95,7 +95,7 @@ export class FunctionController {
         templateUrl,
         templateBody,
         templateAuth,
-      )
+      ),
     );
   }
 
@@ -137,7 +137,12 @@ export class FunctionController {
 
   // @UseGuards(PolyKeyGuard)
   @Post('/api/:id/execute')
-  async executeApiFunction(@Req() req, @Param('id') id: string, @Body() data: ExecuteApiFunctionDto): Promise<ApiFunctionResponseDto | null> {
+  async executeApiFunction(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() data: ExecuteApiFunctionDto,
+    @Query() { clientId }: ExecuteApiFunctionQueryParams,
+  ): Promise<ApiFunctionResponseDto | null> {
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
@@ -146,7 +151,7 @@ export class FunctionController {
     // TODO: temporarily disabled for GPT plugin purposes
     // await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, Permission.Use);
 
-    return await this.service.executeApiFunction(apiFunction, data.args, data.clientID);
+    return await this.service.executeApiFunction(apiFunction, data, clientId);
   }
 
   @UseGuards(PolyKeyGuard)
@@ -178,7 +183,7 @@ export class FunctionController {
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, description, code, false, req.user.key)
+        await this.service.createCustomFunction(req.user.environment, context, name, description, code, false, req.user.key),
       );
     } catch (e) {
       throw new BadRequestException(e.message);
@@ -248,7 +253,7 @@ export class FunctionController {
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, description, code, true, req.user.key)
+        await this.service.createCustomFunction(req.user.environment, context, name, description, code, true, req.user.key),
       );
     } catch (e) {
       throw new BadRequestException(e.message);
@@ -304,7 +309,12 @@ export class FunctionController {
 
   // @UseGuards(PolyKeyGuard)
   @Post('/server/:id/execute')
-  async executeServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: ExecuteCustomFunctionDto): Promise<any> {
+  async executeServerFunction(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() data: ExecuteCustomFunctionDto,
+    @Query() { clientId }: ExecuteCustomFunctionQueryParams,
+  ): Promise<any> {
     const customFunction = await this.service.findServerFunction(id);
     if (!customFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
@@ -316,7 +326,7 @@ export class FunctionController {
     // TODO: temporarily disabled for GPT plugin purposes
     // await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
 
-    return await this.service.executeServerFunction(customFunction, req.user.environment, data.args, data.clientID);
+    return await this.service.executeServerFunction(customFunction, req.user.environment, data, clientId);
   }
 
   @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))

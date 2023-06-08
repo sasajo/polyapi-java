@@ -252,15 +252,8 @@ export class GptPluginService {
     }
     const schema = {
       type: 'object',
-      properties: {
-        args: {
-          type: 'object',
-          properties: _getProperties(f.function.arguments),
-          required: _getArgumentsRequired(f.function.arguments)
-        },
-      },
-      required: ['args'],
-      description: 'arguments',
+      properties: _getProperties(f.function.arguments),
+      required: _getArgumentsRequired(f.function.arguments)
     };
     return {
       name: `${f.operationId}Body`,
