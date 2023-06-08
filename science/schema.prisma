@@ -25,7 +25,7 @@ model User {
   id                   String                @id @default(uuid())
   createdAt            DateTime              @default(now()) @map("created_at")
   name                 String
-  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId             String                @map("tenant_id")
   role                 String                @default("USER")
   vip                  Boolean               @default(false) // is this person a VIP we want to track carefully?
@@ -40,7 +40,7 @@ model Team {
   id          String       @id @default(uuid())
   createdAt   DateTime     @default(now()) @map("created_at")
   name        String
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId    String       @map("tenant_id")
   teamMembers TeamMember[]
 
@@ -50,9 +50,9 @@ model Team {
 model TeamMember {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now()) @map("created_at")
-  team      Team     @relation(fields: [teamId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   teamId    String   @map("team_id")
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
 
   @@map("team_member")
@@ -62,7 +62,7 @@ model Environment {
   id              String           @id @default(uuid())
   createdAt       DateTime         @default(now()) @map("created_at")
   name            String
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId        String           @map("tenant_id")
   subdomain       String           @unique
   apiFunctions    ApiFunction[]
@@ -79,7 +79,7 @@ model Environment {
 model Application {
   id          String   @id @default(uuid())
   createdAt   DateTime @default(now()) @map("created_at")
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId    String   @map("tenant_id")
   name        String
   description String   @default("")
@@ -92,13 +92,13 @@ model ApiKey {
   id            String       @id @default(uuid())
   createdAt     DateTime     @default(now()) @map("created_at")
   name          String
-  environment   Environment  @relation(fields: [environmentId], references: [id])
+  environment   Environment  @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String       @map("environment_id")
   key           String       @unique
   permissions   String       @default("{}")
-  application   Application? @relation(fields: [applicationId], references: [id])
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   applicationId String?      @map("application_id")
-  user          User?        @relation(fields: [userId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String?      @map("user_id")
 
   @@map("api_key")
@@ -107,7 +107,7 @@ model ApiKey {
 model ApiFunction {
   id                String      @id @default(uuid())
   createdAt         DateTime    @default(now()) @map("created_at")
-  environment       Environment @relation(fields: [environmentId], references: [id])
+  environment       Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId     String      @map("environment_id")
   name              String
   context           String
@@ -129,7 +129,7 @@ model ApiFunction {
 model CustomFunction {
   id            String      @id @default(uuid())
   createdAt     DateTime    @default(now()) @map("created_at")
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
   name          String
   context       String
@@ -148,7 +148,7 @@ model CustomFunction {
 model AuthProvider {
   id               String      @id @default(uuid())
   createdAt        DateTime    @default(now()) @map("created_at")
-  environment      Environment @relation(fields: [environmentId], references: [id])
+  environment      Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId    String      @map("environment_id")
   name             String?
   context          String
@@ -168,7 +168,7 @@ model AuthProvider {
 model WebhookHandle {
   id            String      @id @default(uuid())
   createdAt     DateTime    @default(now()) @map("created_at")
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
   context       String
   name          String
@@ -183,7 +183,7 @@ model WebhookHandle {
 model ConversationMessage {
   id        String            @id @default(uuid())
   createdAt DateTime          @default(now())
-  user      User              @relation(fields: [userId], references: [id])
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String            @map("user_id")
   name      String            @default("") // not used for now. in future, will allow the user to have multiple conversations
   role      String // assistant or user
@@ -196,7 +196,7 @@ model ConversationMessage {
 
 model FunctionDefined {
   id         Int                 @id @default(autoincrement())
-  message    ConversationMessage @relation(fields: [messageId], references: [id])
+  message    ConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   messageId  String              @map("message_id")
   functionId String              @map("function_id") // could be a relation but isn't currently
 
@@ -205,7 +205,7 @@ model FunctionDefined {
 
 model WebhookDefined {
   id        Int                 @id @default(autoincrement())
-  message   ConversationMessage @relation(fields: [messageId], references: [id])
+  message   ConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   messageId String              @map("message_id")
   webhookId String              @map("webhook_id") // could be a relation but isn't currently
 
@@ -216,7 +216,7 @@ model WebhookDefined {
 model SystemPrompt {
   id            String      @id @default(uuid())
   createdAt     DateTime    @default(now())
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
   content       String
 
@@ -226,7 +226,7 @@ model SystemPrompt {
 model AuthToken {
   id             String       @id @default(uuid())
   createdAt      DateTime     @default(now()) @map("created_at")
-  authProvider   AuthProvider @relation(fields: [authProviderId], references: [id])
+  authProvider   AuthProvider @relation(fields: [authProviderId], references: [id], onDelete: Cascade)
   authProviderId String       @map("auth_provider_id")
   clientId       String       @map("client_id")
   clientSecret   String       @map("client_secret")
@@ -258,7 +258,7 @@ model GptPlugin {
   descriptionForModel       String @default("") @map("description_for_model")
   iconUrl                   String @map("icon_url")
   functionIds               String // json array of function publicIds for now
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
 
   @@map("gpt_plugin")
