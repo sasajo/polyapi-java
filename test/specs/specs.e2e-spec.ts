@@ -4,8 +4,8 @@ import { Test } from '@nestjs/testing';
 import { SpecsService } from 'specs/specs.service';
 import { Specification } from '@poly/common';
 import { SpecsModule } from 'specs/specs.module';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
-import { getMockedPolyKeyGuard, mockedAuthData, TypedMock } from '../utils/test-utils';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
+import { getMockedPolyAuthGuard, mockedAuthData, TypedMock } from '../utils/test-utils';
 
 describe('SpecsController (e2e)', () => {
   let app: INestApplication;
@@ -17,7 +17,7 @@ describe('SpecsController (e2e)', () => {
       imports: [SpecsModule],
     }).overrideProvider(SpecsService).useValue({
       getSpecifications,
-    } as TypedMock<SpecsService>).overrideGuard(PolyKeyGuard).useValue(getMockedPolyKeyGuard())
+    } as TypedMock<SpecsService>).overrideGuard(PolyAuthGuard).useValue(getMockedPolyAuthGuard())
       .compile();
 
     app = moduleRef.createNestApplication();
