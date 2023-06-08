@@ -1,11 +1,11 @@
 import copy
 from typing import List
 from mock import Mock, patch
+from app.utils import create_new_conversation
 from load_fixtures import test_environment_get_or_create, test_user_get_or_create
 from app.completion import (
     _id_extraction_fallback,
     get_best_function_example,
-    get_conversations_for_user,
     get_function_options_prompt,
     get_best_function_messages,
     _extract_ids_from_completion,
@@ -175,21 +175,6 @@ class T(DbTestCase):
         self.user = test_user_get_or_create()
         self.environment = test_environment_get_or_create()
 
-    def test_get_conversations_for_user(self) -> None:
-        user = test_user_get_or_create()
-        self.db.functiondefined.delete_many()
-        self.db.webhookdefined.delete_many()
-        self.db.conversationmessage.delete_many(where={"userId": user.id})
-
-        messages = get_conversations_for_user(user.id)
-        self.assertEqual(messages, [])
-
-        msg = self.db.conversationmessage.create(
-            data={"userId": user.id, "content": "first", "role": "user"}
-        )
-        messages = get_conversations_for_user(user.id)
-        self.assertEqual(messages, [msg])
-
     @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
     @patch("app.completion.query_node_server")
     def test_library_message_no_keywords(self, query_node_server: Mock) -> None:
@@ -256,11 +241,13 @@ class T(DbTestCase):
     @patch("app.utils.query_node_server")
     @patch("app.completion.get_chat_completion")
     def test_get_best_function_example(self, get_chat_completion, query_node_server):
+        conversation = create_new_conversation(self.user.id)
         get_chat_completion.return_value = {"choices": [{"message": {"role": "assistant", "content": "foobar"}}]}
         query_node_server.return_value = Mock(status_code=200, json=get_functions)
 
         result = get_best_function_example(
             self.user.id,
+            conversation.id,
             self.environment.id,
             ["f7588018-2364-4586-b60d-b08a285f1ea3"],
             "how do I check flight?",

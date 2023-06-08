@@ -1,4 +1,4 @@
-import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException } from '@nestjs/common';
+import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException, Param, Get, Header } from '@nestjs/common';
 import {
   SendQuestionDto,
   SendQuestionResponseDto,
@@ -27,8 +27,7 @@ export class ChatController {
     private readonly aiService: AiService,
     private readonly userService: UserService,
     private readonly authService: AuthService,
-  ) {
-  }
+  ) {}
 
   @UseGuards(PolyAuthGuard)
   @Post('/question')
@@ -72,7 +71,10 @@ export class ChatController {
 
   @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
   @Post('/system-prompt')
-  async teachSystemPrompt(@Req() req: AuthRequest, @Body() body: TeachSystemPromptDto): Promise<TeachSystemPromptResponseDto> {
+  async teachSystemPrompt(
+    @Req() req: AuthRequest,
+    @Body() body: TeachSystemPromptDto,
+  ): Promise<TeachSystemPromptResponseDto> {
     const environmentId = req.user.environment.id;
     const userId = req.user.user?.id || (await this.userService.findAdminUserByEnvironmentId(environmentId))?.id;
 
@@ -82,5 +84,27 @@ export class ChatController {
 
     await this.aiService.setSystemPrompt(environmentId, userId, body.prompt);
     return { response: 'Conversation cleared and new system prompt set!' };
+  }
+
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Get('/conversations/:userId')
+  public async conversationsList(
+    @Req() req: AuthRequest,
+    @Param('userId') userId: string,
+  ) {
+    const conversationIds = await this.service.getConversationIds(userId);
+    return { conversationIds };
+  }
+
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Header('content-type', 'text/plain')
+  @Get('/conversations/:userId/:conversationId')
+  public async conversationsDetail(
+    @Req() req: AuthRequest,
+    @Param('userId') userId: string,
+    @Param('conversationId') conversationId: string,
+  ) {
+    const conversation = await this.service.getConversationDetail(userId, conversationId);
+    return conversation;
   }
 }
