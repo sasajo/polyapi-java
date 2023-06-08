@@ -161,7 +161,7 @@ export class FunctionService implements OnModuleInit {
     const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
 
     if (id === null) {
-      const urlObject = new URL(templateUrl);
+      const templateBaseUrl = templateUrl.split('?')[0];
 
       const apiFunctions = await this.prisma.apiFunction.findMany({
         where: {
@@ -169,7 +169,7 @@ export class FunctionService implements OnModuleInit {
           OR: [
             {
               url: {
-                startsWith: `${urlObject.origin}${urlObject.pathname}?`,
+                startsWith: `${templateBaseUrl}?`,
               },
             },
             {
