@@ -11,13 +11,13 @@ import {
 } from '@poly/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { ChatService } from 'chat/chat.service';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AiService } from 'ai/ai.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { AuthService } from 'auth/auth.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
@@ -30,7 +30,7 @@ export class ChatController {
   ) {
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/question')
   public async sendQuestion(@Req() req: AuthRequest, @Body() body: SendQuestionDto): Promise<SendQuestionResponseDto> {
     const environmentId = req.user.environment.id;
@@ -48,7 +48,7 @@ export class ChatController {
     };
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/command')
   public async sendCommand(@Req() req: AuthRequest, @Body() body: SendCommandDto) {
     const environmentId = req.user.environment.id;
@@ -63,14 +63,14 @@ export class ChatController {
     await this.service.processCommand(environmentId, userId, body.command);
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('/ai-configuration')
   async aiConfiguration(@Req() req: AuthRequest, @Body() body: SendConfigureDto): Promise<string> {
     await this.aiService.configure(body.name, body.value);
     return 'chirp';
   }
 
-  @UseGuards(new PolyKeyGuard([Role.Admin, Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
   @Post('/system-prompt')
   async teachSystemPrompt(@Req() req: AuthRequest, @Body() body: TeachSystemPromptDto): Promise<TeachSystemPromptResponseDto> {
     const environmentId = req.user.environment.id;

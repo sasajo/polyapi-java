@@ -1,6 +1,6 @@
 import { Controller, Get, Logger, Query, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { SpecsService } from 'specs/specs.service';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { GetSpecsDto, Permission } from '@poly/common';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
@@ -12,7 +12,7 @@ export class SpecsController {
   constructor(private readonly service: SpecsService, private readonly authService: AuthService) {
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get()
   @UsePipes(new ValidationPipe({ transform: true }))
   async getSpecifications(@Req() req: AuthRequest, @Query() { contexts, names, ids }: GetSpecsDto) {

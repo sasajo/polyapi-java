@@ -1,7 +1,7 @@
 const postmanCollection = require('postman-collection');
 
 const polyData = pm.environment.get('polyData');
-const apiKey = pm.environment.get('X-PolyApiKey');
+const apiKey = pm.environment.get('polyApiKey');
 const { method, description, url, body } = pm.request;
 
 const templateBody = new postmanCollection.RequestBody(pm.environment.get('templateBody'));
@@ -32,7 +32,7 @@ const postRequest = {
   method: 'POST',
   header: {
     'Content-Type': 'application/json',
-    'X-PolyApiKey': apiKey,
+    'Authorization': `Bearer ${apiKey}`,
   },
   body: {
     mode: 'raw',

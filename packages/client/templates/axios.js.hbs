@@ -12,7 +12,7 @@ const nodeEnv = process.env.NODE_ENV;
 
 const axios = Axios.create({
   baseURL: '{{apiBaseUrl}}',
-  headers: { 'X-PolyApiKey': '{{apiKey}}' },
+ headers: { 'Authorization': 'Bearer {{apiKey}}' },
   httpAgent: httpProxy
     ? new HttpProxyAgent(httpProxy)
     : undefined,

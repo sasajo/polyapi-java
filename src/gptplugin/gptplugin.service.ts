@@ -11,6 +11,10 @@ import { ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/cli
 import { Request } from 'express';
 
 const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
+// for testing locally
+// what is the slug you chose for your pagekite?
+// see pagekite.me
+const LOCALHOST_PAGEKITE = 'megatronical';
 
 type AnyFunction = ApiFunction | CustomFunction;
 
@@ -188,8 +192,7 @@ export class GptPluginService {
     // TODO use with updatePlugin endpoint?
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
-  ) {
-  }
+  ) {}
 
   async _getAllFunctions(environmentId: string, ids: string[]): Promise<PluginFunction[]> {
     // TODO lets filter these down to just supported functions?
@@ -209,8 +212,10 @@ export class GptPluginService {
   getOpenApiUrl(host: string, slug: string): string {
     const protocol = host === 'localhost' ? 'http' : 'https';
     if (slug === 'develop' || slug === 'staging') {
-      // HACK for now staging/develop just use hardcoded manifests
+      // HACK for now staging/develop/local just use hardcoded manifests
       return `${protocol}://${host}/openapi-${slug}.yaml`;
+    } else if (slug === LOCALHOST_PAGEKITE) {
+      return `${protocol}://${LOCALHOST_PAGEKITE}.pagekite.me/openapi-localhost.yaml`;
     } else {
       return `${protocol}://${host}/plugins/${slug}/openapi`;
     }
@@ -340,10 +345,16 @@ export class GptPluginService {
     let descMarket = '';
     let descModel = '';
     let iconUrl = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
+    const auth = {
+      type: 'user_http',
+      authorization_type: 'bearer',
+    };
     if (slug === 'staging') {
       name = 'Poly API Staging';
     } else if (slug === 'develop') {
       name = 'Poly API Develop';
+    } else if (slug === LOCALHOST_PAGEKITE) {
+      name = 'Poly API Local';
     } else {
       const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug } });
       name = plugin.name;
@@ -358,9 +369,7 @@ export class GptPluginService {
       name_for_model: lodash.snakeCase(name),
       description_for_human: descMarket || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
       description_for_model: descModel || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
-      auth: {
-        type: 'none',
-      },
+      auth,
       api: {
         type: 'openapi',
         url: this.getOpenApiUrl(host, slug),

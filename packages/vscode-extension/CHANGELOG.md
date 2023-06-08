@@ -1,3 +1,6 @@
+### 0.1.25
+* Updated Authorization
+
 ### 0.1.24
 * Set textarea disabled when sending a question through chat.
 

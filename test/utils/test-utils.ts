@@ -1,5 +1,5 @@
 import { ExecutionContext } from '@nestjs/common';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 
 import { Role } from '@poly/common';
 import { AuthData } from 'common/types';
@@ -59,9 +59,9 @@ export const mockedAuthData: AuthData = {
 };
 
 /**
- * Get mocked `PolyApiKeyGuard`.
+ * Get mocked `PolyAuthGuard`.
  */
-export function getMockedPolyKeyGuard(user: AuthData = mockedAuthData): TypedMock<PolyKeyGuard> {
+export function getMockedPolyAuthGuard(user: AuthData = mockedAuthData): TypedMock<PolyAuthGuard> {
   return {
     async canActivate(context: ExecutionContext): Promise<any> {
       context.switchToHttp().getRequest().user = user;

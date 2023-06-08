@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import {
   ApiFunctionResponseDto,
   CreateApiFunctionDto,
@@ -31,7 +31,7 @@ import {
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller('functions')
 export class FunctionController {
   private logger: Logger = new Logger(FunctionController.name);
@@ -39,14 +39,14 @@ export class FunctionController {
   constructor(private readonly service: FunctionService, private readonly authService: AuthService) {
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('/api')
   async getApiFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
     const apiFunctions = await this.service.getApiFunctions(req.user.environment.id);
     return apiFunctions.map((apiFunction) => this.service.apiFunctionToBasicDto(apiFunction));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/api')
   async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<FunctionBasicDto> {
     const {
@@ -99,7 +99,7 @@ export class FunctionController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('/api/:id')
   async getApiFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
     const apiFunction = await this.service.findApiFunction(id);
@@ -112,7 +112,7 @@ export class FunctionController {
     return this.service.apiFunctionToDetailsDto(apiFunction);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch('/api/:id')
   async updateApiFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateApiFunctionDto): Promise<any> {
     const {
@@ -135,7 +135,7 @@ export class FunctionController {
     );
   }
 
-  // @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/api/:id/execute')
   async executeApiFunction(
     @Req() req: AuthRequest,
@@ -148,13 +148,12 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
-    // TODO: temporarily disabled for GPT plugin purposes
-    // await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, Permission.Use);
 
     return await this.service.executeApiFunction(apiFunction, data, clientId);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete('/api/:id')
   async deleteApiFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<any> {
     const apiFunction = await this.service.findApiFunction(id);
@@ -166,7 +165,7 @@ export class FunctionController {
     await this.service.deleteApiFunction(id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('/client')
   async getClientFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
     const functions = await this.service.getClientFunctions(req.user.environment.id);
@@ -174,7 +173,7 @@ export class FunctionController {
       .map((clientFunction) => this.service.customFunctionToBasicDto(clientFunction));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/client')
   async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const { context = '', name, description = '', code } = data;
@@ -190,7 +189,7 @@ export class FunctionController {
     }
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('/client/:id')
   async getClientFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
     const clientFunction = await this.service.findClientFunction(id);
@@ -203,7 +202,7 @@ export class FunctionController {
     return this.service.customFunctionToDetailsDto(clientFunction);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch('/client/:id')
   async updateClientFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const {
@@ -223,7 +222,7 @@ export class FunctionController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete('/client/:id')
   async deleteClientFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<any> {
     const clientFunction = await this.service.findClientFunction(id);
@@ -236,7 +235,7 @@ export class FunctionController {
     await this.service.deleteCustomFunction(id, req.user.environment);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('/server')
   async getServerFunctions(@Req() req: AuthRequest): Promise<FunctionBasicDto[]> {
     const customFunctions = await this.service.getServerFunctions(req.user.environment.id);
@@ -244,7 +243,7 @@ export class FunctionController {
       .map((serverFunction) => this.service.customFunctionToBasicDto(serverFunction));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/server')
   async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const { context = '', name, description = '', code } = data;
@@ -260,7 +259,7 @@ export class FunctionController {
     }
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('/server/:id')
   async getServerFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
     const serverFunction = await this.service.findServerFunction(id);
@@ -273,7 +272,7 @@ export class FunctionController {
     return this.service.customFunctionToDetailsDto(serverFunction);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch('/server/:id')
   async updateServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const {
@@ -294,7 +293,7 @@ export class FunctionController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete('/server/:id')
   async deleteServerFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<any> {
     const serverFunction = await this.service.findServerFunction(id);
@@ -307,7 +306,7 @@ export class FunctionController {
     await this.service.deleteCustomFunction(id, req.user.environment);
   }
 
-  // @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/server/:id/execute')
   async executeServerFunction(
     @Req() req: AuthRequest,
@@ -323,13 +322,12 @@ export class FunctionController {
       throw new BadRequestException(`Function with id ${id} is not server function.`);
     }
 
-    // TODO: temporarily disabled for GPT plugin purposes
-    // await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
 
     return await this.service.executeServerFunction(customFunction, req.user.environment, data, clientId);
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('/server/all/update')
   async updateAllServerFunctions(@Req() req: AuthRequest) {
     this.service.updateAllServerFunctions(req.user.environment, req.user.key)

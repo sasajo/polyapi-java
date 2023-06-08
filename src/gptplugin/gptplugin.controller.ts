@@ -2,11 +2,11 @@ import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nes
 import { ApiSecurity } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CreatePluginDto } from '@poly/common';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { GptPluginService } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller()
 export class GptPluginController {
   private readonly logger = new Logger(GptPluginController.name);
@@ -25,7 +25,7 @@ export class GptPluginController {
     return spec;
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('plugins/:slug')
   public async pluginGet(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
     const plugin = await this.service.getPlugin(slug);
@@ -35,7 +35,7 @@ export class GptPluginController {
     };
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('plugins')
   public async pluginCreateOrUpdate(@Req() req: AuthRequest, @Body() body: CreatePluginDto): Promise<unknown> {
     const plugin = await this.service.createOrUpdatePlugin(req.user.environment, body);

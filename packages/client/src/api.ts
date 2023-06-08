@@ -3,7 +3,6 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import https from 'https';
 import dotenv from 'dotenv';
-import { POLY_HEADER_API_KEY } from './constants';
 import { FunctionDetailsDto, Specification } from '@poly/common';
 
 dotenv.config();
@@ -30,7 +29,7 @@ export const getSpecs = async (contexts?: string[], names?: string[], ids?: stri
   return (
     await axios.get<Specification[]>(`${process.env.POLY_API_BASE_URL}/specs`, {
       headers: {
-        [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+        Authorization: `Bearer ${process.env.POLY_API_KEY || ''}`,
       },
       params: {
         contexts,
@@ -59,7 +58,7 @@ export const createServerFunction = async (
       {
         headers: {
           'Content-Type': 'application/json',
-          [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+          Authorization: `Bearer ${process.env.POLY_API_KEY || ''}`,
         },
       },
     )
@@ -84,7 +83,7 @@ export const createClientFunction = async (
       {
         headers: {
           'Content-Type': 'application/json',
-          [POLY_HEADER_API_KEY]: process.env.POLY_API_KEY || '',
+          Authorization: `Bearer ${process.env.POLY_API_KEY || ''}`,
         },
       },
     )

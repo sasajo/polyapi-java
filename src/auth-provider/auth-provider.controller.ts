@@ -25,11 +25,11 @@ import {
   Permission,
   UpdateAuthProviderDto,
 } from '@poly/common';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller('auth-providers')
 export class AuthProviderController {
   private readonly logger = new Logger(AuthProviderController.name);
@@ -37,14 +37,14 @@ export class AuthProviderController {
   constructor(private readonly service: AuthProviderService, private readonly authService: AuthService) {
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get()
   async getAuthProviders(@Req() req: AuthRequest) {
     return (await this.service.getAuthProviders(req.user.environment.id))
       .map(authProvider => this.service.toAuthProviderDto(authProvider));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id')
   async getAuthProvider(@Req() req: AuthRequest, @Param('id') id: string) {
     const authProvider = await this.service.getAuthProvider(id);
@@ -56,7 +56,7 @@ export class AuthProviderController {
     return this.service.toAuthProviderDto(authProvider);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post()
   async createAuthProvider(@Req() req: AuthRequest, @Body() data: CreateAuthProviderDto) {
     const {
@@ -77,7 +77,7 @@ export class AuthProviderController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch(':id')
   async updateAuthProvider(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateAuthProviderDto) {
     const {
@@ -104,7 +104,7 @@ export class AuthProviderController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id')
   async deleteAuthProvider(@Req() req: AuthRequest, @Param('id') id: string) {
     const authProvider = await this.service.getAuthProvider(id);
@@ -116,7 +116,7 @@ export class AuthProviderController {
     await this.service.deleteAuthProvider(authProvider);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/:id/execute')
   async executeAuthProvider(@Req() req: AuthRequest, @Param('id') id: string, @Body() executeAuthProvider: ExecuteAuthProviderDto): Promise<ExecuteAuthProviderResponseDto> {
     const authProvider = await this.service.getAuthProvider(id);
@@ -148,7 +148,7 @@ export class AuthProviderController {
     }
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/:id/revoke')
   async revokeToken(@Req() req: AuthRequest, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<void> {
     const authProvider = await this.service.getAuthProvider(id);
@@ -166,7 +166,7 @@ export class AuthProviderController {
     await this.service.revokeAuthToken(authProvider, token);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/:id/introspect')
   async introspectToken(@Req() req: AuthRequest, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<any> {
     const authProvider = await this.service.getAuthProvider(id);
@@ -184,7 +184,7 @@ export class AuthProviderController {
     return await this.service.introspectAuthToken(authProvider, token);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/:id/refresh')
   async refreshToken(@Req() req: AuthRequest, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<any> {
     const authProvider = await this.service.getAuthProvider(id);

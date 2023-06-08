@@ -12,7 +12,7 @@ const initSwagger = (app: INestApplication) => {
     .setTitle('Poly Server API')
     .setDescription('API description')
     .setVersion('1.0')
-    .addApiKey({ name: 'X-PolyApiKey', in: 'header', type: 'apiKey', description: 'API Key' }, 'X-PolyApiKey')
+    .addBearerAuth({ name: 'Authorization', in: 'header', type: 'http', description: 'API Key', scheme: 'bearer' }, 'PolyApiKey')
     .build();
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('swagger', app, document);

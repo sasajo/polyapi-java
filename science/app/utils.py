@@ -204,7 +204,7 @@ def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
 
     headers = {
         "Content-Type": "application/json",
-        "X-PolyApiKey": user_key.key,
+        "Authorization": f"Bearer {user_key.key}",
         "Accept": "application/poly.function-definition+json",
     }
     base = current_app.config["NODE_API_URL"]
