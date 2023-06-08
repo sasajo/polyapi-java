@@ -37,7 +37,7 @@ CREATE TABLE "new_conversation_message" (
     CONSTRAINT "conversation_message_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "conversation_message_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "Conversation" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_conversation_message" ("content", "createdAt", "id", "name", "role", "user_id") SELECT "content", "createdAt", "id", "name", "role", "user_id" FROM "conversation_message";
+-- INSERT INTO "new_conversation_message" ("content", "createdAt", "id", "name", "role", "user_id") SELECT "content", "createdAt", "id", "name", "role", "user_id" FROM "conversation_message";
 DROP TABLE "conversation_message";
 ALTER TABLE "new_conversation_message" RENAME TO "conversation_message";
 PRAGMA foreign_key_check;
