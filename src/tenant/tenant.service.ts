@@ -204,14 +204,12 @@ export class TenantService implements OnModuleInit {
   }
 
   async delete(tenant: Tenant) {
-
     try {
       return await this.prisma.tenant.delete({
         where: {
           id: tenant.id,
         },
       });
-
     } catch (e) {
       console.log('%c ERROR', 'background: yellow; color: black', JSON.stringify(e));
       if (e instanceof Prisma.PrismaClientKnownRequestError) {
