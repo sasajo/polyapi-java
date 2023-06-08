@@ -16,21 +16,13 @@ jobs:
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
       
     steps:
-    - uses: actions/checkout@v3
+    # - uses: actions/checkout@v3
     
-    - name: Build the Docker image
-      run: |
-        echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi-dev:latest -f docker/Dockerfile .
-        docker push ghcr.io/polyapi/polyapi-dev:latest
-
-    - name: Configure EKS context
-      run: |
-        aws s3 sync ./build s3://test-bucket
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: 'ap-south-1'
+    # - name: Build the Docker image
+    #   run: |
+    #     echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
+    #     docker build -t ghcr.io/polyapi/polyapi-dev:latest -f docker/Dockerfile .
+    #     docker push ghcr.io/polyapi/polyapi-dev:latest
 
     - uses: tale/kubectl-action@v1
       with:
