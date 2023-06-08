@@ -8,12 +8,12 @@
 */
 -- DropTable
 PRAGMA foreign_keys=off;
-DROP TABLE "function_defined" IF EXISTS;
+DROP TABLE IF EXISTS "function_defined";
 PRAGMA foreign_keys=on;
 
 -- DropTable
 PRAGMA foreign_keys=off;
-DROP TABLE "webhook_defined" IF EXISTS;
+DROP TABLE IF EXISTS "webhook_defined";
 PRAGMA foreign_keys=on;
 
 -- CreateTable
