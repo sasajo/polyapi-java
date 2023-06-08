@@ -35,7 +35,7 @@ jobs:
     - uses: tale/kubectl-action@v1
       with:
         base64-kube-config: ${{ secrets.KUBE_CONFIG }}
-    - RUN: kubectl get pods -n development
+    - run: kubectl get pods -n development
 
   staging:
     name: Staging docker build and push.
