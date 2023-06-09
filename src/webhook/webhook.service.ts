@@ -164,9 +164,9 @@ export class WebhookService {
           },
           data: {
             eventPayload: JSON.stringify(eventPayload),
-            context: context || aiResponse.context,
+            context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
             description: description || aiResponse.description,
-            name: name || aiResponse.name,
+            name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
           },
         });
       }
@@ -211,9 +211,9 @@ export class WebhookService {
               },
               data: {
                 eventPayload: JSON.stringify(eventPayload),
-                context: context || aiResponse.context,
+                context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
                 description: description || aiResponse.description,
-                name: name || aiResponse.name,
+                name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
               },
             });
           }
@@ -289,7 +289,7 @@ export class WebhookService {
     if (name == null) {
       name = webhookHandle?.name || '';
     }
-    return name.replace(/[^a-zA-Z0-9.]/g, '');
+    return toCamelCase(name);
   }
 
   private normalizeContext(context: string | null, webhookHandle: WebhookHandle | null = null) {
@@ -297,7 +297,7 @@ export class WebhookService {
       context = webhookHandle?.context || '';
     }
 
-    return context.replace(/[^a-zA-Z0-9.]/g, '');
+    return context.trim();
   }
 
   private normalizeDescription(description: string | null, webhookHandle?: WebhookHandle) {

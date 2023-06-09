@@ -1,14 +1,16 @@
 import { IsNotEmpty, IsOptional, IsString, Validate } from 'class-validator';
-import { NotContainDots } from '../validators';
+import { ContextIdentifier, NameIdentifier } from '../validators';
 
 export class CreateCustomFunctionDto {
   @IsString()
   @IsNotEmpty()
-  @Validate(NotContainDots)
+  @Validate(NameIdentifier)
   name: string;
   @IsOptional()
   description?: string;
   @IsOptional()
+  @IsString()
+  @Validate(ContextIdentifier)
   context?: string;
   @IsNotEmpty()
   code: string;

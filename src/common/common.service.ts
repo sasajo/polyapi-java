@@ -3,6 +3,14 @@ import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core
 import jsonpath from 'jsonpath';
 import { PathError } from './path-error';
 
+import {
+  NAME_ALLOWED_CHARACTERS_PATTERN,
+  CONTEXT_ALLOWED_CHARACTERS_PATTERN,
+  DOTS_AT_BEGINNING_PATTERN,
+  DOTS_AT_END_PATTERN,
+  NUMBERS_AT_BEGINNING_PATTERN,
+} from '@poly/common';
+
 @Injectable()
 export class CommonService {
   public async getJsonSchema(typeName: string, content: any): Promise<Record<string, any> | null> {
@@ -149,5 +157,17 @@ export class CommonService {
       }
     }
     return newObj;
+  }
+
+  sanitizeContextIdentifier(context: string) {
+    return context.trim()
+      .replace(CONTEXT_ALLOWED_CHARACTERS_PATTERN, '')
+      .replace(NUMBERS_AT_BEGINNING_PATTERN, '')
+      .replace(DOTS_AT_BEGINNING_PATTERN, '')
+      .replace(DOTS_AT_END_PATTERN, '');
+  }
+
+  sanitizeNameIdentifier(name: string) {
+    return name.trim().replace(NAME_ALLOWED_CHARACTERS_PATTERN, '').replace(NUMBERS_AT_BEGINNING_PATTERN, '');
   }
 }

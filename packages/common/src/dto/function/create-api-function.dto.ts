@@ -1,16 +1,19 @@
 import { Body, Variables, Header, Auth, Method } from '../..';
 import { IsNotEmpty, IsOptional, IsString, Validate } from 'class-validator';
 
-import { NotContainDots } from './../validators'
+import { ContextIdentifier, NameIdentifier } from './../validators'
 
 export class CreateApiFunctionDto {
   @IsString()
-  @Validate(NotContainDots)
+  @Validate(NameIdentifier)
   requestName: string;
   @IsOptional()
   @IsString()
-  @Validate(NotContainDots)
+  @Validate(NameIdentifier)
   name?: string;
+  @IsOptional()
+  @IsString()
+  @Validate(ContextIdentifier)
   context?: string;
   description?: string;
   payload?: string;

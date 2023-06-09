@@ -234,10 +234,10 @@ export class FunctionService implements OnModuleInit {
       );
 
       if (!name) {
-        name = aiName;
+        name = this.commonService.sanitizeNameIdentifier(aiName);
       }
       if (!context && !apiFunction?.context) {
-        context = aiContext;
+        context = this.commonService.sanitizeContextIdentifier(aiContext);
       }
       if (!description && !apiFunction?.description) {
         description = aiDescription;
@@ -255,7 +255,7 @@ export class FunctionService implements OnModuleInit {
       `Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`,
     );
 
-    const finalContext = context || '';
+    const finalContext = context?.trim() || '';
     const finalName = name?.trim() ? name : requestName;
     const finalDescription = description || '';
 
@@ -334,7 +334,7 @@ export class FunctionService implements OnModuleInit {
     visibility: Visibility | null,
   ) {
     if (name != null || context != null) {
-      name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, false) : null;
+      name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, true) : null;
 
       if (
         !(await this.checkContextAndNameDuplicates(apiFunction.environmentId, context == null
@@ -366,7 +366,7 @@ export class FunctionService implements OnModuleInit {
       `Updating URL function ${apiFunction.id} with name ${name}, context ${context}, description ${description}`,
     );
 
-    const finalContext = context == null ? apiFunction.context : context;
+    const finalContext = (context == null ? apiFunction.context : context).trim();
     const finalName = name || apiFunction.name;
 
     await this.throwErrIfInvalidResponse(response, payload, finalContext, finalName);
@@ -685,8 +685,8 @@ export class FunctionService implements OnModuleInit {
         id,
       },
       data: {
-        name: name == null ? customFunction.name : name,
-        context: context == null ? customFunction.context : context,
+        name: name == null ? customFunction.name : toCamelCase(name),
+        context: (context == null ? customFunction.context : context).trim(),
         description: description == null ? customFunction.description : description,
         visibility: visibility == null ? customFunction.visibility : visibility,
       },
