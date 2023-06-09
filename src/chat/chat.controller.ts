@@ -1,4 +1,4 @@
-import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException, Param, Get, Header } from '@nestjs/common';
+import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException, Param, Get, Header, Query } from '@nestjs/common';
 import {
   SendQuestionDto,
   SendQuestionResponseDto,
@@ -87,10 +87,10 @@ export class ChatController {
   }
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
-  @Get('/conversations/:userId')
+  @Get('/conversations')
   public async conversationsList(
     @Req() req: AuthRequest,
-    @Param('userId') userId: string,
+    @Query('userId') userId: string,
   ) {
     const conversationIds = await this.service.getConversationIds(userId);
     return { conversationIds };
@@ -98,10 +98,10 @@ export class ChatController {
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Header('content-type', 'text/plain')
-  @Get('/conversations/:userId/:conversationId')
+  @Get('/conversations/:conversationId')
   public async conversationsDetail(
     @Req() req: AuthRequest,
-    @Param('userId') userId: string,
+    @Query('userId') userId: string,
     @Param('conversationId') conversationId: string,
   ) {
     const conversation = await this.service.getConversationDetail(userId, conversationId);

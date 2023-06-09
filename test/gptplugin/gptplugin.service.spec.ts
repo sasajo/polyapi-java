@@ -1,9 +1,10 @@
-import fs from 'fs';
+// import fs from 'fs';
 import { GptPluginService, PluginFunction } from 'gptplugin/gptplugin.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GptPluginModule } from 'gptplugin/gptplugin.module';
 import { Environment } from '@prisma/client';
+import { Request } from 'express';
 
 const PLUGIN_CREATE_SPEC: PluginFunction = {
   id: '9d284b9d-c1a0-4d80-955d-9ef79343ddb7',
@@ -245,8 +246,8 @@ describe('GptPluginService', () => {
       const spec = JSON.parse(specStr);
 
       // write specStr to file for debugging
-      fs.writeFileSync('/tmp/spec.json', specStr, 'utf8');
-      console.log('file written to /tmp/spec.json');
+      // fs.writeFileSync('/tmp/spec.json', specStr, 'utf8');
+      // console.log('file written to /tmp/spec.json');
 
       expect(spec.openapi).toBe('3.0.1');
       expect(spec.info.title).toBe('Mass Effect');
@@ -315,10 +316,22 @@ describe('GptPluginService', () => {
     });
   });
 
-  describe('getManifest', () => {
-    it('should return the manifest for the environment', async () => {
+  describe('getOpenApiUrl develop', () => {
+    it('should return a special case for develop', async () => {
       const url = service.getOpenApiUrl('develop.polyapi.io', 'develop');
       expect(url).toBe('https://develop.polyapi.io/openapi-develop.yaml');
+    });
+  });
+
+  describe('getManifest', () => {
+    it('should return the manifest for the environment', async () => {
+      const plugin = await _createPlugin(prisma);
+      const subdomain = (await prisma.environment.findFirstOrThrow({ where: { id: plugin.environmentId } })).subdomain;
+      expect(subdomain).toBeTruthy();
+
+      const req = { hostname: `mass-effect-${subdomain}.develop.polyapi.io` } as Request;
+      const manifest = await service.getManifest(req);
+      expect(manifest.api.url).toBeTruthy();
     });
   });
 });

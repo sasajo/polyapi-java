@@ -67,7 +67,7 @@ Note: This is just an example and you will need to replace the query parameters 
 """
 
 
-def _fake_extract(keyword):
+def _fake_extract(user_id, conversation_id, keyword):
     return {
         "keywords": keyword,
         "semantically_similar_keywords": "jarjar",
@@ -223,6 +223,7 @@ class T(DbTestCase):
     @patch("app.completion.extract_keywords", new=_fake_extract)
     @patch("app.completion.query_node_server")
     def test_get_best_function_messages(self, query_node_server: Mock) -> None:
+        conversation = create_new_conversation(self.user.id)
         self.db.systemprompt.delete_many()  # no system prompt!
 
         query_node_server.side_effect = [
@@ -231,6 +232,7 @@ class T(DbTestCase):
 
         messages, stats = get_best_function_messages(
             self.user.id,
+            conversation.id,
             self.environment.id,
             "how do I create a new incident in ServiceNow?",
         )
@@ -257,7 +259,7 @@ class T(DbTestCase):
         messages = get_chat_completion.call_args[0][0]
         print(messages[0]["content"])
         print(messages[1]["content"])
-        self.assertEqual(len(messages), 3)
+        self.assertEqual(len(messages), 4)
         self.assertEqual(query_node_server.call_count, 1)
 
         self.assertTrue(result)

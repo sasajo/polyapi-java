@@ -72,6 +72,7 @@ class SpecificationDto(TypedDict):
 class MessageDict(TypedDict, total=False):
     role: str
     content: str
+    type: int
 
 
 class ChatGptChoice(TypedDict):

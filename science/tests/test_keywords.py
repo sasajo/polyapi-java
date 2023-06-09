@@ -8,6 +8,7 @@ from app.keywords import (
     get_top_function_matches,
     filter_items_based_on_http_method,
 )
+from app.utils import create_new_conversation
 from load_fixtures import test_user_get_or_create, united_get_status_get_or_create
 from .testing import DbTestCase
 
@@ -124,15 +125,18 @@ class T(DbTestCase):
 
     @patch("app.keywords.openai.ChatCompletion.create")
     def test_extract_keywords(self, chat_create: Mock):
+        user = test_user_get_or_create()
+        conversation = create_new_conversation(user.id)
+
         mock_response = {
             "keywords": "foo bar",
             "semantically_similar_keywords": "foo bar",
             "http_methods": "get post",
         }
         chat_create.return_value = {
-            "choices": [{"message": {"content": json.dumps(mock_response)}}]
+            "choices": [{"message": {"content": json.dumps(mock_response), "role": "assistant"}}]
         }
-        keyword_data = extract_keywords("test")
+        keyword_data = extract_keywords(user.id, conversation.id, "test")
         assert keyword_data
         self.assertEqual(keyword_data["keywords"], "foo bar")
         self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
@@ -140,15 +144,18 @@ class T(DbTestCase):
 
     @patch("app.keywords.openai.ChatCompletion.create")
     def test_extract_keywords_lists(self, chat_create: Mock):
+        user = test_user_get_or_create()
+        conversation = create_new_conversation(user.id)
+
         mock_response = {
             "keywords": ["foo", "bar"],
             "semantically_similar_keywords": ["foo", "bar"],
             "http_methods": ["get", "post"],
         }
         chat_create.return_value = {
-            "choices": [{"message": {"content": json.dumps(mock_response)}}]
+            "choices": [{"message": {"content": json.dumps(mock_response), "role": "assistant"}}]
         }
-        keyword_data = extract_keywords("test")
+        keyword_data = extract_keywords(user.id, conversation.id, "test")
         assert keyword_data
         self.assertEqual(keyword_data["keywords"], "foo bar")
         self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")

@@ -43,6 +43,11 @@ type Schema = {
   argumentsRequired?: string[];
 };
 
+function rsplit(s: string, sep: string, maxsplit: number): string[] {
+  const split = s.split(sep);
+  return [split.slice(0, -maxsplit).join(sep)].concat(split.slice(-maxsplit));
+}
+
 function _getExecuteType(t: string) {
   switch (t) {
     case 'apiFunction':
@@ -304,6 +309,9 @@ export class GptPluginService {
     // ok lets go ahead and create or update!
     const update = {};
     if (body.name) {
+      if (body.name.length > 30) {
+        throw new BadRequestException('Name too long. Max name length is 30 characters!');
+      }
       update['name'] = body.name;
     }
     if (body.descriptionForMarketplace) {
@@ -338,7 +346,10 @@ export class GptPluginService {
 
   async getManifest(req: Request) {
     const host = req.hostname;
-    const slug = host.split('.')[0];
+    const slugEnv = host.split('.')[0];
+    const parts = rsplit(slugEnv, '-', 1);
+    const slug = parts[0];
+    const env = parts[1];
 
     // make sure this is valid plugin host
     let name = '';
@@ -356,7 +367,10 @@ export class GptPluginService {
     } else if (slug === LOCALHOST_PAGEKITE) {
       name = 'Poly API Local';
     } else {
-      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug } });
+      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug }, include: { environment: true } });
+      if (plugin.environment.subdomain !== env) {
+        throw new BadRequestException('Plugin subdomain does not match environment!');
+      }
       name = plugin.name;
       descMarket = plugin.descriptionForMarketplace;
       descModel = plugin.descriptionForModel;

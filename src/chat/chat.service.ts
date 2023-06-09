@@ -36,6 +36,7 @@ export class ChatService {
     const conversations = await this.prisma.conversation.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: 100, // limit to 100 results for now
     });
     return conversations.map((c) => c.id);
   }
@@ -43,10 +44,10 @@ export class ChatService {
   async getConversationDetail(userId: string, conversationId: string): Promise<string> {
     let conversation;
     let where;
-    if (conversationId === 'last') {
+    if (userId && conversationId === 'last') {
       where = { where: { userId }, orderBy: { createdAt: 'desc' } };
     } else {
-      where = { where: { userId, id: conversationId } };
+      where = { where: { id: conversationId } };
     }
     try {
       conversation = await this.prisma.conversation.findFirstOrThrow(where);

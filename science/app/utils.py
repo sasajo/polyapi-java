@@ -3,7 +3,7 @@ import requests
 from requests import Response
 from flask import current_app
 from typing import List, Optional, Union
-from app.constants import VarName
+from app.constants import MessageType, VarName
 from app.typedefs import (
     MessageDict,
     PropertySpecification,
@@ -76,6 +76,15 @@ def url_function_path(func: AnyFunction) -> str:
 
 def log(*args, **kwargs) -> None:
     print(*args, **kwargs, flush=True)
+
+
+def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
+    messages.insert(
+        0,
+        MessageDict(
+            role="info", content=f"----- {step} -----", type=MessageType.internal
+        ),
+    )
 
 
 def store_messages(
