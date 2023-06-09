@@ -67,11 +67,9 @@ export class WebhookService {
       names?.length ? { name: { in: names } } : undefined,
     ].filter(Boolean) as any[];
 
-    if (filterConditions.length > 0) {
-      this.logger.debug(`webhookHandles filterConditions: ${JSON.stringify(filterConditions)}`);
-    }
+    this.logger.debug(`webhookHandles filter conditions: ${JSON.stringify([{ AND: filterConditions }, ...idConditions])}`);
 
-    return filterConditions.length > 0 ? [{ AND: filterConditions }, ...idConditions] : [];
+    return [{ AND: filterConditions }, ...idConditions];
   }
 
   public async findWebhookHandle(id: string): Promise<WebhookHandle | null> {

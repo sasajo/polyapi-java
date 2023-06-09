@@ -33,13 +33,13 @@ export class SpecsService {
     const apiFunctions = await this.functionService.getApiFunctions(environmentId, contexts, names, ids, true);
     const customFunctions = await this.functionService.getCustomFunctions(environmentId, contexts, names, ids, true);
     const webhookHandles = await this.webhookService.getWebhookHandles(environmentId, contexts, names, ids, true);
-    const authProviders = await this.authProviderService.getAuthProviders(environmentId, contexts, true);
+    const authProviders = await this.authProviderService.getAuthProviders(environmentId, contexts, ids, true);
 
     return [
       ...(await Promise.all(apiFunctions.map(apiFunction => this.functionService.toApiFunctionSpecification(apiFunction)))),
       ...(await Promise.all(customFunctions.map(customFunction => this.functionService.toCustomFunctionSpecification(customFunction)))),
       ...(await Promise.all(webhookHandles.map(webhookHandle => this.webhookService.toWebhookHandleSpecification(webhookHandle)))),
-      ...(await Promise.all(authProviders.map(authProvider => this.authProviderService.toAuthFunctionSpecifications(authProvider)))).flat(),
+      ...(await Promise.all(authProviders.map(authProvider => this.authProviderService.toAuthFunctionSpecifications(authProvider, names)))).flat(),
     ];
   }
 }

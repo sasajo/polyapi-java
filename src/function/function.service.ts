@@ -971,11 +971,9 @@ export class FunctionService implements OnModuleInit {
       names?.length ? { name: { in: names } } : undefined,
     ].filter(Boolean) as any[];
 
-    if (filterConditions.length > 0) {
-      this.logger.debug(`functions filterConditions: ${JSON.stringify(filterConditions)}`);
-    }
+    this.logger.debug(`functions filter conditions: ${JSON.stringify(filterConditions)}`);
 
-    return filterConditions.length > 0 ? [{ AND: filterConditions }, ...idConditions] : [];
+    return [{ AND: filterConditions }, ...idConditions];
   }
 
   private async resolveFunctionName(

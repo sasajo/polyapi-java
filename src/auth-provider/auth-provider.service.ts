@@ -37,7 +37,7 @@ export class AuthProviderService {
   ) {
   }
 
-  async getAuthProviders(environmentId: string, contexts?: string[], includePublic = false): Promise<AuthProvider[]> {
+  private getAuthProviderFilterConditions(contexts?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
         return {
@@ -53,15 +53,33 @@ export class AuthProviderService {
       })
       : [];
 
+    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
+
+    const filterConditions = [
+      {
+        OR: contextConditions,
+      },
+    ];
+
+    this.logger.debug(`auth providers filter conditions: ${JSON.stringify([{ AND: filterConditions }, ...idConditions])}`);
+
+    return [{ AND: filterConditions }, ...idConditions];
+  }
+
+  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], includePublic = false): Promise<AuthProvider[]> {
     return this.prisma.authProvider.findMany({
       where: {
-        OR: [
-          { environmentId },
-          includePublic ? { visibility: Visibility.Public } : {},
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              includePublic ? { visibility: Visibility.Public } : {},
+            ],
+          },
+          {
+            OR: this.getAuthProviderFilterConditions(contexts, ids),
+          },
         ],
-        ...contextConditions.length && {
-          OR: contextConditions,
-        },
       },
     });
   }
@@ -485,7 +503,7 @@ export class AuthProviderService {
     return accessToken;
   }
 
-  async toAuthFunctionSpecifications(authProvider: AuthProvider): Promise<AuthFunctionSpecification[]> {
+  async toAuthFunctionSpecifications(authProvider: AuthProvider, names: string[] = []): Promise<AuthFunctionSpecification[]> {
     const specifications: AuthFunctionSpecification[] = [];
 
     specifications.push({
@@ -582,6 +600,9 @@ export class AuthProviderService {
       });
     }
 
+    if (names.length) {
+      return specifications.filter(spec => names.includes(spec.name));
+    }
     return specifications;
   }
 
