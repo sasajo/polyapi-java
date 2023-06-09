@@ -201,7 +201,7 @@ export class GptPluginService {
 
   async _getAllFunctions(environmentId: string, ids: string[]): Promise<PluginFunction[]> {
     // TODO lets filter these down to just supported functions?
-    const apiFunctions = await this.functionService.getApiFunctions(environmentId, [], [], ids);
+    const apiFunctions = await this.functionService.getApiFunctions(environmentId, [], [], ids, true);
     const customFunctions = await this.functionService.getServerFunctions(environmentId, [], [], ids);
     // const authFunctions = await this.prisma.authFunction.findMany({ where: { publicId: { in: publicIds } } });
 
