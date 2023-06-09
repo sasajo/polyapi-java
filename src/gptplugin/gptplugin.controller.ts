@@ -11,8 +11,7 @@ import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 export class GptPluginController {
   private readonly logger = new Logger(GptPluginController.name);
 
-  constructor(private readonly service: GptPluginService) {
-  }
+  constructor(private readonly service: GptPluginService) {}
 
   @Get('.well-known/ai-plugin.json')
   public async aiPluginJson(@Req() req: Request): Promise<unknown> {
@@ -43,5 +42,22 @@ export class GptPluginController {
       plugin,
       plugin_url: `https://${plugin.slug}.${req.hostname}`,
     };
+  }
+
+  @Get('whoami')
+  public async whoami(@Req() req: AuthRequest): Promise<unknown> {
+    const user = req.user.user;
+    if (user) {
+      return {
+        userId: user.id,
+        tenantId: user.tenantId,
+        environmentId: req.user.environment.id,
+        environmentSubdomain: req.user.environment.subdomain,
+      };
+    } else {
+      return {
+        userId: null,
+      };
+    }
   }
 }
