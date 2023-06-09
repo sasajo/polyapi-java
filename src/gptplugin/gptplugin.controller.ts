@@ -44,6 +44,7 @@ export class GptPluginController {
     };
   }
 
+  @UseGuards(PolyAuthGuard)
   @Get('whoami')
   public async whoami(@Req() req: AuthRequest): Promise<unknown> {
     const user = req.user.user;
