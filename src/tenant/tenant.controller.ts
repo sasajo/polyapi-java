@@ -117,6 +117,7 @@ export class TenantController {
   async createUser(@Req() req: AuthRequest, @Param('id') tenantId: string, @Body() data: CreateUserDto): Promise<UserDto> {
     const { name, role = Role.User } = data;
 
+    await this.findTenant(tenantId);
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
     return this.userService.toUserDto(
@@ -514,9 +515,10 @@ export class TenantController {
   }
 
   private async findUser(tenantId: string, userId: string) {
+    const tenant = await this.findTenant(tenantId);
     const user = await this.userService.findUserById(userId);
 
-    if (!user || (user.tenantId !== tenantId)) {
+    if (!user || (user.tenantId !== tenant.id)) {
       throw new NotFoundException(`User with id ${userId} not found`);
     }
     return user;

@@ -320,7 +320,7 @@ export class WebhookService {
 
   async deleteWebhookHandle(id: string) {
     this.logger.debug(`Deleting webhook ${id}...`);
-    await this.prisma.webhookHandle.delete({
+    return this.prisma.webhookHandle.delete({
       where: {
         id,
       },

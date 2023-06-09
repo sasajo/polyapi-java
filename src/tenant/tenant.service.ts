@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { Prisma, Tenant } from '@prisma/client';
+import { Tenant } from '@prisma/client';
 import { ConfigService } from 'config/config.service';
 import { EnvironmentService } from 'environment/environment.service';
 import { TeamService } from 'team/team.service';
@@ -204,21 +204,11 @@ export class TenantService implements OnModuleInit {
   }
 
   async delete(tenant: Tenant) {
-    try {
-      return await this.prisma.tenant.delete({
-        where: {
-          id: tenant.id,
-        },
-      });
-    } catch (e) {
-      console.log('%c ERROR', 'background: yellow; color: black', JSON.stringify(e));
-      if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        console.log('%c ERROR', 'background: yellow; color: black', e.message);
-        throw e;
-      } else {
-        throw e;
-      }
-    }
+    return this.prisma.tenant.delete({
+      where: {
+        id: tenant.id,
+      },
+    });
   }
 
   private async findByName(name: string): Promise<Tenant | null> {

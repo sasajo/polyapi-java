@@ -108,7 +108,7 @@ export class AuthService {
   }
 
   async deleteApiKey(id: string) {
-    this.prisma.apiKey.delete({
+    return this.prisma.apiKey.delete({
       where: {
         id,
       },
@@ -141,10 +141,12 @@ export class AuthService {
     const isAdmin = user?.role === Role.SuperAdmin || user?.role === Role.Admin;
 
     return Object.values(Permission)
-      .reduce((acc, permission) => ({
-        ...acc,
-        [permission]: isAdmin || permissions[permission] === true,
-      }), {} as Permissions,
+      .reduce(
+        (acc, permission) => ({
+          ...acc,
+          [permission]: isAdmin || permissions[permission] === true,
+        }),
+        {} as Permissions,
       );
   }
 
