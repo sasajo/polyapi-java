@@ -183,6 +183,19 @@ def remove_punctuation(s: str) -> str:
     return s.translate(remove_punctuation_translation)
 
 
+def filter_to_real_public_ids(public_ids: List[str]) -> List[str]:
+    db = get_client()
+    real: List[AnyFunction] = []
+
+    real += db.apifunction.find_many(where={"id": {"in": public_ids}})
+    real += db.customfunction.find_many(where={"id": {"in": public_ids}})
+    real += db.authprovider.find_many(where={"id": {"in": public_ids}})
+    real += db.webhookhandle.find_many(where={"id": {"in": public_ids}})
+    real_ids = {r.id for r in real}
+
+    return [pid for pid in public_ids if pid in real_ids]
+
+
 def get_public_id(public_id: str) -> Optional[AnyFunction]:
     """check all possible tables for a public uuid
     return the corresponding object if it exists

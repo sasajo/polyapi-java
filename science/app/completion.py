@@ -17,9 +17,9 @@ from app.typedefs import (
 )
 from app.utils import (
     create_new_conversation,
+    filter_to_real_public_ids,
     insert_internal_step_info,
     public_id_to_spec,
-    get_public_id,
     log,
     func_path_with_args,
     query_node_server,
@@ -186,11 +186,7 @@ def get_best_functions(
     public_ids = _extract_ids_from_completion(answer_msg["content"])
     if public_ids:
         # valid public id, send it back!
-        rv = []
-        for public_id in set(public_ids):
-            if get_public_id(public_id):
-                rv.append(public_id)
-
+        rv = filter_to_real_public_ids(public_ids)
         return rv, stats
     else:
         # we received invalid public id, just send back nothing
