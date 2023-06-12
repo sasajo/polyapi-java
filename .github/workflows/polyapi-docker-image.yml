@@ -17,15 +17,21 @@ jobs:
       
     steps:
     - uses: actions/checkout@v3
+
+    - name: Read docker image tag
+      id: package
+      uses: juliangruber/read-file-action@v1
+      with:
+        path: ./docker/dockerimage-tag-develop.yaml
     
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi-dev:1.0.5 -f docker/Dockerfile .
-        docker push ghcr.io/polyapi/polyapi-dev:1.0.5
+        docker build -t ${{ steps.package.outputs.content }} -f docker/Dockerfile .
+        docker push ${{ steps.package.outputs.content }}
 
   main:
-    name: Staging docker build and push.
+    name: Main docker build and push.
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
 
