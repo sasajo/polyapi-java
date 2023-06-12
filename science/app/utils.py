@@ -231,13 +231,6 @@ def get_user_key(user_id: str, environment_id: str) -> Optional[ApiKey]:
 
 def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     user_key = get_user_key(user_id, environment_id)
-    # if not user_key:
-    # db = get_client()
-    #     # HACK just use the default environment for now
-    #     tenant = db.tenant.find_first(where={'name': "poly-trial"})
-    #     environment = db.environment.find_first(where={'name': 'default', 'tenantId': tenant.id})
-    #     user_key = db.apikey.find_first(where={'environmentId': environment.id})
-
     if not user_key:
         raise NotImplementedError(
             f"No user key found for user {user_id} and environment {environment_id}"

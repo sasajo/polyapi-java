@@ -69,7 +69,7 @@ def extract_keywords(
     store_messages(user_id, conversation_id, messages)
 
     # continue
-    content = answer["content"]
+    content = answer["content"].replace("```", "")
     try:
         rv = json.loads(content)
     except Exception as e:
