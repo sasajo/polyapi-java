@@ -27,6 +27,7 @@ export class GptPluginController {
   @UseGuards(PolyAuthGuard)
   @Get('plugins/:slug')
   public async pluginGet(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
+    slug = slug.toLowerCase();
     const plugin = await this.service.getPlugin(slug);
     return {
       plugin,
