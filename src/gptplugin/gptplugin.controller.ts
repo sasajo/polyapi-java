@@ -30,7 +30,7 @@ export class GptPluginController {
     const plugin = await this.service.getPlugin(slug);
     return {
       plugin,
-      plugin_url: `https://${plugin.slug}.${req.hostname}`,
+      plugin_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}`,
     };
   }
 
@@ -40,7 +40,7 @@ export class GptPluginController {
     const plugin = await this.service.createOrUpdatePlugin(req.user.environment, body);
     return {
       plugin,
-      plugin_url: `https://${plugin.slug}.${req.hostname}`,
+      plugin_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}`,
     };
   }
 
