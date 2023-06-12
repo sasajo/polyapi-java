@@ -25,7 +25,8 @@ export class WebhookService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
-  ) {}
+  ) {
+  }
 
   private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
     const createData = {
@@ -67,7 +68,8 @@ export class WebhookService {
       names?.length ? { name: { in: names } } : undefined,
     ].filter(Boolean) as any[];
 
-    this.logger.debug(`webhookHandles filter conditions: ${JSON.stringify([{ AND: filterConditions }, ...idConditions])}`);
+    this.logger.debug(`webhookHandles filter conditions: ${JSON.stringify([{ AND: filterConditions },
+      ...idConditions])}`);
 
     return [{ AND: filterConditions }, ...idConditions];
   }
@@ -80,7 +82,7 @@ export class WebhookService {
     });
   }
 
-  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for environment ${environmentId}...`);
     return this.prisma.webhookHandle.findMany({
       where: {
@@ -88,7 +90,9 @@ export class WebhookService {
           {
             OR: [
               { environmentId },
-              includePublic ? { visibility: Visibility.Public } : {},
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
             ],
           },
           {
@@ -99,6 +103,15 @@ export class WebhookService {
       orderBy: {
         createdAt: 'desc',
       },
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -310,7 +323,7 @@ export class WebhookService {
 
   private normalizeVisibility(visibility: Visibility | null, webhookHandle?: WebhookHandle) {
     if (visibility == null) {
-      visibility = webhookHandle?.visibility as Visibility || Visibility.Tenant;
+      visibility = webhookHandle?.visibility as Visibility || Visibility.Environment;
     }
 
     return visibility;
@@ -373,6 +386,9 @@ export class WebhookService {
             },
           },
         },
+      },
+      visibilityMetadata: {
+        visibility: webhookHandle.visibility as Visibility,
       },
     };
   }

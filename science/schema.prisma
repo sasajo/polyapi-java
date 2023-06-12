@@ -10,13 +10,14 @@ datasource db {
 }
 
 model Tenant {
-  id           String        @id @default(uuid())
-  createdAt    DateTime      @default(now()) @map("created_at")
-  name         String
-  users        User[]
-  teams        Team[]
-  environments Environment[]
-  applications Application[]
+  id                      String        @id @default(uuid())
+  createdAt               DateTime      @default(now()) @map("created_at")
+  name                    String
+  users                   User[]
+  teams                   Team[]
+  environments            Environment[]
+  applications            Application[]
+  publicVisibilityAllowed Boolean       @default(false) @map("public_visibility_allowed")
 
   @@map("tenant")
 }
@@ -122,7 +123,7 @@ model ApiFunction {
   response          String?
   argumentsMetadata String?     @map("arguments_metadata")
   trained           Boolean     @default(false)
-  visibility        String      @default("TENANT")
+  visibility        String      @default("ENVIRONMENT")
 
   @@map("api_function")
 }
@@ -141,7 +142,7 @@ model CustomFunction {
   requirements  String?     @map("requirements")
   trained       Boolean     @default(false)
   serverSide    Boolean     @default(false) @map("server_side")
-  visibility    String      @default("TENANT")
+  visibility    String      @default("ENVIRONMENT")
 
   @@map("custom_function")
 }
@@ -161,7 +162,7 @@ model AuthProvider {
   refreshEnabled   Boolean     @default(false) @map("refresh_enabled")
   trained          Boolean     @default(false)
   authTokens       AuthToken[]
-  visibility       String      @default("TENANT")
+  visibility       String      @default("ENVIRONMENT")
 
   @@map("auth_provider")
 }
@@ -175,7 +176,7 @@ model WebhookHandle {
   name          String
   eventPayload  String      @map("event_payload")
   description   String      @default("")
-  visibility    String      @default("TENANT")
+  visibility    String      @default("ENVIRONMENT")
 
   @@map("webhook_handle")
 }
@@ -196,7 +197,7 @@ model ConversationMessage {
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String            @map("user_id")
   name      String            @default("") // not used for now. in future, will allow the user to have multiple conversations
-  role      String            // assistant or user or system
+  role      String            // assistant or user or system or info
 
   // 1 is gpt messages, aka messages between us and ChatGPT, 2 is user messages, 3 is internal that was never sent anywhere (like "start stage 1")
   type      Int               @default(1)
@@ -247,15 +248,15 @@ model ConfigVariable {
 }
 
 model GptPlugin {
-  id                        Int    @id @default(autoincrement())
-  slug                      String @unique
+  id                        Int         @id @default(autoincrement())
+  slug                      String      @unique
   name                      String
-  descriptionForMarketplace String @default("") @map("description_for_marketplace")
-  descriptionForModel       String @default("") @map("description_for_model")
-  iconUrl                   String @map("icon_url")
+  descriptionForMarketplace String      @default("") @map("description_for_marketplace")
+  descriptionForModel       String      @default("") @map("description_for_model")
+  iconUrl                   String      @map("icon_url")
   functionIds               String // json array of function publicIds for now
-  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
-  environmentId String      @map("environment_id")
+  environment               Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  environmentId             String      @map("environment_id")
 
   @@map("gpt_plugin")
 }

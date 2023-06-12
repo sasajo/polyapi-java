@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { SpecsService } from 'specs/specs.service';
 import { FunctionService } from 'function/function.service';
-import { TypedMock, getFnMock, mockedAuthData } from '../utils/test-utils';
+import { getFnMock, mockedAuthData, TypedMock } from '../utils/test-utils';
 import { WebhookService } from 'webhook/webhook.service';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
 import { ApiFunction, AuthProvider, CustomFunction, WebhookHandle } from '@prisma/client';
@@ -11,6 +11,7 @@ import {
   AuthFunctionSpecification,
   CustomFunctionSpecification,
   Specification,
+  Visibility,
   WebhookHandleSpecification,
 } from '@poly/common';
 
@@ -68,21 +69,29 @@ describe('SpecsService', () => {
       const contexts = [];
       const ids = [];
 
-      const apiFunctions = createMock<ApiFunction[]>([{
-        context: 'apiFunctions',
-      }]);
+      const apiFunctions = createMock<ApiFunction[]>([
+        {
+          context: 'apiFunctions',
+        },
+      ]);
 
-      const customFunctions = createMock<CustomFunction[]>([{
-        context: 'myCustomFunctions',
-      }]);
+      const customFunctions = createMock<CustomFunction[]>([
+        {
+          context: 'myCustomFunctions',
+        },
+      ]);
 
-      const webhookHandles = createMock<WebhookHandle[]>([{
-        context: 'shopify.notifications',
-      }]);
+      const webhookHandles = createMock<WebhookHandle[]>([
+        {
+          context: 'shopify.notifications',
+        },
+      ]);
 
-      const authProviders = createMock<AuthProvider[]>([{
-        context: 'auth.login',
-      }]);
+      const authProviders = createMock<AuthProvider[]>([
+        {
+          context: 'auth.login',
+        },
+      ]);
 
       getApiFunctions.mockResolvedValue(apiFunctions);
       getCustomFunctions.mockResolvedValue(customFunctions);
@@ -91,19 +100,33 @@ describe('SpecsService', () => {
 
       const apiFunctionSpecification = createMock<ApiFunctionSpecification>({
         context: apiFunctions[0].context,
+        visibilityMetadata: {
+          visibility: Visibility.Environment,
+        },
       });
 
       const customFunctionSpecification = createMock<CustomFunctionSpecification>({
         context: customFunctions[0].context,
+        visibilityMetadata: {
+          visibility: Visibility.Environment,
+        },
       });
 
       const webhookHandleSpecification = createMock<WebhookHandleSpecification>({
         context: webhookHandles[0].context,
+        visibilityMetadata: {
+          visibility: Visibility.Environment,
+        },
       });
 
-      const authFunctionSpecifications = createMock<AuthFunctionSpecification[]>([{
-        context: authProviders[0].context,
-      }]);
+      const authFunctionSpecifications = createMock<AuthFunctionSpecification[]>([
+        {
+          context: authProviders[0].context,
+          visibilityMetadata: {
+            visibility: Visibility.Environment,
+          },
+        },
+      ]);
 
       toApiFunctionSpecification.mockResolvedValue(apiFunctionSpecification);
 
@@ -114,7 +137,7 @@ describe('SpecsService', () => {
       toAuthFunctionSpecifications.mockResolvedValue(authFunctionSpecifications);
 
       // Action
-      const result = await specsService.getSpecifications(mockedAuthData.environment.id, contexts, names, ids);
+      const result = await specsService.getSpecifications(mockedAuthData.environment.id, mockedAuthData.tenant.id, contexts, names, ids);
 
       // Expect
       expect(result).toStrictEqual([
@@ -134,14 +157,16 @@ describe('SpecsService', () => {
       const secondId = 'b605ea4f-6e3a-4994-9307-25927024954b';
       const getSpecificationsMock = jest.spyOn(specsService, 'getSpecifications');
 
-      getSpecificationsMock.mockResolvedValue(createMock<Specification[]>([{
-        name: 'foo.bar',
-        id: firstId,
-      }, {
-        name: 'foo.bar',
-        context: 'store',
-        id: secondId,
-      }]));
+      getSpecificationsMock.mockResolvedValue(createMock<Specification[]>([
+        {
+          name: 'foo.bar',
+          id: firstId,
+        }, {
+          name: 'foo.bar',
+          context: 'store',
+          id: secondId,
+        },
+      ]));
 
       // Action
       const result = await specsService.getSpecificationPaths(environmentId);
@@ -160,6 +185,53 @@ describe('SpecsService', () => {
 
       // Restore
       getSpecificationsMock.mockRestore();
+    });
+  });
+
+  describe('sortSpecifications', () => {
+    it('should place public specifications at the start', async () => {
+      const specifications: Specification[] = [
+        createMock<Specification>({
+          id: '1',
+          visibilityMetadata: {
+            visibility: Visibility.Environment,
+          },
+        }),
+        createMock<Specification>({
+          id: '2',
+          visibilityMetadata: {
+            visibility: Visibility.Environment,
+          },
+        }),
+        createMock<Specification>({
+          id: '3',
+          visibilityMetadata: {
+            visibility: Visibility.Public,
+          },
+        }),
+        createMock<Specification>({
+          id: '4',
+          visibilityMetadata: {
+            visibility: Visibility.Environment,
+          },
+        }),
+        createMock<Specification>({
+          id: '5',
+          visibilityMetadata: {
+            visibility: Visibility.Public,
+          },
+        }),
+        createMock<Specification>({
+          id: '6',
+          visibilityMetadata: {
+            visibility: Visibility.Environment,
+          },
+        }),
+      ];
+
+      const sorted = specifications.sort(specsService['sortSpecifications']);
+
+      expect(sorted.map(spec => spec.id)).toEqual(['3', '5', '1', '2', '4', '6']);
     });
   });
 });

@@ -43,6 +43,7 @@ export const mockedAuthData: AuthData = {
     createdAt: currentDate,
     id: '',
     name: '',
+    publicVisibilityAllowed: true,
   },
   key: 'b4d1fd5c-8dc2-45e5-9bf3-047a2bcce2ca',
   application: {

@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GptPluginModule } from 'gptplugin/gptplugin.module';
 import { Environment } from '@prisma/client';
 import { Request } from 'express';
+import { Visibility } from '@poly/common';
 
 const PLUGIN_CREATE_SPEC: PluginFunction = {
   id: '9d284b9d-c1a0-4d80-955d-9ef79343ddb7',
@@ -137,6 +138,9 @@ const PLUGIN_CREATE_SPEC: PluginFunction = {
         title: 'ReturnType',
       },
     },
+  },
+  visibilityMetadata: {
+    visibility: Visibility.Environment,
   },
 };
 

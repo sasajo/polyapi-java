@@ -5,15 +5,20 @@ interface ISpecification {
   description?: string;
   function: FunctionSpecification;
   type: SpecificationType;
+  visibilityMetadata: VisibilityMetadata;
 }
 
 export type SpecificationType = 'apiFunction' | 'customFunction' | 'authFunction' | 'webhookHandle' | 'serverFunction';
 
 export enum Visibility {
+  Environment = 'ENVIRONMENT',
   Tenant = 'TENANT',
-  Team = 'TEAM',
-  User = 'USER',
   Public = 'PUBLIC'
+}
+
+export interface VisibilityMetadata {
+  visibility: Visibility;
+  foreignTenantName?: string;
 }
 
 export interface FunctionSpecification {

@@ -71,8 +71,8 @@ export class TenantController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post()
   async createTenant(@Body() data: CreateTenantDto): Promise<TenantDto> {
-    const { name } = data;
-    return this.tenantService.toDto(await this.tenantService.create(name));
+    const { name, publicVisibilityAllowed } = data;
+    return this.tenantService.toDto(await this.tenantService.create(name, publicVisibilityAllowed));
   }
 
   @UseGuards(PolyAuthGuard)
@@ -89,11 +89,11 @@ export class TenantController {
   }
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
-  @Post(':id')
+  @Patch(':id')
   async updateTenant(@Param('id') id: string, @Body() data: UpdateTenantDto): Promise<TenantDto> {
-    const { name } = data;
+    const { name, publicVisibilityAllowed } = data;
     return this.tenantService.toDto(
-      await this.tenantService.update(await this.findTenant(id), name),
+      await this.tenantService.update(await this.findTenant(id), name, publicVisibilityAllowed),
     );
   }
 

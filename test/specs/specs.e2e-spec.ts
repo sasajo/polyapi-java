@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { SpecsService } from 'specs/specs.service';
-import { Specification } from '@poly/common';
+import { Specification, Visibility } from '@poly/common';
 import { SpecsModule } from 'specs/specs.module';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { getMockedPolyAuthGuard, mockedAuthData, TypedMock } from '../utils/test-utils';
@@ -48,6 +48,9 @@ describe('SpecsController (e2e)', () => {
           returnType: {} as any,
         },
         name: 'foo',
+        visibilityMetadata: {
+          visibility: Visibility.Environment,
+        },
       },
     ];
 

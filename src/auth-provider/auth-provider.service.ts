@@ -22,6 +22,7 @@ import { ConfigService } from 'config/config.service';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
 import { SpecsService } from 'specs/specs.service';
+import { CommonService } from 'common/common.service';
 
 @Injectable()
 export class AuthProviderService {
@@ -31,6 +32,7 @@ export class AuthProviderService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
+    private readonly commonService: CommonService,
     private readonly eventService: EventService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
@@ -66,14 +68,16 @@ export class AuthProviderService {
     return [{ AND: filterConditions }, ...idConditions];
   }
 
-  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], includePublic = false): Promise<AuthProvider[]> {
+  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<AuthProvider[]> {
     return this.prisma.authProvider.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic ? { visibility: Visibility.Public } : {},
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
             ],
           },
           {
@@ -81,6 +85,15 @@ export class AuthProviderService {
           },
         ],
       },
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -522,6 +535,9 @@ export class AuthProviderService {
           kind: 'void',
         },
       },
+      visibilityMetadata: {
+        visibility: authProvider.visibility as Visibility,
+      },
     });
     if (authProvider.introspectUrl) {
       specifications.push({
@@ -533,19 +549,24 @@ export class AuthProviderService {
           ? ` for ${authProvider.name}`
           : ''}. It will return a JSON with the claims of the token.`,
         function: {
-          arguments: [{
-            name: 'token',
-            required: true,
-            type: {
-              kind: 'primitive',
-              type: 'string',
+          arguments: [
+            {
+              name: 'token',
+              required: true,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              },
             },
-          }],
+          ],
           returnType: {
             kind: 'object',
           },
         },
         subResource: 'introspect',
+        visibilityMetadata: {
+          visibility: authProvider.visibility as Visibility,
+        },
       });
     }
     if (authProvider.revokeUrl) {
@@ -558,19 +579,24 @@ export class AuthProviderService {
           ? ` for ${authProvider.name}`
           : ''}.`,
         function: {
-          arguments: [{
-            name: 'token',
-            required: true,
-            type: {
-              kind: 'primitive',
-              type: 'string',
+          arguments: [
+            {
+              name: 'token',
+              required: true,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              },
             },
-          }],
+          ],
           returnType: {
             kind: 'void',
           },
         },
         subResource: 'revoke',
+        visibilityMetadata: {
+          visibility: authProvider.visibility as Visibility,
+        },
       });
     }
     if (authProvider.refreshEnabled) {
@@ -583,20 +609,25 @@ export class AuthProviderService {
           ? ` for ${authProvider.name}`
           : ''}. In this case an access token, expired or not, can be passed in to refresh it for a new one. The refresh token to be used is stored on the poly server.`,
         function: {
-          arguments: [{
-            name: 'token',
-            required: true,
-            type: {
-              kind: 'primitive',
-              type: 'string',
+          arguments: [
+            {
+              name: 'token',
+              required: true,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              },
             },
-          }],
+          ],
           returnType: {
             kind: 'primitive',
             type: 'string',
           },
         },
         subResource: 'refresh',
+        visibilityMetadata: {
+          visibility: authProvider.visibility as Visibility,
+        },
       });
     }
 

@@ -83,14 +83,16 @@ export class FunctionService implements OnModuleInit {
     await this.faasService.init();
   }
 
-  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
+  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
     return this.prisma.apiFunction.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic ? { visibility: Visibility.Public } : {},
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
             ],
           },
           {
@@ -99,6 +101,15 @@ export class FunctionService implements OnModuleInit {
         ],
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -518,31 +529,38 @@ export class FunctionService implements OnModuleInit {
           ...(await Promise.all(requiredArguments.map(toPropertySpecification))),
           ...(
             payloadArguments.length > 0
-              ? [{
-                  name: 'payload',
-                  required: true,
-                  type: {
-                    kind: 'object',
-                    properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+              ? [
+                  {
+                    name: 'payload',
+                    required: true,
+                    type: {
+                      kind: 'object',
+                      properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+                    },
                   },
-                }]
+                ]
               : []
           ),
           ...(await Promise.all(optionalArguments.map(toPropertySpecification))),
         ] as PropertySpecification[],
         returnType: await getReturnType(),
       },
+      visibilityMetadata: {
+        visibility: apiFunction.visibility as Visibility,
+      },
     };
   }
 
-  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
+  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
     return this.prisma.customFunction.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic ? { visibility: Visibility.Public } : {},
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
             ],
           },
           {
@@ -551,6 +569,15 @@ export class FunctionService implements OnModuleInit {
         ],
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -839,6 +866,9 @@ export class FunctionService implements OnModuleInit {
             },
       },
       code: customFunction.code,
+      visibilityMetadata: {
+        visibility: customFunction.visibility as Visibility,
+      },
     };
   }
 

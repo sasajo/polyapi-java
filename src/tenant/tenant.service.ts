@@ -38,7 +38,7 @@ export class TenantService implements OnModuleInit {
   private async checkPolyTenant() {
     const tenant = await this.findByName(this.config.polyTenantName);
     if (!tenant) {
-      await this.create(this.config.polyTenantName, {
+      await this.create(this.config.polyTenantName, true, {
         teamName: this.config.polyAdminsTeamName,
         userName: this.config.polyAdminUserName,
         userRole: Role.SuperAdmin,
@@ -51,6 +51,7 @@ export class TenantService implements OnModuleInit {
     return {
       id: tenant.id,
       name: tenant.name,
+      publicVisibilityAllowed: tenant.publicVisibilityAllowed,
     };
   }
 
@@ -97,6 +98,7 @@ export class TenantService implements OnModuleInit {
     return {
       id: fullTenant.id,
       name: fullTenant.name,
+      publicVisibilityAllowed: fullTenant.publicVisibilityAllowed,
       users: fullTenant.users.map(user => this.userService.toUserDto(user)),
       environments: fullTenant.environments.map(toEnvironmentFullDto),
       applications: fullTenant.applications.map(application => this.applicationService.toApplicationDto(application)),
@@ -116,13 +118,14 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async create(name: string, options: CreateTenantOptions = {}): Promise<Tenant> {
+  async create(name: string, publicVisibilityAllowed = false, options: CreateTenantOptions = {}): Promise<Tenant> {
     const { environmentName, teamName, userName, userRole, userApiKey } = options;
 
     return this.prisma.$transaction(async tx => {
       const tenant = await tx.tenant.create({
         data: {
           name,
+          publicVisibilityAllowed,
           users: {
             create: [
               {
@@ -192,13 +195,14 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async update(tenant: Tenant, name: string) {
+  async update(tenant: Tenant, name: string | undefined, publicVisibilityAllowed: boolean | undefined) {
     return this.prisma.tenant.update({
       where: {
         id: tenant.id,
       },
       data: {
         name,
+        publicVisibilityAllowed,
       },
     });
   }

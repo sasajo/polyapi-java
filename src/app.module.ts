@@ -43,9 +43,7 @@ import { ApplicationModule } from 'application/application.module';
     GptPluginModule,
     ApplicationModule,
   ],
-  exports: [
-    ConfigModule,
-  ],
+  exports: [ConfigModule],
 })
 export class AppModule {
 }

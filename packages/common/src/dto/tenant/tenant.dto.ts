@@ -6,6 +6,7 @@ import { UserDto } from '../user';
 export class TenantDto {
   id: string;
   name: string;
+  publicVisibilityAllowed: boolean;
 }
 
 export class TenantFullDto extends TenantDto {
