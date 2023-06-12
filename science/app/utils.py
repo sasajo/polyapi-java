@@ -254,15 +254,16 @@ def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     return resp
 
 
-def public_id_to_spec(
-    user_id: str, environment_id: str, public_id: str
-) -> Optional[SpecificationDto]:
+def public_ids_to_specs(user_id: str, environment_id: str, public_ids: List[str]) -> List[SpecificationDto]:
+    public_ids_set = set(public_ids)
     specs_resp = query_node_server(user_id, environment_id, "specs")
+
     items: List[SpecificationDto] = specs_resp.json()
+    rv: List[SpecificationDto] = []
     for item in items:
-        if item["id"] == public_id:
-            return item
-    return None
+        if item["id"] in public_ids_set:
+            rv.append(item)
+    return rv
 
 
 def camel_case(text: str) -> str:

@@ -19,9 +19,9 @@ from app.utils import (
     create_new_conversation,
     filter_to_real_public_ids,
     insert_internal_step_info,
-    public_id_to_spec,
     log,
     func_path_with_args,
+    public_ids_to_specs,
     query_node_server,
     store_messages,
     get_chat_completion,
@@ -248,18 +248,14 @@ def get_best_function_example(
 ) -> ChatGptChoice:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
-    specs = [
-        public_id_to_spec(user_id, environment_id, public_id)
-        for public_id in public_ids
-    ]
-    valid_specs = [spec for spec in specs if spec]
-    if len(specs) != len(valid_specs):
+    specs = public_ids_to_specs(user_id, environment_id, public_ids)
+    if len(specs) != len(public_ids):
         raise NotImplementedError(
             f"spec doesnt exist for {public_ids}? was one somehow deleted?"
         )
 
     best_function_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
-        spec_str="\n\n".join(spec_prompt(spec) for spec in valid_specs)
+        spec_str="\n\n".join(spec_prompt(spec) for spec in specs)
     )
     question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
     messages = [
