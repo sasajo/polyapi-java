@@ -314,6 +314,12 @@ export class GptPluginService {
       }
       update['name'] = body.name;
     }
+    if (body.contactEmail) {
+      update['contactEmail'] = body.contactEmail;
+    }
+    if (body.legalUrl) {
+      update['legalUrl'] = body.legalUrl;
+    }
     if (body.descriptionForMarketplace) {
       update['descriptionForMarketplace'] = body.descriptionForMarketplace;
     }
@@ -335,6 +341,8 @@ export class GptPluginService {
       create: {
         slug: body.slug,
         name: body.name ? body.name : body.slug,
+        contactEmail: body.contactEmail ? body.contactEmail : 'info@polyapi.io',
+        legalUrl: body.legalUrl ? body.legalUrl : 'https://polyapi.io/legal',
         descriptionForMarketplace: body.descriptionForMarketplace || '',
         descriptionForModel: body.descriptionForModel || '',
         iconUrl: body.iconUrl ? body.iconUrl : POLY_DEFAULT_ICON_URL,
