@@ -13,7 +13,7 @@ import { AuthModule } from 'auth/auth.module';
   imports: [PrismaModule, HttpModule, AuthModule, EventModule, CommonModule, AiModule, forwardRef(() => SpecsModule)],
   providers: [FunctionService],
   exports: [FunctionService],
-  controllers: [FunctionController]
+  controllers: [FunctionController],
 })
 export class FunctionModule {
 }

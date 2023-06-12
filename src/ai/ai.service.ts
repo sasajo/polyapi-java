@@ -1,4 +1,4 @@
-import { HttpException, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
@@ -97,7 +97,7 @@ export class AiService {
   private processScienceServerError() {
     return (error) => {
       this.logger.error(`Error while communicating with Science server: ${error}`);
-      throw new HttpException(error.response.data, error.response.status);
+      throw new HttpException(error.response?.data || error.message, error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR);
     };
   }
 
@@ -118,7 +118,7 @@ export class AiService {
       });
     }
 
-    this.logger.debug(`Creating new SystemPrompt...`);
+    this.logger.debug('Creating new SystemPrompt...');
     return this.prisma.systemPrompt.create({
       data: {
         environmentId,

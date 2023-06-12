@@ -1,10 +1,12 @@
 import shell from 'shelljs';
 import inquirer from 'inquirer';
-import { saveConfig } from '../config';
+import { loadConfig, saveConfig } from '../config';
 
 const URL_REGEX = /https?:\/\/(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))/;
 
 const setup = async () => {
+  loadConfig();
+
   await shell.echo('Please setup your connection to Poly service.');
 
   const { polyApiBaseUrl, polyApiKey } = await inquirer.prompt([
@@ -25,6 +27,7 @@ const setup = async () => {
       type: 'input',
       name: 'polyApiKey',
       message: 'Poly App Key or User Key:',
+      default: process.env.POLY_API_KEY,
       filter: (value) => value.trim(),
     },
   ]);

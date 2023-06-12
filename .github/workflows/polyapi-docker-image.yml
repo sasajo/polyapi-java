@@ -21,8 +21,8 @@ jobs:
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi-dev:latest -f docker/Dockerfile .
-        docker push ghcr.io/polyapi/polyapi-dev:latest
+        docker build -t ghcr.io/polyapi/polyapi-dev:1.0.4 -f docker/Dockerfile .
+        docker push ghcr.io/polyapi/polyapi-dev:1.0.4
 
   staging:
     name: Staging docker build and push.
@@ -39,5 +39,5 @@ jobs:
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi-main:v2 -f docker/Dockerfile .
-        docker push ghcr.io/polyapi/polyapi-main:v2
+        docker build -t ghcr.io/polyapi/polyapi-stg:latest -f docker/Dockerfile .
+        docker push ghcr.io/polyapi/polyapi-stg:latest

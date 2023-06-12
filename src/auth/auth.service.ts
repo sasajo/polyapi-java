@@ -1,11 +1,10 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AuthData } from 'common/types';
-import { ApiKeyDto, Permission, Permissions, Role } from '@poly/common';
+import { ApiKeyDto, Permission, Permissions, Role, Visibility } from '@poly/common';
 import { ApiKey, Application, Environment, Tenant, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import crypto from 'crypto';
 import _ from 'lodash';
-import { application } from 'express';
 
 type ApiKeyWithUser = ApiKey & { user: User | null };
 
@@ -63,10 +62,10 @@ export class AuthService {
         user: includeUser,
         environment: includeEnvironment
           ? {
-            include: {
-              tenant: true,
-            },
-          }
+              include: {
+                tenant: true,
+              },
+            }
           : false,
       },
     });
@@ -109,7 +108,7 @@ export class AuthService {
   }
 
   async deleteApiKey(id: string) {
-    this.prisma.apiKey.delete({
+    return this.prisma.apiKey.delete({
       where: {
         id,
       },
@@ -142,10 +141,12 @@ export class AuthService {
     const isAdmin = user?.role === Role.SuperAdmin || user?.role === Role.Admin;
 
     return Object.values(Permission)
-      .reduce((acc, permission) => ({
+      .reduce(
+        (acc, permission) => ({
           ...acc,
           [permission]: isAdmin || permissions[permission] === true,
-        }), {} as Permissions,
+        }),
+        {} as Permissions,
       );
   }
 
@@ -173,8 +174,9 @@ export class AuthService {
   }
 
   public async checkEnvironmentEntityAccess(
-    environmentEntity: { environmentId: string },
+    environmentEntity: { environmentId: string, visibility: string },
     authData: AuthData,
+    checkVisibility = false,
     ...permissions: Permission[]
   ) {
     const { environment, user } = authData;
@@ -183,7 +185,11 @@ export class AuthService {
       return true;
     }
 
-    if (environment.id !== environmentEntity.environmentId) {
+    const environmentsNotMatch = environment.id !== environmentEntity.environmentId;
+
+    if (
+      (checkVisibility && environmentEntity.visibility !== Visibility.Public && environmentsNotMatch) ||
+      (!checkVisibility && environmentsNotMatch)) {
       throw new ForbiddenException('You do not have access to this entity');
     }
 

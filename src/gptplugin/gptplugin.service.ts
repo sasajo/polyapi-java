@@ -11,6 +11,10 @@ import { ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/cli
 import { Request } from 'express';
 
 const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
+// for testing locally
+// what is the slug you chose for your pagekite?
+// see pagekite.me
+const LOCALHOST_PAGEKITE = 'megatronical';
 
 type AnyFunction = ApiFunction | CustomFunction;
 
@@ -38,6 +42,11 @@ type Schema = {
   arguments?: object;
   argumentsRequired?: string[];
 };
+
+function rsplit(s: string, sep: string, maxsplit: number): string[] {
+  const split = s.split(sep);
+  return [split.slice(0, -maxsplit).join(sep)].concat(split.slice(-maxsplit));
+}
 
 function _getExecuteType(t: string) {
   switch (t) {
@@ -164,15 +173,15 @@ async function _customFunctionMap(f: CustomFunction, functionService: FunctionSe
 function _getProperties(props: PropertySpecification[]) {
   const rv: object = {};
   for (const prop of props) {
-    const type = _getOpenApiType(prop.type)
+    const type = _getOpenApiType(prop.type);
     const name = prop.name;
     rv[name] = { type };
-    if (type === "object") {
+    if (type === 'object') {
       // @ts-expect-error: we know from previous line this is object!
-      const properties: PropertySpecification[] = prop.type.properties
+      const properties: PropertySpecification[] = prop.type.properties;
       if (properties && properties.length > 0) {
-        rv[name].properties = _getProperties(properties)
-        rv[name].required = _getArgumentsRequired(properties)
+        rv[name].properties = _getProperties(properties);
+        rv[name].required = _getArgumentsRequired(properties);
       }
     }
   }
@@ -188,12 +197,11 @@ export class GptPluginService {
     // TODO use with updatePlugin endpoint?
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
-  ) {
-  }
+  ) {}
 
   async _getAllFunctions(environmentId: string, ids: string[]): Promise<PluginFunction[]> {
     // TODO lets filter these down to just supported functions?
-    const apiFunctions = await this.functionService.getApiFunctions(environmentId, [], [], ids);
+    const apiFunctions = await this.functionService.getApiFunctions(environmentId, [], [], ids, true, true);
     const customFunctions = await this.functionService.getServerFunctions(environmentId, [], [], ids);
     // const authFunctions = await this.prisma.authFunction.findMany({ where: { publicId: { in: publicIds } } });
 
@@ -209,8 +217,10 @@ export class GptPluginService {
   getOpenApiUrl(host: string, slug: string): string {
     const protocol = host === 'localhost' ? 'http' : 'https';
     if (slug === 'develop' || slug === 'staging') {
-      // HACK for now staging/develop just use hardcoded manifests
+      // HACK for now staging/develop/local just use hardcoded manifests
       return `${protocol}://${host}/openapi-${slug}.yaml`;
+    } else if (slug === LOCALHOST_PAGEKITE) {
+      return `${protocol}://${LOCALHOST_PAGEKITE}.pagekite.me/openapi-localhost.yaml`;
     } else {
       return `${protocol}://${host}/plugins/${slug}/openapi`;
     }
@@ -243,7 +253,7 @@ export class GptPluginService {
     const responseSchemas = await Promise.all(functions.map((f) => _getResponseSchema(f)));
 
     const template = handlebars.compile(this.loadTemplate());
-    return template({ plugin: plugin, hostname, functions, bodySchemas, responseSchemas });
+    return template({ plugin, hostname, functions, bodySchemas, responseSchemas });
   }
 
   getBodySchema = (f: PluginFunction): object | null => {
@@ -252,15 +262,8 @@ export class GptPluginService {
     }
     const schema = {
       type: 'object',
-      properties: {
-        args: {
-          type: 'object',
-          properties: _getProperties(f.function.arguments),
-          required: _getArgumentsRequired(f.function.arguments)
-        },
-      },
-      required: ['args'],
-      description: 'arguments',
+      properties: _getProperties(f.function.arguments),
+      required: _getArgumentsRequired(f.function.arguments),
     };
     return {
       name: `${f.operationId}Body`,
@@ -279,9 +282,9 @@ export class GptPluginService {
     body.slug = body.slug.toLowerCase();
 
     // permission check
-    const plugin = await this.prisma.gptPlugin.findUnique({where: {slug: body.slug}})
-    if (plugin && plugin.environmentId != environment.id) {
-      throw new Error("Plugin is in different environment, cannot access with this key")
+    const plugin = await this.prisma.gptPlugin.findUnique({ where: { slug: body.slug } });
+    if (plugin && plugin.environmentId !== environment.id) {
+      throw new Error('Plugin is in different environment, cannot access with this key');
     }
 
     // function check
@@ -306,6 +309,9 @@ export class GptPluginService {
     // ok lets go ahead and create or update!
     const update = {};
     if (body.name) {
+      if (body.name.length > 30) {
+        throw new BadRequestException('Name too long. Max name length is 30 characters!');
+      }
       update['name'] = body.name;
     }
     if (body.descriptionForMarketplace) {
@@ -340,19 +346,31 @@ export class GptPluginService {
 
   async getManifest(req: Request) {
     const host = req.hostname;
-    const slug = host.split('.')[0];
+    const slugEnv = host.split('.')[0];
+    const parts = rsplit(slugEnv, '-', 1);
+    const slug = parts[0];
+    const env = parts[1];
 
     // make sure this is valid plugin host
     let name = '';
     let descMarket = '';
     let descModel = '';
     let iconUrl = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
+    const auth = {
+      type: 'user_http',
+      authorization_type: 'bearer',
+    };
     if (slug === 'staging') {
       name = 'Poly API Staging';
-    } else if (slug == 'develop') {
+    } else if (slug === 'develop') {
       name = 'Poly API Develop';
+    } else if (slug === LOCALHOST_PAGEKITE) {
+      name = 'Poly API Local';
     } else {
-      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug } });
+      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug }, include: { environment: true } });
+      if (plugin.environment.subdomain !== env) {
+        throw new BadRequestException('Plugin subdomain does not match environment!');
+      }
       name = plugin.name;
       descMarket = plugin.descriptionForMarketplace;
       descModel = plugin.descriptionForModel;
@@ -365,9 +383,7 @@ export class GptPluginService {
       name_for_model: lodash.snakeCase(name),
       description_for_human: descMarket || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
       description_for_model: descModel || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
-      auth: {
-        type: 'none',
-      },
+      auth,
       api: {
         type: 'openapi',
         url: this.getOpenApiUrl(host, slug),

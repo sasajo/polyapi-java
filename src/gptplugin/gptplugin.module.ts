@@ -8,6 +8,6 @@ import { FunctionModule } from 'function/function.module';
 @Module({
   imports: [HttpModule, PrismaModule, FunctionModule],
   providers: [GptPluginService],
-  controllers: [GptPluginController]
+  controllers: [GptPluginController],
 })
 export class GptPluginModule {}

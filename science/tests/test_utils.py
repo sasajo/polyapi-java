@@ -1,8 +1,20 @@
-import uuid
 from .testing import DbTestCase
 from app.typedefs import SpecificationDto
-from load_fixtures import load_functions, test_user_get_or_create, united_get_status_get_or_create
-from app.utils import camel_case, func_args, func_path, func_path_with_args, get_public_id, store_message
+from load_fixtures import (
+    load_functions,
+    test_user_get_or_create,
+    united_get_status_get_or_create,
+)
+from app.utils import (
+    camel_case,
+    create_new_conversation,
+    func_args,
+    func_path,
+    func_path_with_args,
+    get_conversations_for_user,
+    get_public_id,
+    store_message,
+)
 
 FUNC: SpecificationDto = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",
@@ -17,9 +29,17 @@ FUNC: SpecificationDto = {
                 "type": {
                     "kind": "object",
                     "properties": [
-                        {"name": "x", "type": {"kind": "primitive", "type": "number"}, "required": True},
-                        {"name": "y", "type": {"kind": "primitive", "type": "number"}, "required": True},
-                    ]
+                        {
+                            "name": "x",
+                            "type": {"kind": "primitive", "type": "number"},
+                            "required": True,
+                        },
+                        {
+                            "name": "y",
+                            "type": {"kind": "primitive", "type": "number"},
+                            "required": True,
+                        },
+                    ],
                 },
                 "required": True,
             },
@@ -62,31 +82,25 @@ class T(DbTestCase):
 
     def test_func_path_with_args(self):
         fpwa = func_path_with_args(FUNC)
-        self.assertEqual(fpwa, "poly.shipping.gMapsGetXy(payload: {x: number, y: number}, GAPIKey: string)")
+        self.assertEqual(
+            fpwa,
+            "poly.shipping.gMapsGetXy(payload: {x: number, y: number}, GAPIKey: string)",
+        )
 
     def test_store_message(self):
         user = test_user_get_or_create()
+        conversation = create_new_conversation(user.id)
 
-        function_ids = [uuid.uuid4().hex]
-        webhook_ids = [uuid.uuid4().hex]
         msg = store_message(
             user.id,
+            conversation.id,
             {
                 "role": "user",
                 "content": "profound question",
-                "function_ids": function_ids,
-                "webhook_ids": webhook_ids,
             },
         )
         self.assertEqual(msg.userId, user.id)
         self.assertEqual(msg.content, "profound question")
-
-        msg = self.db.conversationmessage.find_first(
-            where={"id": msg.id}, include={"functions": True, "webhooks": True}
-        )
-        self.assertEqual(msg.content, "profound question")
-        # self.assertEqual(function_ids, [f.functionId for f in msg.functions])
-        # self.assertEqual(webhook_ids, [w.webhookId for w in msg.webhooks])
 
     def test_get_public_id_none(self):
         result = get_public_id("foobar")
@@ -102,3 +116,23 @@ class T(DbTestCase):
         # should keep camel case
         out = camel_case("fooBar")
         self.assertEqual(out, "fooBar")
+
+    def test_get_conversations_for_user(self) -> None:
+        user = test_user_get_or_create()
+        conversation = create_new_conversation(user.id)
+
+        self.db.conversationmessage.delete_many(where={"userId": user.id})
+
+        messages = get_conversations_for_user(user.id)
+        self.assertEqual(messages, [])
+
+        msg = self.db.conversationmessage.create(
+            data={
+                "userId": user.id,
+                "conversationId": conversation.id,
+                "content": "first",
+                "role": "user",
+            }
+        )
+        messages = get_conversations_for_user(user.id)
+        self.assertEqual(messages, [msg])

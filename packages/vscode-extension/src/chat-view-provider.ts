@@ -72,7 +72,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         message,
       }, {
         headers: {
-          'X-PolyApiKey': apiKey,
+          authorization: `Bearer ${apiKey}`,
         } as RawAxiosRequestHeaders,
         signal: this.requestAbortController.signal,
       });
@@ -120,7 +120,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         command,
       }, {
         headers: {
-          'X-PolyApiKey': apiKey,
+          'Authorization': `Bearer ${apiKey}`,
         } as RawAxiosRequestHeaders,
       });
     } catch (error) {

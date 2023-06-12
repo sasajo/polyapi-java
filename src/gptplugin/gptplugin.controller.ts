@@ -2,17 +2,16 @@ import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nes
 import { ApiSecurity } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CreatePluginDto } from '@poly/common';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { GptPluginService } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller()
 export class GptPluginController {
   private readonly logger = new Logger(GptPluginController.name);
 
-  constructor(private readonly service: GptPluginService) {
-  }
+  constructor(private readonly service: GptPluginService) {}
 
   @Get('.well-known/ai-plugin.json')
   public async aiPluginJson(@Req() req: Request): Promise<unknown> {
@@ -25,23 +24,41 @@ export class GptPluginController {
     return spec;
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get('plugins/:slug')
   public async pluginGet(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
     const plugin = await this.service.getPlugin(slug);
     return {
-      plugin: plugin,
+      plugin,
       plugin_url: `https://${plugin.slug}.${req.hostname}`,
     };
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('plugins')
   public async pluginCreateOrUpdate(@Req() req: AuthRequest, @Body() body: CreatePluginDto): Promise<unknown> {
     const plugin = await this.service.createOrUpdatePlugin(req.user.environment, body);
     return {
-      plugin: plugin,
+      plugin,
       plugin_url: `https://${plugin.slug}.${req.hostname}`,
     };
+  }
+
+  @UseGuards(PolyAuthGuard)
+  @Get('whoami')
+  public async whoami(@Req() req: AuthRequest): Promise<unknown> {
+    const user = req.user.user;
+    if (user) {
+      return {
+        userId: user.id,
+        tenantId: user.tenantId,
+        environmentId: req.user.environment.id,
+        environmentSubdomain: req.user.environment.subdomain,
+      };
+    } else {
+      return {
+        userId: null,
+      };
+    }
   }
 }

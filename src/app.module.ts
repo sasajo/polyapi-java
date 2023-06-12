@@ -1,4 +1,4 @@
-import {join} from 'path';
+import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AuthModule } from 'auth/auth.module';
@@ -23,7 +23,7 @@ import { ApplicationModule } from 'application/application.module';
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'public'),
-      renderPath: '/'
+      renderPath: '/',
     }),
     PrismaModule,
     ConfigModule,
@@ -43,9 +43,7 @@ import { ApplicationModule } from 'application/application.module';
     GptPluginModule,
     ApplicationModule,
   ],
-  exports: [
-    ConfigModule,
-  ],
+  exports: [ConfigModule],
 })
 export class AppModule {
 }

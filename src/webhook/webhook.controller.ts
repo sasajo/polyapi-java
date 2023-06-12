@@ -14,26 +14,26 @@ import {
 } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { WebhookService } from 'webhook/webhook.service';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { CreateWebhookHandleDto, Permission, UpdateWebhookHandleDto } from '@poly/common';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
   public constructor(private readonly webhookService: WebhookService, private readonly authService: AuthService) {}
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get()
   public async getWebhookHandles(@Req() req: AuthRequest) {
     const webhookHandles = await this.webhookService.getWebhookHandles(req.user.environment.id);
     return webhookHandles.map((handle) => this.webhookService.toDto(handle));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id')
   public async getWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
     const webhookHandle = await this.webhookService.findWebhookHandle(id);
@@ -42,12 +42,12 @@ export class WebhookController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     return this.webhookService.toDto(webhookHandle);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post()
   public async createWebhookHandle(@Req() req: AuthRequest, @Body() createWebhookHandle: CreateWebhookHandleDto) {
     const { context = '', name, eventPayload, description = '' } = createWebhookHandle;
@@ -65,7 +65,7 @@ export class WebhookController {
   }
 
   @Patch(':id')
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   public async updateWebhookHandle(
     @Req() req: AuthRequest,
     @Param('id') id: string,
@@ -83,7 +83,7 @@ export class WebhookController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     return this.webhookService.toDto(
       await this.webhookService.updateWebhookHandle(webhookHandle, context, name, description, visibility),
@@ -103,19 +103,19 @@ export class WebhookController {
   }
 
   @Delete(':id')
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   public async deleteWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
     const webhookHandle = await this.webhookService.findWebhookHandle(id);
     if (!webhookHandle) {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     await this.webhookService.deleteWebhookHandle(id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Put(':context/:name')
   public async registerWebhookContextFunction(
     @Req() req: AuthRequest,
@@ -130,12 +130,12 @@ export class WebhookController {
       context,
       name,
       payload,
-      ''
+      '',
     );
     return this.webhookService.toDto(webhookHandle);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Put(':name')
   public async registerWebhookFunction(@Req() req: AuthRequest, @Param('name') name: string, @Body() payload: any) {
     await this.authService.checkPermissions(req.user, Permission.Teach);

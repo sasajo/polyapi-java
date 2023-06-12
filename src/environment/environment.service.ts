@@ -38,7 +38,7 @@ export class EnvironmentService {
       },
       include: {
         tenant: true,
-      }
+      },
     });
   }
 

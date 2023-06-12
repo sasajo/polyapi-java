@@ -1,4 +1,4 @@
-import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException } from '@nestjs/common';
+import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException, Param, Get, Header, Query } from '@nestjs/common';
 import {
   SendQuestionDto,
   SendQuestionResponseDto,
@@ -11,13 +11,13 @@ import {
 } from '@poly/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { ChatService } from 'chat/chat.service';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AiService } from 'ai/ai.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { AuthService } from 'auth/auth.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
@@ -27,10 +27,9 @@ export class ChatController {
     private readonly aiService: AiService,
     private readonly userService: UserService,
     private readonly authService: AuthService,
-  ) {
-  }
+  ) {}
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/question')
   public async sendQuestion(@Req() req: AuthRequest, @Body() body: SendQuestionDto): Promise<SendQuestionResponseDto> {
     const environmentId = req.user.environment.id;
@@ -48,7 +47,7 @@ export class ChatController {
     };
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post('/command')
   public async sendCommand(@Req() req: AuthRequest, @Body() body: SendCommandDto) {
     const environmentId = req.user.environment.id;
@@ -63,16 +62,19 @@ export class ChatController {
     await this.service.processCommand(environmentId, userId, body.command);
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('/ai-configuration')
   async aiConfiguration(@Req() req: AuthRequest, @Body() body: SendConfigureDto): Promise<string> {
     await this.aiService.configure(body.name, body.value);
     return 'chirp';
   }
 
-  @UseGuards(new PolyKeyGuard([Role.Admin, Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
   @Post('/system-prompt')
-  async teachSystemPrompt(@Req() req: AuthRequest, @Body() body: TeachSystemPromptDto): Promise<TeachSystemPromptResponseDto> {
+  async teachSystemPrompt(
+    @Req() req: AuthRequest,
+    @Body() body: TeachSystemPromptDto,
+  ): Promise<TeachSystemPromptResponseDto> {
     const environmentId = req.user.environment.id;
     const userId = req.user.user?.id || (await this.userService.findAdminUserByEnvironmentId(environmentId))?.id;
 
@@ -82,5 +84,27 @@ export class ChatController {
 
     await this.aiService.setSystemPrompt(environmentId, userId, body.prompt);
     return { response: 'Conversation cleared and new system prompt set!' };
+  }
+
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Get('/conversations')
+  public async conversationsList(
+    @Req() req: AuthRequest,
+    @Query('userId') userId: string,
+  ) {
+    const conversationIds = await this.service.getConversationIds(userId);
+    return { conversationIds };
+  }
+
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Header('content-type', 'text/plain')
+  @Get('/conversations/:conversationId')
+  public async conversationsDetail(
+    @Req() req: AuthRequest,
+    @Query('userId') userId: string,
+    @Param('conversationId') conversationId: string,
+  ) {
+    const conversation = await this.service.getConversationDetail(userId, conversationId);
+    return conversation;
   }
 }

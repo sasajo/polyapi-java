@@ -1,4 +1,8 @@
-export interface ExecuteCustomFunctionDto {
-  clientID: string;
-  args: Record<string, any>;
+import { IsOptional } from 'class-validator';
+
+export type ExecuteCustomFunctionDto = Record<string, any>;
+
+export class ExecuteCustomFunctionQueryParams {
+  @IsOptional()
+  clientId?: string;
 }

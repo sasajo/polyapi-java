@@ -8,7 +8,6 @@ from .testing import DbTestCase
 
 # TODO make relative?
 from app.description import DescInputDto
-from app.utils import clear_conversation
 from load_fixtures import test_user_get_or_create
 
 
@@ -17,23 +16,6 @@ class T(DbTestCase):
         user = test_user_get_or_create()
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
-
-    def test_clear_conversation(self):
-        user = test_user_get_or_create()
-        data = {
-            "userId": user.id,
-            "role": "user",
-            "content": "how do I get the status of a united flight?",
-        }
-        msg = self.db.conversationmessage.create(data=data)
-
-        # clearing other user id shouldn't delete this msg
-        clear_conversation("-1")
-        self.assertTrue(self.db.conversationmessage.find_first(where={"id": msg.id}))
-
-        # clearing this user id should clear it
-        clear_conversation(user.id)
-        self.assertFalse(self.db.conversationmessage.find_first(where={"id": msg.id}))
 
     @patch("app.views.get_completion_answer")
     def test_function_completion_error(self, get_answer: Mock) -> None:

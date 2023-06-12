@@ -1,19 +1,17 @@
-import { HeaderAPIKeyStrategy } from 'passport-headerapikey';
+import { Strategy } from 'passport-http-bearer';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, Logger } from '@nestjs/common';
 import { AuthService } from 'auth/auth.service';
 
 @Injectable()
-export class PolyKeyStrategy extends PassportStrategy(HeaderAPIKeyStrategy) {
-  private readonly logger = new Logger(PolyKeyStrategy.name);
+export class PolyAuthStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(PolyAuthStrategy.name);
 
   constructor(
     private readonly authService: AuthService,
   ) {
     super(
-      { header: 'X-PolyApiKey', prefix: '' },
-      false,
-      async (apiKey, done) => {
+      async (apiKey: string, done) => {
         try {
           const authData = await authService.getAuthData(apiKey);
 

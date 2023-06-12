@@ -1,10 +1,10 @@
 import re
-import json
 import copy
+import json
 import openai
 from typing import List, Dict, Optional, Tuple
 from prisma import get_client
-from prisma.models import ConversationMessage, SystemPrompt
+from prisma.models import SystemPrompt
 
 # TODO change to relative imports
 from app.typedefs import (
@@ -19,22 +19,24 @@ from app.typedefs import (
     MessageDict,
 )
 from app.utils import (
+    create_new_conversation,
+    insert_internal_step_info,
     public_id_to_spec,
     get_public_id,
     log,
-    clear_conversation,
     func_path_with_args,
     query_node_server,
     store_messages,
 )
 from app.constants import CHAT_GPT_MODEL
 
-UUID_REGEX = re.compile(r'[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}')
+UUID_REGEX = re.compile(
+    r"[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}"
+)
 
 
 def insert_system_prompt(environment_id: str, messages: List[MessageDict]) -> None:
-    """ modify the array in place to insert the system prompt at the beginning!
-    """
+    """modify the array in place to insert the system prompt at the beginning!"""
     # environment_id is unused but in the near future system prompts will be environment specific!
     system_prompt = get_system_prompt()
     if system_prompt and system_prompt.content:
@@ -52,18 +54,6 @@ def answer_processing(choice: ChatGptChoice) -> Tuple[str, bool]:
         return content, True
 
     return content, False
-
-
-def get_conversations_for_user(user_id: Optional[str]) -> List[ConversationMessage]:
-    if not user_id:
-        return []
-
-    db = get_client()
-    return list(
-        db.conversationmessage.find_many(
-            where={"userId": user_id}, order={"createdAt": "asc"}
-        )
-    )
 
 
 def log_matches(question: str, type: str, matches: int, total: int):
@@ -130,28 +120,18 @@ def spec_prompt(match: SpecificationDto) -> str:
 
 
 def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0, stage=""
+    messages: List[MessageDict], *, temperature=1.0
 ) -> ChatCompletionResponse:
     """send the messages to OpenAI and get a response"""
     stripped = copy.deepcopy(messages)
     for s in stripped:
-        # pop off all the data we use internally before sending the messages to OpenAI
-        s.pop("function_ids", None)
-        s.pop("webhook_ids", None)
-
+        # remove our internal-use-only fields
+        s.pop("type", None)
     resp: ChatCompletionResponse = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
         messages=stripped,
         temperature=temperature,
     )
-    if stage:
-        parts = [f"STAGE: {stage}"]
-        parts.append("PROMPT:")
-        parts += [str(s) for s in stripped]
-        parts.append("ANSWER:")
-        parts.append(str(resp["choices"][0]))
-        log("\n".join(parts))
-
     return resp
 
 
@@ -182,22 +162,23 @@ Here's what each confidence score means, rate it from the bottom up stopping whe
 
 def get_best_function_messages(
     user_id: str,
+    conversation_id: str,
     environment_id: str,
     question: str,
 ) -> Tuple[List[MessageDict], StatsDict]:
-    keywords = extract_keywords(question)
-    library, stats = get_function_options_prompt(user_id, environment_id, keywords)
+    keywords = extract_keywords(user_id, conversation_id, question)
+    options, stats = get_function_options_prompt(user_id, environment_id, keywords)
     stats["prompt"] = question
 
-    if not library:
+    if not options:
         return [], stats
 
-    question_msg = MessageDict(
-        role="user", content=BEST_FUNCTION_CHOICE_TEMPLATE % question
-    )
-    rv: List[MessageDict] = [library, question_msg]
-    insert_system_prompt(environment_id, rv)
-    return rv, stats
+    messages = [
+        options,
+        MessageDict(role="user", content=BEST_FUNCTION_CHOICE_TEMPLATE % question)
+    ]
+    insert_system_prompt(environment_id, messages)
+    return messages, stats
 
 
 def get_system_prompt() -> Optional[SystemPrompt]:
@@ -209,27 +190,23 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 
 
 def get_best_functions(
-    user_id: str, environment_id: str, question: str
+    user_id: str, conversation_id: str, environment_id: str, question: str
 ) -> Tuple[List[str], StatsDict]:
-    messages, stats = get_best_function_messages(user_id, environment_id, question)
+    messages, stats = get_best_function_messages(user_id, conversation_id, environment_id, question)
     if not messages:
         # we have no candidate functions whatsoever, abort!
-        clear_conversation(user_id)
         return [], stats
 
-    resp = get_chat_completion(messages, stage="get_best_function", temperature=0.2)
+    resp = get_chat_completion(messages, temperature=0.2)
+
+    # store conversation
+    insert_internal_step_info(messages, "STEP 2: GET BEST FUNCTIONS")
     answer_msg = resp["choices"][0]["message"]
     messages.append(answer_msg)
+    store_messages(user_id, conversation_id, messages)
 
-    # HACK just store convo for debugging
-    # always clear for now
-    clear_conversation(user_id)
-
-    # we tell ChatGPT to send us back "none" if no function matches
-    store_messages(user_id, messages)
-
+    # continue
     public_ids = _extract_ids_from_completion(answer_msg["content"])
-
     if public_ids:
         # valid public id, send it back!
         rv = []
@@ -256,11 +233,11 @@ def _extract_ids_from_completion(content: str) -> List[str]:
             continue
 
         try:
-            if isinstance(data, dict) and data['score'] != 1:
+            if isinstance(data, dict) and data["score"] != 1:
                 # sometimes OpenAI messes up and doesn't put it in a List when there's a single item
-                public_ids = [data['id']]
+                public_ids = [data["id"]]
             else:
-                public_ids = [d['id'] for d in data if d['score'] != 1]
+                public_ids = [d["id"] for d in data if d["score"] != 1]
             return public_ids
         except Exception as e:
             # OpenAI has returned weird JSON, lets try something else!
@@ -286,13 +263,22 @@ Use any combination of only the following functions to answer my question:
 
 {spec_str}
 """
-BEST_FUNCTION_QUESTION_TEMPLATE = "My question:\n{question}"
+BEST_FUNCTION_QUESTION_TEMPLATE = 'My question:\n"{question}"'
 
 
-def get_best_function_example(user_id: str, environment_id: str, public_ids: List[str], question: str) -> ChatGptChoice:
+def get_best_function_example(
+    user_id: str,
+    conversation_id: str,
+    environment_id: str,
+    public_ids: List[str],
+    question: str,
+) -> ChatGptChoice:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
-    specs = [public_id_to_spec(user_id, environment_id, public_id) for public_id in public_ids]
+    specs = [
+        public_id_to_spec(user_id, environment_id, public_id)
+        for public_id in public_ids
+    ]
     valid_specs = [spec for spec in specs if spec]
     if len(specs) != len(valid_specs):
         raise NotImplementedError(
@@ -307,29 +293,44 @@ def get_best_function_example(user_id: str, environment_id: str, public_ids: Lis
         MessageDict(role="user", content=best_function_prompt),
         MessageDict(role="user", content=question_prompt),
     ]
-    insert_system_prompt(environment_id, messages)
-    resp = get_chat_completion(messages, temperature=0.5, stage="get_example")
-    rv = resp["choices"][0]
 
-    # lets store them to look at
-    messages.append(rv['message'])
-    store_messages(user_id, messages)
+    insert_system_prompt(environment_id, messages)
+    resp = get_chat_completion(messages, temperature=0.5)
+
+    # store conversation
+    insert_internal_step_info(messages, "STEP 3: GET FUNCTION EXAMPLE")
+    rv = resp["choices"][0]
+    messages.append(rv["message"])
+    store_messages(user_id, conversation_id, messages)
 
     return rv
 
 
 def get_completion_answer(user_id: str, environment_id: str, question: str) -> Dict:
-    best_function_ids, stats = get_best_functions(user_id, environment_id, question)
+    conversation = create_new_conversation(user_id)
+    best_function_ids, stats = get_best_functions(
+        user_id, conversation.id, environment_id, question
+    )
     if best_function_ids:
         # we found a function that we think should answer this question
         # lets pass ChatGPT the function and ask the question to make this work
-        choice = get_best_function_example(user_id, environment_id, best_function_ids, question)
-    else:
-        resp = get_chat_completion(
-            [{"role": "user", "content": question}], stage="no_best_function"
+        choice = get_best_function_example(
+            user_id, conversation.id, environment_id, best_function_ids, question
         )
-        choice = resp["choices"][0]
+    else:
+        choice = simple_chatgpt_question(question)
+
+        # store conversation
+        messages = [MessageDict(role="user", content=question), choice['message']]
+        insert_internal_step_info(messages, "FALLBACK")
+        store_messages(user_id, conversation.id, messages)
 
     answer, hit_token_limit = answer_processing(choice)
 
     return {"answer": answer, "stats": stats}
+
+
+def simple_chatgpt_question(question: str) -> ChatGptChoice:
+    messages: List[MessageDict] = [{"role": "user", "content": question}]
+    resp = get_chat_completion(messages)
+    return resp["choices"][0]

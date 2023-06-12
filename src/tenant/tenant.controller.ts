@@ -15,7 +15,6 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
-import { PolyKeyGuard } from 'auth/poly-key-auth-guard.service';
 import { TenantService } from 'tenant/tenant.service';
 import {
   ApiKeyDto,
@@ -47,9 +46,9 @@ import { AuthService } from 'auth/auth.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { ApplicationService } from 'application/application.service';
-import { ApiImplicitQuery } from '@nestjs/swagger/dist/decorators/api-implicit-query.decorator';
+import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 
-@ApiSecurity('X-PolyApiKey')
+@ApiSecurity('PolyApiKey')
 @Controller('tenants')
 export class TenantController {
   constructor(
@@ -62,21 +61,21 @@ export class TenantController {
   ) {
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Get()
   async getTenants(): Promise<TenantDto[]> {
     return (await this.tenantService.getAll())
       .map(tenant => this.tenantService.toDto(tenant));
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post()
   async createTenant(@Body() data: CreateTenantDto): Promise<TenantDto> {
-    const { name } = data;
-    return this.tenantService.toDto(await this.tenantService.create(name));
+    const { name, publicVisibilityAllowed } = data;
+    return this.tenantService.toDto(await this.tenantService.create(name, publicVisibilityAllowed));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @UsePipes(new ValidationPipe({ transform: true }))
   @Get(':id')
   async getTenant(@Req() req: AuthRequest, @Param('id') id: string, @Query() { full = false }: GetTenantQuery): Promise<TenantDto> {
@@ -89,22 +88,22 @@ export class TenantController {
       : this.tenantService.toDto(tenant);
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
-  @Post(':id')
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Patch(':id')
   async updateTenant(@Param('id') id: string, @Body() data: UpdateTenantDto): Promise<TenantDto> {
-    const { name } = data;
+    const { name, publicVisibilityAllowed } = data;
     return this.tenantService.toDto(
-      await this.tenantService.update(await this.findTenant(id), name),
+      await this.tenantService.update(await this.findTenant(id), name, publicVisibilityAllowed),
     );
   }
 
-  @UseGuards(new PolyKeyGuard([Role.SuperAdmin]))
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Delete(':id')
   async deleteTenant(@Param('id') id: string) {
     await this.tenantService.delete(await this.findTenant(id));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/users')
   async getUsers(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<UserDto[]> {
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
@@ -113,11 +112,12 @@ export class TenantController {
       .map(user => this.userService.toUserDto(user));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post(':id/users')
   async createUser(@Req() req: AuthRequest, @Param('id') tenantId: string, @Body() data: CreateUserDto): Promise<UserDto> {
     const { name, role = Role.User } = data;
 
+    await this.findTenant(tenantId);
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
     return this.userService.toUserDto(
@@ -125,7 +125,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/users/:userId')
   async getUser(
     @Req() req: AuthRequest,
@@ -139,7 +139,7 @@ export class TenantController {
     return this.userService.toUserDto(user);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch(':id/users/:userId')
   async updateUser(
     @Req() req: AuthRequest,
@@ -157,7 +157,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id/users/:userId')
   async deleteUser(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('userId') userId: string) {
     const user = await this.findUser(tenantId, userId);
@@ -167,7 +167,7 @@ export class TenantController {
     await this.userService.deleteUser(user.id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/teams')
   async getTeams(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<TeamDto[]> {
     const tenant = await this.findTenant(tenantId);
@@ -176,7 +176,7 @@ export class TenantController {
       .map(team => this.teamService.toTeamDto(team));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post(':id/teams')
   async createTeam(@Req() req: AuthRequest, @Param('id') tenantId: string, @Body() data: CreateTeamDto): Promise<TeamDto> {
     const tenant = await this.findTenant(tenantId);
@@ -189,7 +189,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/teams/:teamId')
   async getTeam(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('teamId') teamId: string): Promise<TeamDto> {
     const team = await this.findTeam(tenantId, teamId);
@@ -199,7 +199,7 @@ export class TenantController {
     return this.teamService.toTeamDto(team);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch(':id/teams/:teamId')
   async updateTeam(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('teamId') teamId: string, @Body() data: UpdateTeamDto): Promise<TeamDto> {
     const team = await this.findTeam(tenantId, teamId);
@@ -212,7 +212,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id/teams/:teamId')
   async deleteTeam(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('teamId') teamId: string) {
     const team = await this.findTeam(tenantId, teamId);
@@ -222,7 +222,7 @@ export class TenantController {
     await this.teamService.deleteTeam(team.id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/teams/:teamId/members')
   async getMembers(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('teamId') teamId: string): Promise<TeamMemberDto[]> {
     const team = await this.findTeam(tenantId, teamId);
@@ -233,7 +233,7 @@ export class TenantController {
       .map(member => this.teamService.toMemberDto(member));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post(':id/teams/:teamId/members')
   async createMember(
     @Req() req: AuthRequest,
@@ -256,7 +256,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/teams/:teamId/members/:memberId')
   async getMember(
     @Req() req: AuthRequest,
@@ -271,7 +271,7 @@ export class TenantController {
     return this.teamService.toMemberDto(member);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id/teams/:teamId/members/:memberId')
   async deleteMember(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('teamId') teamId: string, @Param('memberId') memberId: string) {
     const member = await this.findMember(tenantId, teamId, memberId);
@@ -281,7 +281,7 @@ export class TenantController {
     await this.teamService.deleteMember(member.id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/environments')
   async getEnvironments(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<EnvironmentDto[]> {
     const tenant = await this.findTenant(tenantId);
@@ -290,7 +290,7 @@ export class TenantController {
       .map(environment => this.environmentService.toDto(environment));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post(':id/environments')
   async createEnvironment(@Req() req: AuthRequest, @Param('id') tenantId: string, @Body() data: CreateEnvironmentDto): Promise<EnvironmentDto> {
     const tenant = await this.findTenant(tenantId);
@@ -303,7 +303,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/environments/:environmentId')
   async getEnvironment(
     @Req() req: AuthRequest,
@@ -317,7 +317,7 @@ export class TenantController {
     return this.environmentService.toDto(environment);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch(':id/environments/:environmentId')
   async updateEnvironment(
     @Req() req: AuthRequest,
@@ -335,7 +335,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id/environments/:environmentId')
   async deleteEnvironment(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('environmentId') environmentId: string) {
     const environment = await this.findEnvironment(tenantId, environmentId);
@@ -345,7 +345,7 @@ export class TenantController {
     await this.environmentService.delete(environment.id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/environments/:environmentId/api-keys')
   async getApiKeys(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('environmentId') environmentId: string): Promise<ApiKeyDto[]> {
     await this.findEnvironment(tenantId, environmentId);
@@ -356,7 +356,7 @@ export class TenantController {
       .map(apiKey => this.authService.toApiKeyDto(apiKey));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post(':id/environments/:environmentId/api-keys')
   async createApiKey(
     @Req() req: AuthRequest,
@@ -383,7 +383,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/environments/:environmentId/api-keys/:apiKeyId')
   async getApiKey(
     @Req() req: AuthRequest,
@@ -398,7 +398,7 @@ export class TenantController {
     return this.authService.toApiKeyDto(apiKey);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch(':id/environments/:environmentId/api-keys/:apiKeyId')
   async updateApiKey(
     @Req() req: AuthRequest,
@@ -417,7 +417,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id/environments/:environmentId/api-keys/:apiKeyId')
   async deleteApiKey(
     @Req() req: AuthRequest,
@@ -432,7 +432,7 @@ export class TenantController {
     await this.authService.deleteApiKey(apiKey.id);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/applications')
   async getApplications(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<ApplicationDto[]> {
     await this.findTenant(tenantId);
@@ -443,7 +443,7 @@ export class TenantController {
       .map(application => this.applicationService.toApplicationDto(application));
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Post(':id/applications')
   async createApplication(
     @Req() req: AuthRequest,
@@ -460,7 +460,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Get(':id/applications/:applicationId')
   async getApplication(
     @Req() req: AuthRequest,
@@ -474,7 +474,7 @@ export class TenantController {
     return this.applicationService.toApplicationDto(application);
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Patch(':id/applications/:applicationId')
   async updateApplication(
     @Req() req: AuthRequest,
@@ -492,7 +492,7 @@ export class TenantController {
     );
   }
 
-  @UseGuards(PolyKeyGuard)
+  @UseGuards(PolyAuthGuard)
   @Delete(':id/applications/:applicationId')
   async deleteApplication(
     @Req() req: AuthRequest,
@@ -515,9 +515,10 @@ export class TenantController {
   }
 
   private async findUser(tenantId: string, userId: string) {
+    const tenant = await this.findTenant(tenantId);
     const user = await this.userService.findUserById(userId);
 
-    if (!user || (user.tenantId !== tenantId)) {
+    if (!user || (user.tenantId !== tenant.id)) {
       throw new NotFoundException(`User with id ${userId} not found`);
     }
     return user;

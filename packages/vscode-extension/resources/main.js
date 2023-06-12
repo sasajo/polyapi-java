@@ -94,6 +94,7 @@ const COMMANDS = ['clear'];
       }
       case 'setLoading': {
         const loadingContainer = document.querySelector('.loading-container');
+        messageInput.setAttribute('disabled', 'disabled');
 
         if (!loadingContainer) {
           conversationList.innerHTML +=
@@ -119,6 +120,7 @@ const COMMANDS = ['clear'];
             ${texts.map(text => getResponseTextHtml(text)).join('')}
           </div>`;
         scrollToLastMessage();
+        messageInput.removeAttribute('disabled');
         break;
       }
       case 'clearConversation':

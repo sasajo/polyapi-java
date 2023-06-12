@@ -58,6 +58,7 @@ export class ConfigService {
   get useSwaggerUI(): boolean {
     return Boolean(this.get('USE_SWAGGER_UI'));
   }
+
   get logLevel(): string {
     return this.get('LOG_LEVEL', 'info');
   }

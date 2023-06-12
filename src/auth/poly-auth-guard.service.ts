@@ -4,7 +4,7 @@ import { Role } from '@poly/common';
 import { AuthData } from 'common/types';
 
 @Injectable()
-export class PolyKeyGuard extends AuthGuard('headerapikey') {
+export class PolyAuthGuard extends AuthGuard('bearer') {
   constructor(private readonly roles: Role[] | null = null) {
     super();
   }

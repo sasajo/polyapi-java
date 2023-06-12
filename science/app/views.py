@@ -5,7 +5,7 @@ from openai.error import OpenAIError, RateLimitError
 from app.completion import get_completion_answer
 from app.description import get_function_description, get_webhook_description
 from app.typedefs import DescInputDto
-from app.utils import clear_conversation, is_vip_user, log, set_config_variable
+from app.utils import is_vip_user, log, set_config_variable
 
 bp = Blueprint("views", __name__)
 
@@ -45,13 +45,6 @@ def function_description() -> Response:
 def webhook_description() -> Response:
     data: DescInputDto = request.get_json(force=True)
     return jsonify(get_webhook_description(data))
-
-
-@bp.route("/clear-conversation", methods=["POST"])
-def clear_conversation_view() -> str:
-    user_id = request.get_json(force=True)["user_id"]
-    clear_conversation(user_id)
-    return "Conversation Cleared"
 
 
 @bp.route("/configure", methods=["POST"])

@@ -25,10 +25,10 @@ export class WebhookService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
-  ) {}
+  ) {
+  }
 
   private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
-
     const createData = {
       data: {
         createdAt: new Date(),
@@ -46,30 +46,32 @@ export class WebhookService {
   private getWebhookFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
-          return {
-            OR: [
-              {
-                context: { startsWith: `${context}.` },
-              },
-              {
-                context,
-              },
-            ],
-          };
-        })
+        return {
+          OR: [
+            {
+              context: { startsWith: `${context}.` },
+            },
+            {
+              context,
+            },
+          ],
+        };
+      })
       : [];
 
+    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
+
     const filterConditions = [
-      ...contextConditions,
+      {
+        OR: contextConditions,
+      },
       names?.length ? { name: { in: names } } : undefined,
-      ids?.length ? { id: { in: ids } } : undefined,
     ].filter(Boolean) as any[];
 
-    if (filterConditions.length > 0) {
-      this.logger.debug(`webhookHandles filterConditions: ${JSON.stringify(filterConditions)}`);
-    }
+    this.logger.debug(`webhookHandles filter conditions: ${JSON.stringify([{ AND: filterConditions },
+      ...idConditions])}`);
 
-    return filterConditions.length > 0 ? { OR: [...filterConditions] } : undefined;
+    return [{ AND: filterConditions }, ...idConditions];
   }
 
   public async findWebhookHandle(id: string): Promise<WebhookHandle | null> {
@@ -80,20 +82,36 @@ export class WebhookService {
     });
   }
 
-  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for environment ${environmentId}...`);
-
     return this.prisma.webhookHandle.findMany({
       where: {
-        OR: [
-          { environmentId },
-          includePublic ? { visibility: Visibility.Public } : {},
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
+            ],
+          },
+          {
+            OR: this.getWebhookFilterConditions(contexts, names, ids),
+          },
         ],
-        ...this.getWebhookFilterConditions(contexts, names, ids),
       },
       orderBy: {
         createdAt: 'desc',
       },
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -126,11 +144,13 @@ export class WebhookService {
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
-      where: context === null ? { name } : {
-        name,
-        context,
-        environmentId,
-      },
+      where: context === null
+        ? { name }
+        : {
+            name,
+            context,
+            environmentId,
+          },
     });
 
     name = this.normalizeName(name, webhookHandle);
@@ -157,9 +177,9 @@ export class WebhookService {
           },
           data: {
             eventPayload: JSON.stringify(eventPayload),
-            context: context || aiResponse.context,
+            context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
             description: description || aiResponse.description,
-            name: name || aiResponse.name,
+            name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
           },
         });
       }
@@ -204,9 +224,9 @@ export class WebhookService {
               },
               data: {
                 eventPayload: JSON.stringify(eventPayload),
-                context: context || aiResponse.context,
+                context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
                 description: description || aiResponse.description,
-                name: name || aiResponse.name,
+                name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
               },
             });
           }
@@ -282,7 +302,7 @@ export class WebhookService {
     if (name == null) {
       name = webhookHandle?.name || '';
     }
-    return name.replace(/[^a-zA-Z0-9.]/g, '');
+    return toCamelCase(name);
   }
 
   private normalizeContext(context: string | null, webhookHandle: WebhookHandle | null = null) {
@@ -290,7 +310,7 @@ export class WebhookService {
       context = webhookHandle?.context || '';
     }
 
-    return context.replace(/[^a-zA-Z0-9.]/g, '');
+    return context.trim();
   }
 
   private normalizeDescription(description: string | null, webhookHandle?: WebhookHandle) {
@@ -303,7 +323,7 @@ export class WebhookService {
 
   private normalizeVisibility(visibility: Visibility | null, webhookHandle?: WebhookHandle) {
     if (visibility == null) {
-      visibility = webhookHandle?.visibility as Visibility || Visibility.Tenant;
+      visibility = webhookHandle?.visibility as Visibility || Visibility.Environment;
     }
 
     return visibility;
@@ -311,7 +331,7 @@ export class WebhookService {
 
   async deleteWebhookHandle(id: string) {
     this.logger.debug(`Deleting webhook ${id}...`);
-    await this.prisma.webhookHandle.delete({
+    return this.prisma.webhookHandle.delete({
       where: {
         id,
       },
@@ -366,6 +386,9 @@ export class WebhookService {
             },
           },
         },
+      },
+      visibilityMetadata: {
+        visibility: webhookHandle.visibility as Visibility,
       },
     };
   }

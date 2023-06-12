@@ -15,10 +15,9 @@ module.exports = (clientID) => merge(
       acc,
       path,
       (...args) => axios.post(
-        `/functions/server/${id}/execute`,
+        `/functions/server/${id}/execute?clientId=${clientID}`,
         {
-          clientID,
-          args: argKeys.reduce((acc, key, index) => ({ ...acc, [key]: args[index] }), {})
+          ...argKeys.reduce((acc, key, index) => ({ ...acc, [key]: args[index] }), {})
         }
       ).then(({ data }) => data)),
     {}

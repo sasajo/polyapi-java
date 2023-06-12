@@ -9,7 +9,6 @@ export interface TranspileResult {
   requirements: string[];
 }
 
-
 // NodeJS built-in libraries + polyapi
 // https://www.w3schools.com/nodejs/ref_modules.asp
 const EXCLUDED_REQUIREMENTS = [
@@ -82,9 +81,9 @@ export const transpileCode = (functionName: string, code: string): TranspileResu
               // process `const library = require('library');`
               if (ts.isVariableStatement(node)) {
                 const declaration = node.declarationList.declarations[0];
-                if (declaration.initializer
-                  && ts.isCallExpression(declaration.initializer)
-                  && declaration.initializer.expression.getText() === 'require') {
+                if (declaration.initializer &&
+                  ts.isCallExpression(declaration.initializer) &&
+                  declaration.initializer.expression.getText() === 'require') {
                   const library = declaration.initializer.arguments[0].getText()
                     .replace(/'/g, '')
                     .replace(/"/g, '');

@@ -10,13 +10,14 @@ datasource db {
 }
 
 model Tenant {
-  id           String        @id @default(uuid())
-  createdAt    DateTime      @default(now()) @map("created_at")
-  name         String
-  users        User[]
-  teams        Team[]
-  environments Environment[]
-  applications Application[]
+  id                      String        @id @default(uuid())
+  createdAt               DateTime      @default(now()) @map("created_at")
+  name                    String
+  users                   User[]
+  teams                   Team[]
+  environments            Environment[]
+  applications            Application[]
+  publicVisibilityAllowed Boolean       @default(false) @map("public_visibility_allowed")
 
   @@map("tenant")
 }
@@ -25,10 +26,11 @@ model User {
   id                   String                @id @default(uuid())
   createdAt            DateTime              @default(now()) @map("created_at")
   name                 String
-  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId             String                @map("tenant_id")
   role                 String                @default("USER")
   vip                  Boolean               @default(false) // is this person a VIP we want to track carefully?
+  conversations        Conversation[]
   conversationMessages ConversationMessage[]
   apiKeys              ApiKey[]
   teamMembers          TeamMember[]
@@ -40,7 +42,7 @@ model Team {
   id          String       @id @default(uuid())
   createdAt   DateTime     @default(now()) @map("created_at")
   name        String
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId    String       @map("tenant_id")
   teamMembers TeamMember[]
 
@@ -50,9 +52,9 @@ model Team {
 model TeamMember {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now()) @map("created_at")
-  team      Team     @relation(fields: [teamId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   teamId    String   @map("team_id")
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
 
   @@map("team_member")
@@ -62,7 +64,7 @@ model Environment {
   id              String           @id @default(uuid())
   createdAt       DateTime         @default(now()) @map("created_at")
   name            String
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId        String           @map("tenant_id")
   subdomain       String           @unique
   apiFunctions    ApiFunction[]
@@ -79,7 +81,7 @@ model Environment {
 model Application {
   id          String   @id @default(uuid())
   createdAt   DateTime @default(now()) @map("created_at")
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tenantId    String   @map("tenant_id")
   name        String
   description String   @default("")
@@ -92,13 +94,13 @@ model ApiKey {
   id            String       @id @default(uuid())
   createdAt     DateTime     @default(now()) @map("created_at")
   name          String
-  environment   Environment  @relation(fields: [environmentId], references: [id])
+  environment   Environment  @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String       @map("environment_id")
   key           String       @unique
   permissions   String       @default("{}")
-  application   Application? @relation(fields: [applicationId], references: [id])
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   applicationId String?      @map("application_id")
-  user          User?        @relation(fields: [userId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String?      @map("user_id")
 
   @@map("api_key")
@@ -107,7 +109,7 @@ model ApiKey {
 model ApiFunction {
   id                String      @id @default(uuid())
   createdAt         DateTime    @default(now()) @map("created_at")
-  environment       Environment @relation(fields: [environmentId], references: [id])
+  environment       Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId     String      @map("environment_id")
   name              String
   context           String
@@ -121,7 +123,7 @@ model ApiFunction {
   response          String?
   argumentsMetadata String?     @map("arguments_metadata")
   trained           Boolean     @default(false)
-  visibility        String      @default("TENANT")
+  visibility        String      @default("ENVIRONMENT")
 
   @@map("api_function")
 }
@@ -129,7 +131,7 @@ model ApiFunction {
 model CustomFunction {
   id            String      @id @default(uuid())
   createdAt     DateTime    @default(now()) @map("created_at")
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
   name          String
   context       String
@@ -140,7 +142,7 @@ model CustomFunction {
   requirements  String?     @map("requirements")
   trained       Boolean     @default(false)
   serverSide    Boolean     @default(false) @map("server_side")
-  visibility    String      @default("TENANT")
+  visibility    String      @default("ENVIRONMENT")
 
   @@map("custom_function")
 }
@@ -148,7 +150,7 @@ model CustomFunction {
 model AuthProvider {
   id               String      @id @default(uuid())
   createdAt        DateTime    @default(now()) @map("created_at")
-  environment      Environment @relation(fields: [environmentId], references: [id])
+  environment      Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId    String      @map("environment_id")
   name             String?
   context          String
@@ -160,7 +162,7 @@ model AuthProvider {
   refreshEnabled   Boolean     @default(false) @map("refresh_enabled")
   trained          Boolean     @default(false)
   authTokens       AuthToken[]
-  visibility       String      @default("TENANT")
+  visibility       String      @default("ENVIRONMENT")
 
   @@map("auth_provider")
 }
@@ -168,55 +170,50 @@ model AuthProvider {
 model WebhookHandle {
   id            String      @id @default(uuid())
   createdAt     DateTime    @default(now()) @map("created_at")
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
   context       String
   name          String
   eventPayload  String      @map("event_payload")
   description   String      @default("")
-  visibility    String      @default("TENANT")
+  visibility    String      @default("ENVIRONMENT")
 
   @@map("webhook_handle")
+}
+
+// which thread are the messages a part of?
+model Conversation {
+  id        String            @id @default(uuid())
+  createdAt DateTime          @default(now())
+  user      User              @relation(fields: [userId], references: [id])
+  userId    String
+  messages  ConversationMessage[]
 }
 
 // store all the messages in a conversation
 model ConversationMessage {
   id        String            @id @default(uuid())
   createdAt DateTime          @default(now())
-  user      User              @relation(fields: [userId], references: [id])
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String            @map("user_id")
   name      String            @default("") // not used for now. in future, will allow the user to have multiple conversations
-  role      String // assistant or user
+  role      String            // assistant or user or system or info
+
+  // 1 is gpt messages, aka messages between us and ChatGPT, 2 is user messages, 3 is internal that was never sent anywhere (like "start stage 1")
+  type      Int               @default(1)
+
   content   String
-  functions FunctionDefined[]
-  webhooks  WebhookDefined[]
+  conversation    Conversation      @relation(fields: [conversationId], references: [id])
+  conversationId  String            @map("conversation_id")
 
   @@map("conversation_message")
-}
-
-model FunctionDefined {
-  id         Int                 @id @default(autoincrement())
-  message    ConversationMessage @relation(fields: [messageId], references: [id])
-  messageId  String              @map("message_id")
-  functionId String              @map("function_id") // could be a relation but isn't currently
-
-  @@map("function_defined")
-}
-
-model WebhookDefined {
-  id        Int                 @id @default(autoincrement())
-  message   ConversationMessage @relation(fields: [messageId], references: [id])
-  messageId String              @map("message_id")
-  webhookId String              @map("webhook_id") // could be a relation but isn't currently
-
-  @@map("webhook_defined")
 }
 
 // customizable prompt per user
 model SystemPrompt {
   id            String      @id @default(uuid())
   createdAt     DateTime    @default(now())
-  environment   Environment @relation(fields: [environmentId], references: [id])
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   environmentId String      @map("environment_id")
   content       String
 
@@ -226,7 +223,7 @@ model SystemPrompt {
 model AuthToken {
   id             String       @id @default(uuid())
   createdAt      DateTime     @default(now()) @map("created_at")
-  authProvider   AuthProvider @relation(fields: [authProviderId], references: [id])
+  authProvider   AuthProvider @relation(fields: [authProviderId], references: [id], onDelete: Cascade)
   authProviderId String       @map("auth_provider_id")
   clientId       String       @map("client_id")
   clientSecret   String       @map("client_secret")
@@ -251,15 +248,15 @@ model ConfigVariable {
 }
 
 model GptPlugin {
-  id                        Int    @id @default(autoincrement())
-  slug                      String @unique
+  id                        Int         @id @default(autoincrement())
+  slug                      String      @unique
   name                      String
-  descriptionForMarketplace String @default("") @map("description_for_marketplace")
-  descriptionForModel       String @default("") @map("description_for_model")
-  iconUrl                   String @map("icon_url")
+  descriptionForMarketplace String      @default("") @map("description_for_marketplace")
+  descriptionForModel       String      @default("") @map("description_for_model")
+  iconUrl                   String      @map("icon_url")
   functionIds               String // json array of function publicIds for now
-  environment   Environment @relation(fields: [environmentId], references: [id])
-  environmentId String      @map("environment_id")
+  environment               Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  environmentId             String      @map("environment_id")
 
   @@map("gpt_plugin")
 }

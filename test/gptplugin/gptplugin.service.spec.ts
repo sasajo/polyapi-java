@@ -1,9 +1,11 @@
-import fs from 'fs';
-import { GptPluginService, PluginFunction } from './gptplugin.service';
+// import fs from 'fs';
+import { GptPluginService, PluginFunction } from 'gptplugin/gptplugin.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { GptPluginModule } from './gptplugin.module';
+import { GptPluginModule } from 'gptplugin/gptplugin.module';
 import { Environment } from '@prisma/client';
+import { Request } from 'express';
+import { Visibility } from '@poly/common';
 
 const PLUGIN_CREATE_SPEC: PluginFunction = {
   id: '9d284b9d-c1a0-4d80-955d-9ef79343ddb7',
@@ -137,20 +139,23 @@ const PLUGIN_CREATE_SPEC: PluginFunction = {
       },
     },
   },
+  visibilityMetadata: {
+    visibility: Visibility.Environment,
+  },
 };
 
 // use these known TEST_PUBLIC_IDS so we can appropriately clear between tests
 const TEST_PUBLIC_IDS = ['123', '456'];
 
 function isEnvironment(env: Environment | null): asserts env is Environment {
-  if (!env) throw new Error("environment is null!")
+  if (!env) throw new Error('environment is null!');
 }
 
 async function _createTestEnvironment(prisma) {
   // HACK we should really create an environment instead of clobbering whichever is first
-  const env = prisma.environment.findFirst({orderBy: {id: 'asc'}});
-  isEnvironment(env)
-  return env
+  const env = prisma.environment.findFirst({ orderBy: { id: 'asc' } });
+  isEnvironment(env);
+  return env;
 }
 
 async function _createApiFunction(prisma: PrismaService) {
@@ -197,7 +202,7 @@ async function _createServerFunction(prisma: PrismaService) {
 }
 
 async function _createPlugin(prisma: PrismaService) {
-  const environment = await _createTestEnvironment(prisma)
+  const environment = await _createTestEnvironment(prisma);
   const defaults = {
     name: 'Mass Effect',
     iconUrl: 'http://example.com/image.png',
@@ -245,8 +250,8 @@ describe('GptPluginService', () => {
       const spec = JSON.parse(specStr);
 
       // write specStr to file for debugging
-      fs.writeFileSync('/tmp/spec.json', specStr, 'utf8');
-      console.log('file written to /tmp/spec.json');
+      // fs.writeFileSync('/tmp/spec.json', specStr, 'utf8');
+      // console.log('file written to /tmp/spec.json');
 
       expect(spec.openapi).toBe('3.0.1');
       expect(spec.info.title).toBe('Mass Effect');
@@ -290,7 +295,7 @@ describe('GptPluginService', () => {
         functionIds: ['bad'],
       };
 
-      const environment = await _createTestEnvironment(prisma)
+      const environment = await _createTestEnvironment(prisma);
       try {
         await service.createOrUpdatePlugin(environment, body);
         expect(0).toBe(1); // force error here if no error thrown
@@ -315,10 +320,22 @@ describe('GptPluginService', () => {
     });
   });
 
-  describe('getManifest', () => {
-    it('should return the manifest for the environment', async () => {
+  describe('getOpenApiUrl develop', () => {
+    it('should return a special case for develop', async () => {
       const url = service.getOpenApiUrl('develop.polyapi.io', 'develop');
       expect(url).toBe('https://develop.polyapi.io/openapi-develop.yaml');
+    });
+  });
+
+  describe('getManifest', () => {
+    it('should return the manifest for the environment', async () => {
+      const plugin = await _createPlugin(prisma);
+      const subdomain = (await prisma.environment.findFirstOrThrow({ where: { id: plugin.environmentId } })).subdomain;
+      expect(subdomain).toBeTruthy();
+
+      const req = { hostname: `mass-effect-${subdomain}.develop.polyapi.io` } as Request;
+      const manifest = await service.getManifest(req);
+      expect(manifest.api.url).toBeTruthy();
     });
   });
 });

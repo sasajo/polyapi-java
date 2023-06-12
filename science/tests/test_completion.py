@@ -1,11 +1,11 @@
 import copy
 from typing import List
 from mock import Mock, patch
+from app.utils import create_new_conversation
 from load_fixtures import test_environment_get_or_create, test_user_get_or_create
 from app.completion import (
     _id_extraction_fallback,
     get_best_function_example,
-    get_conversations_for_user,
     get_function_options_prompt,
     get_best_function_messages,
     _extract_ids_from_completion,
@@ -67,7 +67,7 @@ Note: This is just an example and you will need to replace the query parameters 
 """
 
 
-def _fake_extract(keyword):
+def _fake_extract(user_id, conversation_id, keyword):
     return {
         "keywords": keyword,
         "semantically_similar_keywords": "jarjar",
@@ -175,21 +175,6 @@ class T(DbTestCase):
         self.user = test_user_get_or_create()
         self.environment = test_environment_get_or_create()
 
-    def test_get_conversations_for_user(self) -> None:
-        user = test_user_get_or_create()
-        self.db.functiondefined.delete_many()
-        self.db.webhookdefined.delete_many()
-        self.db.conversationmessage.delete_many(where={"userId": user.id})
-
-        messages = get_conversations_for_user(user.id)
-        self.assertEqual(messages, [])
-
-        msg = self.db.conversationmessage.create(
-            data={"userId": user.id, "content": "first", "role": "user"}
-        )
-        messages = get_conversations_for_user(user.id)
-        self.assertEqual(messages, [msg])
-
     @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
     @patch("app.completion.query_node_server")
     def test_library_message_no_keywords(self, query_node_server: Mock) -> None:
@@ -238,6 +223,7 @@ class T(DbTestCase):
     @patch("app.completion.extract_keywords", new=_fake_extract)
     @patch("app.completion.query_node_server")
     def test_get_best_function_messages(self, query_node_server: Mock) -> None:
+        conversation = create_new_conversation(self.user.id)
         self.db.systemprompt.delete_many()  # no system prompt!
 
         query_node_server.side_effect = [
@@ -246,6 +232,7 @@ class T(DbTestCase):
 
         messages, stats = get_best_function_messages(
             self.user.id,
+            conversation.id,
             self.environment.id,
             "how do I create a new incident in ServiceNow?",
         )
@@ -256,11 +243,13 @@ class T(DbTestCase):
     @patch("app.utils.query_node_server")
     @patch("app.completion.get_chat_completion")
     def test_get_best_function_example(self, get_chat_completion, query_node_server):
+        conversation = create_new_conversation(self.user.id)
         get_chat_completion.return_value = {"choices": [{"message": {"role": "assistant", "content": "foobar"}}]}
         query_node_server.return_value = Mock(status_code=200, json=get_functions)
 
         result = get_best_function_example(
             self.user.id,
+            conversation.id,
             self.environment.id,
             ["f7588018-2364-4586-b60d-b08a285f1ea3"],
             "how do I check flight?",
@@ -270,7 +259,7 @@ class T(DbTestCase):
         messages = get_chat_completion.call_args[0][0]
         print(messages[0]["content"])
         print(messages[1]["content"])
-        self.assertEqual(len(messages), 3)
+        self.assertEqual(len(messages), 4)
         self.assertEqual(query_node_server.call_count, 1)
 
         self.assertTrue(result)

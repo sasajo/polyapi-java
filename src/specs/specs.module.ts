@@ -15,6 +15,6 @@ import { AuthModule } from 'auth/auth.module';
   ],
   controllers: [SpecsController],
   exports: [SpecsService],
-  providers: [SpecsService]
+  providers: [SpecsService],
 })
 export class SpecsModule {}

@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { Role, UserDto } from '@poly/common';
 import { User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(private readonly prisma: PrismaService) {
   }
 
@@ -50,6 +52,7 @@ export class UserService {
   }
 
   async createUser(tenantId: string, name: string, role: Role) {
+    this.logger.debug(`Creating user ${name} with role ${role}...`);
     return this.prisma.user.create({
       data: {
         tenant: {
@@ -64,6 +67,7 @@ export class UserService {
   }
 
   async updateUser(user: User, name: string | undefined, role: Role | undefined) {
+    this.logger.debug(`Updating user ${user.id}...`);
     return this.prisma.user.update({
       where: {
         id: user.id,
@@ -76,7 +80,8 @@ export class UserService {
   }
 
   async deleteUser(id: string) {
-    this.prisma.user.delete({
+    this.logger.debug(`Deleting user ${id}...`);
+    return this.prisma.user.delete({
       where: {
         id,
       },

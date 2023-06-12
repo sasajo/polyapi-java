@@ -81,14 +81,10 @@ def load_functions(user: User) -> None:
                     "method": data["method"],
                     "createdAt": datetime.datetime.now(),
                     "environmentId": environment.id,
+                    "visibility": "PUBLIC",
                 }  # type: ignore
             )
             print(f"Created {url_function_path(func)}")
-
-    db.functiondefined.delete_many()
-    db.webhookdefined.delete_many()
-    conversations_deleted = db.conversationmessage.delete_many()
-    print(f"Deleted {conversations_deleted} conversations.")
 
 
 def united_get_status_get_or_create(user: User, load=True) -> ApiFunction:

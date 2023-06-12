@@ -49,8 +49,8 @@ export class KNativeFaasService implements FaasService {
     fs.writeFileSync(this.config.faasDockerConfigFile, JSON.stringify(getConfig(), null, 2));
   }
 
-  async createFunction(id: string, name: string, code: string, requirements: string[], apiKey: string): Promise<void> {
-    const functionPath = this.getFunctionPath(id);
+  async createFunction(id: string, tenantId: string, environmentId: string, name: string, code: string, requirements: string[], apiKey: string): Promise<void> {
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     if (fs.existsSync(functionPath)) {
       await this.cleanUpFunction(id, functionPath);
     }
@@ -66,17 +66,17 @@ export class KNativeFaasService implements FaasService {
     });
     fs.writeFileSync(`${functionPath}/index.js`, indexFileContent);
 
-    await this.deploy(id);
+    await this.deploy(id, tenantId, environmentId);
   }
 
-  async executeFunction(id: string, args: any[], maxRetryCount = 3): Promise<any> {
-    const functionPath = this.getFunctionPath(id);
+  async executeFunction(id: string, tenantId: string, environmentId: string, args: any[], maxRetryCount = 3): Promise<any> {
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     const functionUrl = await this.getFunctionUrl(functionPath);
 
     if (!functionUrl) {
       if (maxRetryCount > 0) {
-        await this.deploy(id);
-        return this.executeFunction(id, args, maxRetryCount - 1);
+        await this.deploy(id, tenantId, environmentId);
+        return this.executeFunction(id, tenantId, environmentId, args, maxRetryCount - 1);
       } else {
         this.logger.error(`Function ${id} is not running`);
         throw new Error(`Function ${id} is not running`);
@@ -96,7 +96,7 @@ export class KNativeFaasService implements FaasService {
             this.logger.error(`Error while performing HTTP request for server function (id: ${id}): ${(error.response?.data as any)?.message || error}`);
             if (maxRetryCount > 0) {
               await sleep(2000);
-              return this.executeFunction(id, args, 0);
+              return this.executeFunction(id, tenantId, environmentId, args, 0);
             }
 
             throw error;
@@ -105,8 +105,10 @@ export class KNativeFaasService implements FaasService {
     );
   }
 
-  async updateFunction(id: string, requirements: string[], apiKey: string): Promise<void> {
-    const functionPath = this.getFunctionPath(id);
+  async updateFunction(id: string, tenantId: string, environmentId: string, requirements: string[], apiKey: string): Promise<void> {
+    this.logger.debug(`Updating server function '${id}'...`);
+
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     if (!fs.existsSync(functionPath)) {
       return;
     }
@@ -115,8 +117,23 @@ export class KNativeFaasService implements FaasService {
     await this.prepareRequirements(functionPath, requirements);
   }
 
-  private getFunctionPath(id: string): string {
-    return `${BASE_FOLDER}/function-${id}`;
+  async deleteFunction(id: string, tenantId: string, environmentId: string): Promise<void> {
+    this.logger.debug(`Deleting server function '${id}'...`);
+
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+    await this.cleanUpFunction(id, functionPath);
+    await exec(`docker rmi ${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)} -f`);
+    await exec(`rm -rf ${functionPath}`);
+
+    this.logger.debug(`Server function '${id}' docker container and files removed.`);
+  }
+
+  private getFunctionPath(id: string, tenantId: string, environmentId: string): string {
+    return `${BASE_FOLDER}/${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+  }
+
+  private getFunctionName(id: string) {
+    return `function-${id}`;
   }
 
   private async preparePolyLib(functionPath: string, apiKey: string) {
@@ -135,8 +152,8 @@ export class KNativeFaasService implements FaasService {
     }
   }
 
-  private async deploy(id: string) {
-    const functionPath = this.getFunctionPath(id);
+  private async deploy(id: string, tenantId: string, environmentId: string) {
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
 
     this.logger.debug(`Building server function '${id}'...`);
     await exec(

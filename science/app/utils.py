@@ -3,7 +3,7 @@ import requests
 from requests import Response
 from flask import current_app
 from typing import List, Optional, Union
-from app.constants import VarName
+from app.constants import MessageType, VarName
 from app.typedefs import (
     MessageDict,
     PropertySpecification,
@@ -11,7 +11,7 @@ from app.typedefs import (
     AnyFunction,
 )
 from prisma import Prisma, get_client, register
-from prisma.models import ConversationMessage, ConfigVariable, ApiKey
+from prisma.models import ConversationMessage, Conversation, ConfigVariable, ApiKey
 
 
 # HACK should have better name
@@ -78,41 +78,62 @@ def log(*args, **kwargs) -> None:
     print(*args, **kwargs, flush=True)
 
 
-def store_messages(user_id: Optional[str], messages: List[MessageDict]) -> None:
+def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
+    messages.insert(
+        0,
+        MessageDict(
+            role="info", content=f"----- {step} -----", type=MessageType.internal
+        ),
+    )
+
+
+def store_messages(
+    user_id: str, conversation_id: str, messages: List[MessageDict]
+) -> None:
     for message in messages:
         store_message(
             user_id,
+            conversation_id,
             message,
         )
 
 
 def store_message(
-    user_id: Optional[str], data: MessageDict
+    user_id: str, conversation_id: str, data: MessageDict
 ) -> Optional[ConversationMessage]:
     if not user_id:
         return None
 
     db = get_client()
-    create_input = {"userId": user_id, "role": data["role"], "content": data["content"]}
-
-    # FOR NOW IGNORE FUNCTION_IDS AND WEBHOOK_IDS
-    # if data.get("function_ids"):
-    #     create_input["functions"] = {
-    #         "create": [{"functionId": fid} for fid in data["function_ids"]]
-    #     }
-    # if data.get("webhook_ids"):
-    #     create_input["webhooks"] = {
-    #         "create": [{"webhookId": wid} for wid in data["webhook_ids"]]
-    #     }
+    create_input = {
+        "userId": user_id,
+        "conversationId": conversation_id,
+        "role": data["role"],
+        "content": data["content"],
+    }
 
     rv = db.conversationmessage.create(data=create_input)  # type: ignore
     return rv
 
 
-def clear_conversation(user_id: str):
+def get_conversations_for_user(user_id: str) -> List[ConversationMessage]:
     db = get_client()
-    db.functiondefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
-    db.webhookdefined.delete_many(where={"message": {"userId": user_id}})  # type: ignore
+    return list(
+        db.conversationmessage.find_many(
+            where={"userId": user_id}, order={"createdAt": "asc"}
+        )
+    )
+
+
+def create_new_conversation(user_id: str) -> Conversation:
+    # CURRENTLY UNUSED!
+    db = get_client()
+    return db.conversation.create(data={"userId": user_id})
+
+
+def clear_conversations(user_id: str) -> None:
+    # CURRENTLY UNUSED!
+    db = get_client()
     db.conversationmessage.delete_many(where={"userId": user_id})
 
 
@@ -187,7 +208,9 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
 
 def get_user_key(user_id: str, environment_id: str) -> Optional[ApiKey]:
     db = get_client()
-    return db.apikey.find_first(where={"userId": user_id, "environmentId": environment_id})
+    return db.apikey.find_first(
+        where={"userId": user_id, "environmentId": environment_id}
+    )
 
 
 def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
@@ -200,11 +223,13 @@ def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     #     user_key = db.apikey.find_first(where={'environmentId': environment.id})
 
     if not user_key:
-        raise NotImplementedError(f"No user key found for user {user_id} and environment {environment_id}")
+        raise NotImplementedError(
+            f"No user key found for user {user_id} and environment {environment_id}"
+        )
 
     headers = {
         "Content-Type": "application/json",
-        "X-PolyApiKey": user_key.key,
+        "Authorization": f"Bearer {user_key.key}",
         "Accept": "application/poly.function-definition+json",
     }
     base = current_app.config["NODE_API_URL"]
@@ -213,7 +238,9 @@ def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     return resp
 
 
-def public_id_to_spec(user_id: str, environment_id: str, public_id: str) -> Optional[SpecificationDto]:
+def public_id_to_spec(
+    user_id: str, environment_id: str, public_id: str
+) -> Optional[SpecificationDto]:
     specs_resp = query_node_server(user_id, environment_id, "specs")
     items: List[SpecificationDto] = specs_resp.json()
     for item in items:
@@ -227,4 +254,4 @@ def camel_case(text: str) -> str:
     s = text.split()
     if len(s) == 0:
         return ""
-    return s[0] + ''.join(i.capitalize() for i in s[1:])
+    return s[0] + "".join(i.capitalize() for i in s[1:])

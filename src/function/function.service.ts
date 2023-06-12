@@ -2,20 +2,19 @@ import {
   BadRequestException,
   ConflictException,
   forwardRef,
-  HttpException,
   HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
-  NotFoundException, OnModuleInit,
+  NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
-import mergeWith from 'lodash/mergeWith';
-import { ApiFunction, CustomFunction, Environment, Prisma } from '@prisma/client';
+import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ApiFunctionResponseDto,
@@ -49,14 +48,14 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { uniqBy } from 'lodash';
+import { uniqBy, mergeWith, omit } from 'lodash';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
-    return text.replace(/"/g, `\\"`);
+    return text.replace(/"/g, '\\"');
   } else {
     return text;
   }
@@ -84,16 +83,33 @@ export class FunctionService implements OnModuleInit {
     await this.faasService.init();
   }
 
-  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
+  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
     return this.prisma.apiFunction.findMany({
       where: {
-        OR: [
-          { environmentId },
-          includePublic ? { visibility: Visibility.Public } : {},
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
+            ],
+          },
+          {
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
         ],
-        ...this.getFunctionFilterConditions(contexts, names, ids),
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -118,7 +134,8 @@ export class FunctionService implements OnModuleInit {
   apiFunctionToDetailsDto(apiFunction: ApiFunction): FunctionDetailsDto {
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
-      arguments: this.getFunctionArguments(apiFunction).map(({ location, ...rest }) => rest),
+      arguments: this.getFunctionArguments(apiFunction)
+        .map(arg => omit(arg, 'location')),
     };
   }
 
@@ -154,7 +171,7 @@ export class FunctionService implements OnModuleInit {
     const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
 
     if (id === null) {
-      const urlObject = new URL(templateUrl);
+      const templateBaseUrl = templateUrl.split('?')[0];
 
       const apiFunctions = await this.prisma.apiFunction.findMany({
         where: {
@@ -162,7 +179,7 @@ export class FunctionService implements OnModuleInit {
           OR: [
             {
               url: {
-                startsWith: `${urlObject.origin}${urlObject.pathname}?`,
+                startsWith: `${templateBaseUrl}?`,
               },
             },
             {
@@ -194,14 +211,14 @@ export class FunctionService implements OnModuleInit {
         throw new NotFoundException(`Function not found for id ${id}.`);
       }
 
-      this.logger.debug(`Explicity retraining function with id ${id}.`);
+      this.logger.debug(`Explicitly retraining function with id ${id}.`);
     }
 
     const willRetrain = (id === null || id !== 'new') && apiFunction !== null;
 
     if (id === 'new') {
-      this.logger.debug(`Explicity avoid retrain.`);
-      this.logger.debug(`Creating a new poly function...`);
+      this.logger.debug('Explicitly avoid retrain.');
+      this.logger.debug('Creating a new poly function...');
     }
 
     if (id === null && willRetrain && apiFunction) {
@@ -209,7 +226,7 @@ export class FunctionService implements OnModuleInit {
     }
 
     if (id === null && !apiFunction) {
-      this.logger.debug(`Creating new poly function...`);
+      this.logger.debug('Creating new poly function...');
     }
 
     response = this.commonService.trimDownObject(response, 1);
@@ -228,10 +245,10 @@ export class FunctionService implements OnModuleInit {
       );
 
       if (!name) {
-        name = aiName;
+        name = this.commonService.sanitizeNameIdentifier(aiName);
       }
       if (!context && !apiFunction?.context) {
-        context = aiContext;
+        context = this.commonService.sanitizeContextIdentifier(aiContext);
       }
       if (!description && !apiFunction?.description) {
         description = aiDescription;
@@ -249,7 +266,7 @@ export class FunctionService implements OnModuleInit {
       `Normalized: name: ${name}, context: ${context}, description: ${description}, payload: ${payload}`,
     );
 
-    const finalContext = context || '';
+    const finalContext = context?.trim() || '';
     const finalName = name?.trim() ? name : requestName;
     const finalDescription = description || '';
 
@@ -328,7 +345,7 @@ export class FunctionService implements OnModuleInit {
     visibility: Visibility | null,
   ) {
     if (name != null || context != null) {
-      name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, false) : null;
+      name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, true) : null;
 
       if (
         !(await this.checkContextAndNameDuplicates(apiFunction.environmentId, context == null
@@ -360,7 +377,7 @@ export class FunctionService implements OnModuleInit {
       `Updating URL function ${apiFunction.id} with name ${name}, context ${context}, description ${description}`,
     );
 
-    const finalContext = context == null ? apiFunction.context : context;
+    const finalContext = (context == null ? apiFunction.context : context).trim();
     const finalName = name || apiFunction.name;
 
     await this.throwErrIfInvalidResponse(response, payload, finalContext, finalName);
@@ -380,7 +397,7 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientID: string): Promise<ApiFunctionResponseDto | null> {
+  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientId: string | null = null): Promise<ApiFunctionResponseDto | null> {
     this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const argumentsMap = this.getArgumentsMap(apiFunction, args);
@@ -447,7 +464,7 @@ export class FunctionService implements OnModuleInit {
             this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
 
             const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
-            const errorEventSent = this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error));
+            const errorEventSent = this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error));
 
             if (error.response) {
               return of(
@@ -468,7 +485,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   async deleteApiFunction(id: string) {
-    this.logger.debug(`Deleting URL function ${id}`);
+    this.logger.debug(`Deleting API function ${id}`);
     await this.prisma.apiFunction.delete({
       where: {
         id,
@@ -512,33 +529,55 @@ export class FunctionService implements OnModuleInit {
           ...(await Promise.all(requiredArguments.map(toPropertySpecification))),
           ...(
             payloadArguments.length > 0
-              ? [{
-                name: 'payload',
-                required: true,
-                type: {
-                  kind: 'object',
-                  properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
-                },
-              }]
+              ? [
+                  {
+                    name: 'payload',
+                    required: true,
+                    type: {
+                      kind: 'object',
+                      properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+                    },
+                  },
+                ]
               : []
           ),
           ...(await Promise.all(optionalArguments.map(toPropertySpecification))),
         ] as PropertySpecification[],
         returnType: await getReturnType(),
       },
+      visibilityMetadata: {
+        visibility: apiFunction.visibility as Visibility,
+      },
     };
   }
 
-  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false) {
+  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
     return this.prisma.customFunction.findMany({
       where: {
-        OR: [
-          { environmentId },
-          includePublic ? { visibility: Visibility.Public } : {},
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
+            ],
+          },
+          {
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
         ],
-        ...this.getFunctionFilterConditions(contexts, names, ids),
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
     });
   }
 
@@ -563,7 +602,15 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async createCustomFunction(env: Environment, context: string, name: string, description: string, customCode: string, serverFunction: boolean, apiKey: string) {
+  async createCustomFunction(
+    environment: Environment,
+    context: string,
+    name: string,
+    description: string,
+    customCode: string,
+    serverFunction: boolean,
+    apiKey: string,
+  ) {
     const {
       code,
       args,
@@ -576,7 +623,7 @@ export class FunctionService implements OnModuleInit {
 
     let customFunction = await this.prisma.customFunction.findFirst({
       where: {
-        environmentId: env.id,
+        environmentId: environment.id,
         name,
         context,
       },
@@ -584,6 +631,8 @@ export class FunctionService implements OnModuleInit {
 
     if (customFunction) {
       this.logger.debug(`Updating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
+      const serverSide = customFunction.serverSide;
+
       customFunction = await this.prisma.customFunction.update({
         where: {
           id: customFunction.id,
@@ -594,15 +643,21 @@ export class FunctionService implements OnModuleInit {
           arguments: JSON.stringify(args),
           returnType,
           requirements: JSON.stringify(requirements),
+          serverSide: serverFunction,
         },
       });
+
+      if (serverSide && !serverFunction) {
+        // server side function was changed to client side function
+        await this.faasService.deleteFunction(customFunction.id, environment.tenantId, environment.id);
+      }
     } else {
       this.logger.debug(`Creating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
       customFunction = await this.prisma.customFunction.create({
         data: {
           environment: {
             connect: {
-              id: env.id,
+              id: environment.id,
             },
           },
           context,
@@ -620,7 +675,7 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug(`Creating server side custom function ${name}`);
 
       try {
-        await this.faasService.createFunction(customFunction.id, name, code, requirements, apiKey);
+        await this.faasService.createFunction(customFunction.id, environment.tenantId, environment.id, name, code, requirements, apiKey);
         customFunction = await this.prisma.customFunction.update({
           where: {
             id: customFunction.id,
@@ -657,31 +712,41 @@ export class FunctionService implements OnModuleInit {
         id,
       },
       data: {
-        name: name == null ? customFunction.name : name,
-        context: context == null ? customFunction.context : context,
+        name: name == null ? customFunction.name : toCamelCase(name),
+        context: (context == null ? customFunction.context : context).trim(),
         description: description == null ? customFunction.description : description,
         visibility: visibility == null ? customFunction.visibility : visibility,
       },
     });
   }
 
-  async deleteCustomFunction(id: string) {
+  async deleteCustomFunction(id: string, environment: Environment) {
     this.logger.debug(`Deleting custom function ${id}`);
-    await this.prisma.customFunction.delete({
+    const customFunction = await this.prisma.customFunction.delete({
       where: {
         id,
       },
     });
+
+    if (customFunction.serverSide) {
+      await this.faasService.deleteFunction(id, environment.tenantId, environment.id);
+    }
   }
 
   async getClientFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
-        OR: [
-          { environmentId },
-          { visibility: Visibility.Public },
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              { visibility: Visibility.Public },
+            ],
+          },
+          {
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
         ],
-        ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: false,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -700,11 +765,17 @@ export class FunctionService implements OnModuleInit {
   async getServerFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
-        OR: [
-          { environmentId },
-          { visibility: Visibility.Public },
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              { visibility: Visibility.Public },
+            ],
+          },
+          {
+            OR: this.getFunctionFilterConditions(contexts, names, ids),
+          },
         ],
-        ...this.getFunctionFilterConditions(contexts, names, ids),
         serverSide: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -720,14 +791,14 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async executeServerFunction(customFunction: CustomFunction, args: Record<string, any>, clientID: string) {
+  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientId: string | null = null) {
     this.logger.debug(`Executing server function ${customFunction.id} with arguments ${JSON.stringify(args)}`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
     const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, argumentsList);
+      const result = await this.faasService.executeFunction(customFunction.id, environment.tenantId, environment.id, argumentsList);
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );
@@ -735,7 +806,7 @@ export class FunctionService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Error executing server function ${customFunction.id}: ${error.message}`);
       const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
-      if (this.eventService.sendErrorEvent(clientID, functionPath, this.eventService.getEventError(error))) {
+      if (this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error))) {
         return;
       }
 
@@ -754,7 +825,13 @@ export class FunctionService implements OnModuleInit {
 
     for (const serverFunction of serverFunctions) {
       this.logger.debug(`Updating server function ${serverFunction.id}...`);
-      await this.faasService.updateFunction(serverFunction.id, JSON.parse(serverFunction.requirements || '[]'), apiKey);
+      await this.faasService.updateFunction(
+        serverFunction.id,
+        environment.tenantId,
+        environment.id,
+        JSON.parse(serverFunction.requirements || '[]'),
+        apiKey,
+      );
     }
   }
 
@@ -781,14 +858,17 @@ export class FunctionService implements OnModuleInit {
         arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
         returnType: customFunction.returnType
           ? {
-            kind: 'plain',
-            value: customFunction.returnType,
-          }
+              kind: 'plain',
+              value: customFunction.returnType,
+            }
           : {
-            kind: 'void',
-          },
+              kind: 'void',
+            },
       },
       code: customFunction.code,
+      visibilityMetadata: {
+        visibility: customFunction.visibility as Visibility,
+      },
     };
   }
 
@@ -912,17 +992,18 @@ export class FunctionService implements OnModuleInit {
       })
       : [];
 
+    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
+
     const filterConditions = [
-      ...contextConditions,
+      {
+        OR: contextConditions,
+      },
       names?.length ? { name: { in: names } } : undefined,
-      ids?.length ? { id: { in: ids } } : undefined,
     ].filter(Boolean) as any[];
 
-    if (filterConditions.length > 0) {
-      this.logger.debug(`functions filterConditions: ${JSON.stringify(filterConditions)}`);
-    }
+    this.logger.debug(`functions filter conditions: ${JSON.stringify(filterConditions)}`);
 
-    return filterConditions.length > 0 ? { OR: filterConditions } : {};
+    return [{ AND: filterConditions }, ...idConditions];
   }
 
   private async resolveFunctionName(
@@ -947,7 +1028,7 @@ export class FunctionService implements OnModuleInit {
     while (!(await this.checkContextAndNameDuplicates(environmentId, context, name, excludedIds))) {
       name = `${originalName}${nameIdentifier++}`;
       if (nameIdentifier > 100) {
-        throw new BadRequestException(`Failed to create poly function: unambiguous function name`);
+        throw new BadRequestException('Failed to create poly function: unambiguous function name');
       }
     }
 
@@ -989,7 +1070,7 @@ export class FunctionService implements OnModuleInit {
         };
       }
       default:
-        this.logger.debug(`Unknown auth type:`, auth);
+        this.logger.debug('Unknown auth type:', auth);
         return {};
     }
   }
@@ -1171,7 +1252,6 @@ export class FunctionService implements OnModuleInit {
     const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
 
     const resolveArgumentParameterLimit = () => {
-
       if (functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
@@ -1201,16 +1281,15 @@ export class FunctionService implements OnModuleInit {
         if (apiFunction.id) {
           this.logger.debug(`Resolving argument types for function ${apiFunction.id}...`);
         } else {
-          this.logger.debug(`Resolving argument types for new function...`);
+          this.logger.debug('Resolving argument types for new function...');
         }
       }
 
       for (const arg of functionArgs) {
         if (metadata[arg.key]?.type) {
-          const { payload, ...rest } = metadata[arg.key];
           newMetadata[arg.key] = {
             ...newMetadata[arg.key],
-            ...rest,
+            ...omit(metadata[arg.key], 'payload'),
           };
           continue;
         }

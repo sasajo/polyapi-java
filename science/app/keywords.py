@@ -3,8 +3,15 @@ import openai
 from thefuzz import fuzz
 from typing import Optional, Tuple, List
 from app.constants import CHAT_GPT_MODEL, VarName
-from app.typedefs import StatsDict, ExtractKeywordDto, SpecificationDto
-from app.utils import func_path, get_config_variable, log, remove_punctuation
+from app.typedefs import MessageDict, StatsDict, ExtractKeywordDto, SpecificationDto
+from app.utils import (
+    func_path,
+    get_config_variable,
+    insert_internal_step_info,
+    log,
+    remove_punctuation,
+    store_messages,
+)
 from prisma import get_client
 
 
@@ -40,20 +47,31 @@ def get_extract_keywords_temperature() -> float:
     return float(var.value) if var else 0.01
 
 
-def extract_keywords(question: str) -> Optional[ExtractKeywordDto]:
+def extract_keywords(
+    user_id: str, conversation_id: str, question: str
+) -> Optional[ExtractKeywordDto]:
     prompt = KEYWORD_PROMPT.format(prompt=question)
+    messages = [
+        MessageDict(role="user", content=prompt),
+        MessageDict(
+            role="user",
+            content='Return JSON with keys "keywords", "semantically_similar_keywords", and "http_methods". Each value should be a string and in English.',
+        ),
+    ]
     resp = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
         temperature=get_extract_keywords_temperature(),
-        messages=[
-            {"role": "user", "content": prompt},
-            {
-                "role": "user",
-                "content": 'Return JSON with keys "keywords", "semantically_similar_keywords", and "http_methods". Each value should be a string and in English.',
-            },
-        ],
+        messages=messages,
     )
-    content = resp["choices"][0]["message"]["content"]
+    answer = resp["choices"][0]["message"]
+
+    # store conversation
+    messages.append(answer)
+    insert_internal_step_info(messages, "STEP 1: GET KEYWORDS")
+    store_messages(user_id, conversation_id, messages)
+
+    # continue
+    content = answer["content"]
     try:
         rv = json.loads(content)
     except Exception as e:
@@ -163,9 +181,7 @@ def filter_items_based_on_http_method(
         }
     )
     http_methods_set = {http_method.strip() for http_method in http_methods.split(",")}
-    items_to_remove = {
-        rs.id for rs in result if rs.method not in http_methods_set
-    }
+    items_to_remove = {rs.id for rs in result if rs.method not in http_methods_set}
     items = [item for item in items if item.get("id") not in items_to_remove]
     return items
 

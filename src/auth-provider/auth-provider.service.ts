@@ -8,7 +8,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { AuthProvider, AuthToken, User } from '@prisma/client';
+import { AuthProvider, AuthToken } from '@prisma/client';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
@@ -22,6 +22,7 @@ import { ConfigService } from 'config/config.service';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
 import { SpecsService } from 'specs/specs.service';
+import { CommonService } from 'common/common.service';
 
 @Injectable()
 export class AuthProviderService {
@@ -31,13 +32,14 @@ export class AuthProviderService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
+    private readonly commonService: CommonService,
     private readonly eventService: EventService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
   ) {
   }
 
-  async getAuthProviders(environmentId: string, contexts?: string[], includePublic = false): Promise<AuthProvider[]> {
+  private getAuthProviderFilterConditions(contexts?: string[], ids?: string[]) {
     const contextConditions = contexts?.length
       ? contexts.filter(Boolean).map((context) => {
         return {
@@ -53,17 +55,46 @@ export class AuthProviderService {
       })
       : [];
 
+    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
+
+    const filterConditions = [
+      {
+        OR: contextConditions,
+      },
+    ];
+
+    this.logger.debug(`auth providers filter conditions: ${JSON.stringify([{ AND: filterConditions }, ...idConditions])}`);
+
+    return [{ AND: filterConditions }, ...idConditions];
+  }
+
+  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<AuthProvider[]> {
     return this.prisma.authProvider.findMany({
       where: {
-        OR: [
-          { environmentId },
-          includePublic ? { visibility: Visibility.Public } : {},
+        AND: [
+          {
+            OR: [
+              { environmentId },
+              includePublic
+                ? this.commonService.getPublicVisibilityFilterCondition()
+                : {},
+            ],
+          },
+          {
+            OR: this.getAuthProviderFilterConditions(contexts, ids),
+          },
         ],
-        ...contextConditions.length && {
-          OR: contextConditions,
-        },
       },
-  });
+      include: includeTenant
+        ? {
+            environment: {
+              include: {
+                tenant: true,
+              },
+            },
+          }
+        : undefined,
+    });
   }
 
   async getAuthProvider(id: string): Promise<AuthProvider | null> {
@@ -283,7 +314,7 @@ export class AuthProviderService {
           url: authProvider.tokenUrl,
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: {
@@ -442,13 +473,13 @@ export class AuthProviderService {
       throw new BadRequestException(`No auth token found for auth function ${authProvider.id}`);
     }
 
-    const { access_token } = await lastValueFrom(
+    const { access_token: accessToken } = await lastValueFrom(
       await this.httpService
         .request({
           url: authProvider.tokenUrl,
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: {
@@ -478,14 +509,14 @@ export class AuthProviderService {
         id: authToken.id,
       },
       data: {
-        accessToken: access_token,
+        accessToken,
       },
     });
 
-    return access_token;
+    return accessToken;
   }
 
-  async toAuthFunctionSpecifications(authProvider: AuthProvider): Promise<AuthFunctionSpecification[]> {
+  async toAuthFunctionSpecifications(authProvider: AuthProvider, names: string[] = []): Promise<AuthFunctionSpecification[]> {
     const specifications: AuthFunctionSpecification[] = [];
 
     specifications.push({
@@ -504,6 +535,9 @@ export class AuthProviderService {
           kind: 'void',
         },
       },
+      visibilityMetadata: {
+        visibility: authProvider.visibility as Visibility,
+      },
     });
     if (authProvider.introspectUrl) {
       specifications.push({
@@ -515,19 +549,24 @@ export class AuthProviderService {
           ? ` for ${authProvider.name}`
           : ''}. It will return a JSON with the claims of the token.`,
         function: {
-          arguments: [{
-            name: 'token',
-            required: true,
-            type: {
-              kind: 'primitive',
-              type: 'string',
+          arguments: [
+            {
+              name: 'token',
+              required: true,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              },
             },
-          }],
+          ],
           returnType: {
             kind: 'object',
           },
         },
         subResource: 'introspect',
+        visibilityMetadata: {
+          visibility: authProvider.visibility as Visibility,
+        },
       });
     }
     if (authProvider.revokeUrl) {
@@ -540,19 +579,24 @@ export class AuthProviderService {
           ? ` for ${authProvider.name}`
           : ''}.`,
         function: {
-          arguments: [{
-            name: 'token',
-            required: true,
-            type: {
-              kind: 'primitive',
-              type: 'string',
+          arguments: [
+            {
+              name: 'token',
+              required: true,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              },
             },
-          }],
+          ],
           returnType: {
             kind: 'void',
           },
         },
         subResource: 'revoke',
+        visibilityMetadata: {
+          visibility: authProvider.visibility as Visibility,
+        },
       });
     }
     if (authProvider.refreshEnabled) {
@@ -565,23 +609,31 @@ export class AuthProviderService {
           ? ` for ${authProvider.name}`
           : ''}. In this case an access token, expired or not, can be passed in to refresh it for a new one. The refresh token to be used is stored on the poly server.`,
         function: {
-          arguments: [{
-            name: 'token',
-            required: true,
-            type: {
-              kind: 'primitive',
-              type: 'string',
+          arguments: [
+            {
+              name: 'token',
+              required: true,
+              type: {
+                kind: 'primitive',
+                type: 'string',
+              },
             },
-          }],
+          ],
           returnType: {
             kind: 'primitive',
             type: 'string',
           },
         },
         subResource: 'refresh',
+        visibilityMetadata: {
+          visibility: authProvider.visibility as Visibility,
+        },
       });
     }
 
+    if (names.length) {
+      return specifications.filter(spec => names.includes(spec.name));
+    }
     return specifications;
   }
 

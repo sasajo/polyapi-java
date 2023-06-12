@@ -72,8 +72,7 @@ class SpecificationDto(TypedDict):
 class MessageDict(TypedDict, total=False):
     role: str
     content: str
-    function_ids: List[str]  # not required
-    webhook_ids: List[str]  # not required
+    type: int
 
 
 class ChatGptChoice(TypedDict):
