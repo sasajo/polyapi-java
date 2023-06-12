@@ -42,7 +42,7 @@ export class WebhookController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     return this.webhookService.toDto(webhookHandle);
   }
@@ -83,7 +83,7 @@ export class WebhookController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     return this.webhookService.toDto(
       await this.webhookService.updateWebhookHandle(webhookHandle, context, name, description, visibility),
@@ -110,7 +110,7 @@ export class WebhookController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     await this.webhookService.deleteWebhookHandle(id);
   }

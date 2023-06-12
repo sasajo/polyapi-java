@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AuthData } from 'common/types';
-import { ApiKeyDto, Permission, Permissions, Role } from '@poly/common';
+import { ApiKeyDto, Permission, Permissions, Role, Visibility } from '@poly/common';
 import { ApiKey, Application, Environment, Tenant, User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import crypto from 'crypto';
@@ -174,8 +174,9 @@ export class AuthService {
   }
 
   public async checkEnvironmentEntityAccess(
-    environmentEntity: { environmentId: string },
+    environmentEntity: { environmentId: string, visibility: string },
     authData: AuthData,
+    checkVisibility = false,
     ...permissions: Permission[]
   ) {
     const { environment, user } = authData;
@@ -184,7 +185,11 @@ export class AuthService {
       return true;
     }
 
-    if (environment.id !== environmentEntity.environmentId) {
+    const environmentsNotMatch = environment.id !== environmentEntity.environmentId;
+
+    if (
+      (checkVisibility && environmentEntity.visibility !== Visibility.Public && environmentsNotMatch) ||
+      (!checkVisibility && environmentsNotMatch)) {
       throw new ForbiddenException('You do not have access to this entity');
     }
 

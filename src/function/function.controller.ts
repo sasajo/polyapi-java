@@ -148,7 +148,7 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
 
     return await this.service.executeApiFunction(apiFunction, data, clientId);
   }
@@ -215,7 +215,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, Permission.CustomDev);
+    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
       await this.service.updateCustomFunction(clientFunction, null, context, description, visibility),
@@ -230,7 +230,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, Permission.CustomDev);
+    await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, false, Permission.CustomDev);
 
     await this.service.deleteCustomFunction(id, req.user.environment);
   }
@@ -286,7 +286,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, Permission.CustomDev);
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
       await this.service.updateCustomFunction(serverFunction, name, context, description, visibility),
@@ -301,7 +301,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, Permission.CustomDev);
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     await this.service.deleteCustomFunction(id, req.user.environment);
   }
@@ -322,7 +322,7 @@ export class FunctionController {
       throw new BadRequestException(`Function with id ${id} is not server function.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
 
     return await this.service.executeServerFunction(customFunction, req.user.environment, data, clientId);
   }

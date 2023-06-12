@@ -97,7 +97,7 @@ export class AuthProviderController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.AuthConfig);
+    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, false, Permission.AuthConfig);
 
     return this.service.toAuthProviderDto(
       await this.service.updateAuthProvider(authProvider, name, context, authorizeUrl, tokenUrl, revokeUrl, introspectUrl, audienceRequired, refreshEnabled, visibility),
@@ -112,7 +112,7 @@ export class AuthProviderController {
       throw new NotFoundException();
     }
 
-    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.AuthConfig);
+    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, false, Permission.AuthConfig);
     await this.service.deleteAuthProvider(authProvider);
   }
 
@@ -124,7 +124,7 @@ export class AuthProviderController {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, true, Permission.Use);
 
     const {
       eventsClientId,
@@ -156,7 +156,7 @@ export class AuthProviderController {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, true, Permission.Use);
 
     if (!authProvider.revokeUrl) {
       throw new BadRequestException(`Auth provider with id ${id} does not support revocation.`);
@@ -174,7 +174,7 @@ export class AuthProviderController {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, true, Permission.Use);
 
     if (!authProvider.introspectUrl) {
       throw new BadRequestException(`Auth provider with id ${id} does not support introspection.`);
@@ -192,7 +192,7 @@ export class AuthProviderController {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, true, Permission.Use);
 
     if (!authProvider.refreshEnabled) {
       throw new BadRequestException(`Auth provider with id ${id} does not support refresh.`);
