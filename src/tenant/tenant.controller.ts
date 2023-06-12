@@ -117,6 +117,10 @@ export class TenantController {
   async createUser(@Req() req: AuthRequest, @Param('id') tenantId: string, @Body() data: CreateUserDto): Promise<UserDto> {
     const { name, role = Role.User } = data;
 
+    if (role === Role.SuperAdmin) {
+      throw new BadRequestException('SuperAdmin role is not allowed to be set');
+    }
+
     await this.findTenant(tenantId);
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
