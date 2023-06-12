@@ -39,5 +39,5 @@ jobs:
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi-main:1.0.0 -f docker/Dockerfile .
-        docker push ghcr.io/polyapi/polyapi-main:1.0.0
+        docker build -t ghcr.io/polyapi/polyapi-main:1.0.1 -f docker/Dockerfile .
+        docker push ghcr.io/polyapi/polyapi-main:1.0.1
