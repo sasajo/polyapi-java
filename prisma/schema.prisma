@@ -249,6 +249,8 @@ model GptPlugin {
   id                        Int         @id @default(autoincrement())
   slug                      String      @unique
   name                      String
+  contactEmail              String      @default("info@polyapi.io")
+  legalUrl                  String      @default("https://polyapi.io/legal")
   descriptionForMarketplace String      @default("") @map("description_for_marketplace")
   descriptionForModel       String      @default("") @map("description_for_model")
   iconUrl                   String      @map("icon_url")
