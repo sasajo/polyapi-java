@@ -1,10 +1,13 @@
+import copy
+import openai
 import string
 import requests
 from requests import Response
 from flask import current_app
 from typing import List, Optional, Union
-from app.constants import MessageType, VarName
+from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.typedefs import (
+    ChatCompletionResponse,
     MessageDict,
     PropertySpecification,
     SpecificationDto,
@@ -180,6 +183,19 @@ def remove_punctuation(s: str) -> str:
     return s.translate(remove_punctuation_translation)
 
 
+def filter_to_real_public_ids(public_ids: List[str]) -> List[str]:
+    db = get_client()
+    real: List[AnyFunction] = []
+
+    real += db.apifunction.find_many(where={"id": {"in": public_ids}})
+    real += db.customfunction.find_many(where={"id": {"in": public_ids}})
+    real += db.authprovider.find_many(where={"id": {"in": public_ids}})
+    real += db.webhookhandle.find_many(where={"id": {"in": public_ids}})
+    real_ids = {r.id for r in real}
+
+    return [pid for pid in public_ids if pid in real_ids]
+
+
 def get_public_id(public_id: str) -> Optional[AnyFunction]:
     """check all possible tables for a public uuid
     return the corresponding object if it exists
@@ -255,3 +271,19 @@ def camel_case(text: str) -> str:
     if len(s) == 0:
         return ""
     return s[0] + "".join(i.capitalize() for i in s[1:])
+
+
+def get_chat_completion(
+    messages: List[MessageDict], *, temperature=1.0
+) -> ChatCompletionResponse:
+    """send the messages to OpenAI and get a response"""
+    stripped = copy.deepcopy(messages)
+    for s in stripped:
+        # remove our internal-use-only fields
+        s.pop("type", None)
+    resp: ChatCompletionResponse = openai.ChatCompletion.create(
+        model=CHAT_GPT_MODEL,
+        messages=stripped,
+        temperature=temperature,
+    )
+    return resp
