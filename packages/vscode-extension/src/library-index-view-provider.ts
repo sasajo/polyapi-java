@@ -57,7 +57,15 @@ class LibraryTreeItem extends vscode.TreeItem {
   }
 
   private generateTooltip() {
-    const { type, name, description } = this.data;
+    const { type, name, description, visibilityMetadata } = this.data;
+
+    const getTooltipBase = (title: string) => {
+      return `**${title}**\n\n` +
+        `${visibilityMetadata?.foreignTenantName
+          ? `Tenant: ${visibilityMetadata?.foreignTenantName}\n\n---\n\n`
+          : '---\n\n'}` +
+        `${description ? `${description}\n\n---\n\n` : ''}`;
+    };
 
     const getFunctionTooltip = (title: string) => {
       const toFunctionArgument = (arg: PropertySpecification) => {
@@ -65,11 +73,8 @@ class LibraryTreeItem extends vscode.TreeItem {
       };
 
       return new vscode.MarkdownString(
-        `**${title}**\n\n---\n\n${
-          description
-            ? `${description}\n\n---\n\n`
-            : ''
-        }${name}(${this.data.function.arguments.map(toFunctionArgument).join(', ')})`,
+        getTooltipBase(title) +
+        `${name}(${this.data.function.arguments.map(toFunctionArgument).join(', ')})`,
       );
     };
 
@@ -88,9 +93,7 @@ class LibraryTreeItem extends vscode.TreeItem {
         break;
       case 'webhookHandle':
         this.tooltip = new vscode.MarkdownString(
-          `**Webhook listener**\n\n---\n\n${
-            description ? `${description}\n\n---\n\n` : ''
-          }${name}()`,
+          getTooltipBase('Webhook listener') + `${name}()`,
         );
         break;
       default:
@@ -164,7 +167,7 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
         );
         break;
       case 'authFunction':
-        switch(name) {
+        switch (name) {
           case 'getToken':
             vscode.env.clipboard.writeText(`${parentPath}.${name}(${data.function.arguments.slice(0, -2).map(toArgumentName).join(', ')}, (token, url, error) => {\n\n});`);
             break;

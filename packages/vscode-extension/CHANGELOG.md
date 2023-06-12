@@ -1,3 +1,6 @@
+### 0.1.26
+* Added tenant name information to public functions
+
 ### 0.1.25
 * Updated Authorization
 
