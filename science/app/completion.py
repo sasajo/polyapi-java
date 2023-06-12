@@ -1,14 +1,11 @@
 import re
-import copy
 import json
-import openai
 from typing import List, Dict, Optional, Tuple
 from prisma import get_client
 from prisma.models import SystemPrompt
 
 # TODO change to relative imports
 from app.typedefs import (
-    ChatCompletionResponse,
     ChatGptChoice,
     ExtractKeywordDto,
     StatsDict,
@@ -27,8 +24,8 @@ from app.utils import (
     func_path_with_args,
     query_node_server,
     store_messages,
+    get_chat_completion,
 )
-from app.constants import CHAT_GPT_MODEL
 
 UUID_REGEX = re.compile(
     r"[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}"
@@ -54,10 +51,6 @@ def answer_processing(choice: ChatGptChoice) -> Tuple[str, bool]:
         return content, True
 
     return content, False
-
-
-def log_matches(question: str, type: str, matches: int, total: int):
-    log(f"{type}: {matches} out of {total} matched: {question}")
 
 
 def get_function_options_prompt(
@@ -117,22 +110,6 @@ def spec_prompt(match: SpecificationDto) -> str:
         func_path_with_args(match),
     ]
     return "\n".join(parts)
-
-
-def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0
-) -> ChatCompletionResponse:
-    """send the messages to OpenAI and get a response"""
-    stripped = copy.deepcopy(messages)
-    for s in stripped:
-        # remove our internal-use-only fields
-        s.pop("type", None)
-    resp: ChatCompletionResponse = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL,
-        messages=stripped,
-        temperature=temperature,
-    )
-    return resp
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """

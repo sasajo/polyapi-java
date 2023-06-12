@@ -1,10 +1,13 @@
+import copy
+import openai
 import string
 import requests
 from requests import Response
 from flask import current_app
 from typing import List, Optional, Union
-from app.constants import MessageType, VarName
+from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.typedefs import (
+    ChatCompletionResponse,
     MessageDict,
     PropertySpecification,
     SpecificationDto,
@@ -255,3 +258,19 @@ def camel_case(text: str) -> str:
     if len(s) == 0:
         return ""
     return s[0] + "".join(i.capitalize() for i in s[1:])
+
+
+def get_chat_completion(
+    messages: List[MessageDict], *, temperature=1.0
+) -> ChatCompletionResponse:
+    """send the messages to OpenAI and get a response"""
+    stripped = copy.deepcopy(messages)
+    for s in stripped:
+        # remove our internal-use-only fields
+        s.pop("type", None)
+    resp: ChatCompletionResponse = openai.ChatCompletion.create(
+        model=CHAT_GPT_MODEL,
+        messages=stripped,
+        temperature=temperature,
+    )
+    return resp

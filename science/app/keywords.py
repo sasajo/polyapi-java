@@ -1,11 +1,11 @@
 import json
-import openai
 from thefuzz import fuzz
 from typing import Optional, Tuple, List
-from app.constants import CHAT_GPT_MODEL, VarName
+from app.constants import VarName
 from app.typedefs import MessageDict, StatsDict, ExtractKeywordDto, SpecificationDto
 from app.utils import (
     func_path,
+    get_chat_completion,
     get_config_variable,
     insert_internal_step_info,
     log,
@@ -25,8 +25,6 @@ Include all of the likely HTTP methods for this prompt, for example many times s
 Here is the prompt:
 
 {prompt}
-
-
 """
 
 
@@ -58,10 +56,9 @@ def extract_keywords(
             content='Return JSON with keys "keywords", "semantically_similar_keywords", and "http_methods". Each value should be a string and in English.',
         ),
     ]
-    resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL,
+    resp = get_chat_completion(
+        messages,
         temperature=get_extract_keywords_temperature(),
-        messages=messages,
     )
     answer = resp["choices"][0]["message"]
 

@@ -123,7 +123,7 @@ class T(DbTestCase):
         )
         self.assertEqual(top_5, [])
 
-    @patch("app.keywords.openai.ChatCompletion.create")
+    @patch("app.keywords.get_chat_completion")
     def test_extract_keywords(self, chat_create: Mock):
         user = test_user_get_or_create()
         conversation = create_new_conversation(user.id)
@@ -142,7 +142,7 @@ class T(DbTestCase):
         self.assertEqual(keyword_data["semantically_similar_keywords"], "foo bar")
         self.assertEqual(keyword_data["http_methods"], "get post")
 
-    @patch("app.keywords.openai.ChatCompletion.create")
+    @patch("app.keywords.get_chat_completion")
     def test_extract_keywords_lists(self, chat_create: Mock):
         user = test_user_get_or_create()
         conversation = create_new_conversation(user.id)
