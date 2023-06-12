@@ -27,8 +27,10 @@ jobs:
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ${{ steps.package.outputs.content }} -f docker/Dockerfile .
-        docker push ${{ steps.package.outputs.content }}
+        dockerimage=${{ steps.package.outputs.content }}
+        dockerimageclean=${dockerimage//[[:space:]]/}
+        docker build -t $dockerimageclean -f docker/Dockerfile .
+        docker push $dockerimageclean
 
   main:
     name: Main docker build and push.
@@ -51,5 +53,7 @@ jobs:
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ${{ steps.package.outputs.content }} -f docker/Dockerfile .
-        docker push ${{ steps.package.outputs.content }}
+        dockerimage=${{ steps.package.outputs.content }}
+        dockerimageclean=${dockerimage//[[:space:]]/}
+        docker build -t $dockerimageclean -f docker/Dockerfile .
+        docker push $dockerimageclean
