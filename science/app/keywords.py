@@ -56,10 +56,6 @@ def extract_keywords(
     prompt = KEYWORD_PROMPT % question
     messages = [
         MessageDict(role="user", content=prompt),
-        MessageDict(
-            role="user",
-            content='',
-        ),
     ]
     resp = get_chat_completion(
         messages,
