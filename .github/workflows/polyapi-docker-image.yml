@@ -24,7 +24,7 @@ jobs:
         docker build -t ghcr.io/polyapi/polyapi-dev:1.0.5 -f docker/Dockerfile .
         docker push ghcr.io/polyapi/polyapi-dev:1.0.5
 
-  staging:
+  main:
     name: Staging docker build and push.
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
@@ -39,5 +39,5 @@ jobs:
     - name: Build the Docker image
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ghcr.io/polyapi/polyapi-stg:latest -f docker/Dockerfile .
-        docker push ghcr.io/polyapi/polyapi-stg:latest
+        docker build -t ghcr.io/polyapi/polyapi-main:1.0.0 -f docker/Dockerfile .
+        docker push ghcr.io/polyapi/polyapi-main:1.0.0

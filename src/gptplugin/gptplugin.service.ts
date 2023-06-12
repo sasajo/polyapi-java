@@ -353,9 +353,12 @@ export class GptPluginService {
 
     // make sure this is valid plugin host
     let name = '';
-    let descMarket = '';
-    let descModel = '';
+    let descMarket = 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
+    let descModel = 'Ask ChatGPT to compose and execute chains of tasks on Poly API';
     let iconUrl = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
+    let contactEmail = 'info@polyapi.io';
+    let legalUrl = 'https://polyapi.io/legal';
+
     const auth = {
       type: 'user_http',
       authorization_type: 'bearer',
@@ -375,14 +378,16 @@ export class GptPluginService {
       descMarket = plugin.descriptionForMarketplace;
       descModel = plugin.descriptionForModel;
       iconUrl = plugin.iconUrl;
+      contactEmail = plugin.contactEmail;
+      legalUrl = plugin.legalUrl;
     }
 
     return {
       schema_version: 'v1',
       name_for_human: name,
       name_for_model: lodash.snakeCase(name),
-      description_for_human: descMarket || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
-      description_for_model: descModel || 'Ask ChatGPT to compose and execute chains of tasks on Poly API',
+      description_for_human: descMarket,
+      description_for_model: descModel,
       auth,
       api: {
         type: 'openapi',
@@ -390,8 +395,8 @@ export class GptPluginService {
         is_user_authenticated: false,
       },
       logo_url: iconUrl,
-      contact_email: 'darko@polyapi.io',
-      legal_info_url: 'https://polyapi.io/legal',
+      contact_email: contactEmail,
+      legal_info_url: legalUrl,
     };
   }
 }
