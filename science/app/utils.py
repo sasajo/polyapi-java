@@ -129,7 +129,7 @@ def get_conversations_for_user(user_id: str) -> List[ConversationMessage]:
 
 
 def create_new_conversation(user_id: str) -> Conversation:
-    # CURRENTLY UNUSED!
+    assert user_id
     db = get_client()
     return db.conversation.create(data={"userId": user_id})
 
