@@ -484,6 +484,22 @@ const generateSingleCustomFunction = async (functionId: string) => {
 };
 
 const getSpecificationComment = (specification: Specification) => {
+  const descriptionComment = specification.description
+    ? specification.description
+      .split('\n')
+      .map((line) => `* ${line}`)
+      .join('\n')
+    : null;
+  const argumentsComment = specification.function.arguments
+    .filter((arg) => !!arg.description)
+    .map((arg) => `* @param ${toCamelCase(arg.name)} ${arg.description}`)
+    .join('\n');
+  const additionalComments = getAdditionalComments(specification);
+
+  return `${descriptionComment ? `${descriptionComment}\n` : ''}${argumentsComment ? `${argumentsComment}\n` : ''}${additionalComments ? `${additionalComments}\n` : ''}`;
+};
+
+const getAdditionalComments = (specification: Specification) => {
   switch (specification.type) {
     case 'customFunction':
       if (!specification.requirements.length) {
@@ -495,7 +511,7 @@ const getSpecificationComment = (specification: Specification) => {
     default:
       return null;
   }
-};
+}
 
 const generate = async (contexts?: string[], names?: string[], functionIds?: string[]) => {
   let specs: Specification[] = [];
