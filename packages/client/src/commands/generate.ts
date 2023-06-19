@@ -381,9 +381,8 @@ const generateContextDataFile = (contextData: Record<string, any>) => {
 };
 
 const getContextDataFileContent = () => {
-  const contents = fs.readFileSync(`${POLY_LIB_PATH}/specs.json`, 'utf-8');
-
   try {
+    const contents = fs.readFileSync(`${POLY_LIB_PATH}/specs.json`, 'utf-8');
     return JSON.parse(contents) as Record<string, any>;
   } catch (err) {
     return {};
@@ -476,6 +475,8 @@ const generateSingleCustomFunction = async (functionId: string) => {
     prevSpecs.push(customFunction);
     specs = prevSpecs;
   }
+
+  prepareDir();
 
   await generateSpecs(specs);
 
