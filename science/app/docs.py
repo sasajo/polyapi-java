@@ -4,9 +4,8 @@ then return the response
 """
 from typing import Dict, Tuple
 import openai
-from openai.embeddings_utils import cosine_similarity
 from app.typedefs import ChatGptChoice, MessageDict
-from app.utils import create_new_conversation, get_chat_completion, store_messages
+from app.utils import cosine_similarity, create_new_conversation, get_chat_completion, store_messages
 
 DOC_PROMPT = """
 Here are some Poly AI Assistant Docs:

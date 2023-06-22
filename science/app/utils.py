@@ -2,6 +2,7 @@ import copy
 import openai
 import string
 import requests
+import numpy as np
 from requests import Response
 from flask import current_app
 from typing import List, Optional, Union
@@ -288,3 +289,7 @@ def get_chat_completion(
         temperature=temperature,
     )
     return resp
+
+
+def cosine_similarity(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
