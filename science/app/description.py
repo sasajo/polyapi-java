@@ -57,13 +57,20 @@ Here is data about a variable:
 ```
 {
     "name": %s,
-    "context": %s,
     "secret": %s,
     "value": %s
 }
 ```
 
-Please generate a description and return it as JSON in the following format:
+Please generate a description that says what the variable means and how it is used.
+
+Assume your guesses are right and write the description confidently.
+
+Don't include the current name, context, or value of the variable in the description.
+
+Don't say whether the variable is secret or not.
+
+Return it as JSON in the following format:
 
 ```
 {"description": "foo"}
@@ -173,7 +180,8 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
 
 
 def get_variable_description(data: VarDescInputDto) -> Dict:
-    prompt = VARIABLE_DESCRIPTION_PROMPT % (data['name'], data['context'], data['secret'], data['value'])
+    func_name = data["context"] + "." + data["name"]
+    prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data['secret'], data['value'])
     messages = [MessageDict(role="user", content=prompt)]
     resp = get_chat_completion(messages)
     choice = resp['choices'][0]
