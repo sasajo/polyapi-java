@@ -21,6 +21,13 @@ class DescOutputDto(TypedDict):
     openai_response: str
 
 
+class VarDescInputDto(TypedDict):
+    name: str
+    context: str
+    secret: bool
+    value: Union[str, int, float, bool, Dict]
+
+
 class ErrorDto(TypedDict):
     error: str
 

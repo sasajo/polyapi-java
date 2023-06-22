@@ -4,9 +4,9 @@ from flask import Blueprint, Response, request, jsonify
 from openai.error import OpenAIError, RateLimitError
 from app.completion import general_question, get_completion_answer
 from app.conversation import conversation_question
-from app.description import get_function_description, get_webhook_description
+from app.description import get_function_description, get_variable_description, get_webhook_description
 from app.docs import documentation_question
-from app.typedefs import CompletionAnswer, DescInputDto
+from app.typedefs import CompletionAnswer, DescInputDto, VarDescInputDto
 from app.utils import create_new_conversation, is_vip_user, log
 from app.router import route_question
 
@@ -69,6 +69,12 @@ def function_description() -> Response:
 def webhook_description() -> Response:
     data: DescInputDto = request.get_json(force=True)
     return jsonify(get_webhook_description(data))
+
+
+@bp.route("/variable-description", methods=["POST"])
+def variable_description() -> Response:
+    data: VarDescInputDto = request.get_json(force=True)
+    return jsonify(get_variable_description(data))
 
 
 @bp.route("/error")

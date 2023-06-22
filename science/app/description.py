@@ -1,8 +1,8 @@
 from typing import Dict, Union
 import json
 import openai
-from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
-from app.utils import camel_case, log
+from app.typedefs import DescInputDto, DescOutputDto, ErrorDto, MessageDict, VarDescInputDto
+from app.utils import camel_case, get_chat_completion, log
 from app.constants import CHAT_GPT_MODEL
 
 # this needs to be 300 or less for the OpenAPI spec
@@ -51,22 +51,23 @@ Please return JSON with three keys: context, name, description
 """
 
 
-REVISION_PROMPT = """
-Each of our functions has a context and a name.
+VARIABLE_DESCRIPTION_PROMPT = """
+Here is data about a variable:
 
-Here's our existing contexts and names:
+```
+{
+    "name": %s,
+    "context": %s,
+    "secret": %s,
+    "value": %s
+}
+```
 
-{existing}
+Please generate a description and return it as JSON in the following format:
 
-Here's the proposed context and name for a new function:
-
-{new}
-
-We would like to have this function use an existing context if it makes sense.
-
-We would like to have the new name follow similar patterns as the existing names.
-
-Please determine the best context and name for this new function and return valid JSON with two keys: context, name
+```
+{"description": "foo"}
+```
 """
 
 
@@ -168,4 +169,14 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
     # make sure there are no spaces or dashes in context or name
     rv["name"] = camel_case(rv["name"])
     rv["context"] = camel_case(rv["context"])
+    return rv
+
+
+def get_variable_description(data: VarDescInputDto) -> Dict:
+    prompt = VARIABLE_DESCRIPTION_PROMPT % (data['name'], data['context'], data['secret'], data['value'])
+    messages = [MessageDict(role="user", content=prompt)]
+    resp = get_chat_completion(messages)
+    choice = resp['choices'][0]
+    content = choice['message']['content'].strip('```')
+    rv = json.loads(content)
     return rv
