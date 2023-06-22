@@ -119,12 +119,19 @@ def store_message(
     return rv
 
 
-def get_conversations_for_user(user_id: str) -> List[ConversationMessage]:
+def get_conversations_for_user(user_id: str) -> List[Conversation]:
     db = get_client()
     return list(
-        db.conversationmessage.find_many(
+        db.conversation.find_many(
             where={"userId": user_id}, order={"createdAt": "asc"}
         )
+    )
+
+
+def get_last_conversation(user_id: str) -> Optional[Conversation]:
+    db = get_client()
+    return db.conversation.find_first(
+        where={"userId": user_id}, order={"createdAt": "desc"}
     )
 
 

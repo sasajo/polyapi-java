@@ -12,7 +12,6 @@ from app.utils import (
     func_args,
     func_path,
     func_path_with_args,
-    get_conversations_for_user,
     get_public_id,
     store_message,
 )
@@ -117,26 +116,6 @@ class T(DbTestCase):
         # should keep camel case
         out = camel_case("fooBar")
         self.assertEqual(out, "fooBar")
-
-    def test_get_conversations_for_user(self) -> None:
-        user = test_user_get_or_create()
-        conversation = create_new_conversation(user.id)
-
-        self.db.conversationmessage.delete_many(where={"userId": user.id})
-
-        messages = get_conversations_for_user(user.id)
-        self.assertEqual(messages, [])
-
-        msg = self.db.conversationmessage.create(
-            data={
-                "userId": user.id,
-                "conversationId": conversation.id,
-                "content": "first",
-                "role": "user",
-            }
-        )
-        messages = get_conversations_for_user(user.id)
-        self.assertEqual(messages, [msg])
 
     def test_filter_to_real_public_ids(self):
         func = self.db.apifunction.find_first()

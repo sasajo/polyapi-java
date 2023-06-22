@@ -1,12 +1,13 @@
 import re
 import json
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional, Tuple
 from prisma import get_client
 from prisma.models import SystemPrompt
 
 # TODO change to relative imports
 from app.typedefs import (
     ChatGptChoice,
+    CompletionAnswer,
     ExtractKeywordDto,
     StatsDict,
 )
@@ -275,7 +276,7 @@ def get_best_function_example(
     return rv
 
 
-def get_completion_answer(user_id: str, environment_id: str, question: str) -> Dict:
+def get_completion_answer(user_id: str, environment_id: str, question: str) -> CompletionAnswer:
     conversation = create_new_conversation(user_id)
     best_function_ids, stats = get_best_functions(
         user_id, conversation.id, environment_id, question
@@ -287,19 +288,24 @@ def get_completion_answer(user_id: str, environment_id: str, question: str) -> D
             user_id, conversation.id, environment_id, best_function_ids, question
         )
     else:
-        choice = simple_chatgpt_question(question)
-
-        # store conversation
-        messages = [MessageDict(role="user", content=question), choice['message']]
-        insert_internal_step_info(messages, "FALLBACK")
-        store_messages(user_id, conversation.id, messages)
+        choice = general_question(user_id, conversation.id, question)
 
     answer, hit_token_limit = answer_processing(choice)
 
-    return {"answer": answer, "stats": stats}
+    return {"answer": answer, "stats": stats}  # type: ignore
 
 
 def simple_chatgpt_question(question: str) -> ChatGptChoice:
     messages: List[MessageDict] = [{"role": "user", "content": question}]
     resp = get_chat_completion(messages)
     return resp["choices"][0]
+
+
+def general_question(user_id: str, conversation_id: str, question: str) -> ChatGptChoice:
+    choice = simple_chatgpt_question(question)
+
+    # store conversation
+    messages = [MessageDict(role="user", content=question), choice['message']]
+    insert_internal_step_info(messages, "FALLBACK")
+    store_messages(user_id, conversation_id, messages)
+    return choice

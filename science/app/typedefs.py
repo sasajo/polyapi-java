@@ -94,3 +94,8 @@ class StatsDict(TypedDict, total=False):
     keyword_stats: 'StatsDict'
     semantically_similar_stats: 'StatsDict'
     config: Dict
+
+
+class CompletionAnswer(TypedDict):
+    answer: str
+    stats: Dict
