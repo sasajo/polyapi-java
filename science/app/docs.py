@@ -22,6 +22,7 @@ Here are some Poly AI Assistant Docs:
 ---
 
 Answer the following question using markdown to format.
+Please provide generous spacing between sections. Indent lists.
 Feel free to reorganize or reformat to make the information more consumable.
 Translate the answer to the same language of the question.
 
