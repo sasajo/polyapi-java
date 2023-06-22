@@ -280,6 +280,7 @@ def get_chat_completion(
 ) -> ChatCompletionResponse:
     """send the messages to OpenAI and get a response"""
     stripped = copy.deepcopy(messages)
+    stripped = [m for m in stripped if m['role'] != "info"]  # info is our internal conversation stats, dont send!
     for s in stripped:
         # remove our internal-use-only fields
         s.pop("type", None)
