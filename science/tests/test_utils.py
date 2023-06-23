@@ -2,6 +2,7 @@ from .testing import DbTestCase
 from app.typedefs import SpecificationDto
 from load_fixtures import (
     load_functions,
+    test_environment_get_or_create,
     test_user_get_or_create,
     united_get_status_get_or_create,
 )
@@ -13,6 +14,7 @@ from app.utils import (
     func_path,
     func_path_with_args,
     get_public_id,
+    get_variables,
     store_message,
 )
 
@@ -122,3 +124,27 @@ class T(DbTestCase):
         assert func
         real = filter_to_real_public_ids([func.id, "fakeid"])
         self.assertEqual(real, [func.id])
+
+    def test_get_variables(self):
+        environment = test_environment_get_or_create()
+        self.db.variable.delete_many(where={"visibility": "PUBLIC"})
+        self.db.variable.delete_many(where={"name": "foo"})
+        var = self.db.variable.create(
+            data={
+                "name": "foo",
+                "context": "bar",
+                "environmentId": environment.id,
+                "description": "baz",
+                "visibility": "ENVIRONMENT"
+            }
+        )
+        variables = get_variables("badId")
+        self.assertEqual(variables, [])
+
+        variables = get_variables(environment.id)
+        self.assertEqual(variables[0]['name'], var.name)
+
+        # now lets make the variable public and try it!
+        self.db.variable.update_many(where={"name": "foo"}, data={"visibility": "PUBLIC"})
+        variables = get_variables("badId")
+        self.assertEqual(variables[0]['name'], var.name)
