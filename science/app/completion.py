@@ -114,19 +114,26 @@ def _join_content(
     return "\n\n".join(parts)
 
 
-def spec_prompt(match: SpecificationDto) -> str:
-    desc = match.get("description", "")
-    if match["type"] == "variable":
-        path = f"vari.{match['context']}.{match['name']}"
+def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
+    desc = spec.get("description", "")
+    if spec["type"] == "variable":
+        path = f"vari.{spec['context']}.{spec['name']}"
     else:
-        path = func_path_with_args(match)
+        path = func_path_with_args(spec)
 
     parts = [
-        f"// id: {match['id']}",
-        f"// type: {match['type']}",
+        f"// id: {spec['id']}",
+        f"// type: {spec['type']}",
         f"// description: {desc}",
-        path,
     ]
+    if include_return_type and spec.get("returnType"):
+        return_type = spec.get("returnType", "")
+        if type(return_type) != str:
+            return_type = json.dumps(return_type)
+        return_type = return_type.replace("\n", " ")
+        parts.append(f"// returns {return_type}")
+
+    parts.append(path)
     return "\n".join(parts)
 
 
@@ -277,7 +284,9 @@ def get_best_function_example(
     specs = public_ids_to_specs(user_id, environment_id, public_ids)
 
     best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
-        spec_str="\n\n".join(spec_prompt(spec) for spec in specs)
+        spec_str="\n\n".join(
+            spec_prompt(spec, include_return_type=True) for spec in specs
+        )
     )
     question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
     messages = [MessageDict(role="user", content=best_functions_prompt)]

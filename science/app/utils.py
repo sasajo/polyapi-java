@@ -5,7 +5,7 @@ import requests
 import numpy as np
 from requests import Response
 from flask import current_app
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.typedefs import (
     ChatCompletionResponse,
@@ -337,6 +337,24 @@ def get_variables(
             description=var.description,
             function=None,
             type="variable",
+            returnType=None,
         )
         for var in vars
     ]
+
+
+def get_return_type_properties(spec: SpecificationDto) -> Optional[Dict]:
+    if not spec or not spec.get("returnType"):
+        return None
+
+    return_type = spec.get("returnType", {})
+    if not return_type:
+        return None
+
+    kind = return_type.get("kind")
+    if kind == "object":
+        return return_type.get("schema", {}).get("properties")
+    else:
+        return kind
+
+
