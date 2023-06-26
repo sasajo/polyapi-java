@@ -12,6 +12,7 @@ class DescInputDto(TypedDict):
     short_description: str
     payload: str
     response: str
+    code: str
 
 
 class DescOutputDto(TypedDict):
