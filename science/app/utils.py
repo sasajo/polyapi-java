@@ -337,17 +337,16 @@ def get_variables(
             description=var.description,
             function=None,
             type="variable",
-            returnType=None,
         )
         for var in vars
     ]
 
 
 def get_return_type_properties(spec: SpecificationDto) -> Optional[Dict]:
-    if not spec or not spec.get("returnType"):
+    if not spec or not spec.get("function", {}).get("returnType"):  # type: ignore
         return None
 
-    return_type = spec.get("returnType", {})
+    return_type = spec.get("function", {}).get("returnType")  # type: ignore
     if not return_type:
         return None
 

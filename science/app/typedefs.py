@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, TypedDict, List, Literal, Union
+from typing import Any, Dict, Optional, Tuple, TypedDict, List, Literal, Union
 from typing_extensions import NotRequired
 from prisma.models import ApiFunction, CustomFunction, AuthProvider, WebhookHandle, Variable
 
@@ -63,7 +63,7 @@ class PropertyType(TypedDict):
 
 class FunctionSpecification(TypedDict):
     arguments: List[PropertySpecification]
-    returnType: Dict[str, str]
+    returnType: Dict[str, Any]
     synchronous: NotRequired[bool]
 
 
@@ -74,7 +74,6 @@ class SpecificationDto(TypedDict):
     description: str
     function: Optional[FunctionSpecification]
     type: Literal['apiFunction', 'customFunction', 'serverFunction', 'authFunction', 'webhookHandle', 'variable']
-    returnType: Optional[Dict]
 
 
 class MessageDict(TypedDict, total=False):

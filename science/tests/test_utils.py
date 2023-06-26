@@ -57,7 +57,6 @@ FUNC: SpecificationDto = {
         ],
         "returnType": {"kind": "string"},
     },
-    "returnType": {"kind": "string"},
 }
 
 
@@ -75,7 +74,6 @@ class T(DbTestCase):
             "context": "messaging",
             "description": "send SMS",
             "function": {"arguments": [], "returnType": {"kind": "void"}},
-            "returnType": {"kind": "object"},
         }
         self.assertEqual(func_path(data), "poly.messaging.twilio.sendSMS")
 
@@ -156,11 +154,13 @@ class T(DbTestCase):
 
     def test_get_return_properties_string(self):
         spec = {
-            "returnType": {
-                "kind": "string",
-                "schema": {
-                    "title": "foobar",
-                },
+            "function": {
+                "returnType": {
+                    "kind": "string",
+                    "schema": {
+                        "title": "foobar",
+                    },
+                }
             }
         }
         props = get_return_type_properties(spec)
@@ -168,28 +168,30 @@ class T(DbTestCase):
 
     def test_get_return_properties_object(self):
         spec = {
-            "returnType": {
-                "kind": "object",
-                "schema": {
-                    "$schema": "http://json-schema.org/draft-06/schema#",
-                    "definitions": {
-                        "SubresourceUris": {
-                            "type": "object",
-                            "properties": {"media": {"type": "string"}},
-                            "required": ["media"],
-                            "title": "SubresourceUris",
-                        }
-                    },
-                    "type": "object",
-                    "properties": {
-                        "account_sid": {"type": "string"},
-                        "uri": {
-                            "type": "string",
+            "function": {
+                "returnType": {
+                    "kind": "object",
+                    "schema": {
+                        "$schema": "http://json-schema.org/draft-06/schema#",
+                        "definitions": {
+                            "SubresourceUris": {
+                                "type": "object",
+                                "properties": {"media": {"type": "string"}},
+                                "required": ["media"],
+                                "title": "SubresourceUris",
+                            }
                         },
+                        "type": "object",
+                        "properties": {
+                            "account_sid": {"type": "string"},
+                            "uri": {
+                                "type": "string",
+                            },
+                        },
+                        "required": ["account_sid", "uri"],
+                        "title": "ReturnType",
                     },
-                    "required": ["account_sid", "uri"],
-                    "title": "ReturnType",
-                },
+                }
             }
         }
         properties = get_return_type_properties(spec)

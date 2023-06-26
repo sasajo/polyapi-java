@@ -126,8 +126,8 @@ def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
         f"// type: {spec['type']}",
         f"// description: {desc}",
     ]
-    if include_return_type and spec.get("returnType"):
-        return_type = spec.get("returnType", "")
+    if include_return_type and spec.get("function", {}).get("returnType"):  # type: ignore
+        return_type = spec['function'].get("returnType", "")  # type: ignore
         if type(return_type) != str:
             return_type = json.dumps(return_type)
         return_type = return_type.replace("\n", " ")
