@@ -19,6 +19,7 @@ from app.typedefs import (
 from app.utils import (
     create_new_conversation,
     filter_to_real_public_ids,
+    get_return_type_properties,
     get_variables,
     insert_internal_step_info,
     log,
@@ -126,12 +127,15 @@ def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
         f"// type: {spec['type']}",
         f"// description: {desc}",
     ]
-    if include_return_type and spec.get("function", {}).get("returnType"):  # type: ignore
-        return_type = spec['function'].get("returnType", "")  # type: ignore
-        if type(return_type) != str:
-            return_type = json.dumps(return_type)
-        return_type = return_type.replace("\n", " ")
-        parts.append(f"// returns {return_type}")
+    if include_return_type:
+        return_props = get_return_type_properties(spec)
+        if return_props:
+            if type(return_props) == str:
+                return_type = return_props
+            else:
+                return_type = json.dumps(return_props)  # type: ignore
+            return_type = return_type.replace("\n", " ")
+            parts.append(f"// returns {return_type}")
 
     parts.append(path)
     return "\n".join(parts)

@@ -320,10 +320,17 @@ def get_variables(
 
     if public_ids:
         vars = db.variable.find_many(
-            where={"AND": [
-                {"id": {"in": public_ids}},
-                {"OR": [{"environmentId": environment_id}, {"visibility": "PUBLIC"}]}
-            ]}
+            where={
+                "AND": [
+                    {"id": {"in": public_ids}},
+                    {
+                        "OR": [
+                            {"environmentId": environment_id},
+                            {"visibility": "PUBLIC"},
+                        ]
+                    },
+                ]
+            }
         )
     else:
         vars = db.variable.find_many(
@@ -342,7 +349,7 @@ def get_variables(
     ]
 
 
-def get_return_type_properties(spec: SpecificationDto) -> Optional[Dict]:
+def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, str, None]:
     if not spec or not spec.get("function", {}).get("returnType"):  # type: ignore
         return None
 
@@ -355,5 +362,3 @@ def get_return_type_properties(spec: SpecificationDto) -> Optional[Dict]:
         return return_type.get("schema", {}).get("properties")
     else:
         return kind
-
-
