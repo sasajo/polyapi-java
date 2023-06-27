@@ -8,7 +8,7 @@ Please categorize the user's question. Here are the categories:
 {
     "function": "The user is looking for a function or details about a function to address their need",
     "conversation": "The question seems incomplete suggesting the user is referencing information from the preceding conversation",
-    "documentation": "The user is looking to understand how to do something specific with the Poly AI assistant",
+    "documentation": "The user is looking to understand how to do something specific with PolyAPI",
     "general": "The user is asking a general programming or informational question"
 }
 ```
@@ -19,9 +19,11 @@ For example, if the user asks "How do I get a list of products on shopify?"
 
 You should return `{"category": "function"}` because the user is looking for a function to perform that action.
 
+Always assume when the user says "Poly" they are referring to "PolyAPI"
+
 Here is the question:
 
-%s
+"%s"
 """
 
 
