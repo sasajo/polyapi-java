@@ -121,6 +121,7 @@ const COMMANDS = ['clear'];
           </div>`;
         scrollToLastMessage();
         messageInput.removeAttribute('disabled');
+        messageInput.focus();
         break;
       }
       case 'clearConversation':

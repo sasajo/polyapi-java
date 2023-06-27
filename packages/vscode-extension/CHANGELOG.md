@@ -1,3 +1,6 @@
+### 0.1.29
+* Fixed input box for question focus lost when sending a question
+
 ### 0.1.28
 * Preserve newlines, line breaks and whitespace in question's box.
 
