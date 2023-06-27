@@ -53,9 +53,9 @@ Natively developed on Kubernetes, can be hosted by Poly team or by the customer,
 Full creative freedom by programming in common languages such as typescript and python <<feel free to explain why an enterprise benefits from their tools using common and popular languages>>
 Poly uses common, well known tools among developers, i.e NPM, Node, VS Code, Postman, OpenAI, <<explain the value of our integration platform using these common tools over custom proprietary tools>>
 Poly can be used to build applications or integrations, and only focused on the interaction between applications/integrations to APIs/Event Streams. <<explain the value of having a unified platform for app development and enterprise integration>>
-Poly uses a search algorithm together with AI to power an AI chat interface within VS Code and in the future other IDEs. First it understands the intention, finds the relevant functions and then uses generative AI to create a response to address the users question with the right functions. The response will include an example of how to use the API and will take into account the response payload, params and other interface elements. <<explain how much time can be saved by getting a direct answer vs having to browse swagger/openAPI specifications or developer portals or documents.>>
+Poly uses a search algorithm together with AI to power an AI chat interface within VS Code and in the future other IDEs. First it understands the intention, finds the relevant functions and then uses generative AI to create a response to address the users question with the right functions. The response will include an example of how to use the API and will take into account the response payload, params and other interface elements. The data which is passed to OpenAI involves only the poly function interface and the response object model. It only passes in data it was trained on and will never pass in any actual runtime data. <<explain how much time can be saved by getting a direct answer vs having to browse swagger/openAPI specifications or developer portals or documents.>>
 Poly supports all human languages, meaning people can prompt people in the language that they are most comfortable thinking in <<explain the value to a developer to allow them to think in their native language instead of having to use english, explain how many more people will be able to learn how to program with this support>>
-Poly Learns from observation by watching APIs be used. It captures the request and response only if it sees a successful message. This means that Poly will only learn APIs that work rather than documentation or specifications which are theoretically correct but many times missing, incomplete or wrong. <<feel free to explain why developers generally don't have comprehensive and accurate documentation within large enterprises>>
+Poly Learns from observation by watching APIs be used in Postman. It captures the request and response only if it sees a successful message. This means that Poly will only learn APIs that work rather than documentation or specifications which are theoretically correct but many times missing, incomplete or wrong. It can learn multiple flavors of the same API to specialize it for different use cases. <<feel free to explain why developers generally don't have comprehensive and accurate documentation within large enterprises>>
 Poly generates a client library in the developers language of choice (i.e typescript or python), poly does not support all languages yet. This transforms APIs, regardless of protocol, data structure formats, vendor, etc… into a common format which includes type definitions, function interface definitions, and allows IDE ‘intellisense’ to help developers explore APIs without needing to go to a developer portal. <<explain how much a developer is more productive if they already have type definitions create for them and can leverage intellisense>>
 Poly supports custom functions that allow developers to write derivatives on top of one or more APIs. These custom functions are written in the IDE and tested locally like all other code. They should be managed as source code. But they can be deployed to poly via a CLI. They can be deployed either client or server side and will in both cases become discoverable via the AI assistant as well as via the Poly client library. These are analogs to serverless ‘lambda’ functions and Poly runs them on KNative if they are deployed server side. With these functions, developers can write transformations, orchestrations, aggregations, routing rules, and introduce new capabilities which others may want. These functions can also execute SQL statements, perform file based integrations and effectively do anything the user wants to do in code. They can serve UIs etc… This is a really powerful feature of poly which allows the Backend for Frontend Pattern to be implemented with Poly. These custom functions are also used to create really optimized APIs for AI agents where they can return helpful error messages to allow AI agents to self correct or better understand the API, what steps to take next etc… <<explain how this is far superior to integration platforms which only allow mini scripts and are locked in. Explain how this is far better than low code platforms>>
 Poly leverages AI to generate names, descriptions and classifications when Poly is trained on new APIs. This introduces consistency and rapidly organizes large catalogs of APIs.
@@ -78,8 +78,7 @@ Poly has the full expressive power of code, which means you will not be boxed in
 Poly’s assistant which replaces developer portals and documentation speaks all the languages, is an expert at using Poly and can write code really fast. <<explain how the information coming to the developer in their IDE is far superior to the experience of the developer needing to go sign up for portals and hunt around for information>>
 Poly is super lightweight, was built with the latest and greatest technology and hence can be offered at a fraction of the price of traditional services. <<explain how other platforms can cost millions of dollars to acquire and millions more to operate, that poly is cheaper on both fronts. Explain how Poly using AI makes us more productive and lean and how this savings can be passed on to customers>>
 Poly was created by a team of integration experts with decades of experience in the domain and is backed by investors who have founded some of the greatest API and Integration companies in the market. <<explain how this experience of all the lessons learned is used to create a modern product with the traditional problems addressed. Also explain how with these modern tools and approaches Poly will continue to out innovate other vendors>>
-
-"""
+""",
     },
     {
         "name": "Setting up Poly",
@@ -128,11 +127,22 @@ And it will ask for their key, this is something that would have been provided t
 
 Once the client library is generated, they should see all their functions within the environment for which their API key is for. They will see a view called “tree” which represents the functions which are part of the client library. This tree can be moved to other panes independently of the chat interface.
 
-"""
+""",
     },
     {
         "name": "Using Poly",
         "text": """Using Poly
+Importing Postman Scripts and Training Poly on API functions
+Poly learns from watching APIs be used inside Postman. There are two scripts which need to be added to Postman for Poly to be able to learn.
+
+The two scripts can be downloaded here (this url assumes your instance is ‘na1’):
+https://na1.polyapi.io/postman/scripts.zip
+
+Once the script is downloaded, extracted, and opened, the pre and post request scripts need to be imported or copied to “Pre-request script” and “Tests” tabs respectively inside Postman. They can be imported at the request or collection level. There are some elements in the pre-request script which apply to a given request so be careful if using those to make sure to comment them out after usage or to copy them into the request level pre-request script. <<feel free to add more content on how to help someone import them into postman>>
+
+Once the scripts are in there, the user needs to either set the key directly in the script or create an environment variable called “polyApiKey”. If the user wants to set them directly in the script they need to find the line which says “'Authorization': `Bearer ${apiKey}`” and replace the ${apiKey} with their actual API key. Remember this user needs to have training permissions enabled for the Poly API key for training to work. Make sure this is set in the environment which will be used for training the functions.
+
+Once this is set, the user should be able to call the API and if they get a 2XX response, they should within a few seconds see a 201 response in the Postman console from the Poly API /functions/api endpoint
 Creating and deploying a custom function
 Users can create a custom function using poly, this section will explain how to use the custom functions. Custom functions are useful for transformation, orchestration, aggregation, routing and other concepts that require the use of multiple APIs or changing the shape of an API. They can be deployed server or client side. Server side functions run on the Poly server in KNative. Client functions execute locally. Both types of functions become discoverable using the Poly AI Assistant and consumable via the poly client library.
 Writing the custom function.
@@ -151,12 +161,25 @@ The context can be multiple layers deep, but is usually 2 - 3, this is the class
 The description will be used by both users and AI agents and should be short and concise. Ideally 250-300 characters and will be truncated beyond 300.
 The --server is needed if the user wants the function to run server side, if its not passed, poly will assume this function will be deployed client side.
 The whole file is passed to the poly server, so make sure there are no console.log statements, or execution statements as this will cause the function to be triggered multiple times.
-At this point we dont support event handlers in custom functions yet. """,
+At this point we don't support event handlers in custom functions yet.
+""",
+    },
+    {
+        "name": "Experts in Poly",
+        "text": """Experts in Poly
+This section identifies some of the top world experts who you can reach out to support. Please note that some of these experts are also available for hire to consult on API strategies and implementation using Poly.
+
+Rolando Carrasco - rcarrasco@spsolutions.com.mx - Based in Mexico City Mexico, speaks spanish and english, expert in telco, finance and retail.
+
+Darko Vukovic - darko@polyapi.io - Based in Colorado USA, expert in hospitality and platforms as a service
+        """
     },
 ]
 
 
-def documentation_question(user_id: str, question: str) -> Tuple[ChatGptChoice, Dict]:
+def documentation_question(
+    url_root: str, user_id: str, question: str
+) -> Tuple[ChatGptChoice, Dict]:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
     )
@@ -183,6 +206,11 @@ def documentation_question(user_id: str, question: str) -> Tuple[ChatGptChoice, 
 
     prompt = DOC_PROMPT % (most_similar_doc["name"], most_similar_doc["text"], question)
     messages = [MessageDict(role="user", content=prompt)]
+
+    if url_root != "https://na1.polyapi.io":
+        content = f"The user's instance url is '{url_root}'. Use it to generate the urls for the poly instance specific links."
+        print(content)
+        messages.append(MessageDict(role="user", content=content))
 
     resp = get_chat_completion(messages)
     choice = resp["choices"][0]
