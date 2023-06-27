@@ -48,7 +48,15 @@ function rsplit(s: string, sep: string, maxsplit: number): string[] {
   return [split.slice(0, -maxsplit).join(sep)].concat(split.slice(-maxsplit));
 }
 
-function _getExecuteType(t: string) {
+function _getSlugSubdomain(host: string): [string, string] {
+  const slugEnv = host.split('.')[0];
+  const parts = rsplit(slugEnv, '-', 1);
+  const slug = parts[0];
+  const subdomain = parts[1];
+  return [slug, subdomain];
+}
+
+function _getExecuteType(t: string): string {
   switch (t) {
     case 'apiFunction':
       return 'api';
@@ -247,8 +255,10 @@ export class GptPluginService {
   }
 
   async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
+    const [, subdomain] = _getSlugSubdomain(hostname);
+    const environment = await this.prisma.environment.findUniqueOrThrow({ where: { subdomain } });
     const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({
-      where: { slug },
+      where: { slug_environmentId: { slug, environmentId: environment.id } },
     });
 
     const functionIds = JSON.parse(plugin.functionIds);
@@ -278,21 +288,16 @@ export class GptPluginService {
     };
   };
 
-  async getPlugin(slug: string): Promise<GptPlugin> {
+  async getPlugin(slug: string, environmentId, include: any = null): Promise<GptPlugin> {
     return this.prisma.gptPlugin.findUniqueOrThrow({
-      where: { slug },
+      where: { slug_environmentId: { slug, environmentId } },
+      include,
     });
   }
 
   async createOrUpdatePlugin(environment: Environment, body: CreatePluginDto): Promise<GptPlugin> {
     // slugs must be lowercase!
     body.slug = body.slug.toLowerCase();
-
-    // permission check
-    const plugin = await this.prisma.gptPlugin.findUnique({ where: { slug: body.slug } });
-    if (plugin && plugin.environmentId !== environment.id) {
-      throw new Error('Plugin is in different environment, cannot access with this key');
-    }
 
     // function check
     const functionIds = body.functionIds ? JSON.stringify(body.functionIds) : '';
@@ -339,7 +344,7 @@ export class GptPluginService {
 
     return this.prisma.gptPlugin.upsert({
       where: {
-        slug: body.slug,
+        slug_environmentId: { slug: body.slug, environmentId: environment.id },
       },
       update: { ...update },
       create: {
@@ -358,10 +363,8 @@ export class GptPluginService {
 
   async getManifest(req: Request) {
     const host = req.hostname;
-    const slugEnv = host.split('.')[0];
-    const parts = rsplit(slugEnv, '-', 1);
-    const slug = parts[0];
-    const env = parts[1];
+    const [slug, subdomain] = _getSlugSubdomain(host);
+    const environment = await this.prisma.environment.findUniqueOrThrow({ where: { subdomain } });
 
     // make sure this is valid plugin host
     let name = '';
@@ -382,10 +385,7 @@ export class GptPluginService {
     } else if (slug === LOCALHOST_PAGEKITE) {
       name = 'Poly API Local';
     } else {
-      const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({ where: { slug }, include: { environment: true } });
-      if (plugin.environment.subdomain !== env) {
-        throw new BadRequestException('Plugin subdomain does not match environment!');
-      }
+      const plugin = await this.getPlugin(slug, environment.id, { environment: true });
       name = plugin.name;
       descMarket = plugin.descriptionForMarketplace;
       descModel = plugin.descriptionForModel;
