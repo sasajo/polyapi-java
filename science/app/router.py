@@ -27,9 +27,9 @@ Here is the question:
 
 def route_question(question: str) -> str:
     if "poly" in question.lower():
-        general = '"general": "The user is asking a general programming or informational question"'
-    else:
         general = ""
+    else:
+        general = '"general": "The user is asking a general programming or informational question"'
 
     prompt = ROUTER_PROMPT % (general, question)
     choice = simple_chatgpt_question(prompt)
