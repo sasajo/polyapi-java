@@ -39,7 +39,7 @@ def function_completion() -> CompletionAnswer:
         choice, stats = conversation_question(user_id, question)
         resp = {"answer": choice['message']['content'], "stats": stats}
     elif route == "documentation":
-        choice, stats = documentation_question(request.url_root, user_id, question)
+        choice, stats = documentation_question(user_id, question)
         resp = {"answer": choice['message']['content'], "stats": stats}
     else:
         resp = {

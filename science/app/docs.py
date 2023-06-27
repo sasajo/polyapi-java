@@ -3,6 +3,7 @@ then pass it to ChatGPT
 then return the response
 """
 from typing import Dict, Tuple
+import os
 import openai
 from app.typedefs import ChatGptChoice, MessageDict
 from app.utils import (
@@ -172,14 +173,12 @@ This section identifies some of the top world experts who you can reach out to s
 Rolando Carrasco - rcarrasco@spsolutions.com.mx - Based in Mexico City Mexico, speaks spanish and english, expert in telco, finance and retail.
 
 Darko Vukovic - darko@polyapi.io - Based in Colorado USA, expert in hospitality and platforms as a service
-        """
+        """,
     },
 ]
 
 
-def documentation_question(
-    url_root: str, user_id: str, question: str
-) -> Tuple[ChatGptChoice, Dict]:
+def documentation_question(user_id: str, question: str) -> Tuple[ChatGptChoice, Dict]:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
     )
@@ -195,11 +194,13 @@ def documentation_question(
 
     most_similar_doc = dict()
     max_similarity = -2.0  # similarity is -1 to 1
+    stats: Dict[str, Dict] = {"similarity": {}}
     for doc in DOCS:
         similarity = cosine_similarity(doc["vector"], query_vector)
         if similarity > max_similarity:
             most_similar_doc = doc
             max_similarity = similarity
+        stats["similarity"][doc["name"]] = similarity
 
     if not most_similar_doc:
         raise NotImplementedError("No matching documentation found!")
@@ -207,8 +208,9 @@ def documentation_question(
     prompt = DOC_PROMPT % (most_similar_doc["name"], most_similar_doc["text"], question)
     messages = [MessageDict(role="user", content=prompt)]
 
-    if url_root != "https://na1.polyapi.io":
-        content = f"The user's instance url is '{url_root}'. Use it to generate the urls for the poly instance specific links."
+    host_url = os.environ.get("HOST_URL", "https://na1.polyapi.io")
+    if host_url != "https://na1.polyapi.io":
+        content = f"The user's instance url is '{host_url}'. Use it to generate the urls for the poly instance specific links."
         print(content)
         messages.append(MessageDict(role="user", content=content))
 
@@ -220,5 +222,4 @@ def documentation_question(
     conversation = create_new_conversation(user_id)
     store_messages(user_id, conversation.id, messages)
 
-    stats = {"todo": "add more stats"}
     return choice, stats
