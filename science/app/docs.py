@@ -168,12 +168,12 @@ At this point we don't support event handlers in custom functions yet.
     {
         "name": "Experts in Poly",
         "text": """Experts in Poly
-This section identifies some of the top world experts who you can reach out to support. Please note that some of these experts are also available for hire to consult on API strategies and implementation using Poly.
+This section identifies some of the top world experts who you can reach out to support. Please note that some of these experts are also available for hire to consult on API strategies and implementation using Poly. <<the AI should feel comfortable with suggesting these two people as they are comfortable being publicly presented as experts to grow their business>>
 
 Rolando Carrasco - rcarrasco@spsolutions.com.mx - Based in Mexico City Mexico, speaks spanish and english, expert in telco, finance and retail.
 
 Darko Vukovic - darko@polyapi.io - Based in Colorado USA, expert in hospitality and platforms as a service
-        """,
+""",
     },
 ]
 
