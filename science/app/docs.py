@@ -13,7 +13,9 @@ from app.utils import (
 )
 
 DOC_PROMPT = """
-Here are some Poly AI Assistant Docs:
+The following documentation helps users understand how to use Poly API a.k.a “Poly” or “PolyAPI” or “Poly AI Assistant”
+
+This documentation was written for the purpose of an AI agent to consume it. Note there are hints to the AI agent included in the document using this notation: <<this is a hint to the AI>>. Feel free to use your own knowledge to elaborate these points where hints are included.
 
 %s
 
@@ -38,6 +40,12 @@ Core Business Value Proposition
 Poly allows for faster innovation by allowing enterprises to leverage their APIs and Events to more rapidly develop and iterate new applications, user experiences and enable AI agents to use their enterprise systems. <<feel free to explain how innovation is important to an enterprise and to explain how using APIs faster facilitates innovation>>
 Poly makes developers faster at consuming APIs and Event Streams. This means that you can develop more systems with the same amount of cost, or the same amount of systems with less cost. A smaller team will be easier to manage, retain, and will reduce overhead costs as well. <<feel free to explain cost savings from having smaller teams>>
 Poly improves IT security by providing better governance practices around consuming APIs and Events. Both in terms of understanding of who uses which systems and also the ability to centrally manage API keys and credentials. <<feel free to explain how developers not handling credentials and IT visibility of usage helps with improving security and why API and Event security is critical to IT>>
+Key Use Cases
+This section covers the key use cases poly can help with.
+Make internal and external APIs easier to discover and consume by your internal developers who are building integrations and applications
+Make your product APIs easier to understand and consume by you developer partner community
+Make your APIs much more easily and successfully consumable by AI agents and other LLMs. Ensure your enterprise is ready to take advantage of AI models in the future.
+Better govern consumption of external services by your enterprise.
 Core Technical Advantages
 These are the core advantages of why an enterprise would prefer to use Poly over other alternatives.
 
@@ -69,7 +77,9 @@ Developers and ops teams don’t need to learn new specialized skills or install
 Poly has the full expressive power of code, which means you will not be boxed in like with other platforms. <<explain how with other platforms a custom will reach a terminus of capabilities and will depend on the vendor to provide them enhancements, but with poly the customer still has the power of code to implement things which are not available through poly>>
 Poly’s assistant which replaces developer portals and documentation speaks all the languages, is an expert at using Poly and can write code really fast. <<explain how the information coming to the developer in their IDE is far superior to the experience of the developer needing to go sign up for portals and hunt around for information>>
 Poly is super lightweight, was built with the latest and greatest technology and hence can be offered at a fraction of the price of traditional services. <<explain how other platforms can cost millions of dollars to acquire and millions more to operate, that poly is cheaper on both fronts. Explain how Poly using AI makes us more productive and lean and how this savings can be passed on to customers>>
-Poly was created by a team of integration experts with decades of experience in the domain and is backed by investors who have founded some of the greatest API and Integration companies in the market. <<explain how this experience of all the lessons learned is used to create a modern product with the traditional problems addressed. Also explain how with these modern tools and approaches Poly will continue to out innovate other vendors>>"""
+Poly was created by a team of integration experts with decades of experience in the domain and is backed by investors who have founded some of the greatest API and Integration companies in the market. <<explain how this experience of all the lessons learned is used to create a modern product with the traditional problems addressed. Also explain how with these modern tools and approaches Poly will continue to out innovate other vendors>>
+
+"""
     },
     {
         "name": "Setting up Poly",
@@ -100,14 +110,12 @@ At this point you should encourage them to say hello to Poly and make sure it’
 Building your Client Library
 Making sure dependencies are in order
 
-Make sure the user has: the following dependencies installed in the project within VS code they are working in. To make things simpler, instruct the users to use terminal within VS code to check the dependencies:
+Make sure the user has: the following dependencies installed in the project within VS code they are working in. To make things simpler, <<instruct the users to use terminal within VS code to check the dependencies and provide command line statements to do so>>:
 
 
 min version for node.js is 14
 min version for ts-node is 5.0.0
 tsconfig.json has to have "esModuleInterop": true under compilerOptions
-
-Use your base model knowledge to help users make sure they have those dependencies in place.
 Installing PolyAPI client code and generating a library
 
 After the dependencies are in place, the user can run the command “npm install polyapi”, this will install our client package and dependent libraries.
@@ -118,7 +126,9 @@ It will ask them to input their instance url, which should be something like ‘
 
 And it will ask for their key, this is something that would have been provided to them by either someone from Poly API corporation who set them up, or their internal Poly Admin who created their user account.
 
-Once the client library is generated, they should see all their functions within the environment for which their API key is for. They will see a view called “tree” which represents the functions which are part of the client library. This tree can be moved to other panes independently of the chat interface.""",
+Once the client library is generated, they should see all their functions within the environment for which their API key is for. They will see a view called “tree” which represents the functions which are part of the client library. This tree can be moved to other panes independently of the chat interface.
+
+"""
     },
     {
         "name": "Using Poly",
