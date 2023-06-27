@@ -2,6 +2,8 @@ import json
 from app.completion import simple_chatgpt_question
 
 ROUTER_PROMPT = """
+Always assume when the user says Poly they are referring to PolyAPI.
+
 Please categorize the user's question. Here are the categories:
 
 ```
@@ -18,8 +20,6 @@ Please return the category as JSON
 For example, if the user asks "How do I get a list of products on shopify?"
 
 You should return `{"category": "function"}` because the user is looking for a function to perform that action.
-
-Always assume when the user says "Poly" they are referring to "PolyAPI"
 
 Here is the question:
 
