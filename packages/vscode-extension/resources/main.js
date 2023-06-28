@@ -17,6 +17,25 @@ const COMMANDS = ['clear'];
     xhtml: false,
   });
 
+  /*
+    See: https://tailwindcss.com/docs/typography-plugin#customizing-the-css
+    We need to apply https://tailwindcss.com/docs/typography-plugin  to tailwind css to avoid break markdown html styles,
+    and because tailwind typography plugin comes with different font-size values we have to override them to match vs-code styles.
+  */
+  tailwind.config = {
+    theme: {
+      extend: {
+        typography: {
+          DEFAULT: {
+            css: {
+              fontSize: 'var(--vscode-font-size)'
+            }
+          }
+        }
+      }
+    }
+  }
+
   const loadingSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='48' viewBox='0 0 132 58'><g fill='currentColor' fill-rule='evenodd'><circle class='dot1' cx='25' cy='30' r='13'/><circle class='dot2' cx='65' cy='30' r='13'/><circle class='dot3' cx='105' cy='30' r='13'/></g></svg>`;
   const userSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='10' stroke-width='1.5' d='M18 18.86h-.76c-.8 0-1.56.31-2.12.87l-1.71 1.69c-.78.77-2.05.77-2.83 0l-1.71-1.69c-.56-.56-1.33-.87-2.12-.87H6c-1.66 0-3-1.33-3-2.97V4.98c0-1.64 1.34-2.97 3-2.97h12c1.66 0 3 1.33 3 2.97v10.91c0 1.63-1.34 2.97-3 2.97Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M12 10a2.33 2.33 0 1 0 0-4.66A2.33 2.33 0 0 0 12 10Zm4 5.66c0-1.8-1.79-3.26-4-3.26s-4 1.46-4 3.26'/></svg>`;
   const polySvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 512 512'><path fill='currentColor' d='M160 140.8c14.111 0 25.595 11.482 25.6 25.6 0 14.116-11.483 25.6-25.597 25.6H160c-14.116 0-25.6-11.484-25.6-25.6 0-14.116 11.484-25.6 25.6-25.6z'/><path fill='currentColor' d='M160 70.4c52.934 0 96 43.066 96 96s-43.066 96-96 96-96-43.066-96-96 43.066-96 96-96zm0 153.6c31.761 0 57.6-25.839 57.6-57.6 0-31.761-25.839-57.6-57.6-57.6-31.761 0-57.6 25.839-57.6 57.6 0 31.761 25.839 57.6 57.6 57.6z'/><path fill='currentColor' d='M320 7.282C427.492 17.015 512 107.616 512 217.6v19.2h-78.177c-8.489 59.081-55.543 105.869-114.752 113.953C310.061 437.63 236.421 505.6 147.2 505.6H0V6.4Zm0 304.386c37.56-7.654 67.213-37.308 74.868-74.868H320Zm0-113.268h152.54C463.658 118.428 399.972 54.742 320 45.86ZM38.4 467.2h108.8c74.108 0 134.4-60.292 134.4-134.4v-288H38.4Z'/></svg>`;
@@ -117,7 +136,9 @@ const COMMANDS = ['clear'];
         conversationList.innerHTML +=
           `<div class='p-4 self-end'>
             <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
-            ${texts.map(text => getResponseTextHtml(text)).join('')}
+            <div class="prose dark:prose-invert">
+              ${texts.map(text => getResponseTextHtml(text)).join('')}            
+            </div>
           </div>`;
         scrollToLastMessage();
         messageInput.removeAttribute('disabled');

@@ -1,3 +1,6 @@
+### 0.1.30
+* Applied tailwindcss typography plugin for ai responses.
+
 ### 0.1.29
 * Fixed input box for question focus lost when sending a question
 
