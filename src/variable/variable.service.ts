@@ -8,6 +8,7 @@ import { SpecsService } from 'specs/specs.service';
 import { AuthData } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 import { FunctionService } from 'function/function.service';
+import { EventService } from 'event/event.service';
 
 @Injectable()
 export class VariableService {
@@ -22,6 +23,7 @@ export class VariableService {
     private readonly authService: AuthService,
     @Inject(forwardRef(() => FunctionService))
     private readonly functionService: FunctionService,
+    private readonly eventService: EventService,
   ) {
   }
 
@@ -174,6 +176,11 @@ export class VariableService {
       if (value) {
         this.logger.debug(`Updating variable ${variable.id} value`);
         await this.secretService.set(environmentId, variable.id, value);
+
+        if (!(secret ?? variable.secret)) {
+          this.logger.debug(`Sending update event for variable ${variable.id}.`);
+          this.eventService.sendVariableUpdateEvent(variable.id, value);
+        }
       }
 
       return updatedVariable;
@@ -201,6 +208,10 @@ export class VariableService {
       });
 
       await this.secretService.delete(deletedVariable.environment.id, variable.id);
+
+      if (!variable.secret) {
+        await this.eventService.sendVariableUpdateEvent(variable.id, null);
+      }
     });
   }
 

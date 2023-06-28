@@ -151,6 +151,7 @@ const generateServerVariableJSFiles = async (specifications: ServerVariableSpeci
     `${POLY_LIB_PATH}/vari/index.js`,
     template({
       specifications,
+      apiKey: getApiKey(),
     }),
   );
 };

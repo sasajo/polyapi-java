@@ -8,28 +8,58 @@ const variables = [
 {{/each}}
 ];
 
-const variableHandlers = {};
-variables.forEach(([path, id, secret]) => {
-  set(variableHandlers, path, {
-    get: () => {
-      if (secret) {
-        return Promise.resolve({
-          type: 'PolySecretVariable',
-          id,
-          secret
+module.exports = (clientID, getSocket) => {
+  const variableHandlers = {};
+  variables.forEach(([path, id, secret]) => {
+    set(variableHandlers, path, {
+      get: () => {
+        if (secret) {
+          return Promise.resolve({
+            type: 'PolySecretVariable',
+            id,
+            secret
+          });
+        } else {
+          return axios.get(
+            `/variables/${id}/value`
+          ).then(({data}) => data);
+        }
+      },
+      update: (value) => {
+        return axios.patch(
+          `/variables/${id}`,
+          { value }
+        ).then(() => {});
+      },
+      onUpdate: (callback) => {
+        const socket = getSocket();
+        const unregisterEventHandler = () => {
+          socket.off(`handleVariableUpdateEvent:${id}`);
+          socket.emit('unregisterVariableUpdateEventHandler', {
+              clientID,
+              variableId: id,
+              apiKey: '{{apiKey}}'
+          });
+          if (timeoutID) {
+            clearTimeout(timeoutID);
+          }
+        };
+        const handleEvent = (value) => {
+          callback(value);
+        };
+        socket.emit('registerVariableUpdateEventHandler', {
+          clientID,
+          variableId: id,
+          apiKey: '{{apiKey}}'
+        }, registered => {
+          if (registered) {
+            socket.on(`handleVariableUpdateEvent:${id}`, handleEvent);
+          }
         });
-      } else {
-        return axios.get(
-          `/variables/${id}/value`
-        ).then(({data}) => data);
+
+        return unregisterEventHandler;
       }
-    },
-    update: (value) => {
-      return axios.patch(
-        `/variables/${id}`,
-        { value }
-      ).then(() => {});
-    }
+    });
   });
-});
-module.exports = variableHandlers;
+  return variableHandlers;
+};
