@@ -78,8 +78,6 @@ const generateIndexJSFile = async () => {
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
       clientID: uuidv4(),
-      apiBaseUrl: getApiBaseUrl(),
-      apiKey: getApiKey(),
     }),
   );
 };

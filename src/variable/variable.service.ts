@@ -7,6 +7,7 @@ import { CommonService } from 'common/common.service';
 import { SpecsService } from 'specs/specs.service';
 import { AuthData } from 'common/types';
 import { AuthService } from 'auth/auth.service';
+import { FunctionService } from 'function/function.service';
 
 @Injectable()
 export class VariableService {
@@ -19,6 +20,8 @@ export class VariableService {
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
     private readonly authService: AuthService,
+    @Inject(forwardRef(() => FunctionService))
+    private readonly functionService: FunctionService,
   ) {
   }
 
@@ -72,6 +75,33 @@ export class VariableService {
         id,
       },
     });
+  }
+
+  async findByPath(environmentId: string, path: string): Promise<Variable | null> {
+    const pathParts = path.split('.');
+
+    // get private first
+    let variables = await this.getAll(
+      environmentId,
+      [pathParts.slice(0, -1).join('.')],
+      [pathParts[pathParts.length - 1]],
+      undefined,
+      false,
+    );
+    if (variables.length) {
+      return variables[0];
+    }
+
+    // get public
+    variables = await this.getAll(
+      environmentId,
+      [pathParts.slice(0, -1).join('.')],
+      [pathParts[pathParts.length - 1]],
+      undefined,
+      true,
+    );
+
+    return variables[0] || null;
   }
 
   async getVariableValue(variable: Variable) {
@@ -152,6 +182,13 @@ export class VariableService {
 
   async deleteVariable(variable: Variable): Promise<void> {
     this.logger.debug(`Deleting variable ${variable.id}`);
+
+    const functionsWithVariableArgument = await this.functionService.getFunctionsWithVariableArgument(`${variable.context}.${variable.name}`);
+    if (functionsWithVariableArgument.length) {
+      throw new ConflictException(
+        `Variable cannot be deleted as it is used in function(s): ${functionsWithVariableArgument.map((f) => f.id).join(', ')}`,
+      );
+    }
 
     await this.prisma.$transaction(async (tx) => {
       const deletedVariable = await tx.variable.delete({

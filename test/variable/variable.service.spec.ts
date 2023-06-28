@@ -8,6 +8,7 @@ import {
   authServiceMock,
   commonServiceMock,
   configServiceMock,
+  functionServiceMock,
   prismaServiceMock,
   secretServiceMock,
   specsServiceMock,
@@ -17,6 +18,8 @@ import { CommonService } from 'common/common.service';
 import { resetMocks } from '../mocks/utils';
 import { SpecsService } from 'specs/specs.service';
 import { AuthService } from 'auth/auth.service';
+import { FunctionService } from 'function/function.service';
+import { ConflictException } from '@nestjs/common';
 
 describe('VariableService', () => {
   const testVariable: Variable = {
@@ -59,6 +62,10 @@ describe('VariableService', () => {
         {
           provide: AuthService,
           useValue: authServiceMock,
+        },
+        {
+          provide: FunctionService,
+          useValue: functionServiceMock,
         },
       ],
     }).compile();
@@ -195,9 +202,20 @@ describe('VariableService', () => {
           id: 'environmentId12345',
         },
       }) as any);
+      functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([]);
 
       await service.deleteVariable(testVariable);
       expect(secretServiceMock.delete).toBeCalledWith('environmentId12345', 'id12345');
+    });
+
+    it('should throw Conflict error when variable is used in some functions', async () => {
+      functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([
+        {
+          id: 'functionId12345',
+        },
+      ] as any);
+
+      await expect(service.deleteVariable(testVariable)).rejects.toThrow(ConflictException);
     });
   });
 

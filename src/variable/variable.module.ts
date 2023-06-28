@@ -6,9 +6,17 @@ import { AuthModule } from 'auth/auth.module';
 import { PrismaModule } from 'prisma/prisma.module';
 import { CommonModule } from 'common/common.module';
 import { SpecsModule } from 'specs/specs.module';
+import { FunctionModule } from 'function/function.module';
 
 @Module({
-  imports: [SecretModule, AuthModule, PrismaModule, CommonModule, forwardRef(() => SpecsModule)],
+  imports: [
+    SecretModule,
+    AuthModule,
+    PrismaModule,
+    CommonModule,
+    forwardRef(() => SpecsModule),
+    forwardRef(() => FunctionModule),
+  ],
   controllers: [VariableController],
   providers: [VariableService],
   exports: [VariableService],
