@@ -1,0 +1,35 @@
+const axios = require('../axios');
+const set = require('lodash/set');
+const get = require('lodash/get');
+
+const variables = [
+{{#each specifications}}
+  ['{{#if context}}{{context}}.{{/if}}{{name}}', '{{id}}', {{variable.secret}}],
+{{/each}}
+];
+
+const variableHandlers = {};
+variables.forEach(([path, id, secret]) => {
+  set(variableHandlers, path, {
+    get: () => {
+      if (secret) {
+        return Promise.resolve({
+          type: 'PolySecretVariable',
+          id,
+          secret
+        });
+      } else {
+        return axios.get(
+          `/variables/${id}/value`
+        ).then(({data}) => data);
+      }
+    },
+    update: (value) => {
+      return axios.patch(
+        `/variables/${id}`,
+        { value }
+      ).then(() => {});
+    }
+  });
+});
+module.exports = variableHandlers;

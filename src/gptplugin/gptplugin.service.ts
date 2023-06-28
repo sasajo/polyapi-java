@@ -5,7 +5,14 @@ import convert from '@openapi-contrib/json-schema-to-openapi-schema';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
-import { CreatePluginDto, PropertySpecification, PropertyType, Specification } from '@poly/model';
+import {
+  ApiFunctionSpecification,
+  CreatePluginDto, CustomFunctionSpecification,
+  FunctionSpecification,
+  PropertySpecification,
+  PropertyType, ServerFunctionSpecification,
+  Specification,
+} from '@poly/model';
 import { FunctionService } from 'function/function.service';
 import { ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/client';
 import { Request } from 'express';
@@ -24,6 +31,7 @@ type NameContext = {
 };
 
 export type PluginFunction = Specification & {
+  function: FunctionSpecification;
   executePath: string;
   operationId: string;
 };
@@ -152,7 +160,7 @@ function _trimDescription(desc: string | undefined): string {
   return desc;
 }
 
-function _tweakSpecForPlugin(f: AnyFunction, details: Specification): PluginFunction {
+function _tweakSpecForPlugin(f: AnyFunction, details: ApiFunctionSpecification | CustomFunctionSpecification | ServerFunctionSpecification): PluginFunction {
   details.description = _trimDescription(details.description);
   const executeType = _getExecuteType(details.type);
   return {

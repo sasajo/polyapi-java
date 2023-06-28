@@ -18,8 +18,8 @@ import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ApiFunctionResponseDto,
+  ApiFunctionSpecification,
   ArgumentsMetadata,
-  ArgumentType,
   Auth,
   Body,
   CustomFunctionSpecification,
@@ -30,9 +30,7 @@ import {
   Method,
   PostmanVariableEntry,
   PropertySpecification,
-  PropertyType,
   ServerFunctionSpecification,
-  Specification,
   Variables,
   Visibility,
 } from '@poly/model';
@@ -51,7 +49,6 @@ import { ApiFunctionArguments } from './types';
 import { mergeWith, omit, uniqBy } from 'lodash';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
-const ARGUMENT_TYPE_SUFFIX = '.Argument';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -96,7 +93,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
       },
@@ -398,7 +395,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientId: string | null = null): Promise<ApiFunctionResponseDto | null> {
-    this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
+    this.logger.debug(`Executing function ${apiFunction.id}...`);
 
     const argumentsMap = this.getArgumentsMap(apiFunction, args);
     const url = mustache.render(apiFunction.url, argumentsMap);
@@ -493,7 +490,7 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async toApiFunctionSpecification(apiFunction: ApiFunction): Promise<Specification> {
+  async toApiFunctionSpecification(apiFunction: ApiFunction): Promise<ApiFunctionSpecification> {
     const functionArguments = this.getFunctionArguments(apiFunction);
     const requiredArguments = functionArguments.filter((arg) => !arg.payload && arg.required);
     const optionalArguments = functionArguments.filter((arg) => !arg.payload && !arg.required);
@@ -503,7 +500,7 @@ export class FunctionService implements OnModuleInit {
       name: arg.name,
       description: arg.description,
       required: arg.required == null ? true : arg.required,
-      type: await this.toPropertyType(arg.name, arg.type, arg.typeObject),
+      type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject),
     });
 
     const getReturnType = async () => {
@@ -514,7 +511,7 @@ export class FunctionService implements OnModuleInit {
         ? await this.commonService.resolveType('ReturnType', JSON.stringify(responseObject))
         : ['void'];
       return {
-        ...await this.toPropertyType('ReturnType', type),
+        ...await this.commonService.toPropertyType('ReturnType', type),
         schema: typeSchema,
       };
     };
@@ -565,7 +562,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
       },
@@ -745,7 +742,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
         serverSide: false,
@@ -774,7 +771,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
         serverSide: true,
@@ -793,7 +790,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientId: string | null = null) {
-    this.logger.debug(`Executing server function ${customFunction.id} with arguments ${JSON.stringify(args)}`);
+    this.logger.debug(`Executing server function ${customFunction.id}...`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
     const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
@@ -976,36 +973,6 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  private getFunctionFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
-    const contextConditions = contexts?.length
-      ? contexts.filter(Boolean).map((context) => {
-        return {
-          OR: [
-            {
-              context: { startsWith: `${context}.` },
-            },
-            {
-              context,
-            },
-          ],
-        };
-      })
-      : [];
-
-    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
-
-    const filterConditions = [
-      {
-        OR: contextConditions,
-      },
-      names?.length ? { name: { in: names } } : undefined,
-    ].filter(Boolean) as any[];
-
-    this.logger.debug(`functions filter conditions: ${JSON.stringify(filterConditions)}`);
-
-    return [{ AND: filterConditions }, ...idConditions];
-  }
-
   private async resolveFunctionName(
     environmentId: string,
     name: string,
@@ -1183,50 +1150,6 @@ export class FunctionService implements OnModuleInit {
     }
 
     return payload;
-  }
-
-  private async toPropertyType(name: string, type: ArgumentType, typeObject?: object): Promise<PropertyType> {
-    if (type.endsWith('[]')) {
-      return {
-        kind: 'array',
-        items: await this.toPropertyType(name, type.substring(0, type.length - 2)),
-      };
-    }
-    if (type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
-      // backward compatibility (might be removed in the future)
-      type = 'object';
-    }
-
-    switch (type) {
-      case 'string':
-      case 'number':
-      case 'boolean':
-        return {
-          kind: 'primitive',
-          type,
-        };
-      case 'void':
-        return {
-          kind: 'void',
-        };
-      case 'object':
-        if (typeObject) {
-          const schema = await this.commonService.getJsonSchema(toPascalCase(name), typeObject);
-          return {
-            kind: 'object',
-            schema: schema || undefined,
-          };
-        } else {
-          return {
-            kind: 'object',
-          };
-        }
-      default:
-        return {
-          kind: 'plain',
-          value: type,
-        };
-    }
   }
 
   private findDuplicatedArgumentName(args: FunctionArgument[]) {

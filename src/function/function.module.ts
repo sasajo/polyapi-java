@@ -8,9 +8,19 @@ import { CommonModule } from 'common/common.module';
 import { AiModule } from 'ai/ai.module';
 import { SpecsModule } from 'specs/specs.module';
 import { AuthModule } from 'auth/auth.module';
+import { VariableModule } from 'variable/variable.module';
 
 @Module({
-  imports: [PrismaModule, HttpModule, AuthModule, EventModule, CommonModule, AiModule, forwardRef(() => SpecsModule)],
+  imports: [
+    PrismaModule,
+    HttpModule,
+    AuthModule,
+    EventModule,
+    CommonModule,
+    AiModule,
+    forwardRef(() => SpecsModule),
+    VariableModule,
+  ],
   providers: [FunctionService],
   exports: [FunctionService],
   controllers: [FunctionController],

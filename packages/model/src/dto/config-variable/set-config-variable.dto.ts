@@ -10,6 +10,7 @@ export class SetConfigVariableDto {
   @IsNotEmpty()
   @IsEnum(ConfigVariableName)
   name: string;
+
   @IsNotEmpty()
   @IsString()
   value: string;

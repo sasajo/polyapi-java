@@ -4,10 +4,19 @@ import { Variable } from '@prisma/client';
 import { Visibility } from '@poly/model';
 import { PrismaService } from 'prisma/prisma.service';
 import { SecretService } from 'secret/secret.service';
-import { commonServiceMock, configServiceMock, prismaServiceMock, secretServiceMock } from '../mocks';
+import {
+  authServiceMock,
+  commonServiceMock,
+  configServiceMock,
+  prismaServiceMock,
+  secretServiceMock,
+  specsServiceMock,
+} from '../mocks';
 import { ConfigService } from 'config/config.service';
 import { CommonService } from 'common/common.service';
 import { resetMocks } from '../mocks/utils';
+import { SpecsService } from 'specs/specs.service';
+import { AuthService } from 'auth/auth.service';
 
 describe('VariableService', () => {
   const testVariable: Variable = {
@@ -42,6 +51,14 @@ describe('VariableService', () => {
         {
           provide: SecretService,
           useValue: secretServiceMock,
+        },
+        {
+          provide: SpecsService,
+          useValue: specsServiceMock,
+        },
+        {
+          provide: AuthService,
+          useValue: authServiceMock,
         },
       ],
     }).compile();
@@ -181,6 +198,170 @@ describe('VariableService', () => {
 
       await service.deleteVariable(testVariable);
       expect(secretServiceMock.delete).toBeCalledWith('environmentId12345', 'id12345');
+    });
+  });
+
+  describe('toServerVariableSpecification', () => {
+    it('should return the correct ServerVariableSpecification', async () => {
+      const variable = {
+        id: '123',
+        createdAt: new Date(),
+        environmentId: 'env123',
+        name: 'variableName',
+        context: 'variableContext',
+        description: 'variableDescription',
+        secret: false,
+        visibility: Visibility.Environment,
+      };
+
+      const value = 'variableValue';
+      const resolvedType = ['string'] as any;
+      const propertyType = {
+        kind: 'primitive',
+        type: 'string',
+      } as any;
+
+      secretServiceMock.get?.mockResolvedValue(value);
+      commonServiceMock.resolveType?.mockResolvedValue(resolvedType);
+      commonServiceMock.toPropertyType?.mockResolvedValue(propertyType);
+
+      const result = await service.toServerVariableSpecification(variable);
+
+      expect(result).toEqual({
+        type: 'serverVariable',
+        id: variable.id,
+        name: variable.name,
+        context: variable.context,
+        description: variable.description,
+        visibilityMetadata: {
+          visibility: variable.visibility,
+        },
+        variable: {
+          environmentId: variable.environmentId,
+          secret: variable.secret,
+          valueType: propertyType,
+          value,
+        },
+      });
+
+      expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
+      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value);
+      expect(commonServiceMock.toPropertyType).toHaveBeenCalledWith(variable.name, resolvedType[0], value, resolvedType[1]);
+    });
+
+    it('should return the correct ServerVariableSpecification when secret is true', async () => {
+      const variable = {
+        id: '456',
+        createdAt: new Date(),
+        environmentId: 'env456',
+        name: 'secretVariable',
+        context: 'secretContext',
+        description: 'secretDescription',
+        secret: true,
+        visibility: Visibility.Environment,
+      };
+
+      const value = 'secretValue';
+      const resolvedType = ['string'] as any;
+      const propertyType = {
+        kind: 'primitive',
+        type: 'string',
+      } as any;
+
+      secretServiceMock.get?.mockResolvedValue(value);
+      commonServiceMock.resolveType?.mockResolvedValue(resolvedType);
+      commonServiceMock.toPropertyType?.mockResolvedValue(propertyType);
+
+      const result = await service.toServerVariableSpecification(variable);
+
+      expect(result).toEqual({
+        type: 'serverVariable',
+        id: variable.id,
+        name: variable.name,
+        context: variable.context,
+        description: variable.description,
+        visibilityMetadata: {
+          visibility: variable.visibility,
+        },
+        variable: {
+          environmentId: variable.environmentId,
+          secret: variable.secret,
+          valueType: {
+            kind: 'object',
+          },
+          value: undefined,
+        },
+      });
+
+      expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
+    });
+
+    it('should return the correct ServerVariableSpecification when value is null', async () => {
+      const variable = {
+        id: '789',
+        createdAt: new Date(),
+        environmentId: 'env789',
+        name: 'nullableVariable',
+        context: 'nullableContext',
+        description: 'nullableDescription',
+        secret: false,
+        visibility: 'public',
+      };
+
+      const value = null;
+      const resolvedType = ['string'] as any;
+      const propertyType = {
+        kind: 'primitive',
+        type: 'string',
+      } as any;
+
+      secretServiceMock.get?.mockResolvedValue(value);
+      commonServiceMock.resolveType?.mockResolvedValue(resolvedType);
+      commonServiceMock.toPropertyType?.mockResolvedValue(propertyType);
+
+      const result = await service.toServerVariableSpecification(variable);
+
+      expect(result).toEqual({
+        type: 'serverVariable',
+        id: variable.id,
+        name: variable.name,
+        context: variable.context,
+        description: variable.description,
+        visibilityMetadata: {
+          visibility: variable.visibility,
+        },
+        variable: {
+          environmentId: variable.environmentId,
+          secret: variable.secret,
+          valueType: propertyType,
+          value: variable.secret ? undefined : value,
+        },
+      });
+
+      expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
+      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value);
+      expect(commonServiceMock.toPropertyType).toHaveBeenCalledWith(variable.name, resolvedType[0], value, resolvedType[1]);
+    });
+
+    it('should handle errors and throw an exception', async () => {
+      const variable = {
+        id: '789',
+        createdAt: new Date(),
+        environmentId: 'env789',
+        name: 'errorVariable',
+        context: 'errorContext',
+        description: 'errorDescription',
+        secret: false,
+        visibility: 'public',
+      };
+
+      const errorMessage = 'An error occurred';
+
+      secretServiceMock.get?.mockRejectedValue(new Error(errorMessage));
+
+      await expect(service.toServerVariableSpecification(variable)).rejects.toThrow(errorMessage);
+
+      expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
     });
   });
 });

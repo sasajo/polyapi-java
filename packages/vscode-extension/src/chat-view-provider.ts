@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
-import axios, { AxiosHeaders } from 'axios';
+import axios from 'axios';
 import { RawAxiosRequestHeaders } from 'axios/index';
 
 export default class ChatViewProvider implements vscode.WebviewViewProvider {
-
   private webView?: vscode.WebviewView;
   private requestAbortController;
 
@@ -14,8 +13,6 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken,
   ) {
     this.webView = webviewView;
 
@@ -23,9 +20,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       // Allow scripts in the webview
       enableScripts: true,
 
-      localResourceRoots: [
-        this.context.extensionUri,
-      ],
+      localResourceRoots: [this.context.extensionUri],
     };
 
     webviewView.webview.html = this.getWebviewHtml(webviewView.webview);
@@ -86,10 +81,12 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       console.error(error);
       this.webView?.webview.postMessage({
         type: 'addResponseTexts',
-        value: [{
-          type: 'error',
-          value: error.response?.data?.message || error.message,
-        }],
+        value: [
+          {
+            type: 'error',
+            value: error.response?.data?.message || error.message,
+          },
+        ],
       });
     }
   }
@@ -120,7 +117,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         command,
       }, {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         } as RawAxiosRequestHeaders,
       });
     } catch (error) {
@@ -177,7 +174,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
             </button>
           </div>
         </div>
-		    <script src='${mainJs}'></script>
+        <script src='${mainJs}'></script>
       </body>
       </html>`
     );
