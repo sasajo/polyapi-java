@@ -22,13 +22,28 @@ const COMMANDS = ['clear'];
     We need to apply https://tailwindcss.com/docs/typography-plugin  to tailwind css to avoid break markdown html styles,
     and because tailwind typography plugin comes with different font-size values we have to override them to match vs-code styles.
   */
+  
   tailwind.config = {
     theme: {
       extend: {
         typography: {
           DEFAULT: {
             css: {
-              fontSize: 'var(--vscode-font-size)'
+              fontSize: 'var(--vscode-font-size)',
+              '--tw-prose-body': 'var(--vscode-editor-foreground)',
+                '--tw-prose-headings': 'var(--vscode-editor-foreground)',
+                '--tw-prose-lead': 'var(--vscode-editor-foreground)',
+                '--tw-prose-links': 'var(--vscode-textLink-foreground)',
+                '--tw-prose-bold': 'var(--vscode-editor-foreground)',
+                '--tw-prose-counters': 'var(--vscode-editor-foreground)',
+                '--tw-prose-bullets': 'var(--vscode-editor-foreground)',
+                '--tw-prose-hr': 'var(--vscode-editor-foreground)',
+                '--tw-prose-quotes': 'var(--vscode-editor-foreground)',
+                '--tw-prose-quote-borders': 'var(--vscode-textBlockQuote-border)',
+                '--tw-prose-code': 'var(--vscode-textPreformat-foreground)',
+                '--tw-prose-pre-bg': 'rgb(0 0 0 / 50%)',
+                '--tw-prose-th-borders': 'var(--vscode-editor-foreground)',
+                '--tw-prose-td-borders': 'var(--vscode-editor-foreground)'
             }
           }
         }
@@ -136,7 +151,7 @@ const COMMANDS = ['clear'];
         conversationList.innerHTML +=
           `<div class='p-4 self-end'>
             <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
-            <div class="prose dark:prose-invert">
+            <div class="prose prose-headings:font-normal prose-th:font-bold">
               ${texts.map(text => getResponseTextHtml(text)).join('')}            
             </div>
           </div>`;
