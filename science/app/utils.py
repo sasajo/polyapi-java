@@ -357,8 +357,35 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
     if not return_type:
         return None
 
-    kind = return_type.get("kind")
-    if kind == "object":
-        return {"data": return_type.get("schema", {}).get("properties")}
-    else:
-        return {"data": kind}
+    if "title" in return_type:
+        return_type['title'] = "data"
+    return {"data": return_type}
+    # kind = return_type.get("kind")
+    # if kind == "object":
+    #     properties = return_type.get("schema", {}).get("properties")
+    #     definitions = return_type.get("schema", {}).get("definitions")
+    #     properties = _resolve_properties(properties, definitions)
+    #     return {"data": properties}
+    # else:
+    #     return {"data": kind}
+
+
+def _resolve_properties(properties: Dict, definitions: Optional[Dict]) -> Optional[Dict]:
+    if not properties or not definitions or not definitions.keys():
+        # no definitions to resolve, just return straight properties
+        return properties
+
+    for key, value in properties.items():
+        ref = properties[key].get('$ref')
+        if ref:
+            ref = ref.replace("#/definitions/", "")
+            ref_properties = definitions.get(ref, {}).get("properties")
+            properties[key] = _resolve_properties(ref_properties, definitions)
+        elif properties[key]['type'] == "array":
+            ref = properties[key]['items'].get("$ref")
+            if ref:
+                ref = ref.replace("#/definitions/", "")
+                ref_properties = definitions.get(ref, {}).get("properties")
+                properties[key] = [_resolve_properties(ref_properties, definitions)]
+
+    return properties

@@ -196,3 +196,76 @@ class T(DbTestCase):
         }
         properties = get_return_type_properties(spec)
         self.assertIn("account_sid", properties["data"])
+
+    def test_get_return_properties_schema(self):
+        fake_spec = {
+            "function": {
+                "returnType": {
+                    "kind": "object",
+                    "schema": {
+                        "$schema": "http://json-schema.org/draft-06/schema#",
+                        "definitions": {
+                            "Choice": {
+                                "type": "object",
+                                "properties": {
+                                    "message": {"$ref": "#/definitions/Message"},
+                                    "finish_reason": {"type": "string"},
+                                    "index": {"type": "integer"},
+                                },
+                                "required": ["finish_reason", "index", "message"],
+                                "title": "Choice",
+                            },
+                            "Message": {
+                                "type": "object",
+                                "properties": {
+                                    "role": {"type": "string"},
+                                    "content": {"type": "string"},
+                                },
+                                "required": ["content", "role"],
+                                "title": "Message",
+                            },
+                            "Usage": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt_tokens": {"type": "integer"},
+                                    "completion_tokens": {"type": "integer"},
+                                    "total_tokens": {"type": "integer"},
+                                },
+                                "required": [
+                                    "completion_tokens",
+                                    "prompt_tokens",
+                                    "total_tokens",
+                                ],
+                                "title": "Usage",
+                            },
+                        },
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "object": {"type": "string"},
+                            "created": {"type": "integer"},
+                            "model": {"type": "string"},
+                            "usage": {"$ref": "#/definitions/Usage"},
+                            "choices": {
+                                "type": "array",
+                                "items": {"$ref": "#/definitions/Choice"},
+                            },
+                        },
+                        "required": [
+                            "choices",
+                            "created",
+                            "id",
+                            "model",
+                            "object",
+                            "usage",
+                        ],
+                        "title": "ReturnType",
+                    },
+                }
+            }
+        }
+
+        properties = get_return_type_properties(fake_spec)
+        self.assertIn("usage", properties["data"])
+        self.assertIn("choices", properties["data"])
+        self.assertIn("message", properties["data"]["choices"][0])
