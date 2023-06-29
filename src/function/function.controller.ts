@@ -155,8 +155,6 @@ export class FunctionController {
     if (!apiFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
-    console.log('pluginUserId', req.headers['openai-ephemeral-user-id']);
-    console.log('pluginConvoId', req.headers['openai-conversation-id']);
 
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
     data = await this.variableService.unwrapSecretVariables(req.user, data);
