@@ -171,7 +171,7 @@ export class FunctionService implements OnModuleInit {
 
     const finalAuth = templateAuth ? JSON.stringify(templateAuth) : null;
     const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
-    const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
+    const finalHeaders = JSON.stringify(this.getFilteredHeaders(templateHeaders));
 
     if (id === null) {
       const templateBaseUrl = templateUrl.split('?')[0];
@@ -414,10 +414,12 @@ export class FunctionService implements OnModuleInit {
       ...this.getAuthorizationQueryParams(auth),
     };
     const headers = {
-      ...JSON.parse(mustache.render(apiFunction.headers || '[]', argumentValueMap)).reduce(
-        (headers, header) => Object.assign(headers, { [header.key]: header.value }),
-        {},
-      ),
+      ...JSON.parse(mustache.render(apiFunction.headers || '[]', argumentValueMap))
+        .filter((header) => !!header.key?.trim())
+        .reduce(
+          (headers, header) => Object.assign(headers, { [header.key]: header.value }),
+          {},
+        ),
       ...this.getContentTypeHeaders(body),
       ...this.getAuthorizationHeaders(auth),
     };
@@ -912,6 +914,11 @@ export class FunctionService implements OnModuleInit {
       default:
         return body;
     }
+  }
+
+  private getFilteredHeaders(headers: Header[]): Header[] {
+    return this.filterDisabledValues(headers)
+      .filter(({ key }) => !!key?.trim());
   }
 
   private getFunctionArguments(apiFunction: ApiFunctionArguments): FunctionArgument[] {
