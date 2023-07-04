@@ -411,6 +411,7 @@ const generateTSContextDeclarationFile = async (
       arguments: specification.function.arguments.map(toArgumentDeclaration),
       returnType: toTypeDeclaration(specification.function.returnType),
       synchronous: specification.function.synchronous === true,
+      useResponseTypeWrapper: specification.type === 'apiFunction',
     };
   };
 

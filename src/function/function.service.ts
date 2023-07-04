@@ -624,9 +624,10 @@ export class FunctionService implements OnModuleInit {
       code,
       args,
       returnType,
+      synchronous,
       contextChain,
       requirements,
-    } = transpileCode(name, customCode);
+    } = await transpileCode(name, customCode);
 
     context = context || contextChain.join('.');
 
@@ -662,6 +663,7 @@ export class FunctionService implements OnModuleInit {
           description: description || customFunction.description,
           arguments: JSON.stringify(args),
           returnType,
+          synchronous,
           requirements: JSON.stringify(requirements),
           serverSide: serverFunction,
         },
@@ -687,6 +689,7 @@ export class FunctionService implements OnModuleInit {
           code,
           arguments: JSON.stringify(args),
           returnType,
+          synchronous,
           requirements: JSON.stringify(requirements),
         },
       });
@@ -861,13 +864,32 @@ export class FunctionService implements OnModuleInit {
   async toCustomFunctionSpecification(customFunction: CustomFunction): Promise<CustomFunctionSpecification | ServerFunctionSpecification> {
     const parsedArguments = JSON.parse(customFunction.arguments || '[]');
 
+    const isReturnTypeSchema = (): boolean => {
+      if (!customFunction.returnType) {
+        return false;
+      }
+      try {
+        JSON.parse(customFunction.returnType);
+        return true;
+      } catch (error) {
+        // ignore, not a valid JSON schema
+      }
+      return false;
+    };
+
     const toArgumentSpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
       name: arg.name,
       required: typeof arg.required === 'undefined' ? true : arg.required,
-      type: {
-        kind: 'plain',
-        value: arg.type,
-      },
+      type: arg.typeSchema
+        ? {
+            kind: 'object',
+            typeName: arg.type,
+            schema: JSON.parse(arg.typeSchema),
+          }
+        : {
+            kind: 'plain',
+            value: arg.type,
+          },
     });
 
     return {
@@ -880,13 +902,19 @@ export class FunctionService implements OnModuleInit {
       function: {
         arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
         returnType: customFunction.returnType
-          ? {
-              kind: 'plain',
-              value: customFunction.returnType,
-            }
+          ? isReturnTypeSchema()
+            ? {
+                kind: 'object',
+                schema: JSON.parse(customFunction.returnType),
+              }
+            : {
+                kind: 'plain',
+                value: customFunction.returnType,
+              }
           : {
               kind: 'void',
             },
+        synchronous: customFunction.synchronous,
       },
       code: customFunction.code,
       visibilityMetadata: {

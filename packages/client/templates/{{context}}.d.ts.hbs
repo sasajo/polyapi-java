@@ -20,7 +20,10 @@ declare module "./index" {
       {{{comment}}}
       */
       {{/if}}
-      {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}): {{#if synchronous}}Response<{{{returnType}}}>{{else}}Promise<Response<{{{returnType}}}>>{{/if}};
+      {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}):
+        {{#if synchronous}}{{#if useResponseTypeWrapper}}Response<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}
+        {{else}}Promise<{{#if useResponseTypeWrapper}}Response<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}>
+        {{/if}};
     {{/each}}
   }
 }

@@ -52,7 +52,8 @@
     "passport-http-bearer": "^1.0.1",
     "quicktype-core": "^23.0.7",
     "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.2.0"
+    "rxjs": "^7.2.0",
+    "typescript-json-schema": "^0.58.1"
   },
   "devDependencies": {
     "@golevelup/ts-jest": "^0.3.7",

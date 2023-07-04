@@ -1,10 +1,20 @@
 import { FunctionArgument } from '@poly/model';
-import ts, { factory } from 'typescript';
+import ts, { factory, InterfaceDeclaration } from 'typescript';
+import * as TJS from 'typescript-json-schema';
+import os from 'os';
+import path from 'path';
+import util from 'util';
+import fs from 'fs';
+import crypto from 'crypto';
+
+const writeFile = util.promisify(fs.writeFile);
+const unlink = util.promisify(fs.unlink);
 
 export interface TranspileResult {
   code: string;
   args: FunctionArgument[];
   returnType: string;
+  synchronous: boolean;
   contextChain: string[];
   requirements: string[];
 }
@@ -44,11 +54,13 @@ const EXCLUDED_REQUIREMENTS = [
   'zlib',
 ];
 
-export const transpileCode = (functionName: string, code: string): TranspileResult => {
+export const transpileCode = async (functionName: string, code: string): Promise<TranspileResult> => {
   let functionArguments: FunctionArgument[] | null = null;
   let returnType: string | null = null;
+  let synchronous = true;
   const contextChain: string[] = [];
   const importedLibraries = new Set<string>();
+  const interfaceDeclarations: Record<string, InterfaceDeclaration> = {};
 
   const result = ts.transpileModule(code, {
     compilerOptions: {
@@ -67,6 +79,10 @@ export const transpileCode = (functionName: string, code: string): TranspileResu
             const visitor = (node: ts.Node): ts.Node => {
               if (returnType !== null) {
                 return node;
+              }
+
+              if (ts.isInterfaceDeclaration(node)) {
+                interfaceDeclarations[node.name.text] = node;
               }
 
               if (ts.isImportDeclaration(node)) {
@@ -125,7 +141,7 @@ export const transpileCode = (functionName: string, code: string): TranspileResu
                     name: param.name.getText(),
                     type: param.type?.getText() || 'any',
                     ...(param.questionToken ? { required: false } : {}),
-                  }));
+                  })) as FunctionArgument[];
 
                   returnType = node.type?.getText() || 'any';
 
@@ -157,17 +173,69 @@ export const transpileCode = (functionName: string, code: string): TranspileResu
 
   if (!functionArguments) {
     throw new Error(`Function ${functionName} not found.`);
+  } else {
+    functionArguments = functionArguments as FunctionArgument[];
   }
   if (!returnType) {
     throw new Error(`Return type not specified. Please add return type explicitly to function ${functionName}.`);
+  } else {
+    returnType = returnType as string;
   }
+
+  if (returnType.startsWith('Promise')) {
+    synchronous = false;
+    returnType = returnType.replace('Promise<', '').replace('>', '');
+  }
+
+  const interfaceTypeSchemas = await getInterfaceJSONSchemas(interfaceDeclarations);
+
+  if (interfaceTypeSchemas[returnType]) {
+    returnType = interfaceTypeSchemas[returnType];
+  }
+  functionArguments.forEach((arg) => {
+    const argTypeSchema = interfaceTypeSchemas[arg.type];
+    if (argTypeSchema) {
+      arg.typeSchema = argTypeSchema;
+    }
+  });
 
   return {
     code: result.outputText,
     args: functionArguments,
     returnType,
+    synchronous,
     contextChain,
     requirements: Array.from(importedLibraries)
       .filter(library => !EXCLUDED_REQUIREMENTS.includes(library)),
   };
+};
+
+const getInterfaceJSONSchemas = async (interfaceDeclarations: Record<string, ts.InterfaceDeclaration>): Promise<Record<string, string>> => {
+  const interfaceSchemas: Record<string, string> = {};
+
+  const tempDir = os.tmpdir();
+  const tempFilePath = path.join(tempDir, `${crypto.randomBytes(16).toString('hex')}.ts`);
+
+  await writeFile(
+    tempFilePath,
+    Object.values(interfaceDeclarations).map((declaration) => {
+      return declaration.getText();
+    }).join('\n'),
+    'utf8',
+  );
+
+  const program = ts.createProgram([tempFilePath], {});
+
+  for (const name in interfaceDeclarations) {
+    if (interfaceDeclarations.hasOwnProperty(name)) {
+      const schema = TJS.generateSchema(program, name, { required: true, noExtraProps: true });
+      if (schema) {
+        interfaceSchemas[name] = JSON.stringify(schema);
+      }
+    }
+  }
+
+  await unlink(tempFilePath);
+
+  return interfaceSchemas;
 };
