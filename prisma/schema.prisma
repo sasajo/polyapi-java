@@ -242,6 +242,7 @@ model AuthToken {
   accessToken    String?      @map("access_token")
   refreshToken   String?      @map("refresh_token")
   eventsClientId String?      @map("events_client_id")
+  userId         String?      @map("user_id")
 
   @@map("auth_token")
 }

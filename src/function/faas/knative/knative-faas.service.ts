@@ -3,6 +3,7 @@ import { exec as execAsync } from 'child_process';
 import handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
+import { pick } from 'lodash';
 import { Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
@@ -18,6 +19,7 @@ const exec = util.promisify(execAsync);
 
 const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
 const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
+const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id'];
 
 export class KNativeFaasService implements FaasService {
   private logger = new Logger(KNativeFaasService.name);
@@ -81,6 +83,7 @@ export class KNativeFaasService implements FaasService {
     tenantId: string,
     environmentId: string,
     args: any[],
+    headers = {},
     maxRetryCount = 3,
   ): Promise<any> {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
@@ -89,7 +92,7 @@ export class KNativeFaasService implements FaasService {
     if (!functionUrl) {
       if (maxRetryCount > 0) {
         await this.deploy(id, tenantId, environmentId);
-        return this.executeFunction(id, tenantId, environmentId, args, maxRetryCount - 1);
+        return this.executeFunction(id, tenantId, environmentId, args, headers, maxRetryCount - 1);
       } else {
         this.logger.error(`Function ${id} is not running`);
         throw new Error(`Function ${id} is not running`);
@@ -101,7 +104,7 @@ export class KNativeFaasService implements FaasService {
     this.logger.verbose({ args });
     return await lastValueFrom(
       this.http
-        .post(`${functionUrl}`, { args })
+        .post(`${functionUrl}`, { args }, { headers: this.filterPassThroughHeaders(headers) })
         .pipe(map((response) => response.data))
         .pipe(
           catchError(async (error: AxiosError) => {
@@ -112,7 +115,7 @@ export class KNativeFaasService implements FaasService {
             );
             if (maxRetryCount > 0) {
               await sleep(2000);
-              return this.executeFunction(id, tenantId, environmentId, args, 0);
+              return this.executeFunction(id, tenantId, environmentId, args, headers, 0);
             }
 
             throw error;
@@ -223,5 +226,9 @@ export class KNativeFaasService implements FaasService {
     }
 
     return null;
+  }
+
+  private filterPassThroughHeaders(headers: Record<string, any>): Record<string, any> {
+    return pick(headers, PASS_THROUGH_HEADERS);
   }
 }

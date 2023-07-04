@@ -139,8 +139,9 @@ export class AuthProviderController {
       audience = null,
       scopes = [],
       callbackUrl = null,
+      userId = null,
     } = data;
-    return await this.service.executeAuthProvider(authProvider, eventsClientId, clientId, clientSecret, audience, scopes, callbackUrl);
+    return await this.service.executeAuthProvider(authProvider, eventsClientId, clientId, clientSecret, audience, scopes, callbackUrl, userId);
   }
 
   @Get('/:id/callback')

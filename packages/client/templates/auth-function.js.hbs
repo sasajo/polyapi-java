@@ -5,26 +5,31 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
     eventsClientId = `${eventsClientId}-${userId}`;
   }
 
-  axios.post(`/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl })
+  let socket = null;
+  let timeoutID = null;
+
+  const unregisterEventHandler = () => {
+    if (!socket) {
+      return;
+    }
+    socket.off(`handleAuthFunctionEvent:ee35849b-e40b-4f8a-bcb3-da4e1134f219`);
+    socket.emit('unregisterAuthFunctionEventHandler', {
+      clientID: eventsClientId,
+      functionId: 'ee35849b-e40b-4f8a-bcb3-da4e1134f219',
+      apiKey: 'ptab4f62d3421bca3674hfd627',
+    });
+    if (timeoutID) {
+      clearTimeout(timeoutID);
+    }
+  };
+
+  axios.post(`/auth-providers/{{id}}/execute`, { eventsClientId, clientId, clientSecret, scopes, audience, callbackUrl, userId })
     .then(({ data }) => {
       if (data.token) {
         callback(data.token, data.url, data.error);
         return;
       }
-
-      let timeoutID;
-      const socket = getSocket();
-      const unregisterEventHandler = () => {
-        socket.off(`handleAuthFunctionEvent:{{id}}`);
-        socket.emit('unregisterAuthFunctionEventHandler', {
-            clientID: eventsClientId,
-            functionId: '{{id}}',
-            apiKey: '{{apiKey}}'
-        });
-        if (timeoutID) {
-          clearTimeout(timeoutID);
-        }
-      };
+      socket = getSocket();
       const handleEvent = ({ token, url, error }) => {
         callback(token, url, error);
         if (token && autoCloseOnToken) {
@@ -52,5 +57,6 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
 
   return {
     revoke: () => axios.post(`/functions/auth/{{id}}/revoke`, { clientId, clientSecret }),
+    close: () => unregisterEventHandler(),
   };
 }

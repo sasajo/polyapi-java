@@ -5,6 +5,7 @@ export interface ExecuteAuthProviderDto {
   audience?: string;
   scopes?: string[];
   callbackUrl?: string;
+  userId?: string;
 }
 
 export interface ExecuteAuthProviderResponseDto {

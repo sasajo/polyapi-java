@@ -814,14 +814,14 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientId: string | null = null) {
+  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, headers: Record<string, any>, clientId: string | null = null) {
     this.logger.debug(`Executing server function ${customFunction.id}...`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
     const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, environment.tenantId, environment.id, argumentsList);
+      const result = await this.faasService.executeFunction(customFunction.id, environment.tenantId, environment.id, argumentsList, headers);
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );

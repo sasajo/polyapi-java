@@ -3,7 +3,7 @@ import {
   Body,
   Controller,
   Delete,
-  Get,
+  Get, Headers,
   Logger,
   NotFoundException,
   Param,
@@ -321,8 +321,11 @@ export class FunctionController {
     @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() data: ExecuteCustomFunctionDto,
+    @Headers() headers: Record<string, any>,
     @Query() { clientId }: ExecuteCustomFunctionQueryParams,
   ): Promise<any> {
+    this.logger.debug(`Headers: ${JSON.stringify(headers)}`);
+
     const customFunction = await this.service.findServerFunction(id);
     if (!customFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
@@ -334,7 +337,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
     data = await this.variableService.unwrapSecretVariables(req.user, data);
 
-    return await this.service.executeServerFunction(customFunction, req.user.environment, data, clientId);
+    return await this.service.executeServerFunction(customFunction, req.user.environment, data, headers, clientId);
   }
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))

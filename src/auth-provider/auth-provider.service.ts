@@ -212,8 +212,42 @@ export class AuthProviderService {
     };
   }
 
-  public async executeAuthProvider(authProvider: AuthProvider, eventsClientId: string, clientId: string, clientSecret: string, audience: string | null, scopes: string[], callbackUrl: string | null): Promise<ExecuteAuthProviderResponseDto> {
+  public async executeAuthProvider(
+    authProvider: AuthProvider,
+    eventsClientId: string,
+    clientId: string,
+    clientSecret: string,
+    audience: string | null,
+    scopes: string[],
+    callbackUrl: string | null,
+    userId: string | null,
+  ): Promise<ExecuteAuthProviderResponseDto> {
     this.logger.debug(`Executing auth provider ${authProvider.id}`);
+
+    if (userId) {
+      this.logger.debug(`User ID specified (${userId}). Checking if token exists for user...`);
+      const existingToken = await this.prisma.authToken.findFirst({
+        where: {
+          authProvider: {
+            id: authProvider.id,
+          },
+          clientId,
+          clientSecret,
+          eventsClientId,
+          userId,
+        },
+      });
+      if (existingToken?.accessToken) {
+        this.logger.debug(`Token exists for user ${userId}.`);
+        return {
+          url: this.getAuthProviderAuthorizationUrl(authProvider, existingToken),
+          token: existingToken.accessToken,
+        };
+      } else {
+        this.logger.debug(`Token does not exist for user ${userId}. Continuing OAuth flow...`);
+      }
+    }
+
     await this.prisma.authToken.deleteMany({
       where: {
         authProvider: {
@@ -240,6 +274,7 @@ export class AuthProviderService {
         state,
         callbackUrl,
         eventsClientId,
+        userId,
       },
     });
 
