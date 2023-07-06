@@ -3,6 +3,11 @@ import { ChatText } from '@poly/model';
 import { PrismaService } from 'prisma/prisma.service';
 import { AiService } from 'ai/ai.service';
 
+type MessageDict = {
+  role: string;
+  content: string;
+};
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
@@ -55,7 +60,6 @@ export class ChatService {
       return new Promise((resolve) => resolve('Conversation not found.'));
     }
 
-    console.log(conversation);
     const messages = await this.prisma.conversationMessage.findMany({
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
@@ -63,5 +67,20 @@ export class ChatService {
     console.log(messages);
     const parts = messages.map((m) => `${m.role.toUpperCase()}\n\n${m.content}`);
     return parts.join('\n\n');
+  }
+
+  async getHistory(userId: string | undefined): Promise<MessageDict[]> {
+    if (!userId) {
+      return [];
+    }
+
+    const messages = this.prisma.conversationMessage.findMany({
+      where: { userId, type: 2 },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+    return (await messages).map((m) => {
+      return { role: m.role, content: m.content };
+    });
   }
 }

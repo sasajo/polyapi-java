@@ -108,4 +108,14 @@ export class ChatController {
     const conversation = await this.service.getConversationDetail(userId, conversationId);
     return conversation;
   }
+
+  @UseGuards(new PolyAuthGuard())
+  @Get('/history')
+  public async chatHistory(
+    @Req() req: AuthRequest,
+  ) {
+    // returns the conversation history for this specific user
+    const history = await this.service.getHistory(req.user.user?.id);
+    return history;
+  }
 }
