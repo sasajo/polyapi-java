@@ -6,6 +6,7 @@ import { AiService } from 'ai/ai.service';
 type MessageDict = {
   role: string;
   content: string;
+  createdAt: Date;
 };
 
 @Injectable()
@@ -80,7 +81,7 @@ export class ChatService {
       take: 30,
     });
     return (await messages).map((m) => {
-      return { role: m.role, content: m.content };
+      return { role: m.role, content: m.content, createdAt: m.createdAt };
     });
   }
 }
