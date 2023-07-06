@@ -16,6 +16,11 @@ import { FaasService } from '../faas.service';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const exec = util.promisify(execAsync);
+const exists = util.promisify(fs.exists);
+const readFile = util.promisify(fs.readFile);
+const writeFile = util.promisify(fs.writeFile);
+const mkdir = util.promisify(fs.mkdir);
+const rm = util.promisify(fs.rm);
 
 const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
 const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
@@ -46,8 +51,8 @@ export class KNativeFaasService implements FaasService {
     };
 
     this.logger.debug(`Writing docker config to ${this.config.faasDockerConfigFile}`);
-    fs.mkdirSync(path.dirname(this.config.faasDockerConfigFile), { recursive: true });
-    fs.writeFileSync(this.config.faasDockerConfigFile, JSON.stringify(getConfig(), null, 2));
+    await mkdir(path.dirname(this.config.faasDockerConfigFile), { recursive: true });
+    await writeFile(this.config.faasDockerConfigFile, JSON.stringify(getConfig(), null, 2));
   }
 
   async createFunction(
@@ -60,7 +65,7 @@ export class KNativeFaasService implements FaasService {
     apiKey: string,
   ): Promise<void> {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    if (fs.existsSync(functionPath)) {
+    if (await exists(functionPath)) {
       await this.cleanUpFunction(id, functionPath);
     }
     await exec(`${KNATIVE_EXEC_FILE} create ${functionPath} -l node`);
@@ -68,12 +73,12 @@ export class KNativeFaasService implements FaasService {
     await this.preparePolyLib(functionPath, apiKey);
     await this.prepareRequirements(functionPath, requirements);
 
-    const template = fs.readFileSync(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8');
+    const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8');
     const indexFileContent = handlebars.compile(template)({
       name,
       code,
     });
-    fs.writeFileSync(`${functionPath}/index.js`, indexFileContent);
+    await writeFile(`${functionPath}/index.js`, indexFileContent);
 
     await this.deploy(id, tenantId, environmentId);
   }
@@ -134,7 +139,7 @@ export class KNativeFaasService implements FaasService {
     this.logger.debug(`Updating server function '${id}'...`);
 
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    if (!fs.existsSync(functionPath)) {
+    if (!await exists(functionPath)) {
       return;
     }
 
@@ -163,7 +168,7 @@ export class KNativeFaasService implements FaasService {
 
   private async preparePolyLib(functionPath: string, apiKey: string) {
     await exec(`npm install --prefix ${functionPath} polyapi@${this.config.polyClientNpmVersion}`);
-    fs.mkdirSync(`${functionPath}/node_modules/.poly`, { recursive: true });
+    await mkdir(`${functionPath}/node_modules/.poly`, { recursive: true });
     await exec(
       `POLY_API_BASE_URL=${this.config.faasPolyServerUrl} POLY_API_KEY=${apiKey} npx --prefix ${functionPath} poly generate`,
     );
@@ -204,8 +209,8 @@ export class KNativeFaasService implements FaasService {
       this.logger.error(`Error while deleting KNative function: ${e.message}`);
     }
 
-    if (fs.existsSync(functionPath)) {
-      fs.rmSync(functionPath, { recursive: true });
+    if (await exists(functionPath)) {
+      await rm(functionPath, { recursive: true });
       this.logger.debug(`Removed function folder (${functionPath})`);
     } else {
       this.logger.debug(`Didn't remove function folder, functionPath (${functionPath}) doesn't exist.`);
