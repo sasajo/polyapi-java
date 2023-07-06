@@ -574,8 +574,25 @@ export class AuthProviderService {
       function: {
         arguments: this.getGetTokenFunctionArguments(authProvider),
         returnType: {
-          kind: 'void',
+          kind: 'object',
+          properties: [
+            {
+              name: 'close',
+              type: {
+                kind: 'function',
+                spec: {
+                  arguments: [],
+                  returnType: {
+                    kind: 'void',
+                  },
+                  synchronous: true,
+                },
+              },
+              required: true,
+            },
+          ],
         },
+        synchronous: true,
       },
       visibilityMetadata: {
         visibility: authProvider.visibility as Visibility,
@@ -792,6 +809,14 @@ export class AuthProviderService {
             },
             {
               name: 'autoCloseOnToken',
+              required: false,
+              type: {
+                kind: 'primitive',
+                type: 'boolean',
+              },
+            },
+            {
+              name: 'autoCloseOnUrl',
               required: false,
               type: {
                 kind: 'primitive',

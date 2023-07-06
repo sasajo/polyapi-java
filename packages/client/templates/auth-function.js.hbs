@@ -1,6 +1,6 @@
 const axios = require('../axios');
 
-module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, userId } = {}{{/if}}) {
+module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, autoCloseOnUrl = false, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, autoCloseOnUrl = false, userId } = {}{{/if}}) {
   if (userId) {
     eventsClientId = `${eventsClientId}-${userId}`;
   }
@@ -8,7 +8,7 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
   let socket = null;
   let timeoutID = null;
 
-  const unregisterEventHandler = () => {
+  const closeEventHandler = () => {
     if (!socket) {
       return;
     }
@@ -18,6 +18,8 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
       functionId: 'ee35849b-e40b-4f8a-bcb3-da4e1134f219',
       apiKey: 'ptab4f62d3421bca3674hfd627',
     });
+    socket.close();
+    socket = null;
     if (timeoutID) {
       clearTimeout(timeoutID);
     }
@@ -29,11 +31,16 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
         callback(data.token, data.url, data.error);
         return;
       }
+      if (data.url && autoCloseOnUrl) {
+        callback(null, data.url, null);
+        return;
+      }
+
       socket = getSocket();
       const handleEvent = ({ token, url, error }) => {
         callback(token, url, error);
         if (token && autoCloseOnToken) {
-          unregisterEventHandler();
+          closeEventHandler();
         }
       };
       socket.emit('registerAuthFunctionEventHandler', {
@@ -49,14 +56,13 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
 
       if (timeout) {
         timeoutID = setTimeout(() => {
-          unregisterEventHandler();
+          closeEventHandler();
           callback(null, null, { message: 'Timeout reached' });
         }, timeout);
       }
     });
 
   return {
-    revoke: () => axios.post(`/functions/auth/{{id}}/revoke`, { clientId, clientSecret }),
-    close: () => unregisterEventHandler(),
+    close: closeEventHandler,
   };
 }
