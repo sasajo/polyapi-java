@@ -147,7 +147,7 @@ model CustomFunction {
   code          String
   arguments     String
   returnType    String?     @map("return_type")
-  synchronous   Boolean     @default(false)
+  synchronous   Boolean     @default(true)
   requirements  String?     @map("requirements")
   trained       Boolean     @default(false)
   serverSide    Boolean     @default(false) @map("server_side")
