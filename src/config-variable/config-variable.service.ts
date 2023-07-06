@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigVariable } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-
 import { ConfigVariableDto, ConfigVariableName } from '@poly/model';
-
 import { ConfigVariableStrategy, DefaultConfigVariableStrategy, TrainingDataGenerationStrategy } from './strategy';
 import { CommonService } from 'common/common.service';
+
 @Injectable()
 export class ConfigVariableService {
   private readonly prisma: PrismaService;
@@ -56,22 +55,46 @@ export class ConfigVariableService {
     return this.defaultConfigVariableStrategy;
   }
 
-  async getParsed<T>(
+  async getOneParsed<T>(
     name: string,
     tenantId: string | null = null,
     environmentId: string | null = null,
   ) {
-    const configVariable = await this.get(name, tenantId, environmentId);
+    const configVariable = await this.getOne(name, tenantId, environmentId);
 
     return configVariable ? this.commonService.getConfigVariableWithParsedValue<T>(configVariable) : null;
   }
 
-  get(
+  async getOne(
     name: string,
     tenantId: string | null = null,
     environmentId: string | null = null,
   ) {
-    return this.getStrategy(name).get(name, tenantId, environmentId);
+    const configVariables = await this.prisma.configVariable.findMany({
+      where: this.commonService.getConfigVariableFilters(name, tenantId, environmentId),
+    });
+
+    return this.getStrategy(name).getOneFromList(configVariables);
+  }
+
+  async getMany(tenantId: string | null = null, environmentId: string | null = null) {
+    const configVariables = await this.prisma.configVariable.findMany({
+      where: this.commonService.getConfigVariableFilters(null, tenantId, environmentId),
+    });
+
+    const result: ConfigVariable[] = [];
+
+    for (const configVariable of configVariables) {
+      if (result.find(current => current.name === configVariable.name)) {
+        continue;
+      }
+
+      const restConfigVariablesBySameName = configVariables.filter(current => current.id !== configVariable.id && current.name === configVariable.name);
+
+      result.push(this.getStrategy(configVariable.name).getOneFromList([configVariable, ...restConfigVariablesBySameName]) as ConfigVariable);
+    }
+
+    return result;
   }
 
   configure(name: string, value: unknown, tenantId: string | null = null, environmentId: string | null = null) {

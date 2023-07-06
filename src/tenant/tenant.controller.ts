@@ -49,6 +49,7 @@ import { UserService } from 'user/user.service';
 import { ApplicationService } from 'application/application.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
+import { MergeRequestData } from 'common/decorators';
 
 @ApiSecurity('PolyApiKey')
 @Controller('tenants')
@@ -116,6 +117,18 @@ export class TenantController {
   }
 
   @UseGuards(PolyAuthGuard)
+  @Get('/:id/config-variables')
+  async getConfigVariablesUnderTenant(
+    @Req() req: AuthRequest,
+    @Param('id') tenantId: string,
+  ) {
+    await this.findTenant(tenantId);
+    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+
+    return (await this.configVariableService.getMany(tenantId)).map(this.configVariableService.toDto);
+  }
+
+  @UseGuards(PolyAuthGuard)
   @Get('/:id/config-variables/:name')
   async getConfigVariableUnderTenant(
     @Req() req: AuthRequest,
@@ -131,17 +144,17 @@ export class TenantController {
   }
 
   @UseGuards(PolyAuthGuard)
-  @Patch('/:id/config-variables')
+  @Patch('/:id/config-variables/:name')
   async setConfigVariableUnderTenant(
     @Req() req: AuthRequest,
-    @Body() body: SetConfigVariableDto,
+    @MergeRequestData(['body', 'params'], new ValidationPipe({ validateCustomDecorators: true })) data: SetConfigVariableDto,
     @Param('id') tenantId: string,
   ) {
     await this.findTenant(tenantId);
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
     return this.configVariableService.toDto(
-      await this.configVariableService.configure(body.name, body.value, tenantId),
+      await this.configVariableService.configure(data.name, data.value, tenantId),
     );
   }
 
@@ -161,6 +174,19 @@ export class TenantController {
   }
 
   @UseGuards(PolyAuthGuard)
+  @Get('/:id/environments/:environment/config-variables')
+  async getConfigVariablesUnderEnvironment(
+    @Req() req: AuthRequest,
+    @Param('id') tenantId: string,
+    @Param('environment') environmentId: string,
+  ) {
+    await this.findEnvironment(tenantId, environmentId);
+    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+
+    return (await this.configVariableService.getMany(tenantId, environmentId)).map(this.configVariableService.toDto);
+  }
+
+  @UseGuards(PolyAuthGuard)
   @Get('/:id/environments/:environment/config-variables/:name')
   async getConfigVariableUnderEnvironment(
     @Req() req: AuthRequest,
@@ -177,10 +203,10 @@ export class TenantController {
   }
 
   @UseGuards(PolyAuthGuard)
-  @Patch('/:id/environments/:environment/config-variables')
+  @Patch('/:id/environments/:environment/config-variables/:name')
   async setConfigVariableUnderEnvironment(
     @Req() req: AuthRequest,
-    @Body() body: SetConfigVariableDto,
+    @MergeRequestData(['body', 'params'], new ValidationPipe({ validateCustomDecorators: true })) data: SetConfigVariableDto,
     @Param('id') tenantId: string,
     @Param('environment') environmentId: string,
   ) {
@@ -188,7 +214,7 @@ export class TenantController {
     await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
 
     return this.configVariableService.toDto(
-      await this.configVariableService.configure(body.name, body.value, tenantId, environmentId),
+      await this.configVariableService.configure(data.name, data.value, tenantId, environmentId),
     );
   }
 
@@ -704,7 +730,7 @@ export class TenantController {
   }
 
   private async getConfigVariable(name: string, tenantId: string | null = null, environmentId: string | null = null) {
-    const configVariable = await this.configVariableService.get(name, tenantId, environmentId);
+    const configVariable = await this.configVariableService.getOne(name, tenantId, environmentId);
 
     if (!configVariable) {
       throw new NotFoundException('Closest config variable not found.');
