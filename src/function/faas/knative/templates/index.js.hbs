@@ -1,7 +1,7 @@
 const poly = require('polyapi');
 
 const handle = async (context, body) => {
-  const POLY_USER_SESSION_ID = context.headers['openai-ephemeral-user-id'];
+  const POLY_USER_SESSION_ID = context.headers['openai-conversation-id'];
 
   {{{code}}}
 
