@@ -343,7 +343,7 @@ def get_variables(
             name=var.name,
             description=var.description,
             function=None,
-            type="variable",
+            type="serverVariable",
         )
         for var in vars
     ]

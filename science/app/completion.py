@@ -20,7 +20,6 @@ from app.utils import (
     create_new_conversation,
     filter_to_real_public_ids,
     get_return_type_properties,
-    get_variables,
     insert_internal_step_info,
     log,
     func_path_with_args,
@@ -67,7 +66,6 @@ def get_function_options_prompt(
 
     specs_resp = query_node_server(user_id, environment_id, "specs")
     specs: List[SpecificationDto] = specs_resp.json()
-    specs += get_variables(environment_id)
 
     top_matches, stats = get_top_function_matches(specs, keywords)
 
@@ -77,7 +75,7 @@ def get_function_options_prompt(
     for match in top_matches:
         if match["type"] == "webhookHandle":
             webhook_parts.append(spec_prompt(match))
-        elif match["type"] == "variable":
+        elif match["type"] == "serverVariable":
             variable_parts.append(spec_prompt(match))
         else:
             function_parts.append(spec_prompt(match))
@@ -117,7 +115,7 @@ def _join_content(
 
 def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
     desc = spec.get("description", "")
-    if spec["type"] == "variable":
+    if spec["type"] == "serverVariable":
         path = f"vari.{spec['context']}.{spec['name']}"
     else:
         path = func_path_with_args(spec)
@@ -284,6 +282,10 @@ def get_best_function_example(
 
     specs = public_ids_to_specs(user_id, environment_id, public_ids)
 
+    # split them out
+    variables = [s for s in specs if s['type'] == "serverVariable"]
+    specs = [s for s in specs if s['type'] != "serverVariable"]
+
     best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
         spec_str="\n\n".join(
             spec_prompt(spec, include_return_type=True) for spec in specs
@@ -292,7 +294,6 @@ def get_best_function_example(
     question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
     messages = [MessageDict(role="user", content=best_functions_prompt)]
 
-    variables = get_variables(environment_id, public_ids)
     if variables:
         best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE.format(
             variable_str="\n\n".join(spec_prompt(v) for v in variables)

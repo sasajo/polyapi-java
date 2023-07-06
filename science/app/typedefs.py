@@ -74,7 +74,7 @@ class SpecificationDto(TypedDict):
     name: str
     description: str
     function: Optional[FunctionSpecification]
-    type: Literal['apiFunction', 'customFunction', 'serverFunction', 'authFunction', 'webhookHandle', 'variable']
+    type: Literal['apiFunction', 'customFunction', 'serverFunction', 'authFunction', 'webhookHandle', 'serverVariable']
 
 
 class MessageDict(TypedDict, total=False):
