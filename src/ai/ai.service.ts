@@ -104,9 +104,6 @@ export class AiService {
   }
 
   async setSystemPrompt(environmentId: string, userId: string, prompt: string): Promise<SystemPrompt> {
-    // clear the conversation so the user can test the new system prompt!
-    await this.clearConversation(environmentId, userId);
-
     const systemPrompt = await this.prisma.systemPrompt.findFirst({ orderBy: { createdAt: 'desc' } });
     if (systemPrompt) {
       this.logger.debug(`Found existing SystemPrompt ${systemPrompt.id}. Updating...`);
