@@ -3,7 +3,7 @@
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant for VS Code",
   "icon": "resources/poly-logo.png",
-  "version": "0.1.34",
+  "version": "0.1.35",
   "publisher": "PolyAPICorp",
   "engines": {
     "vscode": "^1.75.0"
@@ -34,12 +34,16 @@
         "poly.apiBaseUrl": {
           "type": "string",
           "default": "https://staging.polyapi.io",
-          "description": "API base URL for Poly server"
+          "description": "API base URL for Poly server",
+          "pattern": "https?:\\\/\\\/(?:w{1,3}\\.)?[^\\s.]+(?:\\.[a-z]+)*(?::\\d+)?(?![^<]*(?:<\\\/\\w+>|\\\/?>))",
+          "patternErrorMessage": "Must provide a valid url."
         },
         "poly.apiKey": {
           "type": "string",
           "default": "",
-          "description": "API key for Poly server"
+          "description": "API key for Poly server",
+          "pattern": ".+",
+          "patternErrorMessage": "Must provide an api key."
         }
       }
     },
@@ -73,14 +77,20 @@
           "id": "poly.library-info",
           "name": "poly",
           "icon": "resources/poly-library-index.png",
-          "when": "polyLibraryInstalled == false"
+          "when": "(polyLibraryInstalled == false && installingPolyLibrary == false) || missingCredentials == true"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "poly.library-info",
-        "contents": "No Poly library present.\nTo install the Poly library:\n1. Open a terminal\n2. Run `npm install polyapi`\n3. Run `npx poly generate` to generate code.\n\nMore information about usage can be found in node_modules/polyapi/README.md after the installation."
+        "contents": "No Poly library present.\n[Setup Poly library](command:poly.setupLibrary)\nOr you can do:\n1. Open a terminal\n2. Run `npm install polyapi`\n3. Run `npx poly setup` to setup your credentials.\n4.`Run `npx poly generate` to generate code.\n\nMore information about usage can be found in node_modules/polyapi/README.md after the installation.",
+        "when": "polyLibraryInstalled == false && installingPolyLibrary == false"
+      },
+      {
+        "view": "poly.library-info",
+        "contents": "Missing credentials, you have to set them to use Poly chat assistant.\n[Set Poly credentials](command:poly.setupCredentials)\n",
+        "when": "polyLibraryInstalled == true && missingCredentials == true"
       }
     ],
     "keybindings": [
