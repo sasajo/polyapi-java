@@ -60,7 +60,7 @@ def _process_property_spec(arg: PropertySpecification) -> str:
 def func_args(spec: SpecificationDto) -> List[str]:
     """get the args for a function from the headers and url"""
     arg_strings = []
-    func = spec["function"]
+    func = spec.get("function")
     if func:
         for arg in func["arguments"]:
             arg_strings.append(_process_property_spec(arg))
