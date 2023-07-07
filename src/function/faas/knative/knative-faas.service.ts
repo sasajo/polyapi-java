@@ -24,7 +24,7 @@ const rm = util.promisify(fs.rm);
 
 const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
 const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
-const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id'];
+const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id', 'openai-conversation-id'];
 
 export class KNativeFaasService implements FaasService {
   private logger = new Logger(KNativeFaasService.name);
