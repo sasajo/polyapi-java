@@ -128,7 +128,7 @@ model ApiFunction {
   headers           String?
   body              String?
   auth              String?
-  response          String?
+  responseType      String?     @map("response_type")
   argumentsMetadata String?     @map("arguments_metadata")
   trained           Boolean     @default(false)
   visibility        String      @default("ENVIRONMENT")
@@ -290,4 +290,12 @@ model Variable {
   visibility    String      @default("ENVIRONMENT")
 
   @@map("variable")
+}
+
+model Migration {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  fileName  String   @map("file_name")
+
+  @@map("migration")
 }

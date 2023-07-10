@@ -27,6 +27,7 @@ import { SecretModule } from 'secret/secret.module';
 import { ConfigService } from 'config/config.service';
 import Redis, { RedisOptions } from 'ioredis';
 import { CacheModuleOptions } from '@nestjs/cache-manager/dist/interfaces/cache-module.interface';
+import { MigrationModule } from './migration/migration.module';
 
 const isRedisAvailable = async (url: string): Promise<boolean> => {
   const redisOptions: RedisOptions = {
@@ -91,6 +92,7 @@ const logger = new Logger('AppModule');
     ConfigVariableModule,
     VariableModule,
     SecretModule,
+    MigrationModule,
   ],
   exports: [ConfigModule],
 })

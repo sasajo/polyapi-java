@@ -10,7 +10,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
+import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
@@ -31,6 +31,7 @@ import {
   Method,
   PostmanVariableEntry,
   PropertySpecification,
+  PropertyType,
   ServerFunctionSpecification,
   TrainingDataGeneration,
   Variables,
@@ -232,8 +233,6 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug('Creating new poly function...');
     }
 
-    response = this.commonService.trimDownObject(response, 1);
-
     if ((!name || !context || !description) && !willRetrain) {
       if (await this.isApiFunctionAITrainingEnabled(environment)) {
         const {
@@ -245,7 +244,7 @@ export class FunctionService implements OnModuleInit {
           apiFunction?.method || method,
           description || apiFunction?.description || '',
           JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
-          JSON.stringify(response),
+          JSON.stringify(this.commonService.trimDownObject(response)),
         );
 
         if (!name) {
@@ -279,13 +278,22 @@ export class FunctionService implements OnModuleInit {
       throw new BadRequestException('Couldn\'t infer function name neither from user, ai service or postman request name.');
     }
 
-    await this.throwErrIfInvalidResponse(response, payload, context || '', finalName);
+    let responseType: string;
+    try {
+      responseType = await this.getResponseType(response, payload);
+    } catch (e) {
+      if (e instanceof PathError) {
+        throw new BadRequestException(e.message);
+      } else {
+        throw e;
+      }
+    }
 
     const upsertPayload = {
       context: finalContext,
       description: finalDescription,
       payload,
-      response: JSON.stringify(response),
+      responseType,
       body: finalBody,
       headers: finalHeaders,
       auth: finalAuth,
@@ -345,8 +353,8 @@ export class FunctionService implements OnModuleInit {
     context: string | null,
     description: string | null,
     argumentsMetadata: ArgumentsMetadata | null,
-    response: any,
-    payload: string | null,
+    response: any | undefined,
+    payload: string | undefined,
     visibility: Visibility | null,
   ) {
     if (name != null || context != null) {
@@ -385,7 +393,10 @@ export class FunctionService implements OnModuleInit {
     const finalContext = (context == null ? apiFunction.context : context).trim();
     const finalName = name || apiFunction.name;
 
-    await this.throwErrIfInvalidResponse(response, payload, finalContext, finalName);
+    let responseType: string | undefined;
+    if (response !== undefined) {
+      responseType = await this.getResponseType(response, payload ?? apiFunction.payload);
+    }
 
     return this.prisma.apiFunction.update({
       where: {
@@ -396,7 +407,8 @@ export class FunctionService implements OnModuleInit {
         context: finalContext,
         description: description == null ? apiFunction.description : description,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
-        ...(response ? { response: JSON.stringify(response) } : null),
+        responseType,
+        payload,
         visibility: visibility == null ? apiFunction.visibility : visibility,
       },
     });
@@ -514,17 +526,21 @@ export class FunctionService implements OnModuleInit {
       type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject),
     });
 
-    const getReturnType = async () => {
-      const responseObject = apiFunction.response
-        ? this.commonService.getPathContent(JSON.parse(apiFunction.response), apiFunction.payload)
-        : null;
-      const [type, typeSchema] = responseObject
-        ? await this.commonService.resolveType('ReturnType', JSON.stringify(responseObject))
-        : ['void'];
-      return {
-        ...await this.commonService.toPropertyType('ReturnType', type),
-        schema: typeSchema,
-      };
+    const getReturnType = async (): Promise<PropertyType> => {
+      if (!apiFunction.responseType) {
+        return {
+          kind: 'void',
+        };
+      }
+      try {
+        const schema = JSON.parse(apiFunction.responseType);
+        return {
+          kind: 'object',
+          schema,
+        };
+      } catch {
+        return await this.commonService.toPropertyType('ReturnType', apiFunction.responseType);
+      }
     };
 
     return {
@@ -921,6 +937,16 @@ export class FunctionService implements OnModuleInit {
         visibility: customFunction.visibility as Visibility,
       },
     };
+  }
+
+  async getFunctionsWithVariableArgument(variablePath: string) {
+    return this.prisma.apiFunction.findMany({
+      where: {
+        argumentsMetadata: {
+          contains: `"variable":"${variablePath}"`,
+        },
+      },
+    });
   }
 
   private filterDisabledValues<T extends PostmanVariableEntry>(values: T[]) {
@@ -1351,25 +1377,6 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  private async throwErrIfInvalidResponse(response: any, payload: string | null, context: string, name: string) {
-    try {
-      const content = this.commonService.getPathContent(response, payload);
-
-      const responseType = await this.commonService.generateTypeDeclaration(
-        'ResponseType',
-        content,
-        toPascalCase(`${context} ${name}`),
-      );
-      this.logger.debug(`Generated response type:\n${responseType}`);
-    } catch (e) {
-      if (e instanceof PathError) {
-        throw new BadRequestException(e.message);
-      } else {
-        throw e;
-      }
-    }
-  }
-
   private async findApiFunctionForRetraining(
     apiFunctions: ApiFunction[],
     body: string,
@@ -1451,13 +1458,14 @@ export class FunctionService implements OnModuleInit {
     return (trainingDataCfgVariable?.value.clientFunctions && !serverFunction) || (trainingDataCfgVariable?.value.serverFunctions && serverFunction);
   }
 
-  async getFunctionsWithVariableArgument(variablePath: string) {
-    return this.prisma.apiFunction.findMany({
-      where: {
-        argumentsMetadata: {
-          contains: `"variable":"${variablePath}"`,
-        },
-      },
-    });
+  private async getResponseType(response: any, payload: string | null): Promise<string> {
+    const responseObject = response
+      ? this.commonService.getPathContent(response, payload)
+      : null;
+    const [type, typeSchema] = responseObject
+      ? await this.commonService.resolveType('ResponseType', JSON.stringify(responseObject))
+      : ['void'];
+
+    return type === 'object' ? JSON.stringify(typeSchema) : type;
   }
 }

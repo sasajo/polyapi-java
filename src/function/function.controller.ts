@@ -129,13 +129,18 @@ export class FunctionController {
       description = null,
       arguments: argumentsMetadata = null,
       response,
-      payload = null,
+      payload,
       visibility = null,
     } = data;
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException('Function not found');
     }
+
+    if (payload !== undefined && response === undefined) {
+      throw new BadRequestException('`payload` cannot be updated without `response`');
+    }
+
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
 
     return this.service.apiFunctionToDetailsDto(
