@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { SecretServiceProvider } from 'secret/provider/secret-service-provider';
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from 'config/config.service';
-import { catchError, lastValueFrom, map } from 'rxjs';
+import { catchError, lastValueFrom, map, of } from 'rxjs';
 import { Environment } from '@prisma/client';
 
 export class VaultSecretServiceProvider implements SecretServiceProvider {
@@ -55,6 +55,13 @@ export class VaultSecretServiceProvider implements SecretServiceProvider {
         .pipe(
           map((response) => response.data.data.data.value),
         )
+        .pipe(catchError(error => {
+          if (error.response?.status === HttpStatus.NOT_FOUND) {
+            return of(null);
+          }
+
+          throw error;
+        }))
         .pipe(catchError(this.processVaultRequestError())),
     );
   }

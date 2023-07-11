@@ -1,7 +1,9 @@
 import { join } from 'path';
-import { Logger, Module } from '@nestjs/common';
-import { CacheModule } from '@nestjs/cache-manager';
+import { Inject, Logger, Module } from '@nestjs/common';
+import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
+import Redis, { RedisOptions } from 'ioredis';
+import { CacheModuleOptions } from '@nestjs/cache-manager/dist/interfaces/cache-module.interface';
 import { RedisClientOptions } from 'redis';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AuthModule } from 'auth/auth.module';
@@ -25,9 +27,8 @@ import { ConfigVariableModule } from 'config-variable/config-variable.module';
 import { VariableModule } from 'variable/variable.module';
 import { SecretModule } from 'secret/secret.module';
 import { ConfigService } from 'config/config.service';
-import Redis, { RedisOptions } from 'ioredis';
-import { CacheModuleOptions } from '@nestjs/cache-manager/dist/interfaces/cache-module.interface';
-import { MigrationModule } from './migration/migration.module';
+import { MigrationModule } from 'migration/migration.module';
+import { Cache } from 'cache-manager';
 
 const isRedisAvailable = async (url: string): Promise<boolean> => {
   const redisOptions: RedisOptions = {
@@ -96,4 +97,12 @@ const logger = new Logger('AppModule');
   ],
   exports: [ConfigModule],
 })
-export class AppModule {}
+export class AppModule {
+  constructor(@Inject(CACHE_MANAGER) cacheManager: Cache & { store: any }) {
+    const client = cacheManager.store.getClient?.();
+
+    client?.on('error', (error) => {
+      logger.error('Redis error: ', error);
+    });
+  }
+}

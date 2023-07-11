@@ -33,14 +33,18 @@ export class SecretService {
     }
 
     const value = await this.secretServiceProvider.get(environmentId, key);
-    await this.cacheManager.set(cacheKey, value);
+    if (value != null) {
+      await this.cacheManager.set(cacheKey, value);
+    }
     return value;
   }
 
   async set(environmentId: string, key: string, value: any): Promise<void> {
     this.logger.debug(`Setting secret ${key} for environment ${environmentId}`);
     await this.secretServiceProvider.set(environmentId, key, value);
-    await this.cacheManager.set(`${environmentId}:${key}`, value);
+    if (value != null) {
+      await this.cacheManager.set(`${environmentId}:${key}`, value);
+    }
   }
 
   async delete(environmentId: string, key: string) {
