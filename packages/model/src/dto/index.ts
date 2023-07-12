@@ -16,3 +16,4 @@ export * from './user';
 export * from './application';
 export * from './config-variable';
 export * from './variable';
+export * from './trigger';

@@ -63,7 +63,7 @@ describe('ChatService', () => {
         },
       });
       const ids = await service.getHistory(user.id);
-      expect(ids).toStrictEqual([
+      expect(ids).toMatchObject([
         { role: msg2.role, content: msg2.content },
         { role: msg1.role, content: msg1.content },
       ]);

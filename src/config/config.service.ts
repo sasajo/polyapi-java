@@ -130,4 +130,20 @@ export class ConfigService {
   get cacheTTL(): number {
     return Number(this.get('CACHE_TTL', 24 * 60 * 60));
   }
+
+  get knativeFuncExecFile(): string {
+    return this.get('KNATIVE_EXEC_FILE', `${process.cwd()}/bin/kn-func`);
+  }
+
+  get knativeBrokerName(): string {
+    return this.get('KNATIVE_BROKER_NAME', 'default');
+  }
+
+  get knativeBrokerUrl(): string {
+    return this.get('KNATIVE_BROKER_URL');
+  }
+
+  get knativeTriggerNamespace(): string {
+    return this.get('KNATIVE_TRIGGER_NAMESPACE', 'default');
+  }
 }
