@@ -52,11 +52,14 @@ export class KNativeTriggerProvider implements TriggerProvider {
     private readonly cacheManager: Cache,
     private readonly config: ConfigService,
   ) {
-    if (!config.knativeBrokerUrl) {
-      throw new Error('Knative broker URL is not set');
+    if (config.knativeBrokerUrl) {
+      this.emitCloudEvent = emitterFor(httpTransport(config.knativeBrokerUrl));
+    } else {
+      this.logger.error('KNative broker URL is not set. KNative trigger provider will not be available.');
+      this.emitCloudEvent = (() => {
+        this.logger.error('KNative broker URL is not set. Cloud event will not be emitted.');
+      }) as unknown as EmitterFunction;
     }
-
-    this.emitCloudEvent = emitterFor(httpTransport(config.knativeBrokerUrl));
   }
 
   async init() {
