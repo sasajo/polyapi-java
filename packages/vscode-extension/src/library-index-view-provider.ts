@@ -1,17 +1,21 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ProviderResult, TreeItem } from 'vscode';
-import { PropertySpecification } from '@poly/model';
+import { PropertySpecification, VariableSpecification } from '@poly/model';
 import { toTypeDeclaration } from '@poly/common/utils';
 import { toCamelCase } from '@guanghechen/helper-string';
 
 class LibraryTreeItem extends vscode.TreeItem {
   constructor(
+    private context: vscode.ExtensionContext,
     public readonly parentPath: string,
     public readonly data: any,
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
   ) {
     super(label, collapsibleState);
+    this.resourceUri = vscode.Uri.parse(`poly://type/${data.type || 'context'}`);
+    this.iconPath = this.getIconPath();
     this.generateTooltip();
   }
 
@@ -37,6 +41,16 @@ class LibraryTreeItem extends vscode.TreeItem {
       );
     };
 
+    const toVariableDeclaration = ({ secret, valueType }: VariableSpecification) => {
+      return `
+{\n
+&nbsp;&nbsp;get: () => ${secret ? 'Promise&lt;any&gt;' : `Promise&lt;${toTypeDeclaration(valueType)}&gt;`},\n
+&nbsp;&nbsp;update: (value: ${secret ? 'any' : toTypeDeclaration(valueType)}) => Promise&lt;void&gt;,\n
+&nbsp;&nbsp;onServer: () => any,\n
+&nbsp;&nbsp;onUpdate: (callback: (value: ${secret ? 'any' : toTypeDeclaration(valueType)}) => void) => void\n
+}`;
+    };
+
     switch (type) {
       case 'apiFunction':
         this.tooltip = getFunctionTooltip('API function');
@@ -55,11 +69,36 @@ class LibraryTreeItem extends vscode.TreeItem {
           getTooltipBase('Webhook listener') + `${name}()`,
         );
         break;
+      case 'serverVariable':
+        this.id = `serverVariable.${this.parentPath}.${name}`;
+        this.contextValue = 'serverVariable';
+        this.tooltip = new vscode.MarkdownString(
+          getTooltipBase('Server variable') +
+          `${this.data.variable.secret ? 'Variable is secret.\n\n' : ''}` +
+          `${name}: ${toVariableDeclaration(this.data.variable)}`,
+        );
+        break;
       default:
         this.tooltip = new vscode.MarkdownString(
           `**Context**\n\n---\n\n${this.label}`,
         );
         break;
+    }
+  }
+
+  private getIconPath() {
+    const { type, visibilityMetadata } = this.data;
+    if (!type) {
+      return undefined;
+    }
+
+    switch (visibilityMetadata?.visibility) {
+      case 'PUBLIC':
+        return vscode.Uri.file(
+          path.join(this.context.extensionPath, 'resources', 'icon-public.svg'),
+        );
+      default:
+        return 'none';
     }
   }
 }
@@ -68,7 +107,11 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
   private specs: Record<string, any> = {};
 
   private _onDidChangeTreeData: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+
   readonly onDidChangeTreeData: vscode.Event<void> = this._onDidChangeTreeData.event;
+
+  constructor(private context: vscode.ExtensionContext) {
+  }
 
   getChildren(parent?: LibraryTreeItem): ProviderResult<LibraryTreeItem[]> {
     const data = parent?.data || this.specs;
@@ -76,14 +119,14 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
       return [];
     }
 
-    const parentPath = parent ? `${parent.parentPath}.${parent.label}` : 'poly';
+    const parentPath = parent ? `${parent.parentPath}.${parent.label}` : '';
     return Object.keys(data)
       .map(key => {
         const collapsibleState = data[key].type
           ? vscode.TreeItemCollapsibleState.None
           : vscode.TreeItemCollapsibleState.Collapsed;
 
-        return new LibraryTreeItem(parentPath, data[key], key, collapsibleState);
+        return new LibraryTreeItem(this.context, parentPath, data[key], key, collapsibleState);
       })
       .sort((a, b) => {
         if (a.data.type && !b.data.type) {
@@ -122,26 +165,29 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
       case 'serverFunction': {
         const args = data.function.arguments;
         vscode.env.clipboard.writeText(
-          `await ${parentPath}.${name}(${args.map(toArgumentName).join(', ')});`,
+          `await poly${parentPath}.${name}(${args.map(toArgumentName).join(', ')});`,
         );
         break;
       }
       case 'authFunction':
         switch (name) {
           case 'getToken':
-            vscode.env.clipboard.writeText(`${parentPath}.${name}(${data.function.arguments.slice(0, -2).map(toArgumentName).join(', ')}, (token, url, error) => {\n\n});`);
+            vscode.env.clipboard.writeText(`poly${parentPath}.${name}(${data.function.arguments.slice(0, -2).map(toArgumentName).join(', ')}, (token, url, error) => {\n\n});`);
             break;
           case 'revokeToken':
           case 'introspectToken':
-            vscode.env.clipboard.writeText(`await ${parentPath}.${name}(token);`);
+            vscode.env.clipboard.writeText(`await poly${parentPath}.${name}(token);`);
             break;
         }
         break;
       case 'webhookHandle':
-        vscode.env.clipboard.writeText(`${parentPath}.${name}(event => {\n\n});`);
+        vscode.env.clipboard.writeText(`poly${parentPath}.${name}(event => {\n\n});`);
+        break;
+      case 'serverVariable':
+        vscode.env.clipboard.writeText(`await vari${parentPath}.${name}.get();`);
         break;
       default:
-        vscode.env.clipboard.writeText(`${parentPath}.${label}`);
+        vscode.env.clipboard.writeText(`poly${parentPath}.${label}`);
         break;
     }
     vscode.window.showInformationMessage('Copied');
