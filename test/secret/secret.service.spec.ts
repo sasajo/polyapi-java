@@ -59,7 +59,7 @@ describe('SecretService', () => {
     const result = await service.get('12345', 'key_12345');
     expect(result).toEqual('cached_value_12345');
     expect(cacheManagerMock.get).toBeCalledTimes(1);
-    expect(cacheManagerMock.get).toBeCalledWith('12345:key_12345');
+    expect(cacheManagerMock.get).toBeCalledWith('secret:12345:key_12345');
     expect(secretServiceProviderMock.get).not.toBeCalled();
   });
 
@@ -72,7 +72,7 @@ describe('SecretService', () => {
   it('should call set from CacheManager on set', async () => {
     await service.set('12345', 'key_12345', 'value_12345');
     expect(cacheManagerMock.set).toBeCalledTimes(1);
-    expect(cacheManagerMock.set).toBeCalledWith('12345:key_12345', 'value_12345');
+    expect(cacheManagerMock.set).toBeCalledWith('secret:12345:key_12345', 'value_12345');
   });
 
   it('should call delete from ServiceProvider on delete', async () => {
@@ -84,7 +84,7 @@ describe('SecretService', () => {
   it('should call del from CacheManager on delete', async () => {
     await service.delete('12345', 'key_12345');
     expect(cacheManagerMock.del).toBeCalledTimes(1);
-    expect(cacheManagerMock.del).toBeCalledWith('12345:key_12345');
+    expect(cacheManagerMock.del).toBeCalledWith('secret:12345:key_12345');
   });
 
   it('should call deleteAll from ServiceProvider on deleteAllForEnvironment', async () => {

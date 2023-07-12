@@ -26,7 +26,7 @@ export class SecretService {
 
   async get(environmentId: string, key: string): Promise<any> {
     this.logger.debug(`Getting secret ${key} for environment ${environmentId}`);
-    const cacheKey = `${environmentId}:${key}`;
+    const cacheKey = this.getCacheKey(environmentId, key);
     const cachedValue = await this.cacheManager.get(cacheKey);
     if (cachedValue) {
       return cachedValue;
@@ -43,14 +43,14 @@ export class SecretService {
     this.logger.debug(`Setting secret ${key} for environment ${environmentId}`);
     await this.secretServiceProvider.set(environmentId, key, value);
     if (value != null) {
-      await this.cacheManager.set(`${environmentId}:${key}`, value);
+      await this.cacheManager.set(this.getCacheKey(environmentId, key), value);
     }
   }
 
   async delete(environmentId: string, key: string) {
     this.logger.debug(`Deleting secret ${key} for environment ${environmentId}`);
     await this.secretServiceProvider.delete(environmentId, key);
-    await this.cacheManager.del(`${environmentId}:${key}`);
+    await this.cacheManager.del(this.getCacheKey(environmentId, key));
   }
 
   async deleteAllForEnvironment(environmentId: string) {
@@ -59,5 +59,9 @@ export class SecretService {
     // TODO: we might want to change in the future to delete only the keys for the environment
     // for now we just reset the whole cache for simplicity as we don't use cache for anything else
     await this.cacheManager.reset();
+  }
+
+  private getCacheKey(environmentId: string, key: string) {
+    return `secret:${environmentId}:${key}`;
   }
 }

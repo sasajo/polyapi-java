@@ -141,7 +141,7 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
 
     return this.service.apiFunctionToDetailsDto(
       await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility),
@@ -175,7 +175,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
     await this.service.deleteApiFunction(id);
   }
 

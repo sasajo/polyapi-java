@@ -15,6 +15,7 @@ import {
   prismaServiceMock,
   specsServiceMock,
   variableServiceMock,
+  configVariableServiceMock,
 } from '../mocks';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from 'config/config.service';
@@ -23,6 +24,7 @@ import { EventService } from 'event/event.service';
 import { AiService } from 'ai/ai.service';
 import { VariableService } from 'variable/variable.service';
 import { Visibility } from '@poly/model';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
 
 describe('FunctionService', () => {
   let functionService: FunctionService;
@@ -63,6 +65,10 @@ describe('FunctionService', () => {
         {
           provide: VariableService,
           useValue: variableServiceMock,
+        },
+        {
+          provide: ConfigVariableService,
+          useValue: configVariableServiceMock,
         },
       ],
     }).compile();

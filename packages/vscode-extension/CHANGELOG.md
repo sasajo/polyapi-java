@@ -1,3 +1,7 @@
+### 0.1.37
+* Added variable into Poly tree
+* Updated colors of nodes in Poly tree
+
 ### 0.1.36
 * Synchronization of credentials across client library and vscode extension.
 

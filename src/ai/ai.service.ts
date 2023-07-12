@@ -4,7 +4,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { SystemPrompt } from '@prisma/client';
-import { FunctionCompletionDto, FunctionDescriptionDto } from '@poly/model';
+import { FunctionCompletionDto, FunctionDescriptionDto, VariableDescriptionDto } from '@poly/model';
 
 @Injectable()
 export class AiService {
@@ -81,6 +81,22 @@ export class AiService {
           method: 'POST',
           short_description: description,
           payload,
+        })
+        .pipe(map((response) => response.data))
+        .pipe(catchError(this.processScienceServerError())),
+    );
+  }
+
+  async getVariableDescription(name: string, context: string, secret: boolean, value: string): Promise<VariableDescriptionDto> {
+    this.logger.debug(`Getting description for variable: ${name}`);
+
+    return await lastValueFrom(
+      this.httpService
+        .post(`${this.config.scienceServerBaseUrl}/variable-description`, {
+          name,
+          context,
+          secret,
+          value,
         })
         .pipe(map((response) => response.data))
         .pipe(catchError(this.processScienceServerError())),

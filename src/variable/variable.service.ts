@@ -9,6 +9,7 @@ import { AuthData } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 import { FunctionService } from 'function/function.service';
 import { EventService } from 'event/event.service';
+import { AiService } from 'ai/ai.service';
 
 @Injectable()
 export class VariableService {
@@ -24,6 +25,7 @@ export class VariableService {
     @Inject(forwardRef(() => FunctionService))
     private readonly functionService: FunctionService,
     private readonly eventService: EventService,
+    private readonly aiService: AiService,
   ) {
   }
 
@@ -120,6 +122,8 @@ export class VariableService {
       throw new ConflictException(`Variable with name '${name}' and context '${context}' already exists`);
     }
 
+    description = description || (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(value))).description;
+
     return await this.prisma.$transaction(async (tx) => {
       const variable = await tx.variable.create({
         data: {
@@ -154,6 +158,10 @@ export class VariableService {
     if (!await this.checkContextAndNameDuplicates(environmentId, context ?? variable.context, name ?? variable.name, [variable.id])) {
       throw new ConflictException(`Variable with name '${name ?? variable.name}' and context '${context ?? variable.context}' already exists`);
     }
+
+    description = description === '' && value
+      ? (await this.aiService.getVariableDescription(name ?? variable.name, context ?? variable.context, secret ?? variable.secret, JSON.stringify(value))).description
+      : description;
 
     return this.prisma.$transaction(async (tx) => {
       this.logger.debug(`Updating variable ${variable.id}`);

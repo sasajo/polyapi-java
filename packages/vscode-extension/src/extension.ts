@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import ChatViewProvider from './chat-view-provider';
 import LibraryIndexViewProvider from './library-index-view-provider';
+import { LibraryTreeItemFileDecorationProvider } from './library-tree-item-file-decoration-provider';
 
 import { start as startLibraryWatcher } from './library-watcher';
 import { registerPolySpecsChangedListener } from './events';
@@ -8,7 +9,7 @@ import DefaultView from './default-view';
 
 export async function activate(context: vscode.ExtensionContext) {
   const chatViewProvider = new ChatViewProvider(context);
-  const libraryIndexViewProvider = new LibraryIndexViewProvider();
+  const libraryIndexViewProvider = new LibraryIndexViewProvider(context);
   const defaultView = new DefaultView();
 
   const unregisterPolyFunctionsRegeneratedListener = registerPolySpecsChangedListener(contexData => {
@@ -47,5 +48,6 @@ export async function activate(context: vscode.ExtensionContext) {
     {
       dispose: stopFileWatcher,
     },
+    vscode.window.registerFileDecorationProvider(new LibraryTreeItemFileDecorationProvider()),
   );
 }
