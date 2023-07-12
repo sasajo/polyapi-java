@@ -1,8 +1,8 @@
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
-import { Environment, Prisma, WebhookHandle } from '@prisma/client';
+import { Environment, WebhookHandle } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { CommonService } from 'common/common.service';
-import { PrismaService, PrismaTransaction } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
 import { AiService } from 'ai/ai.service';
@@ -18,6 +18,7 @@ import { ConfigService } from 'config/config.service';
 import { SpecsService } from 'specs/specs.service';
 import { toCamelCase } from '@guanghechen/helper-string';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
+import { TriggerService } from 'trigger/trigger.service';
 
 @Injectable()
 export class WebhookService {
@@ -34,22 +35,8 @@ export class WebhookService {
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
     private readonly configVariableService: ConfigVariableService,
+    private readonly triggerService: TriggerService,
   ) {
-  }
-
-  private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
-    const createData = {
-      data: {
-        createdAt: new Date(),
-        ...data,
-      },
-    };
-
-    if (tx) {
-      return tx.webhookHandle.create(createData);
-    }
-
-    return this.prisma.webhookHandle.create(createData);
   }
 
   public async findWebhookHandle(id: string): Promise<WebhookHandle | null> {
@@ -113,7 +100,7 @@ export class WebhookService {
 
   public async createOrUpdateWebhookHandle(
     environment: Environment,
-    context: string | null,
+    context: string,
     name: string,
     eventPayload: any,
     description: string,
@@ -122,13 +109,11 @@ export class WebhookService {
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
-      where: context === null
-        ? { name }
-        : {
-            name,
-            context,
-            environmentId: environment.id,
-          },
+      where: {
+        name,
+        context,
+        environmentId: environment.id,
+      },
     });
 
     name = this.normalizeName(name, webhookHandle);
@@ -180,8 +165,8 @@ export class WebhookService {
 
       return this.prisma.$transaction(
         async (tx) => {
-          let webhookHandle = await this.create(
-            {
+          let webhookHandle = await tx.webhookHandle.create({
+            data: {
               environment: {
                 connect: {
                   id: environment.id,
@@ -192,8 +177,7 @@ export class WebhookService {
               eventPayload: JSON.stringify(eventPayload),
               description,
             },
-            tx,
-          );
+          });
 
           if (!name || !description || !context) {
             const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
@@ -227,6 +211,7 @@ export class WebhookService {
   async triggerWebhookHandle(webhookHandle: WebhookHandle, eventPayload: any) {
     this.logger.debug(`Triggering webhook for ${webhookHandle.id}...`);
     this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
+    await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload);
   }
 
   toDto(webhookHandle: WebhookHandle): WebhookHandleDto {

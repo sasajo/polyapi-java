@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { Inject, Logger, Module } from '@nestjs/common';
 import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
 import Redis, { RedisOptions } from 'ioredis';
 import { CacheModuleOptions } from '@nestjs/cache-manager/dist/interfaces/cache-module.interface';
@@ -28,7 +29,7 @@ import { VariableModule } from 'variable/variable.module';
 import { SecretModule } from 'secret/secret.module';
 import { ConfigService } from 'config/config.service';
 import { MigrationModule } from 'migration/migration.module';
-import { Cache } from 'cache-manager';
+import { TriggerModule } from 'trigger/trigger.module';
 
 const isRedisAvailable = async (url: string): Promise<boolean> => {
   const redisOptions: RedisOptions = {
@@ -94,6 +95,7 @@ const logger = new Logger('AppModule');
     VariableModule,
     SecretModule,
     MigrationModule,
+    TriggerModule,
   ],
   exports: [ConfigModule],
 })

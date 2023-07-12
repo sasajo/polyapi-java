@@ -22,7 +22,6 @@ const writeFile = util.promisify(fs.writeFile);
 const mkdir = util.promisify(fs.mkdir);
 const rm = util.promisify(fs.rm);
 
-const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
 const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
 const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id', 'openai-conversation-id'];
 
@@ -68,7 +67,7 @@ export class KNativeFaasService implements FaasService {
     if (await exists(functionPath)) {
       await this.cleanUpFunction(id, functionPath);
     }
-    await exec(`${KNATIVE_EXEC_FILE} create ${functionPath} -l node`);
+    await exec(`${this.config.knativeFuncExecFile} create ${functionPath} -l node`);
 
     await this.preparePolyLib(functionPath, apiKey);
     await this.prepareRequirements(functionPath, requirements);
@@ -188,12 +187,12 @@ export class KNativeFaasService implements FaasService {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
 
     this.logger.debug(`Building server function '${id}'...`);
-    await exec(`${KNATIVE_EXEC_FILE} build --registry ${this.config.faasDockerContainerRegistry}`, {
+    await exec(`${this.config.knativeFuncExecFile} build --registry ${this.config.faasDockerContainerRegistry}`, {
       cwd: functionPath,
     });
 
     this.logger.debug(`Deploying server function '${id}'...`);
-    await exec(`${KNATIVE_EXEC_FILE} deploy --registry ${this.config.faasDockerContainerRegistry}`, {
+    await exec(`${this.config.knativeFuncExecFile} deploy --registry ${this.config.faasDockerContainerRegistry}`, {
       cwd: functionPath,
     });
 
@@ -203,7 +202,7 @@ export class KNativeFaasService implements FaasService {
   private async cleanUpFunction(id: string, functionPath: string) {
     try {
       const knativeId = this.getFunctionName(id);
-      await exec(`${KNATIVE_EXEC_FILE} delete ${knativeId}`);
+      await exec(`${this.config.knativeFuncExecFile} delete ${knativeId}`);
       this.logger.debug(`Removed function ${id} from knative with id ${knativeId}`);
     } catch (e) {
       this.logger.error(`Error while deleting KNative function: ${e.message}`);
@@ -219,7 +218,7 @@ export class KNativeFaasService implements FaasService {
 
   private async getFunctionUrl(functionPath: string): Promise<string | null> {
     try {
-      const { stdout, stderr } = await exec(`${KNATIVE_EXEC_FILE} describe -o url`, { cwd: functionPath });
+      const { stdout, stderr } = await exec(`${this.config.knativeFuncExecFile} describe -o url`, { cwd: functionPath });
       if (stdout) {
         return stdout;
       }

@@ -140,7 +140,7 @@ export class WebhookController {
   public async registerWebhookFunction(@Req() req: AuthRequest, @Param('name') name: string, @Body() payload: any) {
     await this.authService.checkPermissions(req.user, Permission.Teach);
 
-    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user.environment, null, name, payload, '');
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user.environment, '', name, payload, '');
     return this.webhookService.toDto(webhookHandle);
   }
 }
