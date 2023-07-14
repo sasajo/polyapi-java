@@ -108,8 +108,18 @@ export class VariableService {
     return variables[0] || null;
   }
 
-  async getVariableValue(variable: Variable) {
-    return this.secretService.get(variable.environmentId, variable.id);
+  async getVariableValue(variable: Variable, path?: string) {
+    const value = await this.secretService.get(variable.environmentId, variable.id);
+    if (!path || typeof value !== 'object') {
+      return value;
+    }
+
+    try {
+      return this.commonService.getPathContent(value, path);
+    } catch (e) {
+      this.logger.error(`Error getting path content for variable ${variable.id}, path=${path}: ${e.message}`);
+      return undefined;
+    }
   }
 
   async createVariable(environmentId: string, context: string, name: string, description: string, value: ValueType, visibility: Visibility, secret = false): Promise<Variable> {
@@ -265,17 +275,17 @@ export class VariableService {
     };
   }
 
-  async unwrapSecretVariables<T extends Record<string, any>>(authData: AuthData, obj: T): Promise<T> {
+  async unwrapVariables<T extends Record<string, any>>(authData: AuthData, obj: T): Promise<T> {
     for (const key of Object.keys(obj)) {
       const value = obj[key];
       if (typeof value === 'object' && value.type === 'PolyVariable' && value.id) {
         const variable = await this.findById(value.id);
         if (variable) {
           await this.authService.checkEnvironmentEntityAccess(variable, authData, true);
-          obj[key as keyof T] = await this.secretService.get(variable.environmentId, variable.id);
+          obj[key as keyof T] = await this.getVariableValue(variable, value.path);
         }
       } else if (typeof value === 'object') {
-        obj[key as keyof T] = await this.unwrapSecretVariables(authData, value);
+        obj[key as keyof T] = await this.unwrapVariables(authData, value);
       }
     }
     return obj;

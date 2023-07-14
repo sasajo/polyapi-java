@@ -55,9 +55,10 @@ module.exports = (clientID, getSocket) => {
 
         return unregisterEventHandler;
       },
-      onServer: () => ({
+      onServer: (path) => ({
         type: 'PolyVariable',
-        id
+        id,
+        path
       }),
     });
   });

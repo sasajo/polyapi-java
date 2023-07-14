@@ -162,7 +162,7 @@ export class FunctionController {
     }
 
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
-    data = await this.variableService.unwrapSecretVariables(req.user, data);
+    data = await this.variableService.unwrapVariables(req.user, data);
 
     return await this.service.executeApiFunction(apiFunction, data, clientId);
   }
@@ -340,7 +340,7 @@ export class FunctionController {
     }
 
     await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
-    data = await this.variableService.unwrapSecretVariables(req.user, data);
+    data = await this.variableService.unwrapVariables(req.user, data);
 
     return await this.service.executeServerFunction(customFunction, req.user.environment, data, headers, clientId);
   }

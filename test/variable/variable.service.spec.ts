@@ -13,7 +13,8 @@ import {
   eventServiceMock,
   prismaServiceMock,
   secretServiceMock,
-  specsServiceMock, aiServiceMock,
+  specsServiceMock,
+  aiServiceMock,
 } from '../mocks';
 import { ConfigService } from 'config/config.service';
 import { CommonService } from 'common/common.service';
@@ -504,6 +505,74 @@ describe('VariableService', () => {
       await expect(service.toServerVariableSpecification(variable)).rejects.toThrow(errorMessage);
 
       expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
+    });
+  });
+
+  describe('getVariableValue', () => {
+    it('gets variable value from secret service', async () => {
+      const variable = {
+        environmentId: 'env123',
+        id: 'var123',
+      } as Variable;
+
+      secretServiceMock.get?.mockResolvedValue('secret value');
+
+      const result = await service.getVariableValue(variable);
+
+      expect(result).toBe('secret value');
+      expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
+    });
+
+    it('returns original value if not object', async () => {
+      const variable = {
+        environmentId: 'env123',
+        id: 'var123',
+      } as Variable;
+
+      secretServiceMock.get?.mockResolvedValue('string value');
+
+      const result = await service.getVariableValue(variable, 'path.to.value');
+
+      expect(result).toBe('string value');
+    });
+
+    it('gets nested path if value is object', async () => {
+      const variable = {
+        environmentId: 'env123',
+        id: 'var123',
+      } as Variable;
+
+      const value = {
+        foo: {
+          bar: 'nested value',
+        },
+      };
+
+      secretServiceMock.get?.mockResolvedValue(value);
+      commonServiceMock.getPathContent?.mockImplementationOnce((value, path) => {
+        if (path === 'foo.bar') {
+          return value.foo.bar;
+        }
+      });
+
+      const result = await service.getVariableValue(variable, 'foo.bar');
+
+      expect(result).toBe('nested value');
+    });
+
+    it('returns undefined if path not found', async () => {
+      const variable = {
+        environmentId: 'env123',
+        id: 'var123',
+      } as Variable;
+
+      const value = { foo: 'bar' };
+
+      secretServiceMock.get?.mockResolvedValue(value);
+
+      const result = await service.getVariableValue(variable, 'invalid.path');
+
+      expect(result).toBeUndefined();
     });
   });
 });

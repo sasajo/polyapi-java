@@ -130,7 +130,7 @@ export class AuthProviderController {
     }
 
     await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, true, Permission.Use);
-    data = await this.variableService.unwrapSecretVariables(req.user, data);
+    data = await this.variableService.unwrapVariables(req.user, data);
 
     const {
       eventsClientId,
