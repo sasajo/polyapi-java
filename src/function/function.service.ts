@@ -530,7 +530,7 @@ export class FunctionService implements OnModuleInit {
       name: arg.name,
       description: arg.description,
       required: arg.required == null ? true : arg.required,
-      type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject),
+      type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject, arg.typeSchema && JSON.parse(arg.typeSchema)),
     });
 
     const getReturnType = async (): Promise<PropertyType> => {
@@ -1016,6 +1016,7 @@ export class FunctionService implements OnModuleInit {
       description: argumentsMetadata[argument]?.description || '',
       type: argumentsMetadata[argument]?.type || 'string',
       typeObject: argumentsMetadata[argument]?.typeObject,
+      typeSchema: argumentsMetadata[argument]?.typeSchema && JSON.stringify(argumentsMetadata[argument]?.typeSchema),
       payload: argumentsMetadata[argument]?.payload || false,
       required: argumentsMetadata[argument]?.required !== false,
       secure: argumentsMetadata[argument]?.secure || false,

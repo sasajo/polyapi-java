@@ -168,8 +168,13 @@ export class CommonService {
           kind: 'void',
         };
       case 'object':
-        if (typeObject) {
-          const schema = typeSchema || await this.getJsonSchema(toPascalCase(name), typeObject);
+        if (typeSchema) {
+          return {
+            kind: 'object',
+            schema: typeSchema,
+          };
+        } else if (typeObject) {
+          const schema = await this.getJsonSchema(toPascalCase(name), typeObject);
           return {
             kind: 'object',
             schema: schema || undefined,
