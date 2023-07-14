@@ -41,14 +41,8 @@ class LibraryTreeItem extends vscode.TreeItem {
       );
     };
 
-    const toVariableDeclaration = ({ secret, valueType }: VariableSpecification) => {
-      return `
-{\n
-&nbsp;&nbsp;get: () => ${secret ? 'Promise&lt;any&gt;' : `Promise&lt;${toTypeDeclaration(valueType)}&gt;`},\n
-&nbsp;&nbsp;update: (value: ${secret ? 'any' : toTypeDeclaration(valueType)}) => Promise&lt;void&gt;,\n
-&nbsp;&nbsp;onServer: () => any,\n
-&nbsp;&nbsp;onUpdate: (callback: (value: ${secret ? 'any' : toTypeDeclaration(valueType)}) => void) => void\n
-}`;
+    const toVariableDeclaration = ({ valueType }: VariableSpecification) => {
+      return `${toTypeDeclaration(valueType)}\n\n`;
     };
 
     switch (type) {

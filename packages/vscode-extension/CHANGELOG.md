@@ -1,3 +1,6 @@
+### 0.1.38
+* Changed description for Variables
+
 ### 0.1.37
 * Added variable into Poly tree
 * Updated colors of nodes in Poly tree
