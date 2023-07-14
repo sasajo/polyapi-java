@@ -30,8 +30,8 @@ module.exports = (clientID, getSocket) => {
       onUpdate: (callback) => {
         const socket = getSocket();
         const unregisterEventHandler = () => {
-          socket.off(`handleVariableUpdateEvent:${id}`);
-          socket.emit('unregisterVariableUpdateEventHandler', {
+          socket.off(`handleVariableChangeEvent:${id}`);
+          socket.emit('unregisterVariableChangeEventHandler', {
               clientID,
               variableId: id,
               apiKey: '{{apiKey}}'
@@ -43,13 +43,13 @@ module.exports = (clientID, getSocket) => {
         const handleEvent = (value) => {
           callback(value);
         };
-        socket.emit('registerVariableUpdateEventHandler', {
+        socket.emit('registerVariableChangeEventHandler', {
           clientID,
           variableId: id,
           apiKey: '{{apiKey}}'
         }, registered => {
           if (registered) {
-            socket.on(`handleVariableUpdateEvent:${id}`, handleEvent);
+            socket.on(`handleVariableChangeEvent:${id}`, handleEvent);
           }
         });
 

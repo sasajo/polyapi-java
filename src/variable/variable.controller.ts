@@ -97,7 +97,17 @@ export class VariableController {
     );
 
     return this.service.toDto(
-      await this.service.updateVariable(req.user.environment.id, variable, name, context, description, value, visibility, secret),
+      await this.service.updateVariable(
+        req.user.environment.id,
+        req.user.user?.id || req.user.application?.id || '',
+        variable,
+        name,
+        context,
+        description,
+        value,
+        visibility,
+        secret,
+      ),
     );
   }
 
@@ -113,7 +123,7 @@ export class VariableController {
         : Permission.ManageNonSecretVariables,
     );
 
-    await this.service.deleteVariable(variable);
+    await this.service.deleteVariable(variable, req.user.user?.id || req.user.application?.id || '');
   }
 
   private async findVariable(authData: AuthData, id: string) {

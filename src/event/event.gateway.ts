@@ -2,7 +2,7 @@ import { SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/web
 import {
   AuthFunctionEventHandlerDto,
   ErrorHandlerDto,
-  VariableUpdateEventHandlerDto,
+  VariableChangeEventHandlerDto,
   WebhookEventHandlerDto,
 } from '@poly/model';
 import { Server, Socket } from 'socket.io';
@@ -70,20 +70,20 @@ export class EventGateway {
     this.eventService.unregisterAuthFunctionEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.functionId);
   }
 
-  @SubscribeMessage('registerVariableUpdateEventHandler')
-  async registerVariableUpdateEventHandler(client: Socket, handler: VariableUpdateEventHandlerDto) {
-    if (!await this.checkVariableUpdateEventHandler(handler)) {
+  @SubscribeMessage('registerVariableChangeEventHandler')
+  async registerVariableChangeEventHandler(client: Socket, handler: VariableChangeEventHandlerDto) {
+    if (!await this.checkVariableChangeEventHandler(handler)) {
       return false;
     }
-    return this.eventService.registerVariableUpdateEventHandler(client, handler.clientID, handler.variableId);
+    return this.eventService.registerVariableChangeEventHandler(client, handler.clientID, handler.variableId);
   }
 
-  @SubscribeMessage('unregisterVariableUpdateEventHandler')
-  async unregisterVariableUpdateEventHandler(client: Socket, handler: VariableUpdateEventHandlerDto) {
-    if (!await this.checkVariableUpdateEventHandler(handler)) {
+  @SubscribeMessage('unregisterVariableChangeEventHandler')
+  async unregisterVariableChangeEventHandler(client: Socket, handler: VariableChangeEventHandlerDto) {
+    if (!await this.checkVariableChangeEventHandler(handler)) {
       return false;
     }
-    this.eventService.unregisterVariableUpdateEventHandler(client, handler.clientID, handler.variableId);
+    this.eventService.unregisterVariableChangeEventHandler(client, handler.clientID, handler.variableId);
   }
 
   private async checkErrorHandler({ clientID, apiKey }: ErrorHandlerDto) {
@@ -145,7 +145,7 @@ export class EventGateway {
     return true;
   }
 
-  private async checkVariableUpdateEventHandler({ clientID, variableId, apiKey }: VariableUpdateEventHandlerDto) {
+  private async checkVariableChangeEventHandler({ clientID, variableId, apiKey }: VariableChangeEventHandlerDto) {
     if (!clientID) {
       this.logger.debug('Missing client ID.');
       return false;

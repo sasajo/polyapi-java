@@ -22,7 +22,7 @@ declare module vari {
         /**
          * Subscribe to changes to the variable. If the variable is secret, the callback won't be called.
          */
-        onUpdate: (callback: (value: {{type}}) => void) => UnregisterOnUpdateHandler;
+        onUpdate: (callback: (value: VariableChangeEvent<{{type}}>) => void) => UnregisterOnUpdateHandler;
         /**
          * Gets variable data.
          * This is intended to be used in Poly functions, so the variable values are resolved on the server

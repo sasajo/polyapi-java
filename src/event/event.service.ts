@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
-import { ErrorEvent } from '@poly/model';
+import { ErrorEvent, VariableChangeEvent } from '@poly/model';
 import { AxiosError } from 'axios';
 
 type ClientID = string;
@@ -15,7 +15,7 @@ export class EventService {
   private readonly errorHandlers: Record<ClientID, Record<Path, Socket[]>> = {};
   private readonly webhookEventHandlers: Record<ClientID, Record<WebhookHandleID, Socket[]>> = {};
   private readonly authFunctionHandlers: Record<ClientID, Record<AuthFunctionID, Socket[]>> = {};
-  private readonly variableUpdateHandlers: Record<ClientID, Record<VariableID, Socket[]>> = {};
+  private readonly variableChangeHandlers: Record<ClientID, Record<VariableID, Socket[]>> = {};
 
   registerErrorHandler(client: Socket, clientID: string, path: string) {
     this.logger.debug(`Registering error handler: ${clientID} '${path}'`);
@@ -161,14 +161,14 @@ export class EventService {
     });
   }
 
-  registerVariableUpdateEventHandler(client: Socket, clientID: string, variableId: string): boolean {
+  registerVariableChangeEventHandler(client: Socket, clientID: string, variableId: string): boolean {
     this.logger.debug(`Registering handler for variable ${variableId} on ${clientID}`);
-    if (!this.variableUpdateHandlers[clientID]) {
-      this.variableUpdateHandlers[clientID] = {};
+    if (!this.variableChangeHandlers[clientID]) {
+      this.variableChangeHandlers[clientID] = {};
     }
-    let handlers = this.variableUpdateHandlers[clientID][variableId];
+    let handlers = this.variableChangeHandlers[clientID][variableId];
     if (!handlers) {
-      this.variableUpdateHandlers[clientID][variableId] = handlers = [];
+      this.variableChangeHandlers[clientID][variableId] = handlers = [];
     }
     if (handlers.some(socket => socket.id === client.id)) {
       return false;
@@ -177,33 +177,33 @@ export class EventService {
 
     client.on('disconnect', () => {
       this.logger.debug(`Client for variable handler disconnected: ${clientID} '${variableId}'`);
-      this.unregisterVariableUpdateEventHandler(client, clientID, variableId);
+      this.unregisterVariableChangeEventHandler(client, clientID, variableId);
     });
 
     return true;
   }
 
-  unregisterVariableUpdateEventHandler(client: Socket, clientID: string, variableId: string) {
+  unregisterVariableChangeEventHandler(client: Socket, clientID: string, variableId: string) {
     this.logger.debug(`Unregistering variable handler: '${variableId}' on ${clientID}`);
-    if (!this.variableUpdateHandlers[clientID]?.[variableId]) {
+    if (!this.variableChangeHandlers[clientID]?.[variableId]) {
       return;
     }
 
-    this.variableUpdateHandlers[clientID][variableId] = this.variableUpdateHandlers[clientID][variableId]
+    this.variableChangeHandlers[clientID][variableId] = this.variableChangeHandlers[clientID][variableId]
       .filter(socket => socket.id !== client.id);
   }
 
-  sendVariableUpdateEvent(variableId: string, value: any) {
-    this.logger.debug(`Sending variable update event: '${variableId}'=${value}`);
+  sendVariableChangeEvent(variableId: string, event: VariableChangeEvent) {
+    this.logger.debug(`Sending variable update event: '${variableId}'=${event.currentValue}`);
 
-    const handlers = Object.values(this.variableUpdateHandlers);
+    const handlers = Object.values(this.variableChangeHandlers);
     handlers.forEach(clientHandlers => {
       if (!clientHandlers?.[variableId]) {
         return;
       }
       clientHandlers[variableId].forEach(socket => {
-        this.logger.debug(`Sending variable event: '${variableId}'`, value);
-        socket.emit(`handleVariableUpdateEvent:${variableId}`, value);
+        this.logger.debug(`Sending variable event: '${variableId}'`, event);
+        socket.emit(`handleVariableChangeEvent:${variableId}`, event);
       });
     });
   }

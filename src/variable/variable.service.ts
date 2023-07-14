@@ -144,6 +144,7 @@ export class VariableService {
 
   async updateVariable(
     environmentId: string,
+    updatedBy: string,
     variable: Variable,
     name: string | undefined,
     context: string | undefined,
@@ -182,20 +183,28 @@ export class VariableService {
       });
 
       if (value) {
+        const previousValue = secret ?? variable.secret
+          ? '********'
+          : await this.getVariableValue(variable);
+
         this.logger.debug(`Updating variable ${variable.id} value`);
         await this.secretService.set(environmentId, variable.id, value);
 
-        if (!(secret ?? variable.secret)) {
-          this.logger.debug(`Sending update event for variable ${variable.id}.`);
-          this.eventService.sendVariableUpdateEvent(variable.id, value);
-        }
+        this.logger.debug(`Sending change event for variable ${variable.id}.`);
+        this.eventService.sendVariableChangeEvent(variable.id, {
+          type: 'update',
+          previousValue,
+          currentValue: secret ?? variable.secret ? '********' : value,
+          updatedBy,
+          updateTime: Date.now(),
+        });
       }
 
       return updatedVariable;
     });
   }
 
-  async deleteVariable(variable: Variable): Promise<void> {
+  async deleteVariable(variable: Variable, deletedBy: string): Promise<void> {
     this.logger.debug(`Deleting variable ${variable.id}`);
 
     const functionsWithVariableArgument = await this.functionService.getFunctionsWithVariableArgument(`${variable.context}.${variable.name}`);
@@ -215,11 +224,18 @@ export class VariableService {
         },
       });
 
-      await this.secretService.delete(deletedVariable.environment.id, variable.id);
+      const previousValue = variable.secret
+        ? '********'
+        : await this.getVariableValue(variable);
 
-      if (!variable.secret) {
-        await this.eventService.sendVariableUpdateEvent(variable.id, null);
-      }
+      await this.secretService.delete(deletedVariable.environment.id, variable.id);
+      await this.eventService.sendVariableChangeEvent(variable.id, {
+        type: 'delete',
+        previousValue,
+        currentValue: null,
+        updatedBy: deletedBy,
+        updateTime: Date.now(),
+      });
     });
   }
 

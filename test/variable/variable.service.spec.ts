@@ -13,7 +13,7 @@ import {
   eventServiceMock,
   prismaServiceMock,
   secretServiceMock,
-  specsServiceMock,
+  specsServiceMock, aiServiceMock,
 } from '../mocks';
 import { ConfigService } from 'config/config.service';
 import { CommonService } from 'common/common.service';
@@ -22,6 +22,7 @@ import { SpecsService } from 'specs/specs.service';
 import { AuthService } from 'auth/auth.service';
 import { EventService } from 'event/event.service';
 import { FunctionService } from 'function/function.service';
+import { AiService } from 'ai/ai.service';
 
 describe('VariableService', () => {
   const testVariable: Variable = {
@@ -72,6 +73,10 @@ describe('VariableService', () => {
         {
           provide: EventService,
           useValue: eventServiceMock,
+        },
+        {
+          provide: AiService,
+          useValue: aiServiceMock,
         },
       ],
     }).compile();
@@ -167,11 +172,13 @@ describe('VariableService', () => {
   describe('updateVariable', () => {
     beforeEach(() => {
       prismaServiceMock.variable.count?.mockImplementationOnce(() => Promise.resolve(0) as any);
+      secretServiceMock.get?.mockResolvedValue('previousValue12345');
     });
 
     it('should not call secretService.set when variable value is not passed', async () => {
       await service.updateVariable(
         'environmentId12345',
+        'updater12345',
         testVariable,
         'name12345',
         'context12345',
@@ -184,9 +191,10 @@ describe('VariableService', () => {
       expect(secretServiceMock.set).not.toBeCalled();
     });
 
-    it('should not call eventService.sendVariableUpdateEvent when variable value is not passed', async () => {
+    it('should not call eventService.sendVariableChangeEvent when variable value is not passed', async () => {
       await service.updateVariable(
         'environmentId12345',
+        'updater12345',
         testVariable,
         'name12345',
         'context12345',
@@ -196,12 +204,13 @@ describe('VariableService', () => {
         false,
       );
 
-      expect(eventServiceMock.sendVariableUpdateEvent).not.toBeCalled();
+      expect(eventServiceMock.sendVariableChangeEvent).not.toBeCalled();
     });
 
     it('should call secretService.set when variable value is passed', async () => {
       await service.updateVariable(
         'environmentId12345',
+        'updater12345',
         testVariable,
         'name12345',
         'context12345',
@@ -214,9 +223,10 @@ describe('VariableService', () => {
       expect(secretServiceMock.set).toBeCalledWith('environmentId12345', 'id12345', 'value12345');
     });
 
-    it('should call eventService.sendVariableUpdateEvent when variable value is passed and variable is not secret', async () => {
+    it('should call eventService.sendVariableChangeEvent when variable value is passed and variable is not secret', async () => {
       await service.updateVariable(
         'environmentId12345',
+        'updater12345',
         testVariable,
         'name12345',
         'context12345',
@@ -226,12 +236,19 @@ describe('VariableService', () => {
         false,
       );
 
-      expect(eventServiceMock.sendVariableUpdateEvent).toBeCalledWith(testVariable.id, 'value12345');
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+        type: 'update',
+        currentValue: 'value12345',
+        previousValue: 'previousValue12345',
+        updatedBy: 'updater12345',
+        updateTime: expect.any(Number),
+      });
     });
 
-    it('should not call eventService.sendVariableUpdateEvent when variable value is passed and variable is secret', async () => {
+    it('should call eventService.sendVariableChangeEvent when variable value is passed and variable is secret with masked values', async () => {
       await service.updateVariable(
         'environmentId12345',
+        'updater12345',
         testVariable,
         'name12345',
         'context12345',
@@ -241,11 +258,21 @@ describe('VariableService', () => {
         true,
       );
 
-      expect(eventServiceMock.sendVariableUpdateEvent).not.toBeCalled();
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+        type: 'update',
+        currentValue: expect.not.stringMatching('value12345'),
+        previousValue: expect.not.stringMatching('previousValue12345'),
+        updatedBy: 'updater12345',
+        updateTime: expect.any(Number),
+      });
     });
   });
 
   describe('deleteVariable', () => {
+    beforeEach(() => {
+      secretServiceMock.get?.mockResolvedValue('previousValue12345');
+    });
+
     it('should call secretService.delete when variable is deleted', async () => {
       jest.spyOn(prismaServiceMock.variable, 'delete').mockImplementationOnce(() => Promise.resolve({
         ...testVariable,
@@ -255,7 +282,7 @@ describe('VariableService', () => {
       }) as any);
       functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([]);
 
-      await service.deleteVariable(testVariable);
+      await service.deleteVariable(testVariable, 'deleter12345');
       expect(secretServiceMock.delete).toBeCalledWith('environmentId12345', 'id12345');
     });
 
@@ -266,10 +293,10 @@ describe('VariableService', () => {
         },
       ] as any);
 
-      await expect(service.deleteVariable(testVariable)).rejects.toThrow(ConflictException);
+      await expect(service.deleteVariable(testVariable, 'deleter12345')).rejects.toThrow(ConflictException);
     });
 
-    it('should call eventService.updateVariableUpdateEvent with null when variable is deleted and not secret', async () => {
+    it('should call eventService.updateVariableChangeEvent with null when variable is deleted', async () => {
       jest.spyOn(prismaServiceMock.variable, 'delete').mockImplementationOnce(() => Promise.resolve({
         ...testVariable,
         secret: false,
@@ -282,11 +309,17 @@ describe('VariableService', () => {
       await service.deleteVariable({
         ...testVariable,
         secret: false,
+      }, 'deleter12345');
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+        type: 'delete',
+        currentValue: null,
+        previousValue: 'previousValue12345',
+        updatedBy: 'deleter12345',
+        updateTime: expect.any(Number),
       });
-      expect(eventServiceMock.sendVariableUpdateEvent).toBeCalledWith(testVariable.id, null);
     });
 
-    it('should not call eventService.updateVariableUpdateEvent when variable is deleted and secret', async () => {
+    it('should call eventService.updateVariableChangeEvent when variable is deleted and secret with masked value', async () => {
       jest.spyOn(prismaServiceMock.variable, 'delete').mockImplementationOnce(() => Promise.resolve({
         ...testVariable,
         secret: true,
@@ -299,8 +332,14 @@ describe('VariableService', () => {
       await service.deleteVariable({
         ...testVariable,
         secret: true,
+      }, 'deleter12345');
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+        type: 'delete',
+        currentValue: null,
+        previousValue: expect.not.stringMatching('previousValue12345'),
+        updatedBy: 'deleter12345',
+        updateTime: expect.any(Number),
       });
-      expect(eventServiceMock.sendVariableUpdateEvent).not.toBeCalled();
     });
   });
 

@@ -4,6 +4,19 @@
 
 declare module vari {
   type UnregisterOnUpdateHandler = () => void;
+  interface VariableChangeEvent<T> {
+    type: 'update' | 'delete';
+    previousValue: T;
+    /**
+    * Updated value of the variable or null if the variable was deleted.
+    */
+    currentValue: T | null;
+    updateTime: number;
+    /**
+    * User ID or Application ID of the user or application that updated the variable.
+    */
+    updatedBy: string;
+  };
 
   interface Vari {
   }
