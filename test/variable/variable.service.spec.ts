@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Test } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
 import { VariableService } from 'variable/variable.service';
@@ -16,9 +17,9 @@ import {
   specsServiceMock,
   aiServiceMock,
 } from '../mocks';
+import { resetMocks } from '../mocks/utils';
 import { ConfigService } from 'config/config.service';
 import { CommonService } from 'common/common.service';
-import { resetMocks } from '../mocks/utils';
 import { SpecsService } from 'specs/specs.service';
 import { AuthService } from 'auth/auth.service';
 import { EventService } from 'event/event.service';
@@ -573,6 +574,68 @@ describe('VariableService', () => {
       const result = await service.getVariableValue(variable, 'invalid.path');
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getValueApproximation', () => {
+    it('returns original value if not secret', () => {
+      const value = 'test';
+      // @ts-ignore
+      expect(service.getValueApproximation(value, false)).toBe(value);
+    });
+
+    it('returns masked string if secret', () => {
+      const value = 'test';
+      // @ts-ignore
+      const masked = service.getValueApproximation(value, true);
+      expect(masked).not.toBe(value);
+      expect(typeof masked).toBe('string');
+    });
+
+    it('returns masked number if secret', () => {
+      const value = 123;
+      // @ts-ignore
+      const masked = service.getValueApproximation(value, true);
+      expect(masked).not.toBe(value);
+      expect(typeof masked).toBe('number');
+    });
+
+    it('masks array values if secret', () => {
+      const value = [1, 'two', false];
+      // @ts-ignore
+      const masked = service.getValueApproximation(value, true);
+
+      expect(masked).not.toEqual(value);
+      expect(masked).toHaveLength(3);
+
+      // Check types
+      expect(masked).toHaveLength(3);
+      expect(typeof masked?.[0]).toBe('number');
+      expect(typeof masked?.[1]).toBe('string');
+      expect(typeof masked?.[2]).toBe('boolean');
+    });
+
+    it('masks object values if secret', () => {
+      const value = { foo: 'bar', baz: 123 };
+      // @ts-ignore
+      const masked = service.getValueApproximation(value, true) as {
+        foo: string;
+        baz: number;
+      };
+
+      expect(masked).not.toEqual(value);
+      expect(masked).not.toBeNull();
+      expect(masked).toHaveProperty('foo');
+      expect(masked).toHaveProperty('baz');
+
+      expect(typeof masked.foo).toBe('string');
+      expect(typeof masked?.baz).toBe('number');
+    });
+
+    it('returns fallback string for unknown type', () => {
+      const value = Symbol('test');
+      // @ts-ignore
+      expect(service.getValueApproximation(value, true)).toBe('********');
     });
   });
 });

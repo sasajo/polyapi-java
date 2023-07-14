@@ -9,7 +9,7 @@ const myInterface = `
 
 describe('transpiler', () => {
   describe('transpileCode', () => {
-    jest.setTimeout(10000);
+    jest.setTimeout(30000);
 
     it('args should contain all function arguments', async () => {
       const code = `

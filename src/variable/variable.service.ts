@@ -1,4 +1,5 @@
 import { get, set } from 'lodash';
+import crypto from 'crypto';
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Variable } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
@@ -133,7 +134,7 @@ export class VariableService {
       throw new ConflictException(`Variable with name '${name}' and context '${context}' already exists`);
     }
 
-    description = description || (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(value))).description;
+    description = description || (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(this.getValueApproximation(value, secret)))).description;
 
     return await this.prisma.$transaction(async (tx) => {
       const variable = await tx.variable.create({
@@ -329,5 +330,29 @@ export class VariableService {
     });
 
     return existingCount === 0;
+  }
+
+  private getValueApproximation(value: ValueType, secret: boolean): ValueType {
+    if (!secret || !value) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      return crypto.randomBytes(32).toString('hex');
+    } else if (typeof value === 'number') {
+      return Math.floor(Math.random() * 1000000);
+    } else if (typeof value === 'boolean') {
+      return value;
+    } else if (Array.isArray(value)) {
+      return value.map(item => this.getValueApproximation(item, secret));
+    } else if (typeof value === 'object') {
+      return Object.keys(value).reduce((acc, key) => {
+        acc[key] = this.getValueApproximation(value[key], secret);
+        return acc;
+      }, {});
+    } else {
+      this.logger.warn(`Unknown value type: ${typeof value}`);
+      return '********';
+    }
   }
 }
