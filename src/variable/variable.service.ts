@@ -1,7 +1,8 @@
+import { get, set } from 'lodash';
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Variable } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { ServerVariableSpecification, ValueType, VariableDto, Visibility } from '@poly/model';
+import { ContextVariableValues, ServerVariableSpecification, ValueType, VariableDto, Visibility } from '@poly/model';
 import { SecretService } from 'secret/secret.service';
 import { CommonService } from 'common/common.service';
 import { SpecsService } from 'specs/specs.service';
@@ -273,6 +274,28 @@ export class VariableService {
         value: variable.secret ? undefined : value,
       },
     };
+  }
+
+  async getContextVariableValues(environmentId: string, context: string | null): Promise<ContextVariableValues> {
+    const variables = (await this.getAll(environmentId, context ? [context] : undefined, undefined, undefined, true))
+      .filter(variable => !variable.secret);
+    const contextValues = {} as ContextVariableValues;
+
+    for (const variable of variables) {
+      const subContext = variable.context.substring(context ? context.length + 1 : 0);
+      if (subContext) {
+        let subContextValues = get(contextValues, subContext);
+        if (!subContextValues) {
+          subContextValues = {};
+          set(contextValues, subContext, subContextValues);
+        }
+        subContextValues[variable.name] = await this.getVariableValue(variable);
+      } else {
+        contextValues[variable.name] = await this.getVariableValue(variable);
+      }
+    }
+
+    return contextValues;
   }
 
   async unwrapVariables<T extends Record<string, any>>(authData: AuthData, obj: T): Promise<T> {

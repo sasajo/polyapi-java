@@ -2,7 +2,15 @@ import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, R
 import { ApiSecurity } from '@nestjs/swagger';
 import { VariableService } from 'variable/variable.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
-import { CreateVariableDto, Permission, UpdateVariableDto, VariableDto, Visibility } from '@poly/model';
+import {
+  ContextVariableValues,
+  CreateVariableDto,
+  Permission,
+  UpdateVariableDto,
+  ValueType,
+  VariableDto,
+  Visibility,
+} from '@poly/model';
 import { AuthData, AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
@@ -65,7 +73,7 @@ export class VariableController {
 
   @UseGuards(PolyAuthGuard)
   @Get(':id/value')
-  async getVariableValue(@Req() req: AuthRequest, @Param('id') id: string): Promise<VariableDto> {
+  async getVariableValue(@Req() req: AuthRequest, @Param('id') id: string): Promise<ValueType> {
     const variable = await this.findVariable(req.user, id);
     if (variable.secret) {
       throw new NotFoundException(`Variable with id '${id}' is secret`);
@@ -74,6 +82,22 @@ export class VariableController {
     await this.authService.checkPermissions(req.user, Permission.Use);
 
     return this.service.getVariableValue(variable);
+  }
+
+  @UseGuards(PolyAuthGuard)
+  @Get('/context/values')
+  async getAllContextVariableValues(@Req() req: AuthRequest): Promise<ContextVariableValues> {
+    await this.authService.checkPermissions(req.user, Permission.Use);
+
+    return this.service.getContextVariableValues(req.user.environment.id, null);
+  }
+
+  @UseGuards(PolyAuthGuard)
+  @Get('/context/:context/values')
+  async getContextVariableValues(@Req() req: AuthRequest, @Param('context') context: string): Promise<ContextVariableValues> {
+    await this.authService.checkPermissions(req.user, Permission.Use);
+
+    return this.service.getContextVariableValues(req.user.environment.id, context);
   }
 
   @UseGuards(PolyAuthGuard)

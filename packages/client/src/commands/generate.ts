@@ -148,11 +148,14 @@ const generateServerFunctionJSFiles = async (specifications: ServerFunctionSpeci
 };
 
 const generateServerVariableJSFiles = async (specifications: ServerVariableSpecification[]) => {
+  const contextData = getContextData(specifications);
+  const contextPaths = getContextPaths(contextData);
   const template = handlebars.compile(await loadTemplate('vari/index.js.hbs'));
   fs.writeFileSync(
     `${POLY_LIB_PATH}/vari/index.js`,
     template({
       specifications,
+      contextPaths,
       apiKey: getApiKey(),
     }),
   );
@@ -419,6 +422,7 @@ const generateTSContextDeclarationFile = async (
     name: specification.name.split('.').pop(),
     comment: getSpecificationWithVariableComment(specification),
     type: toTypeDeclaration(specification.variable.valueType),
+    secret: specification.variable.secret,
   });
 
   fs.writeFileSync(
@@ -459,6 +463,24 @@ const getContextData = (specs: Specification[]) => {
     set(contextData, path, spec);
   });
   return contextData;
+};
+
+const getContextPaths = (contextData: Record<string, any>) => {
+  const paths: string[] = [];
+  const traverseAndAddPath = (data, path = '') => {
+    for (const key of Object.keys(data)) {
+      if (typeof data[key].context === 'string') {
+        continue;
+      }
+      const currentPath = path ? `${path}.${key}` : key;
+      paths.push(currentPath);
+      traverseAndAddPath(data[key], currentPath);
+    }
+  };
+
+  traverseAndAddPath(contextData);
+
+  return paths;
 };
 
 const getSpecsFromContextData = (contextData) => {

@@ -1,5 +1,17 @@
 {{{typeDeclarations}}}
 declare module vari {
+  interface {{interfaceName}}Values {
+    {{#each subContexts}}
+      {{name}}: {{interfaceName}}Values;
+    {{/each}}
+    {{#each variableDeclarations}}
+      {{#if secret}}
+      {{else}}
+      {{name}}: {{type}};
+      {{/if}}
+    {{/each}}
+  }
+
   interface {{interfaceName}} {
     {{#each subContexts}}
       {{name}}: {{interfaceName}};
@@ -34,5 +46,6 @@ declare module vari {
         onServer: (path?: string) => {{{type}}};
       }
     {{/each}}
+    get: () => Promise<{{interfaceName}}Values>;
   }
 }
