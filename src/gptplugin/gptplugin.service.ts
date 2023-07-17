@@ -7,10 +7,12 @@ import { HttpService } from '@nestjs/axios';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ApiFunctionSpecification,
-  CreatePluginDto, CustomFunctionSpecification,
+  CreatePluginDto,
+  CustomFunctionSpecification,
   FunctionSpecification,
   PropertySpecification,
-  PropertyType, ServerFunctionSpecification,
+  PropertyType,
+  ServerFunctionSpecification,
   Specification,
 } from '@poly/model';
 import { FunctionService } from 'function/function.service';
@@ -54,6 +56,17 @@ type Schema = {
 function rsplit(s: string, sep: string, maxsplit: number): string[] {
   const split = s.split(sep);
   return [split.slice(0, -maxsplit).join(sep)].concat(split.slice(-maxsplit));
+}
+
+function slugify(str: string): string {
+  return String(str)
+    .normalize('NFKD') // split accented characters into their base characters and diacritical marks
+    .replace(/[\u0300-\u036f]/g, '') // remove all the accents, which happen to be all in the \u03xx UNICODE block.
+    .trim() // trim leading or trailing whitespace
+    .toLowerCase() // convert to lowercase
+    .replace(/[^a-z0-9 -]/g, '') // remove non-alphanumeric characters
+    .replace(/\s+/g, '-') // replace spaces with hyphens
+    .replace(/-+/g, '-'); // remove consecutive hyphens
 }
 
 function _getSlugSubdomain(host: string): [string, string] {
@@ -160,7 +173,10 @@ function _trimDescription(desc: string | undefined): string {
   return desc;
 }
 
-function _tweakSpecForPlugin(f: AnyFunction, details: ApiFunctionSpecification | CustomFunctionSpecification | ServerFunctionSpecification): PluginFunction {
+function _tweakSpecForPlugin(
+  f: AnyFunction,
+  details: ApiFunctionSpecification | CustomFunctionSpecification | ServerFunctionSpecification,
+): PluginFunction {
   details.description = _trimDescription(details.description);
   const executeType = _getExecuteType(details.type);
   return {
@@ -305,7 +321,8 @@ export class GptPluginService {
 
   async createOrUpdatePlugin(environment: Environment, body: CreatePluginDto): Promise<GptPlugin> {
     // slugs must be lowercase!
-    body.slug = body.slug.toLowerCase();
+    body.slug = body.slug.replaceAll('_', '-');
+    body.slug = slugify(body.slug);
 
     // function check
     const functionIds = body.functionIds ? JSON.stringify(body.functionIds) : '';
