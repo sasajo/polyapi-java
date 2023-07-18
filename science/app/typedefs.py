@@ -47,6 +47,7 @@ class JsonSchema(TypedDict):
 
 class PropertySpecification(TypedDict):
     name: str
+    description: str
     required: bool
     nullable: NotRequired[bool]
     type: "PropertyType"

@@ -32,29 +32,35 @@ def _process_property_spec(arg: PropertySpecification) -> str:
     kind = arg["type"]["kind"]
     if kind == "void":
         # seems weird to have a void argument...
-        return f"{arg['name']}"
+        rv = f"{arg['name']}"
     elif kind == "primitive":
-        return f"{arg['name']}: {arg['type']['type']}"
+        rv = f"{arg['name']}: {arg['type']['type']}"
     elif kind == "array":
         item_type = arg["type"]["items"]["type"]
-        return "{name}: [{item_type}, {item_type}, ...]".format(
+        rv = "{name}: [{item_type}, {item_type}, ...]".format(
             name=arg["name"], item_type=item_type
         )
     elif kind == "object":
         if arg["type"].get("properties"):
             properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
-            sub_props = ", ".join(properties)
-            sub_props = "{" + sub_props + "}"
-            return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
+            sub_props = "\n".join(properties)
+            sub_props = "{\n" + sub_props + "\n}"
+            rv = "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
         else:
             log(f"WARNING: object with no properties in args - {arg}")
-            return "{name}: object".format(name=arg["name"])
+            rv = "{name}: object".format(name=arg["name"])
     elif kind == "function":
-        return f"{arg['name']}: {kind}"
+        rv = f"{arg['name']}: {kind}"
     elif kind == "plain":
-        return f"{arg['name']}: {arg['type']['value']}"
+        rv = f"{arg['name']}: {arg['type']['value']}"
     else:
         raise NotImplementedError("unrecognized kind")
+
+    rv += ","
+    if arg.get("description"):
+        rv += f"  // {arg['description']}"
+
+    return rv
 
 
 def func_args(spec: SpecificationDto) -> List[str]:
@@ -69,7 +75,8 @@ def func_args(spec: SpecificationDto) -> List[str]:
 
 def func_path_with_args(func: SpecificationDto) -> str:
     args = func_args(func)
-    return f"{func_path(func)}({', '.join(args)})"
+    sep = '\n'
+    return f"{func_path(func)}(\n{sep.join(args)}\n)"
 
 
 def url_function_path(func: AnyFunction) -> str:

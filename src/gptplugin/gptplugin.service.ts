@@ -208,6 +208,9 @@ function _getProperties(props: PropertySpecification[]) {
     const type = _getOpenApiType(prop.type);
     const name = prop.name;
     rv[name] = { type };
+    if (prop.description) {
+      rv[name].description = prop.description;
+    }
     if (type === 'object') {
       // @ts-expect-error: we know from previous line this is object!
       const properties: PropertySpecification[] = prop.type.properties;
