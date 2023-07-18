@@ -317,7 +317,7 @@ export class FunctionService implements OnModuleInit {
           name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true, [apiFunction.id]),
           argumentsMetadata: await this.resolveArgumentsMetadata(
             {
-              argumentsMetadata: apiFunction.argumentsMetadata,
+              argumentsMetadata: null,
               auth: finalAuth,
               body: finalBody,
               headers: finalHeaders,
