@@ -49,8 +49,20 @@ Response Payload:
 
 {code}
 
-Please return JSON with three keys: context, name, description
+Please return the context, name, description, and argument descriptions in this format:
+
+{format}
 """
+
+FUNCTION_DESCRIPTION_RETURN_FORMAT = """{
+    "context": "string",
+    "name": "string",
+    "description": "string",
+    "args": [{
+        "name": "string",
+        "description": "string"
+    }]
+}"""
 
 
 VARIABLE_DESCRIPTION_PROMPT = """
@@ -93,6 +105,7 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         code=_get_code_prompt(data.get("code")),
         call_type="API call",
         description_length_limit=DESCRIPTION_LENGTH_LIMIT,
+        format=FUNCTION_DESCRIPTION_RETURN_FORMAT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
@@ -137,6 +150,7 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         code="",  # no code for webhooks
         call_type="Event handler",
         description_length_limit=DESCRIPTION_LENGTH_LIMIT,
+        format=FUNCTION_DESCRIPTION_RETURN_FORMAT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
@@ -181,6 +195,7 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
         context=data.get("context", ""),
         name=data.get("name", ""),
         description=data.get("description", ""),
+        args=data.get("args", ""),
         openai_response=completion,
     )
 

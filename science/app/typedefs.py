@@ -19,6 +19,7 @@ class DescOutputDto(TypedDict):
     name: str
     context: str
     description: str
+    args: Any
     openai_response: str
 
 
