@@ -1,14 +1,5 @@
 import poly = require("./index");
 
-type UnregisterWebhookEventListener = () => void;
-type AuthFunctionCallback = (token?: string, url?: string, error?: any) => any;
-interface Response<T> {
-  status: number;
-  data: T;
-  headers: Record<string, string>;
-}
-
-{{{typeDeclarations}}}
 declare module "./index" {
   interface {{interfaceName}} {
     {{#each subContexts}}
@@ -21,9 +12,18 @@ declare module "./index" {
       */
       {{/if}}
       {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}):
-        {{#if synchronous}}{{#if useResponseTypeWrapper}}Response<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}
-        {{else}}Promise<{{#if useResponseTypeWrapper}}Response<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}>
+        {{#if synchronous}}{{#if useResponseTypeWrapper}}ApiFunctionResponse<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}
+        {{else}}Promise<{{#if useResponseTypeWrapper}}ApiFunctionResponse<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}>
         {{/if}};
     {{/each}}
   }
+
+  {{#each contextPaths}}
+  namespace {{this}} {
+  {{/each}}
+  {{{typeDeclarations}}}
+  {{#each contextPaths}}
+  }
+  {{/each}}
+
 }

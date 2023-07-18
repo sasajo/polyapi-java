@@ -280,7 +280,7 @@ const generateTSIndexDeclarationFile = async (contexts: Context[], pathPrefix: s
 };
 
 const schemaToDeclarations = async (namespace: string, typeName: string, schema: Record<string, any>) => {
-  const wrapToNamespace = (code: string) => `declare namespace ${namespace} {\n  ${code}\n}`;
+  const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n}`;
 
   schema.title = typeName;
   const result = await compile(schema, typeName, {
@@ -291,16 +291,19 @@ const schemaToDeclarations = async (namespace: string, typeName: string, schema:
 };
 
 const getReturnTypeDeclarations = async (
+  namespacePath: string,
   namespace: string,
   objectProperty: ObjectPropertyType,
   typeName = 'ReturnType',
 ): Promise<string> => {
   const declarations = await schemaToDeclarations(namespace, typeName, objectProperty.schema);
-  objectProperty.typeName = `${namespace}.ReturnType`;
+  // setting typeName to be used when generating return type
+  objectProperty.typeName = `${namespacePath ? `${namespacePath}.` : ''}${namespace}.${typeName}`;
   return declarations;
 };
 
 const getArgumentsTypeDeclarations = async (
+  namespacePath: string,
   parentType: string,
   properties: PropertySpecification[],
   typeName = 'Argument',
@@ -313,12 +316,14 @@ const getArgumentsTypeDeclarations = async (
     const objectProperty = property.type as ObjectPropertyType;
     if (objectProperty.schema) {
       const namespace = `${parentType}$${toPascalCase(property.name)}`;
-      objectProperty.typeName = `${namespace}.${typeName}`;
+      // setting typeName to be used when generating arguments type
+      objectProperty.typeName = `${namespacePath ? `${namespacePath}.` : ''}${namespace}.${typeName}`;
 
       typeDeclarations.push(await schemaToDeclarations(namespace, typeName, objectProperty.schema));
     } else if (objectProperty.properties) {
       typeDeclarations.push(
         ...(await getArgumentsTypeDeclarations(
+          namespacePath,
           `${parentType}$${toPascalCase(property.name)}`,
           objectProperty.properties,
         )),
@@ -335,6 +340,7 @@ const getArgumentsTypeDeclarations = async (
 
     typeDeclarations.push(
       ...(await getArgumentsTypeDeclarations(
+        namespacePath,
         `${parentType}$${toPascalCase(property.name)}`,
         functionProperty.spec.arguments.filter((arg) => arg.type.kind === 'object'),
       )),
@@ -342,6 +348,7 @@ const getArgumentsTypeDeclarations = async (
     if (functionProperty.spec.returnType.kind === 'object' && functionProperty.spec.returnType.schema) {
       typeDeclarations.push(
         await getReturnTypeDeclarations(
+          namespacePath,
           `${parentType}$${toPascalCase(property.name)}`,
           functionProperty.spec.returnType as ObjectPropertyType,
         ),
@@ -353,22 +360,24 @@ const getArgumentsTypeDeclarations = async (
 };
 
 const getVariableValueTypeDeclarations = async (
+  namespacePath: string,
   namespace: string,
   objectProperty: ObjectPropertyType,
 ): Promise<string> => {
   const declarations = await schemaToDeclarations(namespace, 'ValueType', objectProperty.schema);
-  objectProperty.typeName = `${namespace}.ValueType`;
+  // setting typeName to be used when generating variable value type
+  objectProperty.typeName = `${namespacePath ? `${namespacePath}.` : ''}${namespace}.ValueType`;
   return declarations;
 };
 
-const getSpecificationsTypeDeclarations = async (specifications: Specification[]): Promise<string> => {
+const getSpecificationsTypeDeclarations = async (namespacePath: string, specifications: Specification[]): Promise<string> => {
   const argumentsTypeDeclarations = (
     await Promise.all(
       specifications
         .filter((spec) => 'function' in spec)
         .map((spec) => spec as SpecificationWithFunction)
         .map((spec) =>
-          getArgumentsTypeDeclarations(toPascalCase(spec.name), spec.function.arguments),
+          getArgumentsTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.function.arguments),
         ),
     )
   ).flat();
@@ -377,7 +386,7 @@ const getSpecificationsTypeDeclarations = async (specifications: Specification[]
       .filter((spec) => 'function' in spec && spec.function.returnType.kind === 'object' && spec.function.returnType.schema)
       .map((spec) => spec as SpecificationWithFunction)
       .map((spec) =>
-        getReturnTypeDeclarations(toPascalCase(spec.name), spec.function.returnType as ObjectPropertyType),
+        getReturnTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.function.returnType as ObjectPropertyType),
       ),
   );
   const variableValueDeclarations = await Promise.all(
@@ -385,7 +394,7 @@ const getSpecificationsTypeDeclarations = async (specifications: Specification[]
       .filter((spec) => 'variable' in spec && spec.variable.valueType.kind === 'object' && spec.variable.valueType.schema)
       .map((spec) => spec as SpecificationWithVariable)
       .map((spec) =>
-        getVariableValueTypeDeclarations(toPascalCase(spec.name), spec.variable.valueType as ObjectPropertyType),
+        getVariableValueTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.variable.valueType as ObjectPropertyType),
       ),
   );
 
@@ -399,7 +408,8 @@ const generateTSContextDeclarationFile = async (
   pathPrefix: string,
 ) => {
   const template = handlebars.compile(await loadTemplate(`${pathPrefix}/{{context}}.d.ts.hbs`));
-  const typeDeclarations = await getSpecificationsTypeDeclarations(specifications);
+  const contextPaths = context.path === '' ? [] : context.path.split('.').map(toPascalCase);
+  const typeDeclarations = await getSpecificationsTypeDeclarations(contextPaths.join('.'), specifications);
 
   const toFunctionDeclaration = (specification: SpecificationWithFunction) => {
     const toArgumentDeclaration = (arg: PropertySpecification) => ({
@@ -430,6 +440,7 @@ const generateTSContextDeclarationFile = async (
     prettyPrint(
       template({
         interfaceName: context.interfaceName,
+        contextPaths,
         typeDeclarations,
         functionDeclarations: specifications
           .filter((spec) => 'function' in spec)

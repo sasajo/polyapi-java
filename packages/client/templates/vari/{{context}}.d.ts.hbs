@@ -1,4 +1,3 @@
-{{{typeDeclarations}}}
 declare module vari {
   interface {{interfaceName}}Values {
     {{#each subContexts}}
@@ -48,4 +47,12 @@ declare module vari {
     {{/each}}
     get: () => Promise<{{interfaceName}}Values>;
   }
+
+  {{#each contextPaths}}
+    namespace {{this}} {
+  {{/each}}
+  {{{typeDeclarations}}}
+  {{#each contextPaths}}
+    }
+  {{/each}}
 }
