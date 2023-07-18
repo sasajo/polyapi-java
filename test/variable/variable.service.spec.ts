@@ -30,7 +30,7 @@ describe('VariableService', () => {
   const testVariable: Variable = {
     id: 'id12345',
     name: 'name12345',
-    context: 'content12345',
+    context: 'context12345',
     description: 'description12345',
     createdAt: new Date(),
     environmentId: 'environmentId12345',
@@ -172,7 +172,12 @@ describe('VariableService', () => {
   });
 
   describe('updateVariable', () => {
+    const updatedVariable = {
+      ...testVariable,
+    };
+
     beforeEach(() => {
+      prismaServiceMock.variable.update?.mockResolvedValueOnce(updatedVariable);
       prismaServiceMock.variable.count?.mockImplementationOnce(() => Promise.resolve(0) as any);
       secretServiceMock.get?.mockResolvedValue('previousValue12345');
     });
@@ -238,12 +243,14 @@ describe('VariableService', () => {
         false,
       );
 
-      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(updatedVariable, {
         type: 'update',
         currentValue: 'value12345',
         previousValue: 'previousValue12345',
         updatedBy: 'updater12345',
         updateTime: expect.any(Number),
+        path: 'context12345.name12345',
+        secret: false,
       });
     });
 
@@ -260,28 +267,32 @@ describe('VariableService', () => {
         true,
       );
 
-      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(updatedVariable, {
         type: 'update',
         currentValue: expect.not.stringMatching('value12345'),
         previousValue: expect.not.stringMatching('previousValue12345'),
         updatedBy: 'updater12345',
         updateTime: expect.any(Number),
+        path: 'context12345.name12345',
+        secret: true,
       });
     });
   });
 
   describe('deleteVariable', () => {
+    const deletedVariable = {
+      ...testVariable,
+      secret: true,
+      environment: {
+        id: 'environmentId12345',
+      },
+    };
     beforeEach(() => {
+      prismaServiceMock.variable.delete?.mockResolvedValueOnce(deletedVariable);
       secretServiceMock.get?.mockResolvedValue('previousValue12345');
     });
 
     it('should call secretService.delete when variable is deleted', async () => {
-      jest.spyOn(prismaServiceMock.variable, 'delete').mockImplementationOnce(() => Promise.resolve({
-        ...testVariable,
-        environment: {
-          id: 'environmentId12345',
-        },
-      }) as any);
       functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([]);
 
       await service.deleteVariable(testVariable, 'deleter12345');
@@ -299,48 +310,38 @@ describe('VariableService', () => {
     });
 
     it('should call eventService.updateVariableChangeEvent with null when variable is deleted', async () => {
-      jest.spyOn(prismaServiceMock.variable, 'delete').mockImplementationOnce(() => Promise.resolve({
-        ...testVariable,
-        secret: false,
-        environment: {
-          id: 'environmentId12345',
-        },
-      }) as any);
       functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([]);
 
       await service.deleteVariable({
         ...testVariable,
         secret: false,
       }, 'deleter12345');
-      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(deletedVariable, {
         type: 'delete',
         currentValue: null,
         previousValue: 'previousValue12345',
         updatedBy: 'deleter12345',
         updateTime: expect.any(Number),
+        path: 'context12345.name12345',
+        secret: false,
       });
     });
 
     it('should call eventService.updateVariableChangeEvent when variable is deleted and secret with masked value', async () => {
-      jest.spyOn(prismaServiceMock.variable, 'delete').mockImplementationOnce(() => Promise.resolve({
-        ...testVariable,
-        secret: true,
-        environment: {
-          id: 'environmentId12345',
-        },
-      }) as any);
       functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([]);
 
       await service.deleteVariable({
         ...testVariable,
         secret: true,
       }, 'deleter12345');
-      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(testVariable.id, {
+      expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(deletedVariable, {
         type: 'delete',
         currentValue: null,
         previousValue: expect.not.stringMatching('previousValue12345'),
         updatedBy: 'deleter12345',
         updateTime: expect.any(Number),
+        path: 'context12345.name12345',
+        secret: true,
       });
     });
   });

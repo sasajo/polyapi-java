@@ -1,10 +1,18 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { EventGateway } from './event.gateway';
 import { EventService } from './event.service';
 import { AuthModule } from 'auth/auth.module';
+import { WebhookModule } from 'webhook/webhook.module';
+import { AuthProviderModule } from 'auth-provider/auth-provider.module';
+import { VariableModule } from 'variable/variable.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [
+    AuthModule,
+    forwardRef(() => WebhookModule),
+    forwardRef(() => AuthProviderModule),
+    forwardRef(() => VariableModule),
+  ],
   providers: [EventGateway, EventService],
   exports: [EventService],
 })

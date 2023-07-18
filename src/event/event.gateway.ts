@@ -3,12 +3,16 @@ import {
   AuthFunctionEventHandlerDto,
   ErrorHandlerDto,
   VariableChangeEventHandlerDto,
+  VariablesChangeEventHandlerDto,
   WebhookEventHandlerDto,
 } from '@poly/model';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { EventService } from 'event/event.service';
 import { AuthService } from 'auth/auth.service';
+import { WebhookService } from 'webhook/webhook.service';
+import { VariableService } from 'variable/variable.service';
+import { AuthProviderService } from 'auth-provider/auth-provider.service';
 
 @WebSocketGateway({ namespace: 'events' })
 export class EventGateway {
@@ -17,7 +21,13 @@ export class EventGateway {
 
   private logger: Logger = new Logger(EventGateway.name);
 
-  constructor(private readonly eventService: EventService, private readonly authService: AuthService) {
+  constructor(
+    private readonly eventService: EventService,
+    private readonly authService: AuthService,
+    private readonly webhookService: WebhookService,
+    private readonly authProviderService: AuthProviderService,
+    private readonly variableService: VariableService,
+  ) {
   }
 
   @SubscribeMessage('registerErrorHandler')
@@ -48,7 +58,7 @@ export class EventGateway {
 
   @SubscribeMessage('unregisterWebhookEventHandler')
   async unregisterWebhookEventHandler(client: Socket, handler: WebhookEventHandlerDto) {
-    if (!await this.checkWebhookEventHandler(handler)) {
+    if (!await this.checkWebhookEventHandler(handler, false)) {
       return false;
     }
     this.eventService.unregisterWebhookEventHandler(client, handler.clientID, handler.webhookHandleID);
@@ -64,7 +74,7 @@ export class EventGateway {
 
   @SubscribeMessage('unregisterAuthFunctionEventHandler')
   async unregisterAuthFunctionEventHandler(client: Socket, webhookEventHandler: AuthFunctionEventHandlerDto) {
-    if (!await this.checkAuthFunctionEventHandler(webhookEventHandler)) {
+    if (!await this.checkAuthFunctionEventHandler(webhookEventHandler, false)) {
       return false;
     }
     this.eventService.unregisterAuthFunctionEventHandler(client, webhookEventHandler.clientID, webhookEventHandler.functionId);
@@ -80,15 +90,40 @@ export class EventGateway {
 
   @SubscribeMessage('unregisterVariableChangeEventHandler')
   async unregisterVariableChangeEventHandler(client: Socket, handler: VariableChangeEventHandlerDto) {
-    if (!await this.checkVariableChangeEventHandler(handler)) {
+    if (!await this.checkVariableChangeEventHandler(handler, false)) {
       return false;
     }
     this.eventService.unregisterVariableChangeEventHandler(client, handler.clientID, handler.variableId);
   }
 
-  private async checkErrorHandler({ clientID, apiKey }: ErrorHandlerDto) {
+  @SubscribeMessage('registerVariablesChangeEventHandler')
+  async registerVariablesChangeEventHandler(client: Socket, handler: VariablesChangeEventHandlerDto) {
+    if (!await this.checkVariablesChangeEventHandler(handler)) {
+      return false;
+    }
+    const authData = await this.authService.getAuthData(handler.apiKey);
+    if (!authData) {
+      return false;
+    }
+
+    return this.eventService.registerVariablesChangeEventHandler(client, handler.clientID, authData, handler.path, handler.options?.type, handler.options?.secret);
+  }
+
+  @SubscribeMessage('unregisterVariablesChangeEventHandler')
+  async unregisterVariablesChangeEventHandler(client: Socket, handler: VariablesChangeEventHandlerDto) {
+    if (!await this.checkVariablesChangeEventHandler(handler)) {
+      return false;
+    }
+    this.eventService.unregisterVariablesChangeEventHandler(client, handler.clientID, handler.path);
+  }
+
+  private async checkErrorHandler({ clientID, apiKey, path }: ErrorHandlerDto) {
     if (!clientID) {
       this.logger.debug('Missing client ID.');
+      return false;
+    }
+    if (path == null) {
+      this.logger.debug('Missing path.');
       return false;
     }
     if (!apiKey) {
@@ -103,7 +138,7 @@ export class EventGateway {
     return true;
   }
 
-  private async checkWebhookEventHandler({ clientID, webhookHandleID, apiKey }: WebhookEventHandlerDto) {
+  private async checkWebhookEventHandler({ clientID, webhookHandleID, apiKey }: WebhookEventHandlerDto, checkAccess = true) {
     if (!clientID) {
       this.logger.debug('Missing client ID.');
       return false;
@@ -121,10 +156,23 @@ export class EventGateway {
       this.logger.debug(`Invalid API key: ${apiKey}`);
       return false;
     }
+
+    if (checkAccess) {
+      const webhookHandle = await this.webhookService.findWebhookHandle(webhookHandleID);
+      if (!webhookHandle) {
+        this.logger.debug(`Invalid webhook handle ID: ${webhookHandleID}`);
+        return false;
+      }
+      if (!await this.authService.hasEnvironmentEntityAccess(webhookHandle, authData, true)) {
+        this.logger.debug(`Access denied for webhook handle ID: ${webhookHandleID}`);
+        return false;
+      }
+    }
+
     return true;
   }
 
-  private async checkAuthFunctionEventHandler({ clientID, functionId, apiKey }: AuthFunctionEventHandlerDto) {
+  private async checkAuthFunctionEventHandler({ clientID, functionId, apiKey }: AuthFunctionEventHandlerDto, checkAccess = true) {
     if (!clientID) {
       this.logger.debug('Missing client ID.');
       return false;
@@ -142,16 +190,63 @@ export class EventGateway {
       this.logger.debug(`Invalid API key: ${apiKey}`);
       return false;
     }
+
+    if (checkAccess) {
+      const authProvider = await this.authProviderService.getAuthProvider(functionId);
+      if (!authProvider) {
+        this.logger.debug(`Invalid function ID: ${functionId}`);
+        return false;
+      }
+      if (!await this.authService.hasEnvironmentEntityAccess(authProvider, authData, true)) {
+        this.logger.debug(`Access denied for function ID: ${functionId}`);
+        return false;
+      }
+    }
+
     return true;
   }
 
-  private async checkVariableChangeEventHandler({ clientID, variableId, apiKey }: VariableChangeEventHandlerDto) {
+  private async checkVariableChangeEventHandler({ clientID, variableId, apiKey }: VariableChangeEventHandlerDto, checkAccess = true) {
     if (!clientID) {
       this.logger.debug('Missing client ID.');
       return false;
     }
     if (!variableId) {
       this.logger.debug('Missing variable ID.');
+      return false;
+    }
+    if (!apiKey) {
+      this.logger.debug('Missing API key.');
+      return false;
+    }
+    const authData = await this.authService.getAuthData(apiKey);
+    if (!authData) {
+      this.logger.debug(`Invalid API key: ${apiKey}`);
+      return false;
+    }
+
+    if (checkAccess) {
+      const variable = await this.variableService.findById(variableId);
+      if (!variable) {
+        this.logger.debug(`Invalid variable ID: ${variableId}`);
+        return false;
+      }
+      if (!await this.authService.hasEnvironmentEntityAccess(variable, authData, true)) {
+        this.logger.debug(`Access denied for variable ID: ${variableId}`);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private async checkVariablesChangeEventHandler({ clientID, path, apiKey }: VariablesChangeEventHandlerDto) {
+    if (!clientID) {
+      this.logger.debug('Missing client ID.');
+      return false;
+    }
+    if (path == null) {
+      this.logger.debug('Missing path.');
       return false;
     }
     if (!apiKey) {

@@ -1,5 +1,9 @@
+export type VariableChangeEventType = 'update' | 'delete';
+
 export interface VariableChangeEvent {
-  type: 'update' | 'delete';
+  path: string;
+  secret: boolean;
+  type: VariableChangeEventType;
   previousValue: any;
   currentValue: any;
   updateTime: number;

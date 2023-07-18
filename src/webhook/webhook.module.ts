@@ -18,7 +18,7 @@ import { TriggerModule } from 'trigger/trigger.module';
   imports: [
     PrismaModule,
     HttpModule,
-    EventModule,
+    forwardRef(() => EventModule),
     CommonModule,
     UserModule,
     AiModule,

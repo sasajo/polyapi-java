@@ -165,15 +165,16 @@ export class VariableService {
     visibility: Visibility | undefined,
     secret: boolean | undefined,
   ): Promise<Variable> {
-    name = name && this.commonService.sanitizeNameIdentifier(name);
-    context = context && this.commonService.sanitizeContextIdentifier(context);
+    name = (name && this.commonService.sanitizeNameIdentifier(name)) || variable.name;
+    context = (context && this.commonService.sanitizeContextIdentifier(context)) ?? variable.context;
+    secret = secret ?? variable.secret;
 
-    if (!await this.checkContextAndNameDuplicates(environmentId, context ?? variable.context, name ?? variable.name, [variable.id])) {
-      throw new ConflictException(`Variable with name '${name ?? variable.name}' and context '${context ?? variable.context}' already exists`);
+    if (!await this.checkContextAndNameDuplicates(environmentId, context, name, [variable.id])) {
+      throw new ConflictException(`Variable with name '${name}' and context '${context}' already exists`);
     }
 
     description = description === '' && value
-      ? (await this.aiService.getVariableDescription(name ?? variable.name, context ?? variable.context, secret ?? variable.secret, JSON.stringify(value))).description
+      ? (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(value))).description
       : description;
 
     return this.prisma.$transaction(async (tx) => {
@@ -183,11 +184,11 @@ export class VariableService {
           id: variable.id,
         },
         data: {
-          name: name || variable.name,
-          context: context ?? variable.context,
+          name,
+          context,
           description: description ?? variable.description,
           visibility: visibility ?? variable.visibility,
-          secret: secret ?? variable.secret,
+          secret,
         },
         include: {
           environment: true,
@@ -195,7 +196,7 @@ export class VariableService {
       });
 
       if (value) {
-        const previousValue = secret ?? variable.secret
+        const previousValue = secret
           ? '********'
           : await this.getVariableValue(variable);
 
@@ -203,12 +204,14 @@ export class VariableService {
         await this.secretService.set(environmentId, variable.id, value);
 
         this.logger.debug(`Sending change event for variable ${variable.id}.`);
-        this.eventService.sendVariableChangeEvent(variable.id, {
+        await this.eventService.sendVariableChangeEvent(updatedVariable, {
           type: 'update',
           previousValue,
-          currentValue: secret ?? variable.secret ? '********' : value,
+          currentValue: secret ? '********' : value,
           updatedBy,
           updateTime: Date.now(),
+          secret: secret as boolean,
+          path: `${context ? `${context}.` : ''}${name}`,
         });
       }
 
@@ -241,12 +244,14 @@ export class VariableService {
         : await this.getVariableValue(variable);
 
       await this.secretService.delete(deletedVariable.environment.id, variable.id);
-      await this.eventService.sendVariableChangeEvent(variable.id, {
+      await this.eventService.sendVariableChangeEvent(deletedVariable, {
         type: 'delete',
         previousValue,
         currentValue: null,
         updatedBy: deletedBy,
         updateTime: Date.now(),
+        secret: variable.secret,
+        path: `${variable.context ? `${variable.context}.` : ''}${variable.name}`,
       });
     });
   }

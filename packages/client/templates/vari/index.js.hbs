@@ -95,4 +95,30 @@ const getPathHandlers = () => {
 module.exports = (clientID, getSocket) => merge(
   getVariableHandlers(clientID, getSocket),
   getPathHandlers(),
+  {
+    onUpdate: (path, callback, options = {}) => {
+      const socket = getSocket();
+      const unregisterEventHandler = () => {
+        socket.off(`handleVariablesChangeEvent:${path}`);
+        socket.emit('unregisterVariablesChangeEventHandler', {
+            clientID,
+            path,
+            apiKey: '{{apiKey}}'
+        });
+      }
+
+      socket.emit('registerVariablesChangeEventHandler', {
+        clientID,
+        path,
+        options,
+        apiKey: '{{apiKey}}'
+      }, registered => {
+        if (registered) {
+          socket.on(`handleVariablesChangeEvent:${path}`, callback);
+        }
+      });
+
+      return unregisterEventHandler;
+    }
+  }
 );

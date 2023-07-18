@@ -12,7 +12,7 @@ import { VariableModule } from 'variable/variable.module';
 @Module({
   imports: [
     PrismaModule,
-    EventModule,
+    forwardRef(() => EventModule),
     HttpModule,
     AuthModule,
     forwardRef(() => SpecsModule),

@@ -71,7 +71,7 @@ export class TriggerController {
   private async checkWebhookHandle(req: AuthRequest, webhookHandleId: string) {
     const webhookHandle = await this.webhookService.findWebhookHandle(webhookHandleId);
 
-    if (!webhookHandle || !await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, true)) {
+    if (!webhookHandle || !await this.authService.hasEnvironmentEntityAccess(webhookHandle, req.user, true)) {
       throw new NotFoundException(`Webhook handle ${webhookHandleId} not found`);
     }
   }
@@ -79,7 +79,7 @@ export class TriggerController {
   private async checkServerFunction(req: AuthRequest, functionId: string) {
     const serverFunction = await this.functionService.findServerFunction(functionId);
 
-    if (!serverFunction || !await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, true)) {
+    if (!serverFunction || !await this.authService.hasEnvironmentEntityAccess(serverFunction, req.user, true)) {
       throw new NotFoundException(`Server function ${functionId} not found`);
     }
   }

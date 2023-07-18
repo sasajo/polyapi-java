@@ -18,7 +18,7 @@ import { AiModule } from 'ai/ai.module';
     CommonModule,
     forwardRef(() => SpecsModule),
     forwardRef(() => FunctionModule),
-    EventModule,
+    forwardRef(() => EventModule),
     AiModule,
   ],
   controllers: [VariableController],

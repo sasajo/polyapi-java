@@ -1,13 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
-import { ErrorEvent, VariableChangeEvent } from '@poly/model';
+import { ErrorEvent, VariableChangeEvent, VariableChangeEventType } from '@poly/model';
 import { AxiosError } from 'axios';
+import { Variable } from '@prisma/client';
+import { AuthService } from 'auth/auth.service';
+import { AuthData } from 'common/types';
 
 type ClientID = string;
 type Path = string;
 type WebhookHandleID = string;
 type AuthFunctionID = string;
 type VariableID = string;
+type VariableSocketListener = {
+  socket: Socket;
+  authData: AuthData;
+  type?: VariableChangeEventType;
+  secret?: boolean;
+}
 
 @Injectable()
 export class EventService {
@@ -16,6 +25,12 @@ export class EventService {
   private readonly webhookEventHandlers: Record<ClientID, Record<WebhookHandleID, Socket[]>> = {};
   private readonly authFunctionHandlers: Record<ClientID, Record<AuthFunctionID, Socket[]>> = {};
   private readonly variableChangeHandlers: Record<ClientID, Record<VariableID, Socket[]>> = {};
+  private readonly variablesChangeHandlers: Record<ClientID, Record<Path, VariableSocketListener[]>> = {};
+
+  constructor(
+    private readonly authService: AuthService,
+  ) {
+  }
 
   registerErrorHandler(client: Socket, clientID: string, path: string) {
     this.logger.debug(`Registering error handler: ${clientID} '${path}'`);
@@ -51,7 +66,7 @@ export class EventService {
       return false;
     }
     const handlers = Object.keys(clientErrorHandler)
-      .filter(handlerPath => functionPath === handlerPath || functionPath.startsWith(`${handlerPath}.`) || functionPath.endsWith(`.${handlerPath}`));
+      .filter(this.filterByPath(functionPath));
 
     handlers
       .forEach(handlerPath => {
@@ -193,18 +208,96 @@ export class EventService {
       .filter(socket => socket.id !== client.id);
   }
 
-  sendVariableChangeEvent(variableId: string, event: VariableChangeEvent) {
-    this.logger.debug(`Sending variable update event: '${variableId}'=${event.currentValue}`);
+  registerVariablesChangeEventHandler(
+    client: Socket,
+    clientID: string,
+    authData: AuthData,
+    path: string,
+    type?: VariableChangeEventType,
+    secret?: boolean,
+  ): boolean {
+    this.logger.debug(`Registering handler for variables on path ${path} on ${clientID}`);
+    if (!this.variablesChangeHandlers[clientID]) {
+      this.variablesChangeHandlers[clientID] = {};
+    }
+    let handlers = this.variablesChangeHandlers[clientID][path];
+    if (!handlers) {
+      this.variablesChangeHandlers[clientID][path] = handlers = [];
+    }
+    if (handlers.some(filterSocket => filterSocket.socket.id === client.id)) {
+      return false;
+    }
+    handlers.push({
+      socket: client,
+      authData,
+      type,
+      secret,
+    });
+
+    client.on('disconnect', () => {
+      this.logger.debug(`Client for variable handler disconnected: ${clientID} '${path}'`);
+      this.unregisterVariablesChangeEventHandler(client, clientID, path);
+    });
+
+    return true;
+  }
+
+  unregisterVariablesChangeEventHandler(client: Socket, clientID: string, path: string) {
+    this.logger.debug(`Unregistering variable handler: '${path}' on ${clientID}`);
+    if (!this.variableChangeHandlers[clientID]?.[path]) {
+      return;
+    }
+
+    this.variableChangeHandlers[clientID][path] = this.variableChangeHandlers[clientID][path]
+      .filter(socket => socket.id !== client.id);
+  }
+
+  async sendVariableChangeEvent(variable: Variable, event: VariableChangeEvent) {
+    this.logger.debug(`Sending variable update event: '${variable.id}'=${event.currentValue}`);
+
+    const handlerEvent = {
+      id: variable.id,
+      type: event.type,
+      previousValue: event.previousValue,
+      currentValue: event.currentValue,
+      updateTime: event.updateTime,
+      updatedBy: event.updatedBy,
+    };
 
     const handlers = Object.values(this.variableChangeHandlers);
     handlers.forEach(clientHandlers => {
-      if (!clientHandlers?.[variableId]) {
+      if (!clientHandlers?.[variable.id]) {
         return;
       }
-      clientHandlers[variableId].forEach(socket => {
-        this.logger.debug(`Sending variable event: '${variableId}'`, event);
-        socket.emit(`handleVariableChangeEvent:${variableId}`, event);
+      clientHandlers[variable.id].forEach(socket => {
+        this.logger.debug(`Sending variable event: '${variable.id}'`, handlerEvent);
+        socket.emit(`handleVariableChangeEvent:${variable.id}`, handlerEvent);
       });
     });
+
+    const pathHandlers = Object.values(this.variablesChangeHandlers);
+    for (const pathHandler of pathHandlers) {
+      const paths = Object.keys(pathHandler)
+        .filter(this.filterByPath(event.path));
+
+      for (const path of paths) {
+        const listeners = pathHandler[path]
+          .filter(data => data.type === undefined || data.type === event.type)
+          .filter(data => data.secret === undefined || data.secret === event.secret);
+
+        await Promise.all(listeners.map(async ({ authData, socket }) => {
+          if (!await this.authService.hasEnvironmentEntityAccess(variable, authData, true)) {
+            return;
+          }
+
+          this.logger.debug(`Sending variable event for path: '${path}'`, handlerEvent);
+          socket.emit(`handleVariablesChangeEvent:${path}`, handlerEvent);
+        }));
+      }
+    }
+  }
+
+  private filterByPath(path: string) {
+    return handlerPath => handlerPath === '' || path === handlerPath || path.startsWith(`${handlerPath}.`) || path.endsWith(`.${handlerPath}`);
   }
 }

@@ -174,7 +174,7 @@ export class AuthService {
     return true;
   }
 
-  public async checkEnvironmentEntityAccess(
+  public async hasEnvironmentEntityAccess(
     environmentEntity: { environmentId: string; visibility: string },
     authData: AuthData,
     checkVisibility = false,
@@ -192,12 +192,23 @@ export class AuthService {
       (checkVisibility && environmentEntity.visibility !== Visibility.Public && environmentsNotMatch) ||
       (!checkVisibility && environmentsNotMatch)
     ) {
-      throw new ForbiddenException('You do not have access to this entity');
+      return false;
     }
 
     await this.checkPermissions(authData, ...permissions);
 
     return true;
+  }
+
+  async checkEnvironmentEntityAccess(
+    environmentEntity: { environmentId: string; visibility: string },
+    authData: AuthData,
+    checkVisibility = false,
+    ...permissions: Permission[]
+  ) {
+    if (!(await this.hasEnvironmentEntityAccess(environmentEntity, authData, checkVisibility, ...permissions))) {
+      throw new ForbiddenException('You do not have access to this entity');
+    }
   }
 
   async checkPermissions({ user, permissions }: AuthData, ...permissionsToCheck: (Permission | Permission[])[]) {
