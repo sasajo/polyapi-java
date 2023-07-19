@@ -16,7 +16,7 @@ import {
   AuthFunctionSpecification,
   AuthProviderDto,
   ExecuteAuthProviderResponseDto,
-  PropertySpecification, Visibility,
+  PropertySpecification, Visibility, VisibilityQuery,
 } from '@poly/model';
 import { ConfigService } from 'config/config.service';
 import { EventService } from 'event/event.service';
@@ -71,15 +71,15 @@ export class AuthProviderService {
     return [{ AND: filterConditions }, ...idConditions];
   }
 
-  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<AuthProvider[]> {
+  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false): Promise<AuthProvider[]> {
     return this.prisma.authProvider.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
@@ -100,10 +100,13 @@ export class AuthProviderService {
     });
   }
 
-  async getAuthProvider(id: string): Promise<AuthProvider | null> {
+  async getAuthProvider(id: string, includeEnvironment = false): Promise<AuthProvider | null> {
     return this.prisma.authProvider.findFirst({
       where: {
         id,
+      },
+      include: {
+        environment: includeEnvironment,
       },
     });
   }

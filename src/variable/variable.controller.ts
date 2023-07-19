@@ -89,7 +89,7 @@ export class VariableController {
   async getAllContextVariableValues(@Req() req: AuthRequest): Promise<ContextVariableValues> {
     await this.authService.checkPermissions(req.user, Permission.Use);
 
-    return this.service.getContextVariableValues(req.user.environment.id, null);
+    return this.service.getContextVariableValues(req.user.environment.id, req.user.tenant.id, null);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -97,7 +97,7 @@ export class VariableController {
   async getContextVariableValues(@Req() req: AuthRequest, @Param('context') context: string): Promise<ContextVariableValues> {
     await this.authService.checkPermissions(req.user, Permission.Use);
 
-    return this.service.getContextVariableValues(req.user.environment.id, context);
+    return this.service.getContextVariableValues(req.user.environment.id, req.user.tenant.id, context);
   }
 
   @UseGuards(PolyAuthGuard)

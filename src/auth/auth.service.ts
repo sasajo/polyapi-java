@@ -175,23 +175,39 @@ export class AuthService {
   }
 
   public async hasEnvironmentEntityAccess(
-    environmentEntity: { environmentId: string; visibility: string },
+    environmentEntity: { environmentId: string; visibility: string, environment?: Environment },
     authData: AuthData,
     checkVisibility = false,
     ...permissions: Permission[]
   ) {
-    const { environment, user } = authData;
+    const { environment, tenant, user } = authData;
 
     if (user?.role === Role.SuperAdmin) {
       return true;
     }
 
-    const environmentsNotMatch = environment.id !== environmentEntity.environmentId;
+    const checkAccess = () => {
+      const environmentsMatch = environment.id === environmentEntity.environmentId;
+      if (environmentsMatch) {
+        return true;
+      }
+      if (!checkVisibility) {
+        return false;
+      }
 
-    if (
-      (checkVisibility && environmentEntity.visibility !== Visibility.Public && environmentsNotMatch) ||
-      (!checkVisibility && environmentsNotMatch)
-    ) {
+      switch (environmentEntity.visibility) {
+        case Visibility.Public: {
+          return true;
+        }
+        case Visibility.Tenant: {
+          return environmentEntity.environment?.tenantId === tenant.id;
+        }
+      }
+
+      return false;
+    };
+
+    if (!checkAccess()) {
       return false;
     }
 

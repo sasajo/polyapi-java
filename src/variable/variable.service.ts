@@ -3,7 +3,14 @@ import crypto from 'crypto';
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Variable } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { ContextVariableValues, ServerVariableSpecification, ValueType, VariableDto, Visibility } from '@poly/model';
+import {
+  ContextVariableValues,
+  ServerVariableSpecification,
+  ValueType,
+  VariableDto,
+  Visibility,
+  VisibilityQuery,
+} from '@poly/model';
 import { SecretService } from 'secret/secret.service';
 import { CommonService } from 'common/common.service';
 import { SpecsService } from 'specs/specs.service';
@@ -43,15 +50,15 @@ export class VariableService {
     };
   }
 
-  async getAll(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<Variable[]> {
+  async getAll(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false): Promise<Variable[]> {
     return this.prisma.variable.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
@@ -75,15 +82,18 @@ export class VariableService {
     });
   }
 
-  async findById(id: string): Promise<Variable | null> {
+  async findById(id: string, includeEnvironment = false): Promise<Variable | null> {
     return this.prisma.variable.findFirst({
       where: {
         id,
       },
+      include: {
+        environment: includeEnvironment,
+      },
     });
   }
 
-  async findByPath(environmentId: string, path: string): Promise<Variable | null> {
+  async findByPath(environmentId: string, tenantId: string | null, path: string): Promise<Variable | null> {
     const pathParts = path.split('.');
 
     // get private first
@@ -92,7 +102,6 @@ export class VariableService {
       [pathParts.slice(0, -1).join('.')],
       [pathParts[pathParts.length - 1]],
       undefined,
-      false,
     );
     if (variables.length) {
       return variables[0];
@@ -104,7 +113,10 @@ export class VariableService {
       [pathParts.slice(0, -1).join('.')],
       [pathParts[pathParts.length - 1]],
       undefined,
-      true,
+      {
+        includePublic: true,
+        tenantId,
+      },
     );
 
     return variables[0] || null;
@@ -282,9 +294,16 @@ export class VariableService {
     };
   }
 
-  async getContextVariableValues(environmentId: string, context: string | null): Promise<ContextVariableValues> {
-    const variables = (await this.getAll(environmentId, context ? [context] : undefined, undefined, undefined, true))
-      .filter(variable => !variable.secret);
+  async getContextVariableValues(environmentId: string, tenantId: string, context: string | null): Promise<ContextVariableValues> {
+    const variables = (
+      await this.getAll(
+        environmentId,
+        context ? [context] : undefined,
+        undefined,
+        undefined,
+        { includePublic: true, tenantId },
+      )
+    ).filter(variable => !variable.secret);
     const contextValues = {} as ContextVariableValues;
 
     for (const variable of variables) {
@@ -308,7 +327,7 @@ export class VariableService {
     for (const key of Object.keys(obj)) {
       const value = obj[key];
       if (typeof value === 'object' && value.type === 'PolyVariable' && value.id) {
-        const variable = await this.findById(value.id);
+        const variable = await this.findById(value.id, true);
         if (variable) {
           await this.authService.checkEnvironmentEntityAccess(variable, authData, true);
           obj[key as keyof T] = await this.getVariableValue(variable, value.path);

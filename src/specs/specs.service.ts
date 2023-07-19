@@ -2,7 +2,7 @@ import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { FunctionService } from 'function/function.service';
 import { WebhookService } from 'webhook/webhook.service';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
-import { Specification, SpecificationPath, Visibility } from '@poly/model';
+import { Specification, SpecificationPath, Visibility, VisibilityQuery } from '@poly/model';
 import { toCamelCase } from '@guanghechen/helper-string';
 import { Environment, Tenant } from '@prisma/client';
 import { VariableService } from 'variable/variable.service';
@@ -34,8 +34,13 @@ export class SpecsService {
   async getSpecifications(environmentId: string, tenantId: string | null = null, contexts?: string[], names?: string[], ids?: string[]): Promise<Specification[]> {
     this.logger.debug(`Getting specifications for environment ${environmentId} with contexts ${contexts}, names ${names}, and ids ${ids}`);
 
+    const visibilityQuery: VisibilityQuery = {
+      includePublic: true,
+      tenantId,
+    };
+
     const getApiFunctionsSpecifications = async () => {
-      const apiFunctions = await this.functionService.getApiFunctions(environmentId, contexts, names, ids, true, true);
+      const apiFunctions = await this.functionService.getApiFunctions(environmentId, contexts, names, ids, visibilityQuery, true);
       return await Promise.all(
         apiFunctions.map(async apiFunction =>
           await this.fillMetadata(
@@ -47,7 +52,7 @@ export class SpecsService {
     };
 
     const getCustomFunctionsSpecifications = async () => {
-      const customFunctions = await this.functionService.getCustomFunctions(environmentId, contexts, names, ids, true, true);
+      const customFunctions = await this.functionService.getCustomFunctions(environmentId, contexts, names, ids, visibilityQuery, true);
       return await Promise.all(
         customFunctions.map(async customFunction =>
           await this.fillMetadata(
@@ -59,7 +64,7 @@ export class SpecsService {
     };
 
     const getWebhookHandlesSpecifications = async () => {
-      const webhookHandles = await this.webhookService.getWebhookHandles(environmentId, contexts, names, ids, true, true);
+      const webhookHandles = await this.webhookService.getWebhookHandles(environmentId, contexts, names, ids, visibilityQuery, true);
       return await Promise.all(
         webhookHandles.map(async webhookHandle =>
           await this.fillMetadata(
@@ -71,7 +76,7 @@ export class SpecsService {
     };
 
     const getAuthProvidersSpecifications = async () => {
-      const authProviders = await this.authProviderService.getAuthProviders(environmentId, contexts, ids, true, true);
+      const authProviders = await this.authProviderService.getAuthProviders(environmentId, contexts, ids, visibilityQuery, true);
       return (
         await Promise.all(
           authProviders.map(async authProvider => {
@@ -90,7 +95,7 @@ export class SpecsService {
     };
 
     const getServerVariablesSpecifications = async () => {
-      const serverVariables = await this.variableService.getAll(environmentId, contexts, names, ids, true, true);
+      const serverVariables = await this.variableService.getAll(environmentId, contexts, names, ids, visibilityQuery, true);
       return await Promise.all(
         serverVariables.map(async serverVariable =>
           await this.fillMetadata(
@@ -143,6 +148,10 @@ export class SpecsService {
     if (a.visibilityMetadata.visibility === Visibility.Public && b.visibilityMetadata.visibility !== Visibility.Public) {
       return -1;
     } else if (a.visibilityMetadata.visibility !== Visibility.Public && b.visibilityMetadata.visibility === Visibility.Public) {
+      return 1;
+    } else if (a.visibilityMetadata.visibility === Visibility.Tenant && b.visibilityMetadata.visibility !== Visibility.Tenant) {
+      return -1;
+    } else if (a.visibilityMetadata.visibility !== Visibility.Tenant && b.visibilityMetadata.visibility === Visibility.Tenant) {
       return 1;
     } else {
       return 0;

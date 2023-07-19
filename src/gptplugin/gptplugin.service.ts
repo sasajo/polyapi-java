@@ -241,9 +241,19 @@ export class GptPluginService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async _getAllFunctions(environmentId: string, ids: string[]): Promise<PluginFunction[]> {
+  async _getAllFunctions(environmentId: string, tenantId: string, ids: string[]): Promise<PluginFunction[]> {
     // TODO lets filter these down to just supported functions?
-    const apiFunctions = await this.functionService.getApiFunctions(environmentId, [], [], ids, true, true);
+    const apiFunctions = await this.functionService.getApiFunctions(
+      environmentId,
+      [],
+      [],
+      ids,
+      {
+        includePublic: true,
+        tenantId,
+      },
+      true,
+    );
     const customFunctions = await this.functionService.getServerFunctions(environmentId, [], [], ids);
     // const authFunctions = await this.prisma.authFunction.findMany({ where: { publicId: { in: publicIds } } });
 
@@ -289,7 +299,7 @@ export class GptPluginService {
     });
 
     const functionIds = JSON.parse(plugin.functionIds);
-    const functions = await this._getAllFunctions(plugin.environmentId, functionIds);
+    const functions = await this._getAllFunctions(plugin.environmentId, environment.tenantId, functionIds);
 
     // @ts-expect-error: filter gets rid of nulls
     const bodySchemas: Schema[] = functions.map((f) => this.getBodySchema(f)).filter((s) => s !== null);
@@ -331,7 +341,7 @@ export class GptPluginService {
     const functionIds = body.functionIds ? JSON.stringify(body.functionIds) : '';
 
     if (body.functionIds) {
-      const functions = await this._getAllFunctions(environment.id, body.functionIds);
+      const functions = await this._getAllFunctions(environment.id, environment.tenantId, body.functionIds);
       if (functions.length !== body.functionIds.length) {
         const badFunctionIds: string[] = [];
         const goodFunctionIds = functions.map((f) => f.id);

@@ -10,7 +10,7 @@ import {
   ConfigVariableName,
   PropertySpecification,
   TrainingDataGeneration,
-  Visibility,
+  Visibility, VisibilityQuery,
   WebhookHandleDto,
   WebhookHandleSpecification,
 } from '@poly/model';
@@ -47,7 +47,7 @@ export class WebhookService {
     });
   }
 
-  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for environment ${environmentId}...`);
     return this.prisma.webhookHandle.findMany({
       where: {
@@ -55,8 +55,8 @@ export class WebhookService {
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },

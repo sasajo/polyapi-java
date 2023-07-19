@@ -156,7 +156,7 @@ export class FunctionController {
     @Body() data: ExecuteApiFunctionDto,
     @Query() { clientId }: ExecuteApiFunctionQueryParams,
   ): Promise<ApiFunctionResponseDto | null> {
-    const apiFunction = await this.service.findApiFunction(id);
+    const apiFunction = await this.service.findApiFunction(id, true);
     if (!apiFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
@@ -331,7 +331,7 @@ export class FunctionController {
   ): Promise<any> {
     this.logger.debug(`Headers: ${JSON.stringify(headers)}`);
 
-    const customFunction = await this.service.findServerFunction(id);
+    const customFunction = await this.service.findServerFunction(id, true);
     if (!customFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }

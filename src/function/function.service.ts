@@ -36,7 +36,7 @@ import {
   ServerFunctionSpecification,
   TrainingDataGeneration,
   Variables,
-  Visibility,
+  Visibility, VisibilityQuery,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -88,15 +88,15 @@ export class FunctionService implements OnModuleInit {
     await this.faasService.init();
   }
 
-  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
+  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false) {
     return this.prisma.apiFunction.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
@@ -105,7 +105,6 @@ export class FunctionService implements OnModuleInit {
           },
         ],
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: includeTenant
         ? {
             environment: {
@@ -115,13 +114,17 @@ export class FunctionService implements OnModuleInit {
             },
           }
         : undefined,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
-  async findApiFunction(id: string) {
+  async findApiFunction(id: string, includeEnvironment = false) {
     return this.prisma.apiFunction.findFirst({
       where: {
         id,
+      },
+      include: {
+        environment: includeEnvironment,
       },
     });
   }
@@ -584,15 +587,15 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
+  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false) {
     return this.prisma.customFunction.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
@@ -832,11 +835,14 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async findServerFunction(id: string) {
+  async findServerFunction(id: string, includeEnvironment = false) {
     return this.prisma.customFunction.findFirst({
       where: {
         id,
         serverSide: true,
+      },
+      include: {
+        environment: includeEnvironment,
       },
     });
   }
@@ -1055,7 +1061,11 @@ export class FunctionService implements OnModuleInit {
 
     for (const arg of functionArgs) {
       if (arg.variable) {
-        const variable = await this.variableService.findByPath(apiFunction.environmentId, arg.variable);
+        const variable = await this.variableService.findByPath(
+          apiFunction.environmentId,
+          'environment' in apiFunction ? (apiFunction.environment as Environment).tenantId : null,
+          arg.variable,
+        );
         argumentValueMap[arg.key] = variable ? await this.variableService.getVariableValue(variable) : undefined;
         this.logger.debug(`Argument '${arg.name}' resolved to variable ${variable?.id}`);
       } else if (arg.payload) {
@@ -1374,7 +1384,11 @@ export class FunctionService implements OnModuleInit {
         throw new BadRequestException(`Argument '${key}' not found in function`);
       }
       if (argMetadata.variable) {
-        const variable = await this.variableService.findByPath(apiFunction.environmentId, argMetadata.variable);
+        const variable = await this.variableService.findByPath(
+          apiFunction.environmentId,
+          'environment' in apiFunction ? (apiFunction.environment as Environment).tenantId : null,
+          argMetadata.variable,
+        );
         if (!variable) {
           throw new BadRequestException(`Variable on path '${argMetadata.variable}' not found.`);
         }

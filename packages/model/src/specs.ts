@@ -28,6 +28,11 @@ export interface VisibilityMetadata {
   foreignTenantName?: string;
 }
 
+export interface VisibilityQuery {
+  includePublic: boolean;
+  tenantId?: string | null;
+}
+
 export interface FunctionSpecification {
   arguments: PropertySpecification[];
   returnType: PropertyType;

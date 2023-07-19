@@ -8,7 +8,7 @@ import {
   CONTEXT_ALLOWED_CHARACTERS_PATTERN,
   DOTS_AT_BEGINNING_PATTERN,
   DOTS_AT_END_PATTERN,
-  NUMBERS_AT_BEGINNING_PATTERN, Visibility, ArgumentType, PropertyType, ParsedConfigVariable,
+  NUMBERS_AT_BEGINNING_PATTERN, Visibility, ArgumentType, PropertyType, ParsedConfigVariable, VisibilityQuery,
 } from '@poly/model';
 import { toPascalCase } from '@guanghechen/helper-string';
 import { ConfigVariable } from '@prisma/client';
@@ -177,17 +177,37 @@ export class CommonService {
     return name.trim().replace(NAME_ALLOWED_CHARACTERS_PATTERN, '').replace(NUMBERS_AT_BEGINNING_PATTERN, '');
   }
 
-  getPublicVisibilityFilterCondition() {
+  getVisibilityFilterCondition({ includePublic, tenantId }: VisibilityQuery) {
     return {
-      AND: [
-        { visibility: Visibility.Public },
-        {
-          environment: {
-            tenant: {
-              publicVisibilityAllowed: true,
-            },
-          },
-        },
+      OR: [
+        includePublic
+          ? {
+              AND: [
+                { visibility: Visibility.Public },
+                {
+                  environment: {
+                    tenant: {
+                      publicVisibilityAllowed: true,
+                    },
+                  },
+                },
+              ],
+            }
+          : {},
+        tenantId
+          ? {
+              AND: [
+                { visibility: Visibility.Tenant },
+                {
+                  environment: {
+                    tenant: {
+                      id: tenantId,
+                    },
+                  },
+                },
+              ],
+            }
+          : {},
       ],
     };
   }
