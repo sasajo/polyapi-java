@@ -332,7 +332,7 @@ def get_completion_answer(
 
     answer, hit_token_limit = answer_processing(choice)
 
-    return {"answer": answer, "stats": stats}  # type: ignore
+    return {"answer": answer}  # type: ignore
 
 
 def simple_chatgpt_question(question: str) -> ChatGptChoice:

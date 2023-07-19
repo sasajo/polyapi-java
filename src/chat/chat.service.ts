@@ -16,13 +16,12 @@ export class ChatService {
   constructor(private readonly aiService: AiService, private readonly prisma: PrismaService) {}
 
   public async getMessageResponseTexts(environmentId: string, userId: string, message: string): Promise<ChatText[]> {
-    const { answer, stats } = await this.aiService.getFunctionCompletion(environmentId, userId, message);
+    const { answer } = await this.aiService.getFunctionCompletion(environmentId, userId, message);
 
     return [
       {
         type: 'markdown',
         value: answer,
-        stats,
       },
     ];
   }
@@ -65,7 +64,6 @@ export class ChatService {
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
-    console.log(messages);
     const parts = messages.map((m) => `${m.role.toUpperCase()}\n\n${m.content}`);
     return parts.join('\n\n');
   }

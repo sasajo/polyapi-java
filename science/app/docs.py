@@ -179,7 +179,7 @@ Darko Vukovic - Based in Colorado USA, expert in hospitality and platforms as a 
 ]
 
 
-def documentation_question(user_id: str, question: str) -> Tuple[ChatGptChoice, Dict]:
+def documentation_question(user_id: str, question: str) -> ChatGptChoice:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
     )
@@ -195,13 +195,11 @@ def documentation_question(user_id: str, question: str) -> Tuple[ChatGptChoice, 
 
     most_similar_doc = dict()
     max_similarity = -2.0  # similarity is -1 to 1
-    stats: Dict[str, Dict] = {"similarity": {}}
     for doc in DOCS:
         similarity = cosine_similarity(doc["vector"], query_vector)
         if similarity > max_similarity:
             most_similar_doc = doc
             max_similarity = similarity
-        stats["similarity"][doc["name"]] = similarity
 
     if not most_similar_doc:
         raise NotImplementedError("No matching documentation found!")
@@ -223,4 +221,4 @@ def documentation_question(user_id: str, question: str) -> Tuple[ChatGptChoice, 
     conversation = create_new_conversation(user_id)
     store_messages(user_id, conversation.id, messages)
 
-    return choice, stats
+    return choice

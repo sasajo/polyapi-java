@@ -108,4 +108,3 @@ class StatsDict(TypedDict, total=False):
 
 class CompletionAnswer(TypedDict):
     answer: str
-    stats: Dict

@@ -34,22 +34,17 @@ def function_completion() -> CompletionAnswer:
     elif route == "general":
         conversation = create_new_conversation(user_id)
         choice = general_question(user_id, conversation.id, question)
-        resp = {"answer": choice['message']['content'], "stats": {}}
+        resp = {"answer": choice['message']['content']}
     elif route == "conversation":
-        choice, stats = conversation_question(user_id, question)
-        resp = {"answer": choice['message']['content'], "stats": stats}
+        choice = conversation_question(user_id, question)
+        resp = {"answer": choice['message']['content']}
     elif route == "documentation":
-        choice, stats = documentation_question(user_id, question)
-        resp = {"answer": choice['message']['content'], "stats": stats}
+        choice = documentation_question(user_id, question)
+        resp = {"answer": choice['message']['content']}
     else:
         resp = {
-            "answer": f"unexpected category: {route}",
-            "stats": {
-                "todo": "send back more stats!"
-            },
+            "answer": f"unexpected category: {route}"
         }
-
-    resp['stats']['routing'] = route
 
     if is_vip_user(user_id):
         log(f"VIP USER {user_id}", resp, sep="\n")

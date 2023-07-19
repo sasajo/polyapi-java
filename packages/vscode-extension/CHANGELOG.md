@@ -1,3 +1,6 @@
+### 0.1.39
+* Removed debug logging
+
 ### 0.1.38
 * Changed description for Variables
 
