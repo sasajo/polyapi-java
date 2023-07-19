@@ -433,6 +433,7 @@ const generateTSContextDeclarationFile = async (
     comment: getSpecificationWithVariableComment(specification),
     type: toTypeDeclaration(specification.variable.valueType),
     secret: specification.variable.secret,
+    isObjectType: specification.variable.valueType.kind === 'object',
   });
 
   fs.writeFileSync(
