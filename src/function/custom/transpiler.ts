@@ -1,11 +1,12 @@
 import { FunctionArgument } from '@poly/model';
-import ts, { factory, InterfaceDeclaration } from 'typescript';
+import ts, { EnumDeclaration, factory, InterfaceDeclaration } from 'typescript';
 import * as TJS from 'typescript-json-schema';
 import os from 'os';
 import path from 'path';
 import util from 'util';
 import fs from 'fs';
 import crypto from 'crypto';
+import { omit } from 'lodash';
 
 const writeFile = util.promisify(fs.writeFile);
 const unlink = util.promisify(fs.unlink);
@@ -61,6 +62,8 @@ export const transpileCode = async (functionName: string, code: string): Promise
   const contextChain: string[] = [];
   const importedLibraries = new Set<string>();
   const interfaceDeclarations: Record<string, InterfaceDeclaration> = {};
+  const enumDeclarations: Record<string, EnumDeclaration> = {};
+  const classDeclarations: Record<string, ts.ClassDeclaration> = {};
 
   const result = ts.transpileModule(code, {
     compilerOptions: {
@@ -83,6 +86,12 @@ export const transpileCode = async (functionName: string, code: string): Promise
 
               if (ts.isInterfaceDeclaration(node)) {
                 interfaceDeclarations[node.name.text] = node;
+              }
+              if (ts.isEnumDeclaration(node)) {
+                enumDeclarations[node.name.text] = node;
+              }
+              if (ts.isClassDeclaration(node) && node.name) {
+                classDeclarations[node.name.text] = node;
               }
 
               if (ts.isImportDeclaration(node)) {
@@ -187,15 +196,16 @@ export const transpileCode = async (functionName: string, code: string): Promise
     returnType = returnType.replace('Promise<', '').replace('>', '');
   }
 
-  const interfaceTypeSchemas = await getInterfaceJSONSchemas(interfaceDeclarations);
+  const typeSchemas = await getJSONSchemas(interfaceDeclarations, enumDeclarations, classDeclarations);
 
-  if (interfaceTypeSchemas[returnType]) {
-    returnType = interfaceTypeSchemas[returnType];
+  const returnTypeSchema = typeSchemas[returnType.replace('[]', '')];
+  if (returnTypeSchema) {
+    returnType = returnType.endsWith('[]') ? wrapIntoArraySchema(returnTypeSchema) : returnTypeSchema;
   }
   functionArguments.forEach((arg) => {
-    const argTypeSchema = interfaceTypeSchemas[arg.type];
+    const argTypeSchema = typeSchemas[arg.type.replace('[]', '')];
     if (argTypeSchema) {
-      arg.typeSchema = argTypeSchema;
+      arg.typeSchema = arg.type.endsWith('[]') ? wrapIntoArraySchema(argTypeSchema) : argTypeSchema;
     }
   });
 
@@ -210,17 +220,30 @@ export const transpileCode = async (functionName: string, code: string): Promise
   };
 };
 
-const getInterfaceJSONSchemas = async (interfaceDeclarations: Record<string, ts.InterfaceDeclaration>): Promise<Record<string, string>> => {
-  const interfaceSchemas: Record<string, string> = {};
+const getJSONSchemas = async (interfaceDeclarations: Record<string, ts.InterfaceDeclaration>, enumDeclarations: Record<string, ts.EnumDeclaration>, classDeclarations: Record<string, ts.ClassDeclaration>): Promise<Record<string, string>> => {
+  if (Object.keys(interfaceDeclarations).length === 0 && Object.keys(enumDeclarations).length === 0 && Object.keys(classDeclarations).length === 0) {
+    return {};
+  }
+
+  const schemas: Record<string, string> = {};
 
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(tempDir, `${crypto.randomBytes(16).toString('hex')}.ts`);
 
   await writeFile(
     tempFilePath,
-    Object.values(interfaceDeclarations).map((declaration) => {
-      return declaration.getText();
-    }).join('\n'),
+    [
+      ...Object.values(interfaceDeclarations).map((declaration) => {
+        return declaration.getText();
+      }),
+      ...Object.values(enumDeclarations).map((declaration) => {
+        return declaration.getText();
+      }),
+      ...Object.values(classDeclarations).map((declaration) => {
+        return declaration.getText();
+      }),
+    ]
+      .join('\n'),
     'utf8',
   );
 
@@ -230,12 +253,35 @@ const getInterfaceJSONSchemas = async (interfaceDeclarations: Record<string, ts.
     if (interfaceDeclarations.hasOwnProperty(name)) {
       const schema = TJS.generateSchema(program, name, { required: true, noExtraProps: true });
       if (schema) {
-        interfaceSchemas[name] = JSON.stringify(schema);
+        schemas[name] = JSON.stringify(schema);
+      }
+    }
+  }
+  for (const name in enumDeclarations) {
+    if (enumDeclarations.hasOwnProperty(name)) {
+      const schema = TJS.generateSchema(program, name, { required: true, noExtraProps: true });
+      if (schema) {
+        schemas[name] = JSON.stringify(schema);
+      }
+    }
+  }
+  for (const name in classDeclarations) {
+    if (classDeclarations.hasOwnProperty(name)) {
+      const schema = TJS.generateSchema(program, name, { required: true, noExtraProps: true });
+      if (schema) {
+        schemas[name] = JSON.stringify(schema);
       }
     }
   }
 
   await unlink(tempFilePath);
 
-  return interfaceSchemas;
+  return schemas;
+};
+
+const wrapIntoArraySchema = (schema: string): string => {
+  return JSON.stringify({
+    type: 'array',
+    items: omit(JSON.parse(schema), '$schema'),
+  });
 };

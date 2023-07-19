@@ -7,6 +7,26 @@ const myInterface = `
     }
   `;
 
+const myEnum = `
+    enum Colors {
+      Red = 'red',
+      Green = 'green',
+      Blue = 'blue'
+    }
+  `;
+
+const myClass = `
+    class MyClass {
+      prop1: string;
+      prop2: number;
+
+      constructor(prop1: string, prop2: number) {
+        this.prop1 = prop1;
+        this.prop2 = prop2;  
+      }
+    }
+  `;
+
 describe('transpiler', () => {
   describe('transpileCode', () => {
     jest.setTimeout(30000);
@@ -122,6 +142,122 @@ describe('transpiler', () => {
       const result = await transpileCode('testFunc', code);
       expect(result.requirements).not.toContain('path');
       expect(result.requirements).not.toContain('fs');
+    });
+
+    it('should handle enum types correctly', async () => {
+      const code = `
+        ${myEnum}
+        export function testFunc(color: Colors) {
+          return color; 
+        }
+      `;
+
+      const result = await transpileCode('testFunc', code);
+
+      expect(result.args[0].type).toBe('Colors');
+      expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
+        type: 'string',
+        enum: ['blue', 'green', 'red'],
+      });
+    });
+
+    it('should handle array types correctly', async () => {
+      const code = `
+        export function testFunc(items: string[]) {
+          return items[0];
+        }
+      `;
+
+      const result = await transpileCode('testFunc', code);
+
+      expect(result.args[0].type).toBe('string[]');
+      expect(result.args[0].typeSchema).toBeUndefined();
+    });
+
+    it('should handle arrays of interfaces', async () => {
+      const code = `
+        ${myInterface}
+        export function testFunc(items: MyInterface[]) {
+          return items[0].prop1; 
+        }
+      `;
+
+      const result = await transpileCode('testFunc', code);
+
+      expect(result.args[0].type).toBe('MyInterface[]');
+      expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            prop1: { type: 'string' },
+            prop2: { type: 'number' },
+          },
+        },
+      });
+    });
+
+    it('should handle arrays of enums', async () => {
+      const code = `
+        ${myEnum}
+        export function testFunc(colors: Colors[]) {
+          return colors[0];
+        }
+      `;
+
+      const result = await transpileCode('testFunc', code);
+
+      expect(result.args[0].type).toBe('Colors[]');
+      expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
+        type: 'array',
+        items: {
+          type: 'string',
+          enum: ['blue', 'green', 'red'],
+        },
+      });
+    });
+
+    it('should handle class types correctly', async () => {
+      const code = `
+        ${myClass}
+        export function testFunc(obj: MyClass) {
+          return obj.prop1;
+        }
+      `;
+
+      const result = await transpileCode('testFunc', code);
+
+      expect(result.args[0].type).toBe('MyClass');
+      expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
+        type: 'object',
+        properties: {
+          prop1: { type: 'string' },
+          prop2: { type: 'number' },
+        },
+      });
+    });
+
+    it('should handle class array types', async () => {
+      const code = `
+      ${myClass}
+      export function testFunc(items: MyClass[]) {
+        return items[0].prop1;
+      }
+    `;
+
+      const result = await transpileCode('testFunc', code);
+
+      expect(result.args[0].type).toBe('MyClass[]');
+      expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            prop1: { type: 'string' },
+            prop2: { type: 'number' },
+          },
+        },
+      });
     });
   });
 });
