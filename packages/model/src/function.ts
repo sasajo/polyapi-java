@@ -11,6 +11,11 @@ export type Header = PostmanVariableEntry;
 export type RawBody = {
   mode: 'raw';
   raw: string;
+  options?: {
+    raw?: {
+      language: 'json' | 'javascript' | 'text' | 'xml' | 'html';
+    }
+  }
 };
 
 export type UrlencodedBody = {

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { FunctionService } from 'function/function.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApiFunctionArguments } from 'function/types';
@@ -735,6 +736,44 @@ describe('FunctionService', () => {
         status: 500,
         headers: {},
       });
+    });
+  });
+
+  describe('filterJSONComments', () => {
+    it('should filter out // comments from JSON string', () => {
+      const jsonString = `{
+        "test": "test1", // comment
+        "test2": "test2", // comment
+        // comment1
+        // comment2
+        "test3": "test3"
+      }`;
+
+      // @ts-ignore
+      const result = functionService.filterJSONComments(jsonString);
+      expect(JSON.parse(result)).toEqual({
+        test: 'test1',
+        test2: 'test2',
+        test3: 'test3',
+      })
+    });
+
+    it('should filter out /* */ comments from JSON string', () => {
+      const jsonString = `{
+        "test": "test1", /* comment */
+        "test2": "test2", /* comment */
+        /* comment1 */
+        /* comment2 */
+        "test3": "test3"
+      }`;
+
+      // @ts-ignore
+      const result = functionService.filterJSONComments(jsonString);
+      expect(JSON.parse(result)).toEqual({
+        test: 'test1',
+        test2: 'test2',
+        test3: 'test3',
+      })
     });
   });
 });

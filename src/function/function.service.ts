@@ -14,6 +14,7 @@ import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map, of } from 'rxjs';
 import mustache from 'mustache';
+import { stripComments } from 'jsonc-parser';
 import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
@@ -962,6 +963,14 @@ export class FunctionService implements OnModuleInit {
 
   private getBodyWithContentFiltered(body: Body): Body {
     switch (body.mode) {
+      case 'raw':
+        if (body.options?.raw?.language === 'json') {
+          return {
+            ...body,
+            raw: this.filterJSONComments(body.raw),
+          };
+        }
+        return body;
       case 'formdata':
         return {
           ...body,
@@ -1475,5 +1484,9 @@ export class FunctionService implements OnModuleInit {
       : ['void'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : type;
+  }
+
+  private filterJSONComments(jsonString: string) {
+    return stripComments(jsonString);
   }
 }
