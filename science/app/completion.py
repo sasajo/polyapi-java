@@ -360,6 +360,8 @@ def general_question(
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
 ) -> ChatGptChoice:
+    """ ask a general question not related to any Poly-specific functionality
+    """
     messages = msgs_to_msg_dicts(prev_msgs) + [
         MessageDict(role="user", content=question)
     ]
