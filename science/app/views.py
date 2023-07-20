@@ -47,7 +47,8 @@ def function_completion() -> CompletionAnswer:
         choice = general_question(user_id, conversation.id, question, prev_msgs)
         resp = {"answer": choice["message"]["content"]}
     elif route == "documentation":
-        choice = documentation_question(user_id, question, prev_msgs)
+        choice, doc_stats = documentation_question(user_id, question, prev_msgs)
+        stats.update(doc_stats)
         resp = {"answer": choice["message"]["content"]}
     else:
         resp = {"answer": f"unexpected category: {route}"}
