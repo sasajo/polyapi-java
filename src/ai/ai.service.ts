@@ -28,6 +28,7 @@ export class AiService {
         .pipe(
           map((response) => ({
             answer: response.data.answer,
+            stats: response.data.stats,
           })),
         )
         .pipe(catchError(this.processScienceServerError())),

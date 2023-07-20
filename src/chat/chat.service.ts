@@ -16,12 +16,13 @@ export class ChatService {
   constructor(private readonly aiService: AiService, private readonly prisma: PrismaService) {}
 
   public async getMessageResponseTexts(environmentId: string, userId: string, message: string): Promise<ChatText[]> {
-    const { answer } = await this.aiService.getFunctionCompletion(environmentId, userId, message);
+    const { answer, stats } = await this.aiService.getFunctionCompletion(environmentId, userId, message);
 
     return [
       {
         type: 'markdown',
         value: answer,
+        stats,
       },
     ];
   }
