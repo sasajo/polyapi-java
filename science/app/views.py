@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-from typing import Dict, Optional
+import os
+from typing import Any, Dict, Optional
 from flask import Blueprint, Response, request, jsonify
 from openai.error import OpenAIError, RateLimitError
 from app.completion import general_question, get_completion_answer
-from app.conversation import conversation_question
-from app.description import get_function_description, get_variable_description, get_webhook_description
+from app.conversation import previous_message_referenced
+from app.description import (
+    get_function_description,
+    get_variable_description,
+    get_webhook_description,
+)
 from app.docs import documentation_question
 from app.typedefs import CompletionAnswer, DescInputDto, VarDescInputDto
 from app.utils import create_new_conversation, is_vip_user, log
@@ -28,28 +33,36 @@ def function_completion() -> CompletionAnswer:
     assert user_id
     assert environment_id
 
+    prev_msgs = previous_message_referenced(user_id, question)
+    stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
+
     route = route_question(question)
+    stats['route'] = route
+
     if route == "function":
-        resp = get_completion_answer(user_id, environment_id, question)
+        resp, completion_stats = get_completion_answer(user_id, environment_id, question, prev_msgs)
+        stats.update(completion_stats)
     elif route == "general":
         conversation = create_new_conversation(user_id)
-        choice = general_question(user_id, conversation.id, question)
-        resp = {"answer": choice['message']['content']}
-    elif route == "conversation":
-        choice = conversation_question(user_id, question)
-        resp = {"answer": choice['message']['content']}
+        choice = general_question(user_id, conversation.id, question, prev_msgs)
+        resp = {"answer": choice["message"]["content"]}
     elif route == "documentation":
-        choice = documentation_question(user_id, question)
-        resp = {"answer": choice['message']['content']}
+        choice = documentation_question(user_id, question, prev_msgs)
+        resp = {"answer": choice["message"]["content"]}
     else:
-        resp = {
-            "answer": f"unexpected category: {route}"
-        }
+        resp = {"answer": f"unexpected category: {route}"}
+
+    if os.environ.get("HOST_URL") == "https://develop-k8s.polyapi.io":
+        # only send stats back in develop
+        resp["stats"] = stats
+    else:
+        # TODO maybe put the stats somewhere so we can see them in non-develop?
+        resp["stats"] = {}
 
     if is_vip_user(user_id):
         log(f"VIP USER {user_id}", resp, sep="\n")
 
-    return resp
+    return resp  # type: ignore
 
 
 @bp.route("/function-description", methods=["POST"])

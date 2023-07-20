@@ -369,3 +369,10 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
     if "title" in return_type:
         return_type['title'] = "data"
     return {"data": return_type}
+
+
+def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[MessageDict]:
+    if msgs:
+        return [MessageDict(role=msg.role, content=msg.content) for msg in msgs]
+    else:
+        return []

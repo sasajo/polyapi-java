@@ -2,14 +2,16 @@
 then pass it to ChatGPT
 then return the response
 """
-from typing import Dict, Tuple
 import os
+from typing import List
 import openai
+from prisma.models import ConversationMessage
 from app.typedefs import ChatGptChoice, MessageDict
 from app.utils import (
     cosine_similarity,
     create_new_conversation,
     get_chat_completion,
+    msgs_to_msg_dicts,
     store_messages,
 )
 
@@ -179,7 +181,9 @@ Darko Vukovic - Based in Colorado USA, expert in hospitality and platforms as a 
 ]
 
 
-def documentation_question(user_id: str, question: str) -> ChatGptChoice:
+def documentation_question(
+    user_id: str, question: str, prev_msgs: List[ConversationMessage]
+) -> ChatGptChoice:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
     )
@@ -205,12 +209,11 @@ def documentation_question(user_id: str, question: str) -> ChatGptChoice:
         raise NotImplementedError("No matching documentation found!")
 
     prompt = DOC_PROMPT % (most_similar_doc["name"], most_similar_doc["text"], question)
-    messages = [MessageDict(role="user", content=prompt)]
+    messages = msgs_to_msg_dicts(prev_msgs) + [MessageDict(role="user", content=prompt)]
 
     host_url = os.environ.get("HOST_URL", "https://na1.polyapi.io")
     if host_url != "https://na1.polyapi.io":
         content = f"The user's instance url is '{host_url}'. Use it to generate the urls for the poly instance specific links."
-        print(content)
         messages.append(MessageDict(role="user", content=content))
 
     resp = get_chat_completion(messages)

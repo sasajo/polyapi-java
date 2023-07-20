@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 from app.completion import simple_chatgpt_question
 
 ROUTER_PROMPT = """
@@ -7,7 +8,6 @@ Please categorize the user's question. Here are the categories:
 ```
 {
     "function": "The user is looking for a function or details about a function to address their need",
-    "conversation": "The question seems incomplete suggesting the user is referencing information from the preceding conversation",
     "documentation": "The user is looking to understand how to do something specific with PolyAPI or has a general question about PolyAPI",
     %s
 }
@@ -25,7 +25,7 @@ Here is the question:
 """
 
 
-def route_question(question: str) -> str:
+def route_question(question: str) -> Literal["function", "general", "documentation"]:
     if "poly" in question.lower():
         general = ""
     else:
