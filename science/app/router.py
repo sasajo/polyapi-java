@@ -1,5 +1,5 @@
 import json
-from typing import Literal
+from typing import Literal, Tuple
 from app.completion import simple_chatgpt_question
 
 ROUTER_PROMPT = """
@@ -25,7 +25,7 @@ Here is the question:
 """
 
 
-def route_question(question: str) -> Literal["function", "general", "documentation"]:
+def route_question_ai(question: str) -> Literal["function", "general", "documentation"]:
     if "poly" in question.lower():
         general = ""
     else:
@@ -35,3 +35,30 @@ def route_question(question: str) -> Literal["function", "general", "documentati
     choice = simple_chatgpt_question(prompt)
     content = json.loads(choice['message']['content'])
     return content['category']
+
+
+def split_route_and_question(question: str) -> Tuple[Literal["function", "general", "documentation"], str]:
+    question = question.strip()
+    if question.startswith("/"):
+        route_cmd, question = question.split(" ", 1)
+        route = get_route(route_cmd)
+        return route, question
+    else:
+        return "function", question
+
+
+ROUTE_CMD_MAP = {
+    "f": "function",
+    "function": "function",
+    "poly": "documentation",
+    "p": "documentation",
+    "docs": "documentation",
+    "d": "documentation",
+    "general": "general",
+    "g": "general",
+}
+
+
+def get_route(route_cmd: str) -> Literal["function", "general", "documentation"]:
+    route_cmd = route_cmd.lstrip("/")
+    return ROUTE_CMD_MAP.get(route_cmd, "function")  # type: ignore

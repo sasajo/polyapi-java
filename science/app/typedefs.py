@@ -12,7 +12,7 @@ class DescInputDto(TypedDict):
     short_description: str
     payload: str
     response: str
-    code: str
+    code: Optional[str]
     arguments: Optional[List[Dict]]
 
 

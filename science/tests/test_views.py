@@ -15,11 +15,11 @@ class T(DbTestCase):
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
 
-    @patch("app.views.route_question")
+    @patch("app.views.split_route_and_question")
     @patch("app.views.get_completion_answer")
     def test_function_completion_error(self, get_answer: Mock, route_question) -> None:
         # setup
-        route_question.return_value = "function"
+        route_question.return_value = "function", "hi world"
 
         get_answer.side_effect = ServiceUnavailableError(
             "The server is overloaded or not ready yet."
@@ -54,6 +54,8 @@ class T(DbTestCase):
             "short_description": "I am the description",
             "payload": "I am the payload",
             "response": "I am the response",
+            "code": None,
+            "arguments": None,
         }
 
         # execute
@@ -83,6 +85,8 @@ class T(DbTestCase):
             "short_description": "I am the description",
             "payload": "I am the payload",
             "response": "I am the response",
+            "code": None,
+            "arguments": None,
         }
 
         # execute

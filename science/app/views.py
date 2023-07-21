@@ -13,7 +13,7 @@ from app.description import (
 from app.docs import documentation_question
 from app.typedefs import CompletionAnswer, DescInputDto, VarDescInputDto
 from app.utils import create_new_conversation, is_vip_user, log
-from app.router import route_question
+from app.router import split_route_and_question
 
 bp = Blueprint("views", __name__)
 
@@ -36,7 +36,7 @@ def function_completion() -> CompletionAnswer:
     prev_msgs = previous_message_referenced(user_id, question)
     stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
 
-    route = route_question(question)
+    route, question = split_route_and_question(question)
     stats['route'] = route
 
     if route == "function":
