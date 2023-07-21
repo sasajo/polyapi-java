@@ -40,3 +40,14 @@ pm.environment.set('templateUrl', url);
  *   id: '2915f8c3-1740-4d3b-8165-510d4089c580'
  * });
  */
+
+
+/**
+ * For graphql functions, variable types are inferred from graphql introspection call by default. If you want to infer them from
+ * Postman's graphql variables, you can pass:
+ * pm.environment.set('polyData', {
+ *  inferArgTypesFromPostmanGraphqlVariables: true
+ * });
+ * This can be useful for custom scalar types since by default are typed as string | number | boolean | object | array. This is because
+ * graphql doesn't give information about custom scalar types when introspecting, so, a custom scalar type can be `any` value.
+ */

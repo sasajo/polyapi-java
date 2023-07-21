@@ -8,6 +8,14 @@ export type PostmanVariableEntry = {
 
 export type Header = PostmanVariableEntry;
 
+export type GraphQLBody = {
+  mode: 'graphql',
+  graphql: {
+    query: string;
+    variables: string;
+  }
+}
+
 export type RawBody = {
   mode: 'raw';
   raw: string;
@@ -32,7 +40,7 @@ export type EmptyBody = {
   mode: 'empty';
 };
 
-export type Body = RawBody | UrlencodedBody | FormDataBody | EmptyBody;
+export type Body = RawBody | UrlencodedBody | FormDataBody | EmptyBody | GraphQLBody;
 export type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
 
 export type ArgumentType = string;

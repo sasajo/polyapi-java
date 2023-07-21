@@ -1,10 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { ValidatorOptions, validateSync } from 'class-validator';
-import { isPlainObject } from 'lodash';
 
-function isPlainObjectPredicate(value: unknown): value is object {
-  return isPlainObject(value);
-}
+import { isPlainObjectPredicate } from '@poly/common/utils';
 
 export function validateObjectValue(validationClass: new (...args: any[]) => any, value: unknown, validatorOptions?: ValidatorOptions) {
   if (!isPlainObjectPredicate(value)) {

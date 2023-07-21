@@ -1,5 +1,5 @@
 import { Body, Variables, Header, Auth, Method } from '../..';
-import { IsNotEmpty, IsOptional, IsString, Validate } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, Validate } from 'class-validator';
 
 import { ContextIdentifier, NameIdentifier } from './../validators';
 
@@ -36,4 +36,11 @@ export class CreateApiFunctionDto {
   @IsOptional()
   @IsString()
   id?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  inferArgTypesFromPostmanGraphqlVariables: boolean;
+
+  @IsString()
+  urlString: string;
 }

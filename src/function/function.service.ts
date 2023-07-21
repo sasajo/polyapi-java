@@ -28,6 +28,7 @@ import {
   FunctionArgument,
   FunctionBasicDto,
   FunctionDetailsDto,
+  GraphQLBody,
   Header,
   Method,
   PostmanVariableEntry,
@@ -53,6 +54,8 @@ import { ApiFunctionArguments } from './types';
 import { mergeWith, omit, uniqBy } from 'lodash';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { VariableService } from 'variable/variable.service';
+import { getIntrospectionQuery, IntrospectionQuery, VariableDefinitionNode } from 'graphql';
+import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospectionQuery, resolveGraphqlArgumentType } from './graphql/utils';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -164,6 +167,8 @@ export class FunctionService implements OnModuleInit {
     method: Method,
     templateUrl: string,
     templateBody: Body,
+    inferArgTypesFromPostmanGraphqlVariables = false,
+    urlString: string,
     templateAuth?: Auth,
   ): Promise<ApiFunction> {
     if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.AMBIGUOUS)) {
@@ -172,41 +177,67 @@ export class FunctionService implements OnModuleInit {
       );
     }
 
+    const isGraphQL = this.isGraphQLBody(templateBody);
+
+    if (isGraphQL && (response.errors || []).length) {
+      throw new BadRequestException('Cannot teach a graphql call that contains errors.');
+    }
+
     let apiFunction: ApiFunction | null = null;
 
     const finalAuth = templateAuth ? JSON.stringify(templateAuth) : null;
     const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
     const finalHeaders = JSON.stringify(this.getFilteredHeaders(templateHeaders));
+    const graphqlIdentifier = isGraphQL ? getGraphqlIdentifier(templateBody.graphql.query) : '';
 
     if (id === null) {
       const templateBaseUrl = templateUrl.split('?')[0];
 
-      const apiFunctions = await this.prisma.apiFunction.findMany({
-        where: {
-          environmentId: environment.id,
-          OR: [
-            {
-              url: {
-                startsWith: `${templateBaseUrl}?`,
-              },
-            },
-            {
-              url: templateBaseUrl,
-            },
-          ],
-          method,
-        },
-      });
+      if (isGraphQL) {
+        const apiFunctions = await this.prisma.apiFunction.findMany({
+          where: {
+            environmentId: environment.id,
+            method,
+            graphqlIdentifier,
+            url: templateBaseUrl,
+          },
+        });
 
-      if (apiFunctions.length) {
-        apiFunction = await this.findApiFunctionForRetraining(
-          apiFunctions,
-          finalBody,
-          finalHeaders,
-          templateUrl,
-          variables,
-          finalAuth,
-        );
+        if (apiFunctions.length > 1) {
+          throw new BadRequestException('There exist more than 1 api function with same graphql alias:query combination, use { id: string } on polyData Postman environment variable to specify which one do you want to retrain.');
+        }
+
+        apiFunction = apiFunctions[0] || null;
+      }
+
+      if (!isGraphQL) {
+        const apiFunctions = await this.prisma.apiFunction.findMany({
+          where: {
+            environmentId: environment.id,
+            OR: [
+              {
+                url: {
+                  startsWith: `${templateBaseUrl}?`,
+                },
+              },
+              {
+                url: templateBaseUrl,
+              },
+            ],
+            method,
+          },
+        });
+
+        if (apiFunctions.length) {
+          apiFunction = await this.findApiFunctionForRetraining(
+            apiFunctions,
+            finalBody,
+            finalHeaders,
+            templateUrl,
+            variables,
+            finalAuth,
+          );
+        }
       }
     } else if (id !== 'new') {
       apiFunction = await this.prisma.apiFunction.findFirst({
@@ -217,6 +248,10 @@ export class FunctionService implements OnModuleInit {
 
       if (!apiFunction) {
         throw new NotFoundException(`Function not found for id ${id}.`);
+      }
+
+      if ((!apiFunction.graphqlIdentifier && isGraphQL) || (!isGraphQL && !!apiFunction.graphqlIdentifier)) {
+        throw new BadRequestException('Cannot mix training between graphql and api rest functions.');
       }
 
       this.logger.debug(`Explicitly retraining function with id ${id}.`);
@@ -263,6 +298,7 @@ export class FunctionService implements OnModuleInit {
           }
         } catch (err) {
           this.logger.error('Failed to generate AI data for new api function. Taking function name from request name if not provided...');
+
           if (!name) {
             name = this.commonService.sanitizeNameIdentifier(requestName);
           }
@@ -291,13 +327,19 @@ export class FunctionService implements OnModuleInit {
 
     let responseType: string;
     try {
-      responseType = await this.getResponseType(response, payload);
+      responseType = await this.getResponseType(isGraphQL ? response.data : response, payload);
     } catch (e) {
       if (e instanceof PathError) {
         throw new BadRequestException(e.message);
       } else {
         throw e;
       }
+    }
+
+    let graphqlIntrospectionResponse: string | null = null;
+
+    if (isGraphQL && !inferArgTypesFromPostmanGraphqlVariables) {
+      graphqlIntrospectionResponse = JSON.stringify(await this.getGraphqlIntrospectionData(urlString));
     }
 
     const upsertPayload = {
@@ -309,6 +351,8 @@ export class FunctionService implements OnModuleInit {
       headers: finalHeaders,
       auth: finalAuth,
       url: templateUrl,
+      graphqlIdentifier,
+      graphqlIntrospectionResponse,
     };
 
     if (apiFunction && willRetrain) {
@@ -327,8 +371,10 @@ export class FunctionService implements OnModuleInit {
               headers: finalHeaders,
               url: templateUrl,
               id: apiFunction.id,
+              graphqlIntrospectionResponse,
             },
             variables,
+            true,
           ),
         },
       });
@@ -350,8 +396,10 @@ export class FunctionService implements OnModuleInit {
             auth: finalAuth,
             body: finalBody,
             headers: finalHeaders,
+            graphqlIntrospectionResponse,
           },
           variables,
+          true,
         ),
         method,
       },
@@ -447,11 +495,19 @@ export class FunctionService implements OnModuleInit {
       ...this.getAuthorizationHeaders(auth),
     };
 
+    const isGraphql = this.isGraphQLBody(body);
+
     this.logger.debug(
       `Performing HTTP request ${method} ${url} (id: ${apiFunction.id})...\nHeaders:\n${JSON.stringify(
         headers,
       )}\nBody:\n${JSON.stringify(body)}`,
     );
+
+    const executionData = this.getBodyData(body);
+
+    if (isGraphql) {
+      executionData.variables = args;
+    }
 
     return lastValueFrom(
       this.httpService
@@ -460,7 +516,7 @@ export class FunctionService implements OnModuleInit {
           method,
           headers,
           params,
-          data: this.getBodyData(body),
+          data: executionData,
         })
         .pipe(
           map((response) => {
@@ -474,6 +530,14 @@ export class FunctionService implements OnModuleInit {
                     )}`,
                   );
                 }
+
+                if (isGraphql) {
+                  return {
+                    errors: payloadResponse.errors,
+                    data: payloadResponse.data,
+                  };
+                }
+
                 return payloadResponse;
               } catch (e) {
                 return response;
@@ -482,9 +546,23 @@ export class FunctionService implements OnModuleInit {
 
             this.logger.debug(`Raw response (id: ${apiFunction.id}):\nStatus: ${response.status}\n${JSON.stringify(response.data)}`);
 
-            return {
+            const finalResponse = {
               status: response.status,
               headers: response.headers,
+            };
+
+            const processedData = processData();
+
+            if (isGraphql) {
+              return {
+                ...finalResponse,
+                data: processedData.data,
+                errors: processedData.errors,
+              } as ApiFunctionResponseDto;
+            }
+
+            return {
+              ...finalResponse,
               data: processData(),
             } as ApiFunctionResponseDto;
           }),
@@ -584,6 +662,7 @@ export class FunctionService implements OnModuleInit {
       visibilityMetadata: {
         visibility: apiFunction.visibility as Visibility,
       },
+      apiType: apiFunction.graphqlIdentifier ? 'graphql' : 'rest',
     };
   }
 
@@ -953,6 +1032,10 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  private isGraphQLBody(body: Body): body is GraphQLBody {
+    return body.mode === 'graphql';
+  }
+
   async getFunctionsWithVariableArgument(variablePath: string) {
     return this.prisma.apiFunction.findMany({
       where: {
@@ -1000,6 +1083,7 @@ export class FunctionService implements OnModuleInit {
   private getFunctionArguments(apiFunction: ApiFunctionArguments): FunctionArgument[] {
     const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(apiFunction.argumentsMetadata || '{}'));
     const args: FunctionArgument[] = [];
+    const parsedBody = JSON.parse(apiFunction.body || '{}');
 
     args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
       ...toArgument(arg),
@@ -1014,10 +1098,26 @@ export class FunctionService implements OnModuleInit {
       location: 'auth',
     })) || []));
 
-    args.push(...((apiFunction.body?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
-      ...toArgument(arg),
-      location: 'body',
-    })) || []).filter(bodyArg => !args.some(arg => arg.key === bodyArg.key))));
+    if (this.isGraphQLBody(parsedBody)) {
+      const graphqlVariables = getGraphqlVariables(parsedBody.graphql.query);
+
+      const graphqlFunctionArguments = graphqlVariables.map<FunctionArgument>(graphqlVariableDefinition => toArgument(graphqlVariableDefinition.variable.name.value));
+
+      if (apiFunction.graphqlIntrospectionResponse) {
+        args.push(...graphqlFunctionArguments);
+      } else {
+        const parsedGraphqlVariablesFromBody = JSON.parse(parsedBody.graphql.variables);
+        args.push(...graphqlFunctionArguments.filter(argument => {
+          const value = parsedGraphqlVariablesFromBody[argument.name];
+          return typeof value !== 'undefined' && value !== null;
+        }));
+      }
+    } else {
+      args.push(...((apiFunction.body?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
+        ...toArgument(arg),
+        location: 'body',
+      })) || []).filter(bodyArg => !args.some(arg => arg.key === bodyArg.key))));
+    }
 
     args.sort(compareArgumentsByRequired);
 
@@ -1194,6 +1294,10 @@ export class FunctionService implements OnModuleInit {
         return body.formdata.reduce((data, item) => Object.assign(data, { [item.key]: item.value }), {});
       case 'urlencoded':
         return body.urlencoded.reduce((data, item) => Object.assign(data, { [item.key]: item.value }), {});
+      case 'graphql':
+        return {
+          query: body.graphql.query,
+        };
       default:
         return undefined;
     }
@@ -1280,9 +1384,21 @@ export class FunctionService implements OnModuleInit {
     variables: Variables,
     debug?: boolean,
   ) {
+    const { graphqlIntrospectionResponse } = apiFunction;
+
+    const introspectionJSONSchema = graphqlIntrospectionResponse ? getJsonSchemaFromIntrospectionQuery(JSON.parse(graphqlIntrospectionResponse)) : null;
+
     const functionArgs = this.getFunctionArguments(apiFunction);
     const newMetadata: ArgumentsMetadata = {};
     const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
+
+    const parsedBody = JSON.parse(apiFunction.body || '{}');
+
+    const isGraphQL = this.isGraphQLBody(parsedBody);
+
+    const graphqlVariables = isGraphQL ? getGraphqlVariables(parsedBody.graphql.query) : null;
+
+    const graphqlVariablesBody = isGraphQL ? JSON.parse(parsedBody.graphql.variables || '{}') : {};
 
     const resolveArgumentParameterLimit = () => {
       if (functionArgs.length <= this.config.functionArgsParameterLimit) {
@@ -1309,6 +1425,21 @@ export class FunctionService implements OnModuleInit {
         }
       });
     };
+
+    const assignNewMetadata = (arg: FunctionArgument, type: string, typeSchema: Record<string, any> | undefined, required?) => {
+      if (newMetadata[arg.key]) {
+        newMetadata[arg.key].type = type;
+        newMetadata[arg.key].typeSchema = typeSchema;
+        newMetadata[arg.key].required = required;
+      } else {
+        newMetadata[arg.key] = {
+          type,
+          typeSchema,
+          required,
+        };
+      }
+    };
+
     const resolveArgumentTypes = async () => {
       if (debug) {
         if (apiFunction.id) {
@@ -1328,16 +1459,35 @@ export class FunctionService implements OnModuleInit {
         }
         const value = variables[arg.key];
 
-        const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
+        if (isGraphQL) {
+          for (const graphqlVariable of (graphqlVariables as VariableDefinitionNode[])) {
+            const graphqlVariableName = graphqlVariable.variable.name.value;
+            if (graphqlVariableName !== arg.name) {
+              continue;
+            }
 
-        if (newMetadata[arg.key]) {
-          newMetadata[arg.key].type = type;
-          newMetadata[arg.key].typeSchema = typeSchema;
+            if (introspectionJSONSchema) {
+              const {
+                required,
+                type,
+                typeSchema,
+              } = resolveGraphqlArgumentType(graphqlVariable.type, introspectionJSONSchema);
+
+              assignNewMetadata(arg, type, typeSchema, required);
+            } else {
+              const graphqlVariableBodyValue = graphqlVariablesBody[graphqlVariableName];
+
+              if (graphqlVariableBodyValue) {
+                const [type, typeSchema] = await this.resolveArgumentType(JSON.stringify(graphqlVariableBodyValue));
+
+                assignNewMetadata(arg, type, typeSchema);
+              }
+            }
+          }
         } else {
-          newMetadata[arg.key] = {
-            type,
-            typeSchema,
-          };
+          const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
+
+          assignNewMetadata(arg, type, typeSchema);
         }
       }
     };
@@ -1418,7 +1568,7 @@ export class FunctionService implements OnModuleInit {
   ): Promise<ApiFunction | null> {
     let apiFunction: ApiFunction | null = null;
 
-    for await (const currentApiFunction of apiFunctions) {
+    for (const currentApiFunction of apiFunctions) {
       const newArgumentsMetaData = await this.resolveArgumentsMetadata(
         {
           argumentsMetadata: currentApiFunction.argumentsMetadata,
@@ -1427,6 +1577,7 @@ export class FunctionService implements OnModuleInit {
           headers,
           url,
           id: currentApiFunction.id,
+          graphqlIntrospectionResponse: null,
         },
         variables,
       );
@@ -1436,8 +1587,13 @@ export class FunctionService implements OnModuleInit {
       ) as ArgumentsMetadata;
       const parsedNewArgumentsMetaData = JSON.parse(newArgumentsMetaData) as ArgumentsMetadata;
 
+      const equalArgumentsCount = Object.keys(parsedCurrentArgumentsMetaData).length === Object.keys(parsedNewArgumentsMetaData).length;
+      if (equalArgumentsCount && apiFunction) {
+        throw new BadRequestException('There exist more than 1 api function with same arguments, use { id: string } on polyData Postman environment variable to specify which one do you want to retrain.');
+      }
+
       // Check arguments length difference.
-      if (Object.keys(parsedCurrentArgumentsMetaData).length !== Object.keys(parsedNewArgumentsMetaData).length) {
+      if (!equalArgumentsCount) {
         continue;
       }
 
@@ -1454,7 +1610,6 @@ export class FunctionService implements OnModuleInit {
       }
 
       apiFunction = currentApiFunction;
-      break;
     }
 
     return apiFunction;
@@ -1498,6 +1653,25 @@ export class FunctionService implements OnModuleInit {
       : ['void'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : type;
+  }
+
+  private async getGraphqlIntrospectionData(url: string) {
+    return lastValueFrom<IntrospectionQuery>(
+      this.httpService.request({
+        url,
+        method: 'POST',
+        data: {
+          query: getIntrospectionQuery(),
+        },
+      }).pipe(
+        map(response => response.data.data),
+      ).pipe(
+        catchError((error: AxiosError) => {
+          this.logger.error(`Error while introspecting graphql API. ${error}`);
+          return of(null);
+        }),
+      ),
+    );
   }
 
   private filterJSONComments(jsonString: string) {

@@ -52,7 +52,8 @@ const postRequest = {
       },
       statusCode: pm.response.code,
       templateUrl: `${templateUrl.protocol ? `${templateUrl.protocol}://` : ''}${templateUrl.getRemote()}${templateUrl.getPathWithQuery()}`,
-      templateBody
+      templateBody,
+      urlString: url.toString()
     }),
   },
 };

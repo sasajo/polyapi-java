@@ -5,7 +5,8 @@
     "paths": {
       "*": ["./src/*"],
       "@poly/model": ["../model/src"]
-    }
+    },
+    "composite": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
 }

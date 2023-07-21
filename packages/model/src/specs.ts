@@ -94,6 +94,7 @@ export interface PlainPropertyType extends IPropertyType {
 export interface ApiFunctionSpecification extends ISpecification {
   type: 'apiFunction';
   function: FunctionSpecification;
+  apiType: 'graphql' | 'rest'
 }
 
 export interface CustomFunctionSpecification extends ISpecification {

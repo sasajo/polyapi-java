@@ -425,6 +425,7 @@ const generateTSContextDeclarationFile = async (
       returnType: toTypeDeclaration(specification.function.returnType),
       synchronous: specification.function.synchronous === true,
       useResponseTypeWrapper: specification.type === 'apiFunction',
+      isGraphql: specification.type === 'apiFunction' && specification.apiType === 'graphql',
     };
   };
 

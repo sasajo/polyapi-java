@@ -85,6 +85,7 @@ describe('FunctionService', () => {
         headers: '[]',
         auth: '',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -104,6 +105,7 @@ describe('FunctionService', () => {
         headers: '[]',
         auth: '',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -135,6 +137,7 @@ describe('FunctionService', () => {
         headers: '[]',
         auth: '',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -154,6 +157,7 @@ describe('FunctionService', () => {
         headers: '[]',
         auth: '',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -185,6 +189,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header", "value": "{{headerVar1}}"}]',
         auth: '',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -204,6 +209,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}, {"key": "header2", "value": "{{headerVar2}}"}, {"key": "header3","value": "{{headerVar3}}"}, {"key": "header4", "value": "value4"}]',
         auth: '',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -235,6 +241,7 @@ describe('FunctionService', () => {
         headers: '[]',
         auth: '{"auth": "{{authVar1}}"}',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -253,6 +260,7 @@ describe('FunctionService', () => {
         headers: '[]',
         auth: '{"auth1": "{{authVar1}}", "auth2": "{{authVar2}}", "auth3": "{{authVar3}}", "auth4": "value4"}',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -284,6 +292,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -321,6 +330,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{variable}}"}]',
         auth: '{"auth1": "{{variable}}"',
         argumentsMetadata: '{}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -339,6 +349,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -356,6 +367,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '{"variable1": {"type": "number"}, "headerVar1": {"type": "boolean"}, "authVar1": {"type": "object"}, "bodyVar1": {"type": "string"}}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -373,6 +385,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -390,6 +403,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '{"variable1": {"required": false}, "headerVar1": {"required": false}, "authVar1": {"required": false}, "bodyVar1": {"required": false}}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -407,6 +421,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '{"variable1": {"required": false}, "headerVar1": {"required": true}, "authVar1": {"required": false}, "bodyVar1": {"required": true}}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -436,6 +451,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);
@@ -453,6 +469,7 @@ describe('FunctionService', () => {
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
         argumentsMetadata: '{"variable1": {"payload": true}, "headerVar1": {"payload": true}, "authVar1": {"payload": true}, "bodyVar1": {"payload": true}}',
+        graphqlIntrospectionResponse: null
       };
 
       const functionArguments = functionService['getFunctionArguments'](apiFunction);

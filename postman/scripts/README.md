@@ -44,3 +44,16 @@ pm.environment.set('polyData', {
 ```
 
 In both cases `id` field is optional, if not provided, retraining/creating new function will be decided by Poly.
+
+### Graphql
+
+By default, graphql variable types are inferred from introspection call.
+If you want to change this behavior and infer argument types from Postman's Graphql variables box, you can pass following code on pre-request script.
+
+```javascript
+pm.environment.set('polyData', {
+  inferArgTypesFromPostmanGraphqlVariables: true
+});
+```
+
+This can be useful for custom scalar types (see [graphql docs](https://graphql.org/learn/schema/#scalar-types)) since Graphql introspection call doesn't provide information about the exact type that a custom scalar type accepts, so when using default type inferring, custom scalar types are typed as `string | number | array | object | boolean` on client-side (and also `| null` if field is nullable).

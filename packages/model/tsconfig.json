@@ -4,6 +4,9 @@
     "composite": true,
     "outDir": "./build",
     "baseUrl": "./src",
+    "paths": {
+      "@poly/common/*": ["../common/src/*"],
+    }
   },
   "include": ["src/**/*"]
 }

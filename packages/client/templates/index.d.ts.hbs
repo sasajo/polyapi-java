@@ -20,6 +20,13 @@ export interface ApiFunctionResponse<T> {
   headers: Record<string, string>;
 }
 
+export interface GraphqlAPIFunctionResponse<T> {
+  status: number;
+  headers: Record<string, string>;
+  errors?: any[];
+  data?: T;
+}
+
 export interface ErrorEvent {
   message: string;
   data?: any;

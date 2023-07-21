@@ -143,6 +143,7 @@ const PLUGIN_CREATE_SPEC: PluginFunction = {
   visibilityMetadata: {
     visibility: Visibility.Environment,
   },
+  apiType: 'rest',
 };
 
 // use these known TEST_PUBLIC_IDS so we can appropriately clear between tests

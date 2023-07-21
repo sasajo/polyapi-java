@@ -12,8 +12,12 @@ declare module "./index" {
       */
       {{/if}}
       {{name}}({{#each arguments}}{{name}}{{#unless required}}?{{/unless}}: {{{type}}}{{#unless @last}}, {{/unless}}{{/each}}):
-        {{#if synchronous}}{{#if useResponseTypeWrapper}}ApiFunctionResponse<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}
-        {{else}}Promise<{{#if useResponseTypeWrapper}}ApiFunctionResponse<{{{returnType}}}>{{else}}{{{returnType}}}{{/if}}>
+        {{#if synchronous}}
+          {{#if useResponseTypeWrapper}}
+            {{#if isGraphql}}GraphqlAPIFunctionResponse<{{returnType}}>{{else}}ApiFunctionResponse<{{{returnType}}}>{{/if}}
+            {{else}}{{{returnType}}}
+          {{/if}}
+        {{else}}Promise<{{#if useResponseTypeWrapper}}{{#if isGraphql}}GraphqlAPIFunctionResponse<{{returnType}}>{{else}}ApiFunctionResponse<{{{returnType}}}>{{/if}}{{else}}{{{returnType}}}{{/if}}>
         {{/if}};
     {{/each}}
   }
