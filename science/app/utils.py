@@ -1,3 +1,4 @@
+import json
 import copy
 import openai
 import string
@@ -5,7 +6,7 @@ import requests
 import numpy as np
 from requests import Response
 from flask import current_app
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.typedefs import (
     ChatCompletionResponse,
@@ -376,3 +377,17 @@ def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[Message
         return [MessageDict(role=msg.role, content=msg.content) for msg in msgs]
     else:
         return []
+
+
+def extract_code(content: str) -> Any:
+    parts = content.split("```")
+    if len(parts) == 1:
+        rv = content
+    else:
+        rv = parts[1]
+
+    try:
+        return json.loads(rv)
+    except json.JSONDecodeError:
+        return None
+

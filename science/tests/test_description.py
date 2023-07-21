@@ -1,12 +1,14 @@
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from app.description import (
     _parse_openai_response,
+    get_argument_descriptions,
     get_function_description,
     get_variable_description,
     get_webhook_description,
 )
+from app.typedefs import ChatCompletionResponse, MessageDict
 from .testing import DbTestCase
 
 
@@ -58,7 +60,7 @@ class T(DbTestCase):
                 "name": "fromPhoneNumber",
                 "context": "messaging.twilio",
                 "secret": False,
-                "value": "+18033697"
+                "value": "+18033697",
             }
         )
         self.assertEqual(mock_chat.call_count, 1)
@@ -78,6 +80,35 @@ class T(DbTestCase):
         self.assertEqual(
             parsed["description"],
             "This API call retrieves a list of members subscribed...",
+        )
+
+    @patch("app.description.openai.ChatCompletion.create")
+    def test_get_argument_descriptions(self, chat_create: Mock):
+        completion = """Sure! Here is the JSON:
+
+        ```
+        [{"name": "toNumber", "description": "The number to which the message will be sent, including country code."}]
+        ```
+"""
+        chat_create.return_value = ChatCompletionResponse(
+            choices=[
+                {
+                    "message": MessageDict(role="assistant", content=completion),
+                    "index": 0,
+                    "finish_reason": "stop",
+                }
+            ]
+        )
+
+        arguments = get_argument_descriptions(
+            "sms.messaging",
+            "twilio",
+            "send a message",
+            [{"name": "toNumber", "type": {"kind": "primitive", "type": "string"}}],
+        )
+        self.assertEqual(
+            arguments[0]["description"],
+            "The number to which the message will be sent, including country code.",
         )
 
     # def test_get_contexts_and_names(self):

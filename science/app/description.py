@@ -1,8 +1,15 @@
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 import json
 import openai
-from app.typedefs import DescInputDto, DescOutputDto, ErrorDto, MessageDict, VarDescInputDto
-from app.utils import camel_case, get_chat_completion, log
+from app.typedefs import (
+    DescInputDto,
+    DescOutputDto,
+    ErrorDto,
+    MessageDict,
+    SpecificationDto,
+    VarDescInputDto,
+)
+from app.utils import camel_case, extract_code, func_path_with_args, get_chat_completion, log
 from app.constants import CHAT_GPT_MODEL
 
 # this needs to be 300 or less for the OpenAPI spec
@@ -49,7 +56,7 @@ Response Payload:
 
 {code}
 
-Please return the context, name, description, and argument descriptions in this format:
+Please return the context, name, and description in this format:
 
 {format}
 """
@@ -57,12 +64,30 @@ Please return the context, name, description, and argument descriptions in this 
 FUNCTION_DESCRIPTION_RETURN_FORMAT = """{
     "context": "string",
     "name": "string",
-    "description": "string",
-    "args": [{
-        "name": "string",
-        "description": "string"
-    }]
+    "description": "string"
 }"""
+
+
+ARGUMENT_DESCRIPTION_PROMPT = """
+Consider the following function:
+
+```
+// {}
+{}
+```
+
+Please give me the description for each of the arguments.
+
+Return valid JSON in the following format:
+
+{}
+"""
+
+
+ARGUMENT_DESCRIPTION_RETURN_FORMAT = """[{
+    "name": "string",
+    "description": "string"
+}]"""
 
 
 VARIABLE_DESCRIPTION_PROMPT = """
@@ -122,12 +147,48 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
         log_error(data, completion, prompt)
-    else:
-        # for now log EVERYTHING
-        rv['description'] = rv['description'][:300]
-        log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+        return rv
 
+    # for now log EVERYTHING
+    rv["description"] = rv["description"][:300]
+    log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+
+    rv["arguments"] = get_argument_descriptions(
+        rv["context"], rv["name"], rv["description"], data.get("arguments", [])
+    )
     return rv
+
+
+def get_argument_descriptions(
+    context: str, name: str, description: str, arguments: Optional[List[Dict]]
+):
+    if not arguments:
+        return []
+
+    spec = SpecificationDto(
+        id="unused",
+        context=context,
+        name=name,
+        description=description,
+        function={"arguments": arguments},  # type: ignore
+        type="unused",  # type: ignore
+    )
+    path = func_path_with_args(spec)
+    prompt = ARGUMENT_DESCRIPTION_PROMPT.format(
+        description,
+        path,
+        ARGUMENT_DESCRIPTION_RETURN_FORMAT)
+    prompt_msg = MessageDict(
+        role="user",
+        content=prompt
+    )
+
+    resp = openai.ChatCompletion.create(
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
+    )
+
+    message: MessageDict = resp["choices"][0]["message"]
+    return extract_code(message["content"])
 
 
 def _get_code_prompt(code: Optional[str]) -> str:
@@ -168,7 +229,7 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         log_error(data, completion, prompt)
     else:
         # for now log EVERYTHING
-        rv['description'] = rv['description'][:DESCRIPTION_LENGTH_LIMIT]
+        rv["description"] = rv["description"][:DESCRIPTION_LENGTH_LIMIT]
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
@@ -195,7 +256,7 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
         context=data.get("context", ""),
         name=data.get("name", ""),
         description=data.get("description", ""),
-        args=data.get("args", ""),
+        arguments=None,
         openai_response=completion,
     )
 
@@ -207,10 +268,10 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
 
 def get_variable_description(data: VarDescInputDto) -> Dict:
     func_name = data["context"] + "." + data["name"]
-    prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data['secret'], data['value'])
+    prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data["secret"], data["value"])
     messages = [MessageDict(role="user", content=prompt)]
     resp = get_chat_completion(messages)
-    choice = resp['choices'][0]
-    content = choice['message']['content'].strip('```')
+    choice = resp["choices"][0]
+    content = choice["message"]["content"].strip("```")
     rv = json.loads(content)
     return rv

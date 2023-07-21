@@ -13,13 +13,14 @@ class DescInputDto(TypedDict):
     payload: str
     response: str
     code: str
+    arguments: Optional[List[Dict]]
 
 
 class DescOutputDto(TypedDict):
     name: str
     context: str
     description: str
-    args: Any
+    arguments: Optional[List[Dict]]
     openai_response: str
 
 
