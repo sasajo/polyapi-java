@@ -302,6 +302,7 @@ describe('EventService', () => {
         secret: false,
         updateTime: 123456789,
         updatedBy: 'user',
+        updatedFields: ['value'],
       });
 
       // check socket emit called
@@ -311,7 +312,9 @@ describe('EventService', () => {
         previousValue: 'old value',
         currentValue: 'new value',
         updateTime: 123456789,
+        secret: false,
         updatedBy: 'user',
+        updatedFields: ['value'],
       });
     });
 
@@ -333,6 +336,7 @@ describe('EventService', () => {
         secret: false,
         updateTime: 123456789,
         updatedBy: 'user',
+        updatedFields: ['value'],
       });
 
       // check all sockets emit called
@@ -343,6 +347,8 @@ describe('EventService', () => {
         currentValue: 'new value',
         updateTime: 123456789,
         updatedBy: 'user',
+        secret: false,
+        updatedFields: ['value'],
       });
       expect(socket2.emit).toBeCalledWith('handleVariableChangeEvent:var1', {
         id: 'var1',
@@ -351,6 +357,8 @@ describe('EventService', () => {
         currentValue: 'new value',
         updateTime: 123456789,
         updatedBy: 'user',
+        secret: false,
+        updatedFields: ['value'],
       });
     });
 
@@ -368,6 +376,7 @@ describe('EventService', () => {
         updatedBy: 'user',
         secret: false,
         path: 'path',
+        updatedFields: ['value'],
       });
 
       // check nothing emitted
@@ -402,6 +411,7 @@ describe('EventService', () => {
         updatedBy: 'user',
         secret: false,
         path: 'path1.var123',
+        updatedFields: ['value'],
       });
 
       // check socket1 emitted
@@ -436,6 +446,7 @@ describe('EventService', () => {
         updatedBy: 'user',
         secret: false,
         path: 'path2.var123',
+        updatedFields: ['value'],
       });
 
       // check nothing emitted

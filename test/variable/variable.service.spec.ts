@@ -198,7 +198,7 @@ describe('VariableService', () => {
       expect(secretServiceMock.set).not.toBeCalled();
     });
 
-    it('should not call eventService.sendVariableChangeEvent when variable value is not passed', async () => {
+    it('should not call eventService.sendVariableChangeEvent when variable no value nor secret is passed', async () => {
       await service.updateVariable(
         'environmentId12345',
         'updater12345',
@@ -208,7 +208,7 @@ describe('VariableService', () => {
         'description12345',
         undefined,
         Visibility.Environment,
-        false,
+        undefined,
       );
 
       expect(eventServiceMock.sendVariableChangeEvent).not.toBeCalled();
@@ -246,11 +246,12 @@ describe('VariableService', () => {
       expect(eventServiceMock.sendVariableChangeEvent).toBeCalledWith(updatedVariable, {
         type: 'update',
         currentValue: 'value12345',
-        previousValue: 'previousValue12345',
+        previousValue: expect.not.stringMatching('previousValue12345'),
         updatedBy: 'updater12345',
         updateTime: expect.any(Number),
         path: 'context12345.name12345',
         secret: false,
+        updatedFields: ['value', 'secret'],
       });
     });
 
@@ -275,6 +276,7 @@ describe('VariableService', () => {
         updateTime: expect.any(Number),
         path: 'context12345.name12345',
         secret: true,
+        updatedFields: ['value'],
       });
     });
   });
@@ -324,6 +326,7 @@ describe('VariableService', () => {
         updateTime: expect.any(Number),
         path: 'context12345.name12345',
         secret: false,
+        updatedFields: [],
       });
     });
 
@@ -342,6 +345,7 @@ describe('VariableService', () => {
         updateTime: expect.any(Number),
         path: 'context12345.name12345',
         secret: true,
+        updatedFields: [],
       });
     });
   });

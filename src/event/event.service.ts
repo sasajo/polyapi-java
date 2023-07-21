@@ -258,10 +258,12 @@ export class EventService {
     const handlerEvent = {
       id: variable.id,
       type: event.type,
+      secret: event.secret,
       previousValue: event.previousValue,
       currentValue: event.currentValue,
       updateTime: event.updateTime,
       updatedBy: event.updatedBy,
+      updatedFields: event.updatedFields,
     };
 
     const handlers = Object.values(this.variableChangeHandlers);

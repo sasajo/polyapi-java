@@ -580,7 +580,7 @@ describe('FunctionService', () => {
       } as ApiFunction;
 
       const result = await functionService['getArgumentValueMap'](apiFunction, {});
-      expect(variableServiceMock.findByPath).toHaveBeenCalledWith('environmentId', 'json.postId');
+      expect(variableServiceMock.findByPath).toHaveBeenCalledWith('environmentId', null, 'json.postId');
       expect(result).toEqual({
         variable1: undefined,
       });
@@ -611,7 +611,7 @@ describe('FunctionService', () => {
 
       const result = await functionService['getArgumentValueMap'](apiFunction, {});
 
-      expect(variableServiceMock.findByPath).toHaveBeenCalledWith('environmentId', 'json.postId');
+      expect(variableServiceMock.findByPath).toHaveBeenCalledWith('environmentId', null, 'json.postId');
       expect(variableServiceMock.getVariableValue).toHaveBeenCalledWith(mockVariable);
       expect(result).toEqual({
         variable1: 'testValue',

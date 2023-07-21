@@ -6,6 +6,7 @@ declare module vari {
   type UnregisterOnUpdateHandler = () => void;
   interface VariableChangeEvent<T> {
     type: 'update' | 'delete';
+    secret: boolean;
     id: string;
     previousValue: T;
     /**
@@ -17,6 +18,7 @@ declare module vari {
      * User ID or Application ID of the user or application that updated the variable.
      */
     updatedBy: string;
+    updatedField: ('value' | 'secret')[];
   };
 
   type OnUpdateOptions = {

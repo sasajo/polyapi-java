@@ -207,21 +207,31 @@ export class VariableService {
         },
       });
 
-      if (value) {
-        const previousValue = secret
-          ? '********'
-          : await this.getVariableValue(variable);
+      const previousValue = variable.secret
+        ? '********'
+        : await this.getVariableValue(variable);
 
+      if (value) {
         this.logger.debug(`Updating variable ${variable.id} value`);
         await this.secretService.set(environmentId, variable.id, value);
+      }
+
+      if ((value !== undefined && value !== previousValue) || secret !== variable.secret) {
+        const currentValue = secret
+          ? '********'
+          : value || await this.getVariableValue(updatedVariable);
 
         this.logger.debug(`Sending change event for variable ${variable.id}.`);
         await this.eventService.sendVariableChangeEvent(updatedVariable, {
           type: 'update',
           previousValue,
-          currentValue: secret ? '********' : value,
+          currentValue,
           updatedBy,
           updateTime: Date.now(),
+          updatedFields: [
+            value !== undefined && value !== previousValue ? 'value' : null,
+            secret !== variable.secret ? 'secret' : null,
+          ].filter(Boolean) as ('value' | 'secret')[],
           secret: secret as boolean,
           path: `${context ? `${context}.` : ''}${name}`,
         });
@@ -262,6 +272,7 @@ export class VariableService {
         currentValue: null,
         updatedBy: deletedBy,
         updateTime: Date.now(),
+        updatedFields: [],
         secret: variable.secret,
         path: `${variable.context ? `${variable.context}.` : ''}${variable.name}`,
       });

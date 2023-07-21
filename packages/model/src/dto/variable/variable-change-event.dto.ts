@@ -8,4 +8,5 @@ export interface VariableChangeEvent {
   currentValue: any;
   updateTime: number;
   updatedBy: string;
+  updatedFields: ('value' | 'secret')[];
 }
