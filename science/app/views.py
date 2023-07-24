@@ -12,7 +12,7 @@ from app.description import (
 )
 from app.docs import documentation_question
 from app.typedefs import CompletionAnswer, DescInputDto, VarDescInputDto
-from app.utils import create_new_conversation, is_vip_user, log
+from app.utils import create_new_conversation, get_user, log
 from app.router import split_route_and_question
 
 bp = Blueprint("views", __name__)
@@ -39,17 +39,25 @@ def function_completion() -> CompletionAnswer:
     question: str = data["question"].strip()
     user_id: Optional[str] = data.get("user_id")
     environment_id: Optional[str] = data.get("environment_id")
-    assert user_id
     assert environment_id
+    assert user_id
+    user = get_user(user_id)
+    if not user:
+        return {
+            "answer": "App Key passed instead of User Key. Please use a user key to interact with the Poly AI Assistant!",
+            "stats": {},
+        }
 
     prev_msgs = previous_message_referenced(user_id, question)
     stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
 
     route, question = split_route_and_question(question)
-    stats['route'] = route
+    stats["route"] = route
 
     if route == "function":
-        resp, completion_stats = get_completion_answer(user_id, environment_id, question, prev_msgs)
+        resp, completion_stats = get_completion_answer(
+            user_id, environment_id, question, prev_msgs
+        )
         stats.update(completion_stats)
     elif route == "general":
         conversation = create_new_conversation(user_id)
@@ -71,7 +79,7 @@ def function_completion() -> CompletionAnswer:
         # TODO maybe put the stats somewhere so we can see them in non-develop?
         resp["stats"] = {}
 
-    if is_vip_user(user_id):
+    if user.vip:
         log(f"VIP USER {user_id}", resp, sep="\n")
 
     return resp  # type: ignore

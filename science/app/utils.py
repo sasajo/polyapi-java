@@ -16,7 +16,13 @@ from app.typedefs import (
     AnyFunction,
 )
 from prisma import Prisma, get_client, register
-from prisma.models import ConversationMessage, Conversation, ConfigVariable, ApiKey
+from prisma.models import (
+    ConversationMessage,
+    Conversation,
+    ConfigVariable,
+    ApiKey,
+    User,
+)
 
 
 # HACK should have better name
@@ -76,7 +82,7 @@ def func_args(spec: SpecificationDto) -> List[str]:
 
 def func_path_with_args(func: SpecificationDto) -> str:
     args = func_args(func)
-    sep = '\n'
+    sep = "\n"
     return f"{func_path(func)}(\n{sep.join(args)}\n)"
 
 
@@ -92,8 +98,7 @@ def log(*args, **kwargs) -> None:
 
 
 def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
-    """ insert an internal message just for our own tracking purposes
-    """
+    """insert an internal message just for our own tracking purposes"""
     messages.insert(
         0,
         MessageDict(
@@ -185,14 +190,6 @@ def quick_db_connect():
     return db
 
 
-def is_vip_user(user_id: Optional[str]) -> bool:
-    if not user_id:
-        return False
-
-    user = get_client().user.find_first(where={"id": user_id})
-    return user.vip if user else False
-
-
 remove_punctuation_translation = str.maketrans("", "", string.punctuation)
 
 
@@ -238,6 +235,11 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
         return result
 
     return None
+
+
+def get_user(user_id: str) -> Optional[User]:
+    db = get_client()
+    return db.user.find_first(where={"id": user_id})
 
 
 def get_user_key(user_id: str, environment_id: str) -> Optional[ApiKey]:
@@ -368,7 +370,7 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
         return None
 
     if "title" in return_type:
-        return_type['title'] = "data"
+        return_type["title"] = "data"
     return {"data": return_type}
 
 
@@ -390,4 +392,3 @@ def extract_code(content: str) -> Any:
         return json.loads(rv)
     except json.JSONDecodeError:
         return None
-
