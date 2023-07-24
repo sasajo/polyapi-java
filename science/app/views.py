@@ -24,6 +24,15 @@ def home():
     return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
 
 
+HELP_ANSWER = """Poly conversation special commands
+
+* /functions or /f or no slash command: search functions and variables and use them to answer question
+* /help or /h: list out available commands
+* /poly or /p or /docs or /d: searches poly documentation
+* /general or /g: ask general question straight to ChatGPT
+"""
+
+
 @bp.route("/function-completion", methods=["POST"])  # type: ignore
 def function_completion() -> CompletionAnswer:
     data: Dict = request.get_json(force=True)
@@ -46,6 +55,8 @@ def function_completion() -> CompletionAnswer:
         conversation = create_new_conversation(user_id)
         choice = general_question(user_id, conversation.id, question, prev_msgs)
         resp = {"answer": choice["message"]["content"]}
+    elif route == "help":
+        resp = {"answer": HELP_ANSWER}
     elif route == "documentation":
         choice, doc_stats = documentation_question(user_id, question, prev_msgs)
         stats.update(doc_stats)

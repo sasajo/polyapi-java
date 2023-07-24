@@ -25,7 +25,7 @@ Here is the question:
 """
 
 
-def route_question_ai(question: str) -> Literal["function", "general", "documentation"]:
+def route_question_ai(question: str) -> Literal["function", "general", "documentation", "help"]:
     if "poly" in question.lower():
         general = ""
     else:
@@ -37,7 +37,7 @@ def route_question_ai(question: str) -> Literal["function", "general", "document
     return content['category']
 
 
-def split_route_and_question(question: str) -> Tuple[Literal["function", "general", "documentation"], str]:
+def split_route_and_question(question: str) -> Tuple[Literal["function", "general", "documentation", "help"], str]:
     question = question.strip()
     if question.startswith("/"):
         route_cmd, question = question.split(" ", 1)
@@ -54,6 +54,8 @@ ROUTE_CMD_MAP = {
     "p": "documentation",
     "docs": "documentation",
     "d": "documentation",
+    "help": "help",
+    "h": "help",
     "general": "general",
     "g": "general",
 }
