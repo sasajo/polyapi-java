@@ -188,7 +188,8 @@ def _get_top(
     items: List[SpecificationDto],
     keywords: str,
 ) -> Tuple[List[SpecificationDto], StatsDict]:
-    threshold = get_similarity_threshold()
+    function_threshold = get_similarity_threshold()
+    variable_threshold = 35  # HACK hardcoded for now
 
     funcs = []
     variables = []
@@ -221,9 +222,9 @@ def _get_top(
     variables_with_scores = sorted(
         variables_with_scores, key=lambda x: x[1], reverse=True
     )
-    top_functions = [item for item, score in functions_with_scores if score > threshold]
+    top_functions = [item for item, score in functions_with_scores if score > function_threshold]
     top_functions = top_functions[:match_limit]
-    top_variables = [item for item, score in variables_with_scores if score > threshold]
+    top_variables = [item for item, score in variables_with_scores if score > variable_threshold]
     top_variables = top_variables[:match_limit]
 
     stats = _get_stats(functions_with_scores, variables_with_scores)
