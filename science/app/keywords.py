@@ -18,7 +18,8 @@ from prisma import get_client
 KEYWORD_PROMPT = """For the following prompt, give me back the keywords from my prompt
 This will be used to power an API discovery service.
 Each keyword must be a single word.
-Keep the list to the top 8 keywords relevant to APIs.
+Return 8 or fewer keywords.
+Return only the keywords most relevant to APIs or variables.
 Don't include "API" or "resource" as keywords.
 
 Here is the prompt:

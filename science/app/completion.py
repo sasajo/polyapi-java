@@ -169,6 +169,7 @@ def get_best_function_messages(
     question: str,
 ) -> Tuple[List[MessageDict], StatsDict]:
     keywords = extract_keywords(user_id, conversation_id, question)
+    print(keywords)
     options, stats = get_function_options_prompt(user_id, environment_id, keywords)
     stats["prompt"] = question
 
