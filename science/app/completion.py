@@ -138,7 +138,7 @@ def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
-Which functions could be invoked as is, if any, to implement this user prompt:
+Which functions or variables could be invoked as is, if any, to implement this user prompt:
 
 "%s"
 
@@ -156,9 +156,9 @@ If no function or variable is suitable, please return the following:
 
 Here's what each confidence score means, rate it from the bottom up stopping when a match is achieved:
 
-1: Function is similar, but for a different system, resource, or operation and cannot be used as is
+1: Function or variable is similar, but for a different system, resource, or operation and cannot be used as is
 2: It might be useful, but would require more investigation to be sure
-3: The function can be used as is to address the users prompt.
+3: The function or variable can be used as is to address the users prompt.
 """
 
 
