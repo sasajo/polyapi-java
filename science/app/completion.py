@@ -273,7 +273,7 @@ Each variable has the following methods:
 * .get()  // get the value of the variable
 * .onUpdate()  // execute function when the variable is updated
 * .update()  // update the value of the variable
-* .onServer()  // use the value of the variable in a custom function
+* .onServer()  // use the variable inside a poly function to be injected on the poly server at the time of execution
 """
 
 BEST_FUNCTION_QUESTION_TEMPLATE = 'My question:\n"{question}"'
