@@ -98,9 +98,11 @@ class ChatCompletionResponse(TypedDict):
 
 class StatsDict(TypedDict, total=False):
     prompt: str
-    total: int
     match_count: int
-    scores: List[Tuple[str, int]]
+    total_functions: int
+    total_variables: int
+    function_scores: List[Tuple[str, int]]
+    variable_scores: List[Tuple[str, int]]
     keyword_extraction: ExtractKeywordDto
     keyword_stats: 'StatsDict'
     semantically_similar_stats: 'StatsDict'

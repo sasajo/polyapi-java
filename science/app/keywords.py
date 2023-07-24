@@ -139,7 +139,7 @@ def get_top_function_matches(
 
     stats: StatsDict = {"keyword_extraction": keyword_data}
     stats["config"] = {
-        "function_match_limit": match_limit,
+        "match_limit": match_limit,
         "similarity_threshold": get_similarity_threshold(),
         "extract_keywords_temperature": get_extract_keywords_temperature(),
     }
@@ -169,12 +169,15 @@ def filter_items_based_on_http_method(
 
 
 def _generate_match_count(stats: StatsDict) -> int:
-    """ for keyword matches, we only return up to `match_limit` matches
+    """for keyword matches, we only return up to `match_limit` matches
     this function counts how many potential matches crossed the similarity threshold
     """
     threshold = get_similarity_threshold()
     matches = set()
-    for name, score in stats["keyword_stats"]["scores"]:
+    for name, score in stats["keyword_stats"].get("function_scores", []):
+        if score > threshold:
+            matches.add(name)
+    for name, score in stats["keyword_stats"].get("variable_scores", []):
         if score > threshold:
             matches.add(name)
     return len(matches)
@@ -187,31 +190,69 @@ def _get_top(
 ) -> Tuple[List[SpecificationDto], StatsDict]:
     threshold = get_similarity_threshold()
 
-    if not keywords:
-        return [], {"total": len(items), "match_count": 0, "scores": []}
-
-    items_with_scores = []
+    funcs = []
+    variables = []
     for item in items:
-        _, score = keywords_similar(keywords, item)
-        items_with_scores.append((item, score))
+        if item["type"] == "serverVariable":
+            variables.append(item)
+        else:
+            funcs.append(item)
 
-    items_with_scores = sorted(items_with_scores, key=lambda x: x[1], reverse=True)
-    stats = _get_stats(items_with_scores)
+    if not keywords:
+        return [], {
+            "total_functions": len(funcs),
+            "total_variables": len(variables),
+            "match_count": 0,
+        }
 
-    top_matches = [item for item, score in items_with_scores if score > threshold]
-    return top_matches[:match_limit], stats
+    functions_with_scores = []
+    for func in funcs:
+        _, score = keywords_similar(keywords, func)
+        functions_with_scores.append((func, score))
+
+    variables_with_scores = []
+    for variable in variables:
+        _, score = keywords_similar(keywords, variable)
+        variables_with_scores.append((variable, score))
+
+    functions_with_scores = sorted(
+        functions_with_scores, key=lambda x: x[1], reverse=True
+    )
+    variables_with_scores = sorted(
+        variables_with_scores, key=lambda x: x[1], reverse=True
+    )
+    top_functions = [item for item, score in functions_with_scores if score > threshold]
+    top_functions = top_functions[:match_limit]
+    top_variables = [item for item, score in functions_with_scores if score > threshold]
+    top_variables = top_variables[:match_limit]
+
+    stats = _get_stats(functions_with_scores, variables_with_scores)
+    return top_functions + top_variables, stats
 
 
-def _get_stats(items_with_scores: List[Tuple[SpecificationDto, int]]) -> StatsDict:
-    stats: StatsDict = {"total": len(items_with_scores)}
+def _get_stats(
+    functions_with_scores: List[Tuple[SpecificationDto, int]],
+    variables_with_scores: List[Tuple[SpecificationDto, int]],
+) -> StatsDict:
+    stats: StatsDict = {
+        "total_functions": len(functions_with_scores),
+        "total_variables": len(variables_with_scores),
+    }
     match_count = 0
 
-    scores: List[Tuple[str, int]] = []
-    for item, score in items_with_scores:
+    function_scores: List[Tuple[str, int]] = []
+    for item, score in functions_with_scores:
         if score > get_similarity_threshold():
             match_count += 1
-        scores.append((func_path(item), score))
+        function_scores.append((func_path(item), score))
 
-    stats["scores"] = scores
+    variable_scores: List[Tuple[str, int]] = []
+    for item, score in variables_with_scores:
+        if score > get_similarity_threshold():
+            match_count += 1
+        variable_scores.append((func_path(item), score))
+
+    stats["function_scores"] = function_scores
+    stats["variable_scores"] = variable_scores
     stats["match_count"] = match_count
     return stats

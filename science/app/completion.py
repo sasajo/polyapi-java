@@ -267,6 +267,13 @@ Use any combination of only the following functions to answer my question:
 BEST_FUNCTION_VARIABLES_TEMPLATE = """Use any combination of the following variables as arguments to those functions:
 
 {variable_str}
+
+Each variable has the following methods:
+
+* .get()  // get the value of the variable
+* .onUpdate()  // execute function when the variable is updated
+* .update()  // update the value of the variable
+* .onServer()  // use the value of the variable in a custom function
 """
 
 BEST_FUNCTION_QUESTION_TEMPLATE = 'My question:\n"{question}"'

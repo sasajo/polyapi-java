@@ -15,6 +15,7 @@ from .testing import DbTestCase
 
 ACCUWEATHER = {
     "id": "f7588018-2364-4586-b60d-b08a285f1ea3",
+    "type": "apiFunction",
     "name": "accuweatherGetlocation",
     "context": "",
     "description": "get the weather for a specific location (using locationid)",
@@ -25,6 +26,7 @@ ACCUWEATHER = {
 }
 GOOGLE_MAPS = {
     "id": "60062c03-dcfd-437d-832c-6cba9543f683",
+    "type": "apiFunction",
     "name": "gMapsGetXy",
     "context": "shipping",
     "description": "get the X and Y coordinates of a location from Google Maps",
