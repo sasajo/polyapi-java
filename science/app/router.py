@@ -40,7 +40,14 @@ def route_question_ai(question: str) -> Literal["function", "general", "document
 def split_route_and_question(question: str) -> Tuple[Literal["function", "general", "documentation", "help"], str]:
     question = question.strip()
     if question.startswith("/"):
-        route_cmd, question = question.split(" ", 1)
+        parts = question.split(" ", 1)
+
+        route_cmd = parts[0]
+        if len(parts) == 1:
+            question = ""
+        else:
+            question = parts[1]
+
         route = get_route(route_cmd)
         return route, question
     else:
