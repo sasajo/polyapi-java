@@ -10,7 +10,7 @@ from load_fixtures import test_user_get_or_create
 
 
 class T(DbTestCase):
-    def test_user_get_or_create(self) -> None:
+    def test_test_user_get_or_create(self) -> None:
         user = test_user_get_or_create()
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
@@ -19,6 +19,7 @@ class T(DbTestCase):
     @patch("app.views.get_completion_answer")
     def test_function_completion_error(self, get_answer: Mock, route_question) -> None:
         # setup
+        user = test_user_get_or_create()
         route_question.return_value = "function", "hi world"
 
         get_answer.side_effect = ServiceUnavailableError(
@@ -26,7 +27,7 @@ class T(DbTestCase):
         )
         mock_input = {
             "question": "hi world",
-            "user_id": "123",
+            "user_id": user.id,
             "environment_id": "123",
         }
 
