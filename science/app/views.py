@@ -44,7 +44,7 @@ def function_completion() -> CompletionAnswer:
     user = get_user(user_id)
     if not user:
         return {
-            "answer": "App Key passed instead of User Key. Please use a user key to interact with the Poly AI Assistant!",
+            "answer": "This key is not assigned to a user, please use a key assigned to a user with the AI Assistant.",
             "stats": {},
         }
 
