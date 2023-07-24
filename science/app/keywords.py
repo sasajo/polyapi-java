@@ -223,7 +223,7 @@ def _get_top(
     )
     top_functions = [item for item, score in functions_with_scores if score > threshold]
     top_functions = top_functions[:match_limit]
-    top_variables = [item for item, score in functions_with_scores if score > threshold]
+    top_variables = [item for item, score in variables_with_scores if score > threshold]
     top_variables = top_variables[:match_limit]
 
     stats = _get_stats(functions_with_scores, variables_with_scores)

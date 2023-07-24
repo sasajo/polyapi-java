@@ -107,7 +107,7 @@ def _join_content(
         parts.append(webhook_preface)
         parts += webhook_parts
 
-    if variable_preface:
+    if variable_parts:
         parts.append(variable_preface)
         parts += variable_parts
 
