@@ -370,12 +370,14 @@ def general_question(
     """ ask a general question not related to any Poly-specific functionality
     """
     messages = msgs_to_msg_dicts(prev_msgs) + [
-        MessageDict(role="user", content=question)
+        MessageDict(role="user", content=question, type=2)
     ]
 
     resp = get_chat_completion(messages)
     choice = resp["choices"][0]
-    messages.append(choice["message"])
+    answer = choice["message"]
+    answer["type"] = 2
+    messages.append(answer)
 
     insert_internal_step_info(messages, "FALLBACK")
     store_messages(user_id, conversation_id, messages)

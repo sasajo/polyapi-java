@@ -5,12 +5,13 @@ from app.utils import create_new_conversation
 from load_fixtures import test_environment_get_or_create, test_user_get_or_create
 from app.completion import (
     _id_extraction_fallback,
+    general_question,
     get_best_function_example,
     get_function_options_prompt,
     get_best_function_messages,
     _extract_ids_from_completion,
 )
-from app.typedefs import ExtractKeywordDto, SpecificationDto
+from app.typedefs import ExtractKeywordDto, MessageDict, SpecificationDto
 from .testing import DbTestCase
 
 EXTRACTION_FALLBACK_EXAMPLE = """The following function can be used to get a list of products from a Shopify store and then log the first product:
@@ -86,11 +87,13 @@ FUNCTIONS: List[SpecificationDto] = [
             "arguments": [
                 {
                     "name": "locationId",
+                    "description": "",
                     "type": {"kind": "primitive", "type": "string"},
                     "required": True,
                 },
                 {
                     "name": "AAPIKey",
+                    "description": "",
                     "type": {"kind": "primitive", "type": "string"},
                     "required": True,
                 },
@@ -108,11 +111,13 @@ FUNCTIONS: List[SpecificationDto] = [
             "arguments": [
                 {
                     "name": "locationId",
+                    "description": "",
                     "type": {"kind": "primitive", "type": "string"},
                     "required": True,
                 },
                 {
                     "name": "GAPIKey",
+                    "description": "",
                     "type": {"kind": "primitive", "type": "string"},
                     "required": True,
                 },
@@ -130,6 +135,7 @@ FUNCTIONS: List[SpecificationDto] = [
             "arguments": [
                 {
                     "name": "impact",
+                    "description": "",
                     "type": {"kind": "primitive", "type": "string"},
                     "required": True,
                 },
@@ -277,3 +283,17 @@ class T(DbTestCase):
     def test_id_extraction_fallback(self):
         rv = _id_extraction_fallback(EXTRACTION_FALLBACK_EXAMPLE)
         self.assertEqual(rv, ["3d02d0a3-dcf8-4bc3-8f03-a8619291f936", "4442d0a3-dcf8-4bc3-8f03-a8619291f936"])
+
+    @patch("app.completion.get_chat_completion")
+    def test_general_question(self, get_chat_completion):
+        get_chat_completion.return_value = {
+            "choices": [{"message": MessageDict(role="assistant", content="I am the answer")}]
+        }
+
+        user = test_user_get_or_create()
+        conversation = create_new_conversation(user.id)
+        general_question(user.id, conversation.id, "I am the question")
+
+        # should store both question and answer as type = 2
+        msgs = self.db.conversationmessage.find_many(where={"conversationId": conversation.id, "type": 2})
+        self.assertEqual(len(msgs), 2)
