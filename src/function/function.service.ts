@@ -48,7 +48,7 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { uniqBy, mergeWith, omit } from 'lodash';
+import { uniqBy, mergeWith, omit, cloneDeep, isPlainObject } from 'lodash';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
@@ -411,10 +411,11 @@ export class FunctionService implements OnModuleInit {
     const url = mustache.render(apiFunction.url, argumentsMap);
     const method = apiFunction.method;
     const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentsMap)) : null;
-    const body = JSON.parse(mustache.render(apiFunction.body || '{}', argumentsMap));
+    const body = this.getSanitizedRawBody(apiFunction, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentsMap);
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
+
     const headers = {
       ...JSON.parse(mustache.render(apiFunction.headers || '[]', argumentsMap)).reduce(
         (headers, header) => Object.assign(headers, { [header.key]: header.value }),
@@ -1440,5 +1441,87 @@ export class FunctionService implements OnModuleInit {
     }
 
     return apiFunction;
+  }
+
+  private getSanitizedRawBody(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): Body {
+    const body = JSON.parse(apiFunction.body || '{}') as Body;
+
+    const clonedArgumentValueMap = cloneDeep(argumentValueMap);
+
+    const sanitizeSringArgumentValue = (name: string, quoted: boolean) => {
+      try {
+        const parsedValue = JSON.parse(clonedArgumentValueMap[name]);
+
+        /*
+          If function argument string is an stringified JSON we should stringify it again since it will be included inside a key value in the
+          final rendered mustache template.
+        */
+        if (isPlainObject(parsedValue) || Array.isArray(parsedValue)) {
+          const doubleStringifiedValue = JSON.stringify(clonedArgumentValueMap[name]);
+
+          if (quoted) {
+            // Removed first and last double quotes since they are already present on mustache template.
+            clonedArgumentValueMap[name] = `${doubleStringifiedValue.replace(/^"/, '').replace(/"$/, '')}`;
+          } else {
+            clonedArgumentValueMap[name] = doubleStringifiedValue;
+          }
+        }
+      } catch (err) {
+        // Regular argument string, we only escape double quotes to avoid breaking json syntax on mustache template.
+        const escapedString = (clonedArgumentValueMap[name] || '').replace(/"/g, '\\"');
+
+        clonedArgumentValueMap[name] = quoted ? escapedString : `"${escapedString}"`;
+      }
+    };
+
+    const foundArgs: {
+        quoted: boolean,
+        name: string,
+      }[] = [];
+
+    const pushFoundArg = (arg: string, quoted: boolean) => {
+      foundArgs.push({
+        quoted,
+        name: arg.replace('{{', '').replace('}}', ''),
+      });
+    };
+
+    if (body.mode === 'raw') {
+      const unquotedArgsRegexp = /(?<!\\")\{\{.+?\}\}(?!\\")/ig;
+      const quotedArgsRegexp = /(?<=\\")\{\{.+?\}\}(?=\\")/ig;
+      const bodyString = apiFunction.body || '';
+
+      const unquotedArgsMatchResult = bodyString.match(unquotedArgsRegexp) || [];
+      const quotedArgsMatchResult = bodyString.match(quotedArgsRegexp) || [];
+
+      for (const unquotedArg of unquotedArgsMatchResult) {
+        pushFoundArg(unquotedArg, false);
+      }
+
+      for (const quotedArg of quotedArgsMatchResult) {
+        pushFoundArg(quotedArg, true);
+      }
+
+      for (const arg of foundArgs) {
+        if (argumentsMetadata[arg.name].type === 'string') {
+          sanitizeSringArgumentValue(arg.name, arg.quoted);
+        }
+      }
+
+      const unescapedBodyString = (body.raw || '').replace(/\\"/g, '"');
+
+      const renederedContent = mustache.render(unescapedBodyString || '{}', clonedArgumentValueMap, {}, {
+        escape(text) {
+          return text;
+        },
+      });
+
+      return {
+        ...body,
+        raw: JSON.stringify(JSON.parse(renederedContent)),
+      };
+    }
+
+    return JSON.parse(mustache.render(apiFunction.body || '{}', argumentValueMap));
   }
 }
