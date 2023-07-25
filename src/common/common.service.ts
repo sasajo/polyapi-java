@@ -95,6 +95,13 @@ export class CommonService {
   }
 
   async toPropertyType(name: string, type: ArgumentType, typeObject?: object, typeSchema?: Record<string, any>): Promise<PropertyType> {
+    if (typeSchema) {
+      return {
+        kind: 'object',
+        schema: typeSchema,
+      };
+    }
+
     if (type.endsWith('[]')) {
       return {
         kind: 'array',
@@ -119,12 +126,7 @@ export class CommonService {
           kind: 'void',
         };
       case 'object':
-        if (typeSchema) {
-          return {
-            kind: 'object',
-            schema: typeSchema,
-          };
-        } else if (typeObject) {
+        if (typeObject) {
           const schema = await this.getJsonSchema(toPascalCase(name), typeObject);
           return {
             kind: 'object',

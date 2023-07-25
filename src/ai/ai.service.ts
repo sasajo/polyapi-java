@@ -4,7 +4,12 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { SystemPrompt } from '@prisma/client';
-import { FunctionCompletionDto, FunctionDescriptionDto, VariableDescriptionDto } from '@poly/model';
+import {
+  FunctionCompletionDto,
+  FunctionDescriptionDto,
+  PropertySpecification,
+  VariableDescriptionDto,
+} from '@poly/model';
 
 @Injectable()
 export class AiService {
@@ -51,6 +56,7 @@ export class AiService {
     url: string,
     method: string,
     description: string,
+    args: PropertySpecification[],
     body: string,
     response: string,
     code?: string,
@@ -62,6 +68,7 @@ export class AiService {
           url,
           method,
           short_description: description,
+          arguments: args,
           payload: body,
           response,
           code,

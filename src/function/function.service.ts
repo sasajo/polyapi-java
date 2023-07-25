@@ -189,6 +189,9 @@ export class FunctionService implements OnModuleInit {
     const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
     const finalHeaders = JSON.stringify(this.getFilteredHeaders(templateHeaders));
     const graphqlIdentifier = isGraphQL ? getGraphqlIdentifier(templateBody.graphql.query) : '';
+    const graphqlIntrospectionResponse = isGraphQL && !inferArgTypesFromPostmanGraphqlVariables
+      ? JSON.stringify(await this.getGraphqlIntrospectionData(urlString))
+      : null;
 
     if (id === null) {
       const templateBaseUrl = templateUrl.split('?')[0];
@@ -258,6 +261,19 @@ export class FunctionService implements OnModuleInit {
     }
 
     const willRetrain = (id === null || id !== 'new') && apiFunction !== null;
+    const argumentsMetadata = await this.resolveArgumentsMetadata(
+      {
+        argumentsMetadata: null,
+        auth: finalAuth,
+        body: finalBody,
+        headers: finalHeaders,
+        url: templateUrl,
+        id: apiFunction?.id,
+        graphqlIntrospectionResponse,
+      },
+      variables,
+      true,
+    );
 
     if (id === 'new') {
       this.logger.debug('Explicitly avoid retrain.');
@@ -278,11 +294,13 @@ export class FunctionService implements OnModuleInit {
           const {
             name: aiName,
             description: aiDescription,
+            arguments: aiArguments,
             context: aiContext,
           } = await this.aiService.getFunctionDescription(
             url,
             apiFunction?.method || method,
             description || apiFunction?.description || '',
+            await this.toArgumentSpecifications(argumentsMetadata),
             JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
             JSON.stringify(this.commonService.trimDownObject(response)),
           );
@@ -296,6 +314,13 @@ export class FunctionService implements OnModuleInit {
           if (!description && !apiFunction?.description) {
             description = aiDescription;
           }
+
+          this.logger.debug(`Setting argument descriptions to arguments metadata from AI: ${JSON.stringify(aiArguments)}...`);
+          aiArguments
+            .filter((aiArgument) => !argumentsMetadata[aiArgument.name].description)
+            .forEach((aiArgument) => {
+              argumentsMetadata[aiArgument.name].description = aiArgument.description;
+            });
         } catch (err) {
           this.logger.error('Failed to generate AI data for new api function. Taking function name from request name if not provided...');
 
@@ -336,12 +361,6 @@ export class FunctionService implements OnModuleInit {
       }
     }
 
-    let graphqlIntrospectionResponse: string | null = null;
-
-    if (isGraphQL && !inferArgTypesFromPostmanGraphqlVariables) {
-      graphqlIntrospectionResponse = JSON.stringify(await this.getGraphqlIntrospectionData(urlString));
-    }
-
     const upsertPayload = {
       context: finalContext,
       description: finalDescription,
@@ -351,6 +370,7 @@ export class FunctionService implements OnModuleInit {
       headers: finalHeaders,
       auth: finalAuth,
       url: templateUrl,
+      argumentsMetadata: JSON.stringify(argumentsMetadata),
       graphqlIdentifier,
       graphqlIntrospectionResponse,
     };
@@ -363,19 +383,6 @@ export class FunctionService implements OnModuleInit {
         data: {
           ...upsertPayload,
           name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true, [apiFunction.id]),
-          argumentsMetadata: await this.resolveArgumentsMetadata(
-            {
-              argumentsMetadata: null,
-              auth: finalAuth,
-              body: finalBody,
-              headers: finalHeaders,
-              url: templateUrl,
-              id: apiFunction.id,
-              graphqlIntrospectionResponse,
-            },
-            variables,
-            true,
-          ),
         },
       });
     }
@@ -389,18 +396,6 @@ export class FunctionService implements OnModuleInit {
         },
         ...upsertPayload,
         name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true),
-        argumentsMetadata: await this.resolveArgumentsMetadata(
-          {
-            argumentsMetadata: null,
-            url: templateUrl,
-            auth: finalAuth,
-            body: finalBody,
-            headers: finalHeaders,
-            graphqlIntrospectionResponse,
-          },
-          variables,
-          true,
-        ),
         method,
       },
     });
@@ -608,13 +603,6 @@ export class FunctionService implements OnModuleInit {
     const optionalArguments = functionArguments.filter((arg) => !arg.payload && !arg.required);
     const payloadArguments = functionArguments.filter((arg) => arg.payload);
 
-    const toPropertySpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
-      name: arg.name,
-      description: arg.description,
-      required: arg.required == null ? true : arg.required,
-      type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject, arg.typeSchema && JSON.parse(arg.typeSchema)),
-    });
-
     const getReturnType = async (): Promise<PropertyType> => {
       if (!apiFunction.responseType) {
         return {
@@ -640,7 +628,7 @@ export class FunctionService implements OnModuleInit {
       description: apiFunction.description,
       function: {
         arguments: [
-          ...(await Promise.all(requiredArguments.map(toPropertySpecification))),
+          ...(await Promise.all(requiredArguments.map(arg => this.toArgumentSpecification(arg)))),
           ...(
             payloadArguments.length > 0
               ? [
@@ -649,13 +637,13 @@ export class FunctionService implements OnModuleInit {
                     required: true,
                     type: {
                       kind: 'object',
-                      properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+                      properties: await Promise.all(payloadArguments.map(arg => this.toArgumentSpecification(arg))),
                     },
                   },
                 ]
               : []
           ),
-          ...(await Promise.all(optionalArguments.map(toPropertySpecification))),
+          ...(await Promise.all(optionalArguments.map(arg => this.toArgumentSpecification(arg)))),
         ] as PropertySpecification[],
         returnType: await getReturnType(),
       },
@@ -745,14 +733,27 @@ export class FunctionService implements OnModuleInit {
       },
     });
 
-    if (!description && !customFunction?.description) {
+    const argumentsNeedDescription = !customFunction || JSON.parse(customFunction.arguments).some((arg) => {
+      const newArg = args.find((a) => a.key === arg.key);
+      return !newArg || newArg.type !== arg.type || !arg.description;
+    });
+
+    if ((!description && !customFunction?.description) || argumentsNeedDescription) {
       if (await this.isCustomFunctionAITrainingEnabled(environment, serverFunction)) {
         const {
           description: aiDescription,
+          arguments: aiArguments,
+        } = await this.getCustomFunctionAIData(description, args, code);
+        const existingArguments = JSON.parse(customFunction?.arguments || '[]') as FunctionArgument[];
 
-        } = await this.getCustomFunctionAIData(description, code);
-
-        description = aiDescription;
+        description = description || customFunction?.description || aiDescription;
+        aiArguments.forEach(aiArgument => {
+          const existingArgument = existingArguments.find(arg => arg.key === aiArgument.name);
+          const updatedArgument = args.find(arg => arg.key === aiArgument.name);
+          if (updatedArgument && !existingArgument?.description) {
+            updatedArgument.description = aiArgument.description;
+          }
+        });
       }
     }
 
@@ -986,21 +987,6 @@ export class FunctionService implements OnModuleInit {
       return false;
     };
 
-    const toArgumentSpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
-      name: arg.name,
-      required: typeof arg.required === 'undefined' ? true : arg.required,
-      type: arg.typeSchema
-        ? {
-            kind: 'object',
-            typeName: arg.type,
-            schema: JSON.parse(arg.typeSchema),
-          }
-        : {
-            kind: 'plain',
-            value: arg.type,
-          },
-    });
-
     return {
       id: customFunction.id,
       type: customFunction.serverSide ? 'serverFunction' : 'customFunction',
@@ -1009,7 +995,7 @@ export class FunctionService implements OnModuleInit {
       description: customFunction.description,
       requirements: JSON.parse(customFunction.requirements || '[]'),
       function: {
-        arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
+        arguments: await Promise.all(parsedArguments.map(arg => this.toArgumentSpecification(arg))),
         returnType: customFunction.returnType
           ? isReturnTypeSchema()
             ? {
@@ -1181,6 +1167,25 @@ export class FunctionService implements OnModuleInit {
     }
 
     return argumentValueMap;
+  }
+
+  private async toArgumentSpecification(arg: FunctionArgument): Promise<PropertySpecification> {
+    return {
+      name: arg.name,
+      description: arg.description,
+      required: arg.required == null ? true : arg.required,
+      type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject, arg.typeSchema && JSON.parse(arg.typeSchema)),
+    };
+  }
+
+  private async toArgumentSpecifications(argumentsMetadata: ArgumentsMetadata): Promise<PropertySpecification[]> {
+    const argumentSpecifications: PropertySpecification[] = [];
+
+    for (const key of Object.keys(argumentsMetadata)) {
+      argumentSpecifications.push(await this.toArgumentSpecification(this.toArgument(key, argumentsMetadata)));
+    }
+
+    return argumentSpecifications;
   }
 
   private async resolveFunctionName(
@@ -1496,7 +1501,7 @@ export class FunctionService implements OnModuleInit {
 
     await resolveArgumentTypes();
 
-    return JSON.stringify(newMetadata);
+    return newMetadata;
   }
 
   private async resolveArgumentType(value: string) {
@@ -1585,9 +1590,8 @@ export class FunctionService implements OnModuleInit {
       const parsedCurrentArgumentsMetaData = JSON.parse(
         currentApiFunction.argumentsMetadata || '{}',
       ) as ArgumentsMetadata;
-      const parsedNewArgumentsMetaData = JSON.parse(newArgumentsMetaData) as ArgumentsMetadata;
 
-      const equalArgumentsCount = Object.keys(parsedCurrentArgumentsMetaData).length === Object.keys(parsedNewArgumentsMetaData).length;
+      const equalArgumentsCount = Object.keys(parsedCurrentArgumentsMetaData).length === Object.keys(newArgumentsMetaData).length;
       if (equalArgumentsCount && apiFunction) {
         throw new BadRequestException('There exist more than 1 api function with same arguments, use { id: string } on polyData Postman environment variable to specify which one do you want to retrain.');
       }
@@ -1601,8 +1605,8 @@ export class FunctionService implements OnModuleInit {
       if (
         !Object.keys(parsedCurrentArgumentsMetaData).every((key) => {
           return (
-            parsedNewArgumentsMetaData.hasOwnProperty(key) &&
-            parsedCurrentArgumentsMetaData[key].type === parsedNewArgumentsMetaData[key].type
+            newArgumentsMetaData.hasOwnProperty(key) &&
+            parsedCurrentArgumentsMetaData[key].type === newArgumentsMetaData[key].type
           );
         })
       ) {
@@ -1615,13 +1619,15 @@ export class FunctionService implements OnModuleInit {
     return apiFunction;
   }
 
-  private async getCustomFunctionAIData(description: string, code: string) {
+  private async getCustomFunctionAIData(description: string, args: FunctionArgument[], code: string) {
     const {
       description: aiDescription,
+      arguments: aiArguments,
     } = await this.aiService.getFunctionDescription(
       '',
       '',
       description,
+      await Promise.all(args.map(arg => this.toArgumentSpecification(arg))),
       '',
       '',
       code,
@@ -1629,6 +1635,7 @@ export class FunctionService implements OnModuleInit {
 
     return {
       description: aiDescription,
+      arguments: aiArguments,
     };
   }
 

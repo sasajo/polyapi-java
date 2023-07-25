@@ -590,9 +590,23 @@ const getSpecificationWithFunctionComment = (specification: SpecificationWithFun
       .map((line) => `* ${line}`)
       .join('\n')
     : null;
+  const toArgumentComment = (arg: PropertySpecification, prefix = '') => {
+    if (arg.name === 'payload' && arg.type.kind === 'object' && arg.type.properties) {
+      return arg.type.properties
+        .map(payloadProperty => toArgumentComment(payloadProperty, 'payload.'))
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (!arg.description) {
+      return null;
+    }
+    return `* @param ${prefix}${arg.name} ${arg.description}`;
+  };
+
   const argumentsComment = specification.function.arguments
-    .filter((arg) => !!arg.description)
-    .map((arg) => `* @param ${toCamelCase(arg.name)} ${arg.description}`)
+    .map(arg => toArgumentComment(arg))
+    .filter(Boolean)
     .join('\n');
   const additionalComments = getAdditionalComments(specification);
 
