@@ -20,6 +20,19 @@ declare module vari {
     updatedBy: string;
     updatedField: ('value' | 'secret')[];
   };
+  interface VariableUpdateResponse<T> {
+    data: {
+      id: string;
+      context: string;
+      name: string;
+      description: string;
+      visibility: 'ENVIRONMENT' | 'TENANT' | 'PUBLIC';
+      secret: boolean;
+      value?: T
+    }
+    status: number;
+    headers: Record<string, string>;
+  }
 
   type OnUpdateOptions = {
     /**

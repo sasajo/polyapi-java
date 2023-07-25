@@ -32,7 +32,13 @@ const getVariableHandlers = (clientID, getSocket) => {
         return axios.patch(
           `/variables/${id}`,
           { value }
-        ).then(() => {});
+        ).then(response => {
+          return {
+            data: response.data,
+            status: response.status,
+            headers: response.headers,
+          };
+        });
       },
       onUpdate: (callback) => {
         const socket = getSocket();
