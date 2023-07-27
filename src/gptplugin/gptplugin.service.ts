@@ -24,6 +24,15 @@ const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/pol
 // what is the slug you chose for your pagekite?
 // see pagekite.me
 const LOCALHOST_PAGEKITE = 'megatronical';
+const SIMPLE_PLUGIN_FIELDS = [
+  'contactEmail',
+  'legalUrl',
+  'descriptionForMarketplace',
+  'descriptionForModel',
+  'iconUrl',
+  'authType',
+  'authToken',
+];
 
 type AnyFunction = ApiFunction | CustomFunction;
 
@@ -36,6 +45,12 @@ export type PluginFunction = Specification & {
   function: FunctionSpecification;
   executePath: string;
   operationId: string;
+};
+
+type PluginAuth = {
+  type: string;
+  authorization_type: string;
+  verification_tokens?: object;
 };
 
 type OpenApiResponse = {
@@ -72,8 +87,13 @@ function slugify(str: string): string {
 function _getSlugSubdomain(host: string): [string, string] {
   const slugEnv = host.split('.')[0];
   const parts = rsplit(slugEnv, '-', 1);
-  const slug = parts[0];
-  const subdomain = parts[1];
+  let slug = parts[0];
+  let subdomain = parts[1];
+  if (subdomain === LOCALHOST_PAGEKITE) {
+    // HACK hardcode this for local testing
+    slug = LOCALHOST_PAGEKITE;
+    subdomain = '69a4f5f0';
+  }
   return [slug, subdomain];
 }
 
@@ -361,23 +381,14 @@ export class GptPluginService {
     if (body.name) {
       update['name'] = _validateName(body.name);
     }
-    if (body.contactEmail) {
-      update['contactEmail'] = body.contactEmail;
-    }
-    if (body.legalUrl) {
-      update['legalUrl'] = body.legalUrl;
-    }
-    if (body.descriptionForMarketplace) {
-      update['descriptionForMarketplace'] = body.descriptionForMarketplace;
-    }
-    if (body.descriptionForModel) {
-      update['descriptionForModel'] = body.descriptionForModel;
-    }
-    if (body.iconUrl) {
-      update['iconUrl'] = body.iconUrl;
-    }
     if (functionIds) {
       update['functionIds'] = functionIds;
+    }
+
+    for (const value of SIMPLE_PLUGIN_FIELDS) {
+      if (body[value]) {
+        update[value] = body[value];
+      }
     }
 
     return this.prisma.gptPlugin.upsert({
@@ -386,6 +397,8 @@ export class GptPluginService {
       },
       update: { ...update },
       create: {
+        ...update,
+        // list them all explicitly so we pass type checking and can set defaults
         slug: body.slug,
         name: _validateName(body.name ? body.name : body.slug),
         contactEmail: body.contactEmail ? body.contactEmail : 'info@polyapi.io',
@@ -412,7 +425,8 @@ export class GptPluginService {
     let contactEmail = 'info@polyapi.io';
     let legalUrl = 'https://polyapi.io/legal';
 
-    const auth = {
+    // default to user auth
+    let auth: PluginAuth = {
       type: 'user_http',
       authorization_type: 'bearer',
     };
@@ -420,10 +434,17 @@ export class GptPluginService {
       name = 'Poly API Staging';
     } else if (slug === 'develop') {
       name = 'Poly API Develop';
-    } else if (slug === LOCALHOST_PAGEKITE) {
-      name = 'Poly API Local';
     } else {
       const plugin = await this.getPlugin(slug, environment.id, { environment: true });
+      if (plugin.authType === 'service_http') {
+        auth = {
+          type: plugin.authType,
+          authorization_type: 'bearer',
+          verification_tokens: {
+            openai: plugin.authToken,
+          },
+        };
+      }
       name = plugin.name;
       descMarket = plugin.descriptionForMarketplace;
       descModel = plugin.descriptionForModel;
