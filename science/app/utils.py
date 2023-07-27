@@ -144,10 +144,10 @@ def get_conversations_for_user(user_id: str) -> List[Conversation]:
     )
 
 
-def get_last_conversation(user_id: str) -> Optional[Conversation]:
+def get_last_conversations(user_id: str, limit: int) -> List[Conversation]:
     db = get_client()
-    return db.conversation.find_first(
-        where={"userId": user_id}, order={"createdAt": "desc"}
+    return db.conversation.find_many(
+        where={"userId": user_id}, order={"createdAt": "desc"}, take=limit
     )
 
 

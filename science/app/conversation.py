@@ -4,7 +4,7 @@ from prisma.models import ConversationMessage
 from app.constants import MessageType
 from app.typedefs import MessageDict
 from app.utils import (
-    get_last_conversation,
+    get_last_conversations,
 )
 
 
@@ -35,8 +35,9 @@ def previous_message_referenced(
 ) -> List[ConversationMessage]:
     """ get any previous messages referenced in the incoming question
     """
-    conversation = get_last_conversation(user_id)
-    if not conversation:
+    conversations = get_last_conversations(user_id, 3)
+    conversationIds = [conversation.id for conversation in conversations]
+    if not conversationIds:
         return []
 
     # choice = simple_chatgpt_question(question)
@@ -45,14 +46,14 @@ def previous_message_referenced(
     # except (ValueError, TypeError):
     #     answer = 0
 
-    # HACK for now this just always says YES include the previous conversation
+    # HACK for now this just always says YES include the previous conversations
     # TODO in future this will be wicked smaht and find only the relevant messages
     # from prior in the conversation
     answer = 1
     if answer == 1:
         db = get_client()
         cmsgs = db.conversationmessage.find_many(
-            where={"conversationId": conversation.id, "type": MessageType.user},
+            where={"conversationId": {"in": conversationIds}, "type": MessageType.user},
             order={"createdAt": "asc"},
         )
         return cmsgs
