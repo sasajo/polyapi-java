@@ -207,9 +207,7 @@ export class VariableService {
         },
       });
 
-      const previousValue = variable.secret
-        ? '********'
-        : await this.getVariableValue(variable);
+      const previousValue = await this.getVariableValue(variable);
 
       if (value) {
         this.logger.debug(`Updating variable ${variable.id} value`);
@@ -217,19 +215,17 @@ export class VariableService {
       }
 
       if ((value !== undefined && value !== previousValue) || secret !== variable.secret) {
-        const currentValue = secret
-          ? '********'
-          : value || await this.getVariableValue(updatedVariable);
+        const currentValue = value || await this.getVariableValue(updatedVariable);
 
         this.logger.debug(`Sending change event for variable ${variable.id}.`);
         await this.eventService.sendVariableChangeEvent(updatedVariable, {
           type: 'update',
-          previousValue,
-          currentValue,
+          previousValue: variable.secret ? '********' : previousValue,
+          currentValue: secret ? '********' : currentValue,
           updatedBy,
           updateTime: Date.now(),
           updatedFields: [
-            value !== undefined && value !== previousValue ? 'value' : null,
+            value !== undefined && currentValue !== previousValue ? 'value' : null,
             secret !== variable.secret ? 'secret' : null,
           ].filter(Boolean) as ('value' | 'secret')[],
           secret: secret as boolean,
