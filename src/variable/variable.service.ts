@@ -334,17 +334,20 @@ export class VariableService {
     return contextValues;
   }
 
-  async unwrapVariables<T extends Record<string, any>>(authData: AuthData, obj: T): Promise<T> {
-    for (const key of Object.keys(obj)) {
-      const value = obj[key];
-      if (typeof value === 'object' && value.type === 'PolyVariable' && value.id) {
-        const variable = await this.findById(value.id, true);
+  async unwrapVariables<T>(authData: AuthData, obj: T, checkVariableAccess?: (variable: Variable) => Promise<void>): Promise<T> {
+    if (obj instanceof Object) {
+      if (obj['type'] === 'PolyVariable' && obj['id']) {
+        const variable = await this.findById(obj['id'], true);
         if (variable) {
+          await checkVariableAccess?.(variable);
           await this.authService.checkEnvironmentEntityAccess(variable, authData, true);
-          obj[key as keyof T] = await this.getVariableValue(variable, value.path);
+          return await this.getVariableValue(variable, obj['path']);
         }
-      } else if (typeof value === 'object') {
-        obj[key as keyof T] = await this.unwrapVariables(authData, value);
+      } else {
+        for (const key of Object.keys(obj)) {
+          const value = obj[key];
+          obj[key] = await this.unwrapVariables(authData, value, checkVariableAccess);
+        }
       }
     }
     return obj;
