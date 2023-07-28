@@ -1,6 +1,6 @@
 import fs from 'fs';
 import handlebars from 'handlebars';
-import lodash from 'lodash';
+import _ from 'lodash';
 import convert from '@openapi-contrib/json-schema-to-openapi-schema';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
@@ -177,8 +177,8 @@ async function _getResponseSchema(f: PluginFunction) {
 const _getOperationId = (f: NameContext): string => {
   // HACK this could be way more efficient, oh well
   let parts: string[] = [...f.context.split('.'), ...f.name.split('.')];
-  parts = parts.map((s) => lodash.startCase(s));
-  return lodash.camelCase(parts.join(''));
+  parts = parts.map((s) => _.startCase(s));
+  return _.camelCase(parts.join(''));
 };
 
 function _trimDescription(desc: string | undefined): string {
@@ -231,12 +231,13 @@ function _getProperties(props: PropertySpecification[]) {
     if (prop.description) {
       rv[name].description = prop.description;
     }
-    if (type === 'object') {
-      // @ts-expect-error: we know from previous line this is object!
-      const properties: PropertySpecification[] = prop.type.properties;
+    if (type === 'object' && prop.type.kind === 'object') {
+      const { properties, schema } = prop.type;
       if (properties && properties.length > 0) {
         rv[name].properties = _getProperties(properties);
         rv[name].required = _getArgumentsRequired(properties);
+      } else if (schema) {
+        rv[name] = _.omit(schema, '$schema');
       }
     }
   }
@@ -456,7 +457,7 @@ export class GptPluginService {
     return {
       schema_version: 'v1',
       name_for_human: name,
-      name_for_model: lodash.snakeCase(name),
+      name_for_model: _.snakeCase(name),
       description_for_human: descMarket,
       description_for_model: descModel,
       auth,
