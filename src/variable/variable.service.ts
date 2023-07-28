@@ -185,6 +185,19 @@ export class VariableService {
       throw new ConflictException(`Variable with name '${name}' and context '${context}' already exists`);
     }
 
+    const pathChanged = `${variable.context}.${variable.name}` !== `${context}.${name}`;
+    if (pathChanged) {
+      const functionsWithVariableArgument = await this.functionService.getFunctionsWithVariableArgument(
+        variable.environmentId,
+        `${variable.context}.${variable.name}`,
+      );
+      if (functionsWithVariableArgument.length) {
+        throw new ConflictException(
+          `Cannot change name and/or context of Variable as it is used in function(s): ${functionsWithVariableArgument.map((f) => f.id).join(', ')}`,
+        );
+      }
+    }
+
     description = description === '' && value
       ? (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(value))).description
       : description;
@@ -240,7 +253,10 @@ export class VariableService {
   async deleteVariable(variable: Variable, deletedBy: string): Promise<void> {
     this.logger.debug(`Deleting variable ${variable.id}`);
 
-    const functionsWithVariableArgument = await this.functionService.getFunctionsWithVariableArgument(`${variable.context}.${variable.name}`);
+    const functionsWithVariableArgument = await this.functionService.getFunctionsWithVariableArgument(
+      variable.environmentId,
+      `${variable.context}.${variable.name}`,
+    );
     if (functionsWithVariableArgument.length) {
       throw new ConflictException(
         `Variable cannot be deleted as it is used in function(s): ${functionsWithVariableArgument.map((f) => f.id).join(', ')}`,

@@ -1054,12 +1054,13 @@ export class FunctionService implements OnModuleInit {
     return body.mode === 'graphql';
   }
 
-  async getFunctionsWithVariableArgument(variablePath: string) {
+  async getFunctionsWithVariableArgument(environmentId: string, variablePath: string) {
     return this.prisma.apiFunction.findMany({
       where: {
         argumentsMetadata: {
           contains: `"variable":"${variablePath}"`,
         },
+        environmentId,
       },
     });
   }

@@ -183,7 +183,10 @@ describe('VariableService', () => {
 
     beforeEach(() => {
       prismaServiceMock.variable.count?.mockImplementation(() => Promise.resolve(0) as any);
+      commonServiceMock.sanitizeNameIdentifier?.mockImplementationOnce((name) => name);
+      commonServiceMock.sanitizeContextIdentifier?.mockImplementationOnce((context) => context);
       secretServiceMock.get?.mockResolvedValue('previousValue12345');
+      functionServiceMock.getFunctionsWithVariableArgument?.mockResolvedValue([]);
     });
 
     it('should not call secretService.set when variable value is not passed', async () => {
@@ -235,6 +238,54 @@ describe('VariableService', () => {
       );
 
       expect(secretServiceMock.set).toBeCalledWith('environmentId12345', 'id12345', 'value12345');
+    });
+
+    it('should not call getFunctionsWithVariableArgument when variable name nor context is not changed', async () => {
+      await service.updateVariable(
+        'environmentId12345',
+        'updater12345',
+        testVariable,
+        'name12345',
+        'context12345',
+        'description12345',
+        'value12345',
+        Visibility.Environment,
+        false,
+      );
+
+      expect(functionServiceMock.getFunctionsWithVariableArgument).not.toBeCalled();
+    });
+
+    it('should call getFunctionsWithVariableArgument when variable name changed', async () => {
+      await service.updateVariable(
+        'environmentId12345',
+        'updater12345',
+        testVariable,
+        'updatedName12345',
+        'context12345',
+        'description12345',
+        'value12345',
+        Visibility.Environment,
+        false,
+      );
+
+      expect(functionServiceMock.getFunctionsWithVariableArgument).toBeCalledWith('environmentId12345', 'context12345.name12345');
+    });
+
+    it('should call getFunctionsWithVariableArgument when variable context changed', async () => {
+      await service.updateVariable(
+        'environmentId12345',
+        'updater12345',
+        testVariable,
+        'name12345',
+        'updatedContext12345',
+        'description12345',
+        'value12345',
+        Visibility.Environment,
+        false,
+      );
+
+      expect(functionServiceMock.getFunctionsWithVariableArgument).toBeCalledWith('environmentId12345', 'context12345.name12345');
     });
 
     it('should call eventService.sendVariableChangeEvent when variable value is passed and variable is not secret', async () => {
