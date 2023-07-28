@@ -118,7 +118,8 @@ def _join_content(
 def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
     desc = spec.get("description", "")
     if spec["type"] == "serverVariable":
-        path = f"vari.{spec['context']}.{spec['name']}"
+        path = f"// secret: {spec['variable']['secret']}\n"  # type: ignore
+        path += f"vari.{spec['context']}.{spec['name']}"
     else:
         path = func_path_with_args(spec)
 
