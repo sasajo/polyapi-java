@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
-import { catchError, from, lastValueFrom, map, of } from 'rxjs';
+import { catchError, from, lastValueFrom, map } from 'rxjs';
 import mustache from 'mustache';
 import { stripComments } from 'jsonc-parser';
 import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
@@ -54,7 +54,7 @@ import { ApiFunctionArguments } from './types';
 import { uniqBy, mergeWith, omit, isPlainObject, cloneDeep } from 'lodash';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { VariableService } from 'variable/variable.service';
-import { getIntrospectionQuery, IntrospectionQuery, VariableDefinitionNode } from 'graphql';
+import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
 import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospectionQuery, resolveGraphqlArgumentType } from './graphql/utils';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
@@ -167,8 +167,7 @@ export class FunctionService implements OnModuleInit {
     method: Method,
     templateUrl: string,
     templateBody: Body,
-    inferArgTypesFromPostmanGraphqlVariables = false,
-    urlString: string,
+    introspectionResponse: IntrospectionQuery | null,
     templateAuth?: Auth,
   ): Promise<ApiFunction> {
     if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.AMBIGUOUS)) {
@@ -189,9 +188,8 @@ export class FunctionService implements OnModuleInit {
     const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
     const finalHeaders = JSON.stringify(this.getFilteredHeaders(templateHeaders));
     const graphqlIdentifier = isGraphQL ? getGraphqlIdentifier(templateBody.graphql.query) : '';
-    const graphqlIntrospectionResponse = isGraphQL && !inferArgTypesFromPostmanGraphqlVariables
-      ? JSON.stringify(await this.getGraphqlIntrospectionData(urlString))
-      : null;
+
+    const graphqlIntrospectionResponse = introspectionResponse ? JSON.stringify(introspectionResponse) : null;
 
     if (id === null) {
       const templateBaseUrl = templateUrl.split('?')[0];
@@ -1515,7 +1513,7 @@ export class FunctionService implements OnModuleInit {
             } else {
               const graphqlVariableBodyValue = graphqlVariablesBody[graphqlVariableName];
 
-              if (graphqlVariableBodyValue) {
+              if (typeof graphqlVariableBodyValue !== 'undefined') {
                 const [type, typeSchema] = await this.resolveArgumentType(JSON.stringify(graphqlVariableBodyValue));
 
                 assignNewMetadata(arg, type, typeSchema);
@@ -1707,25 +1705,6 @@ export class FunctionService implements OnModuleInit {
       : ['void'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : type;
-  }
-
-  private async getGraphqlIntrospectionData(url: string) {
-    return lastValueFrom<IntrospectionQuery>(
-      this.httpService.request({
-        url,
-        method: 'POST',
-        data: {
-          query: getIntrospectionQuery(),
-        },
-      }).pipe(
-        map(response => response.data.data),
-      ).pipe(
-        catchError((error: AxiosError) => {
-          this.logger.error(`Error while introspecting graphql API. ${error}`);
-          return of(null);
-        }),
-      ),
-    );
   }
 
   private filterJSONComments(jsonString: string) {

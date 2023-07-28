@@ -73,8 +73,7 @@ export class FunctionController {
       templateUrl,
       templateBody,
       id = null,
-      inferArgTypesFromPostmanGraphqlVariables = false,
-      urlString,
+      introspectionResponse = null,
     } = data;
     const environmentId = req.user.environment.id;
 
@@ -103,8 +102,7 @@ export class FunctionController {
         method,
         templateUrl,
         templateBody,
-        inferArgTypesFromPostmanGraphqlVariables,
-        urlString,
+        introspectionResponse,
         templateAuth,
       ),
     );

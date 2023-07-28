@@ -26,7 +26,7 @@ async function bootstrap() {
     transform: false,
   }));
 
-  app.useBodyParser('json', { limit: '3mb' });
+  app.useBodyParser('json', { limit: '10mb' });
 
   const config = app.get(ConfigService);
 
