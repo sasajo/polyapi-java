@@ -5,8 +5,8 @@ import { PrismaService } from 'prisma/prisma.service';
 
 export type DocUpdateT = {
   id?: string;
-  title: string;
-  text: string;
+  title?: string;
+  text?: string;
 };
 
 @Injectable()
@@ -22,9 +22,16 @@ export class DocsService {
   async createOrUpdateDoc(body: DocUpdateT): Promise<DocSection> {
     let doc: DocSection;
     if (typeof body.id === 'string') {
+      const updateData: DocUpdateT = {};
+      if (body.title) {
+        updateData.title = body.title;
+      }
+      if (body.text) {
+        updateData.text = body.text;
+      }
       doc = await this.prisma.docSection.update({
         where: { id: body.id },
-        data: { title: body.title, text: body.text },
+        data: updateData,
       });
       return doc;
     } else {
