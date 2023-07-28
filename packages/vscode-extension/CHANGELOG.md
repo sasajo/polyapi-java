@@ -1,3 +1,6 @@
+### 0.1.42
+* Removed pattern checks for configuration properties
+
 ### 0.1.41
 * Added /c command as alternative to /clear
 
