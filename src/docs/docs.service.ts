@@ -3,7 +3,7 @@ import { DocSection } from '@prisma/client';
 import { AiService } from 'ai/ai.service';
 import { PrismaService } from 'prisma/prisma.service';
 
-type DocUpdateT = {
+export type DocUpdateT = {
   id?: string;
   title: string;
   text: string;

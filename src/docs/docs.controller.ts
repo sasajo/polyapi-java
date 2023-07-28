@@ -2,7 +2,7 @@ import { Controller, Logger, Get, Post, Delete, UseGuards, Body, Param } from '@
 import { ApiSecurity } from '@nestjs/swagger';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { Role } from '@poly/model';
-import { DocsService } from './docs.service';
+import { DocsService, DocUpdateT } from './docs.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller()
@@ -27,7 +27,7 @@ export class DocsController {
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('docs')
-  async docsCreate(@Body() data): Promise<unknown> {
+  async docsCreate(@Body() data: DocUpdateT): Promise<unknown> {
     const doc = await this.service.createOrUpdateDoc(data);
     return {
       id: doc.id,
