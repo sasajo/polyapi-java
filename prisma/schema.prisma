@@ -302,3 +302,13 @@ model Migration {
 
   @@map("migration")
 }
+
+model DocSection {
+  // a section of our documentation
+  // for now all documentation is related to Poly
+  // but in future this might be tenanted and used for customer docs
+  id        String   @id @default(uuid())
+  title     String   @default("")
+  text      String   @default("")
+  vector    String   @default("")  // JSON of OpenAI embedding vector of the title+text
+}
