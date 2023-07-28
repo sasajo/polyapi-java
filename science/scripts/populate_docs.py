@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+""" PROTIP FOR RUNNING SCRIPTS:
+
+When ssh'd into the box, add this to run scripts:
+
+$ PYTHONPATH="./" scripts/populate_docs.py
+
+otherwise imports from science/app won't work right!
+"""
 from prisma import Prisma, get_client, register
 
 from app.docs import update_vector
