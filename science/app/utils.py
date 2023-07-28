@@ -94,7 +94,10 @@ def url_function_path(func: AnyFunction) -> str:
 
 
 def log(*args, **kwargs) -> None:
-    print(*args, **kwargs, flush=True)
+    try:
+        print(*args, **kwargs, flush=True)
+    except UnicodeDecodeError:
+        print("UnicodeDecodeError! TODO FIXME")
 
 
 def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
