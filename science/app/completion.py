@@ -280,6 +280,10 @@ Each variable has the following methods:
 * async .update()  // update the value of the variable
 * async .onUpdate()  // execute function when the variable is updated
 * .inject()  // use the variable inside a poly function to be injected on the poly server at the time of execution
+
+When passing a variable as an argument to a poly function, please prefer the `inject` method over the `get` method. Inject is more efficient.
+
+If the variable is secret: True, then the variable ONLY has access to the `inject` method.
 """
 
 
