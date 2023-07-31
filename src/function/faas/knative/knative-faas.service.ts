@@ -244,15 +244,6 @@ export class KNativeFaasService implements FaasService {
 
     const functionPath = this.getFunctionPath(id, tenantId, environmentId, true);
 
-    this.logger.debug({
-      mountPath: '/poly/funcs/serverfx',
-      name: 'functions-volume',
-      subPath: `${functionPath}/function`,
-      readOnly: true,
-    });
-
-    this.logger.debug(`Image name: ${imageName}`);
-
     this.logger.debug(`Creating KNative service for function '${id}'...`);
     try {
       await this.k8sApi.createNamespacedCustomObject(
@@ -275,7 +266,7 @@ export class KNativeFaasService implements FaasService {
                     image: `${imageName}`,
                     volumeMounts: [
                       {
-                        mountPath: '/poly/funcs/serverfx',
+                        mountPath: '/workspace/function',
                         name: 'functions-volume',
                         subPath: `${functionPath}/function`,
                         readOnly: true,
