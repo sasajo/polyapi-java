@@ -24,15 +24,6 @@ const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/pol
 // what is the slug you chose for your pagekite?
 // see pagekite.me
 const LOCALHOST_PAGEKITE = 'megatronical';
-const SIMPLE_PLUGIN_FIELDS = [
-  'contactEmail',
-  'legalUrl',
-  'descriptionForMarketplace',
-  'descriptionForModel',
-  'iconUrl',
-  'authType',
-  'authToken',
-];
 
 type AnyFunction = ApiFunction | CustomFunction;
 
@@ -251,6 +242,29 @@ function _validateName(name: string): string {
   return name;
 }
 
+function _validateDesc(desc: string): string {
+  if (desc.length > 120) {
+    throw new BadRequestException('Desc too long. Max desc length is 120 characters!');
+  }
+  return desc;
+}
+
+function _noValidation(input) {
+  // dont do any validation, just return the input
+  return input;
+}
+
+const SIMPLE_PLUGIN_FIELDS: { [key: string]: null | CallableFunction } = {
+  contactEmail: null,
+  legalUrl: null,
+  name: _validateName,
+  descriptionForMarketplace: _validateDesc,
+  descriptionForModel: _validateDesc,
+  iconUrl: null,
+  authType: null,
+  authToken: null,
+};
+
 @Injectable()
 export class GptPluginService {
   private readonly logger = new Logger(GptPluginService.name);
@@ -379,16 +393,14 @@ export class GptPluginService {
 
     // ok lets go ahead and create or update!
     const update = {};
-    if (body.name) {
-      update['name'] = _validateName(body.name);
-    }
     if (functionIds) {
       update['functionIds'] = functionIds;
     }
 
-    for (const value of SIMPLE_PLUGIN_FIELDS) {
-      if (body[value]) {
-        update[value] = body[value];
+    for (let [key, validator] of Object.entries(SIMPLE_PLUGIN_FIELDS)) {
+      validator = validator || _noValidation;
+      if (body[key]) {
+        update[key] = validator(body[key]);
       }
     }
 
@@ -404,8 +416,6 @@ export class GptPluginService {
         name: _validateName(body.name ? body.name : body.slug),
         contactEmail: body.contactEmail ? body.contactEmail : 'info@polyapi.io',
         legalUrl: body.legalUrl ? body.legalUrl : 'https://polyapi.io/legal',
-        descriptionForMarketplace: body.descriptionForMarketplace || '',
-        descriptionForModel: body.descriptionForModel || '',
         iconUrl: body.iconUrl ? body.iconUrl : POLY_DEFAULT_ICON_URL,
         environmentId: environment.id,
         functionIds,
