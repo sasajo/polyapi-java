@@ -242,19 +242,22 @@ const validateName = (name: string): string => {
   return name;
 };
 
-const _validateDesc = (desc: string): string => {
+function _validateDesc(desc: string): string {
   if (desc.length > 120) {
     throw new BadRequestException('Desc too long. Max desc length is 120 characters!');
   }
   return desc;
-};
+}
 
-const _noValidation = (input) => input;
+function _noValidation(input) {
+  // dont do any validation, just return the input
+  return input;
+}
 
 const SIMPLE_PLUGIN_FIELDS: { [key: string]: null | CallableFunction } = {
   contactEmail: null,
   legalUrl: null,
-  name: validateName,
+  name: _validateName,
   descriptionForMarketplace: _validateDesc,
   descriptionForModel: _validateDesc,
   iconUrl: null,
