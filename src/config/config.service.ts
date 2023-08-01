@@ -15,20 +15,10 @@ export class ConfigService {
       dotenvConfig = {};
     }
 
-    console.log('dotenvConfig: ', JSON.stringify(dotenvConfig || '{}'));
-
-    console.log('!-------------------------------------\n\n');
-
-    console.log('processEnv: ', JSON.stringify(process.env || '{}'));
-
     this.envConfig = {
       ...process.env,
       ...dotenvConfig,
     };
-
-    console.log('!-------------------------------------\n\n');
-
-    console.log('final config: ', JSON.stringify(this.envConfig));
   }
 
   get(key: string, defaultValue?: any): string {
