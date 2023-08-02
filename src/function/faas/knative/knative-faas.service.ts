@@ -263,7 +263,7 @@ export class KNativeFaasService implements FaasService {
                   {
                     mountPath: '/workspace/function',
                     name: 'functions-volume',
-                    readOnly: true,
+                    readOnly: false,
                   },
                 ],
                 env: [
@@ -277,7 +277,10 @@ export class KNativeFaasService implements FaasService {
                   },
                 ],
                 command: ['/bin/sh', '-c'],
-                args: ['/cnb/lifecycle/launcher "npx poly generate && npm start"'],
+                args: [
+                  'mv index.js ../../../../../',
+                  '/cnb/lifecycle/launcher "npx poly generate && npm start"'
+                ],
                 workingDir: `/workspace/function/${workingDir}/function`,
               },
             ],
