@@ -278,7 +278,7 @@ export class KNativeFaasService implements FaasService {
                 ],
                 command: ['/bin/sh', '-c'],
                 args: [
-                  'mv index.js ../../../../../',
+                  `mv /workspace/function/${workingDir}/function/index.js ../../../../../`,
                   '/cnb/lifecycle/launcher "npx poly generate && npm start"'
                 ],
                 workingDir: `/workspace/function/${workingDir}/function`,
