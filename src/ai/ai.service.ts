@@ -49,9 +49,9 @@ export class AiService {
           pluginId,
           message,
         })
-        .pipe(
-          map((response) => (response)),
-        )
+        // .pipe(
+        //   map((response) => (response)),
+        // )
         .pipe(catchError(this.processScienceServerError())),
     );
   }

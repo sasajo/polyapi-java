@@ -217,8 +217,9 @@ def _get_name_path_map(openapi: Dict) -> Dict:
 def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> MessageDict:
     name_path_map = _get_name_path_map(openapi)
     path = name_path_map[function_call["name"]]
-    # TODO figure out how to add preface to path?
-    domain = "https://megatronical.pagekite.me"
+    # TODO figure out how to switch domains
+    # domain = "https://megatronical.pagekite.me"
+    domain = "https://develop-k8s.polyapi.io"
     headers = {"Authorization": f"Bearer {api_key}"}
     resp = requests.post(
         domain + path, data=json.loads(function_call["arguments"]), headers=headers
