@@ -40,6 +40,22 @@ export class AiService {
     );
   }
 
+  async pluginChat(apiKey: string, pluginId: number, message: string): Promise<string> {
+    this.logger.debug(`Sending message to Science server for plugin chat: ${message}`);
+    return await lastValueFrom(
+      this.httpService
+        .post(`${this.config.scienceServerBaseUrl}/plugin-chat`, {
+          apiKey,
+          pluginId,
+          message,
+        })
+        .pipe(
+          map((response) => (response.data.answer)),
+        )
+        .pipe(catchError(this.processScienceServerError())),
+    );
+  }
+
   async clearConversation(environmentId: string, userId: string) {
     this.logger.debug(`Clearing conversation for environment: ${environmentId} ${userId}`);
     await lastValueFrom(

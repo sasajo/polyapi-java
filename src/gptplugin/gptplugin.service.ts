@@ -3,7 +3,7 @@ import handlebars from 'handlebars';
 import _ from 'lodash';
 import convert from '@openapi-contrib/json-schema-to-openapi-schema';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
+import { AiService } from 'ai/ai.service';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ApiFunctionSpecification,
@@ -268,8 +268,7 @@ export class GptPluginService {
 
   constructor(
     private readonly functionService: FunctionService,
-    // TODO use with updatePlugin endpoint?
-    private readonly httpService: HttpService,
+    private readonly aiService: AiService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -330,10 +329,10 @@ export class GptPluginService {
       where: { slug_environmentId: { slug, environmentId: environment.id } },
     });
 
-    const functionIds = JSON.parse(plugin.functionIds);
+    const functionIds = plugin.functionIds ? JSON.parse(plugin.functionIds) : [];
     const functions = await this.getAllFunctions(plugin.environmentId, environment.tenantId, functionIds);
 
-    // @ts-expect-error: filter gets rid of nulls
+    // @ts-expect-error fixme
     const bodySchemas: Schema[] = functions.map((f) => this.getBodySchema(f)).filter((s) => s !== null);
 
     const responseSchemas = await Promise.all(functions.map((f) => getResponseSchema(f)));
@@ -486,5 +485,10 @@ export class GptPluginService {
       contact_email: contactEmail,
       legal_info_url: legalUrl,
     };
+  }
+
+  async chat(authData, slug: string, message: string) {
+    const plugin = await this.getPlugin(slug, authData.environment.id);
+    return await this.aiService.pluginChat(authData.key, plugin.id, message);
   }
 }
