@@ -354,7 +354,11 @@ export class KNativeFaasService implements FaasService {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     const allRequirements = [...this.config.faasPreinstalledNpmPackages, ...additionalRequirements];
 
-    await rm(functionPath, { recursive: true });
+    try {
+      await rm(functionPath, { recursive: true });
+    } catch (err) {
+      this.logger.debug(`Err removing previous function path ${functionPath}, creating new folder...`, err);
+    }
     await mkdir(functionPath, { recursive: true });
     await exec(`${this.config.knativeFuncExecFile} create ${functionPath} -l node`);
 
