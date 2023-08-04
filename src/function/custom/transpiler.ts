@@ -8,7 +8,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { omit } from 'lodash';
 
-import { EXCLUDED_REQUIREMENTS } from '@poly/common/transpiler'
+import { EXCLUDED_REQUIREMENTS } from '@poly/common/transpiler';
 
 const writeFile = util.promisify(fs.writeFile);
 const unlink = util.promisify(fs.unlink);
