@@ -106,7 +106,7 @@ export class KNativeFaasService implements FaasService {
 
       // not awaiting on purpose, so it returns immediately with the message
       this.logger.debug(`Additional requirements found for function '${id}'. Building custom image ${customImageName}...`);
-      const waitForDeploy = this.buildCustomImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey)
+      const waitForDeploy = this.buildCustomImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey, name, code)
         .then(() => prepareAndDeploy(customImageName));
 
       return {
@@ -277,9 +277,7 @@ export class KNativeFaasService implements FaasService {
                   },
                 ],
                 command: ['/bin/sh', '-c'],
-                args: [
-                  `if [ -f "/workspace/function/${workingDir}/function/index.js" ]; then /cnb/lifecycle/launcher "mv function/${workingDir}/function/index.js $home/workspace && npx poly generate && npm start"; else /cnb/lifecycle/launcher "npx poly generate && npm start"; fi`,
-                ],
+                args: [`if [ -f "/workspace/function/${workingDir}/function/index.js" ]; then /cnb/lifecycle/launcher "mv function/${workingDir}/function/index.js $home/workspace && npx poly generate && npm start"; else /cnb/lifecycle/launcher "npx poly generate && npm start"; fi`],
                 workingDir: `/workspace/function/${workingDir}/function`,
               },
             ],
@@ -350,7 +348,7 @@ export class KNativeFaasService implements FaasService {
     return pick(headers, PASS_THROUGH_HEADERS);
   }
 
-  private async buildCustomImage(id: string, tenantId: string, environmentId: string, imageName: string, additionalRequirements: string[], apiKey: string) {
+  private async buildCustomImage(id: string, tenantId: string, environmentId: string, imageName: string, additionalRequirements: string[], apiKey: string, name: string, code: string) {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     const allRequirements = [...this.config.faasPreinstalledNpmPackages, ...additionalRequirements];
 
@@ -366,7 +364,10 @@ export class KNativeFaasService implements FaasService {
     await this.prepareRequirements(functionPath, allRequirements);
 
     const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/function/index.js.hbs`, 'utf8');
-    const content = handlebars.compile(template)({});
+    const content = handlebars.compile(template)({
+      name,
+      code,
+    });
     await writeFile(`${functionPath}/index.js`, content);
 
     this.logger.debug(`Building custom server function image '${imageName}'...`);
