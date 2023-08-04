@@ -45,18 +45,6 @@ def insert_system_prompt(messages: List[MessageDict], environment_id: str) -> No
         messages.insert(0, p)
 
 
-def answer_processing(choice: ChatGptChoice) -> Tuple[str, bool]:
-    content = choice["message"]["content"]
-
-    if choice["finish_reason"] == "length":
-        # incomplete model output due to max_tokens parameter or token limit
-        # let's append a message explaining to the user answer is incomplete
-        content += "\n\nTOKEN LIMIT HIT\n\nPoly has hit the ChatGPT token limit for this conversation. Conversation reset. Please try again to see the full answer."
-        return content, True
-
-    return content, False
-
-
 def get_function_options_prompt(
     user_id: str,
     environment_id: str,
@@ -212,7 +200,8 @@ def get_best_functions(
     store_messages(user_id, conversation_id, messages)
 
     # continue
-    public_ids = _extract_ids_from_completion(answer_msg["content"])
+    content = answer_msg["content"] or ""
+    public_ids = _extract_ids_from_completion(content)
     if public_ids:
         # valid public id, send it back!
         rv = filter_to_real_public_ids(public_ids)
@@ -360,7 +349,8 @@ def get_completion_answer(
     else:
         choice = general_question(user_id, conversation.id, question, prev_msgs)
 
-    answer, hit_token_limit = answer_processing(choice)
+    answer = choice['message']['content']
+    assert answer
 
     return {"answer": answer}, stats  # type: ignore
 

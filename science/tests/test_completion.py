@@ -208,6 +208,7 @@ class T(DbTestCase):
             self.user.id, self.environment.id, keyword_data
         )
         assert d
+        assert d['content']
         self.assertEqual(query_node_server.call_count, 1)
         self.assertGreaterEqual(stats["match_count"], 3)
         self.assertIn("Here are some functions", d["content"])
