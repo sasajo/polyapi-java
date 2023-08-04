@@ -24,23 +24,15 @@ export const addCustomFunction = async (
       shell.echo('-n', chalk.rgb(255, 255, 255)('Adding custom server side function...'));
       const result = await createServerFunction(context, name, description, code);
       customFunction = result;
-      switch (result.status) {
-        case 'deployed':
-          shell.echo(chalk.green('DEPLOYED'));
-          generate = true;
-          break;
-        case 'deploying':
-          shell.echo(chalk.rgb(255, 255, 255)('STILL DEPLOYING'));
-          break;
-      }
+      shell.echo(chalk.green('DEPLOYED'));
+      generate = true;
+
       shell.echo(chalk.rgb(255, 255, 255)(`Function ID: ${result.id}`));
-      if (result.message) {
-        shell.echo(chalk.yellow(result.message));
-      }
     } else {
       shell.echo('-n', chalk.rgb(255, 255, 255)('Adding custom client side function...'));
       customFunction = await createClientFunction(context, name, description, code);
       shell.echo(chalk.green('DONE'));
+      shell.echo(chalk.rgb(255, 255, 255)(`Function ID: ${customFunction.id}`));
       generate = true;
     }
 

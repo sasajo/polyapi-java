@@ -9,7 +9,7 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
-import { FaasFunctionResult, FaasService } from '../faas.service';
+import { FaasService } from '../faas.service';
 import { CustomObjectsApi } from '@kubernetes/client-node';
 import { makeCustomObjectsApiClient } from 'kubernetes/client';
 
@@ -80,7 +80,7 @@ export class KNativeFaasService implements FaasService {
     code: string,
     requirements: string[],
     apiKey: string,
-  ): Promise<FaasFunctionResult> {
+  ): Promise<void> {
     this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
@@ -106,19 +106,12 @@ export class KNativeFaasService implements FaasService {
 
       // not awaiting on purpose, so it returns immediately with the message
       this.logger.debug(`Additional requirements found for function '${id}'. Building custom image ${customImageName}...`);
-      const waitForDeploy = this.buildCustomImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey, name, code)
-        .then(() => prepareAndDeploy(customImageName));
 
-      return {
-        status: 'deploying',
-        message: 'Please note that deploying your functions will take a few minutes because it makes use of libraries others than polyapi.',
-        waitForDeploy,
-      };
+      await this.buildCustomImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey, name, code);
+
+      await prepareAndDeploy(customImageName);
     } else {
       await prepareAndDeploy(`${this.config.faasDockerImageFunctionNode}`);
-      return {
-        status: 'deployed',
-      };
     }
   }
 
@@ -162,7 +155,7 @@ export class KNativeFaasService implements FaasService {
     );
   }
 
-  async updateFunction(
+  updateFunction(
     id: string,
     tenantId: string,
     environmentId: string,
@@ -170,10 +163,10 @@ export class KNativeFaasService implements FaasService {
     code: string,
     requirements: string[],
     apiKey: string,
-  ): Promise<FaasFunctionResult> {
+  ) {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    return await this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey);
+    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey);
   }
 
   async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {

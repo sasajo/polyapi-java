@@ -68,11 +68,6 @@ mustache.escape = (text) => {
   }
 };
 
-type CreateCustomFunctionResult = CustomFunction & {
-  status: 'deployed' | 'deploying',
-  message?: string,
-};
-
 @Injectable()
 export class FunctionService implements OnModuleInit {
   private readonly logger: Logger = new Logger(FunctionService.name);
@@ -728,7 +723,7 @@ export class FunctionService implements OnModuleInit {
     customCode: string,
     serverFunction: boolean,
     apiKey: string,
-  ): Promise<CreateCustomFunctionResult> {
+  ): Promise<CustomFunction> {
     const {
       code,
       args,
@@ -835,11 +830,7 @@ export class FunctionService implements OnModuleInit {
       };
 
       try {
-        const {
-          status,
-          message,
-          waitForDeploy,
-        } = await this.faasService.createFunction(
+        await this.faasService.createFunction(
           customFunction.id,
           environment.tenantId,
           environment.id,
@@ -849,19 +840,8 @@ export class FunctionService implements OnModuleInit {
           apiKey,
         );
 
-        if (waitForDeploy) {
-          waitForDeploy
-            .catch(async e => {
-              this.logger.error(`Error creating server side custom function ${name}: ${e.message}. Function created as client side.`);
-              await revertServerFunctionFlag();
-            });
-        }
 
-        return {
-          ...customFunction,
-          status,
-          message,
-        };
+        return customFunction;
       } catch (e) {
         this.logger.error(
           `Error creating server side custom function ${name}: ${e.message}. Function created as client side.`,
@@ -871,10 +851,7 @@ export class FunctionService implements OnModuleInit {
       }
     }
 
-    return {
-      ...customFunction,
-      status: 'deployed',
-    };
+    return customFunction;
   }
 
   async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null) {

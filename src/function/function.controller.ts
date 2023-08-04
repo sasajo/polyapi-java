@@ -19,7 +19,7 @@ import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import {
   ApiFunctionResponseDto,
   CreateApiFunctionDto,
-  CreateCustomFunctionDto, CreateServerFunctionResponseDto,
+  CreateCustomFunctionDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
   ExecuteCustomFunctionQueryParams,
@@ -259,7 +259,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/server')
-  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<CreateServerFunctionResponseDto> {
+  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
     const { context = '', name, description = '', code } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
@@ -274,11 +274,7 @@ export class FunctionController {
         true,
         req.user.key,
       );
-      return {
-        ...this.service.customFunctionToDetailsDto(customFunction),
-        status: customFunction.status,
-        message: customFunction.message,
-      };
+      return this.service.customFunctionToDetailsDto(customFunction);
     } catch (e) {
       throw new BadRequestException(e.message);
     }
