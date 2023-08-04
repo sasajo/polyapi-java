@@ -365,7 +365,7 @@ export class KNativeFaasService implements FaasService {
     await this.preparePolyLib(functionPath, apiKey);
     await this.prepareRequirements(functionPath, allRequirements);
 
-    const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8');
+    const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/function/index.js.hbs`, 'utf8');
     const content = handlebars.compile(template)({});
     await writeFile(`${functionPath}/index.js`, content);
 
