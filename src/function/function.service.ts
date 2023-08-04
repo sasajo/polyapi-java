@@ -840,7 +840,6 @@ export class FunctionService implements OnModuleInit {
           apiKey,
         );
 
-
         return customFunction;
       } catch (e) {
         this.logger.error(

@@ -8,6 +8,8 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { omit } from 'lodash';
 
+import { EXCLUDED_REQUIREMENTS } from '@poly/common/transpiler'
+
 const writeFile = util.promisify(fs.writeFile);
 const unlink = util.promisify(fs.unlink);
 
@@ -19,41 +21,6 @@ export interface TranspileResult {
   contextChain: string[];
   requirements: string[];
 }
-
-// NodeJS built-in libraries + polyapi
-// https://www.w3schools.com/nodejs/ref_modules.asp
-const EXCLUDED_REQUIREMENTS = [
-  'polyapi',
-  'assert',
-  'buffer',
-  'child_process',
-  'cluster',
-  'crypto',
-  'dgram',
-  'dns',
-  'domain',
-  'events',
-  'fs',
-  'http',
-  'https',
-  'net',
-  'os',
-  'path',
-  'process',
-  'punycode',
-  'querystring',
-  'readline',
-  'stream',
-  'string_decoder',
-  'timers',
-  'tls',
-  'tty',
-  'url',
-  'util',
-  'v8',
-  'vm',
-  'zlib',
-];
 
 export const transpileCode = async (functionName: string, code: string): Promise<TranspileResult> => {
   let functionArguments: FunctionArgument[] | null = null;
