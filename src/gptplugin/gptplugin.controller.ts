@@ -2,7 +2,7 @@ import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nes
 import { ApiSecurity } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CreatePluginDto } from '@poly/model';
-import { GptPluginService } from 'gptplugin/gptplugin.service';
+import { GptPluginService, getSlugSubdomain } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 
@@ -32,13 +32,14 @@ export class GptPluginController {
     return {
       plugin,
       plugin_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}`,
+      plugin_api_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}/api`,
     };
   }
 
   @UseGuards(PolyAuthGuard)
-  @Post('plugins/:slug/chat')
-  public async pluginChat(@Req() req: AuthRequest, @Param('slug') slug, @Body() body): Promise<unknown> {
-    slug = slug.toLowerCase();
+  @Post('api')
+  public async pluginChat(@Req() req: AuthRequest, @Body() body): Promise<unknown> {
+    const slug = getSlugSubdomain(req.hostname)[0];
     const resp = await this.service.chat(req.user, slug, body.message);
     return resp;
   }
@@ -50,6 +51,7 @@ export class GptPluginController {
     return {
       plugin,
       plugin_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}`,
+      plugin_api_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}/api`,
     };
   }
 

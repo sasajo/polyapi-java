@@ -75,7 +75,7 @@ const slugify = (str: string): string => {
     .replace(/-+/g, '-'); // remove consecutive hyphens
 };
 
-const getSlugSubdomain = (host: string): [string, string] => {
+export const getSlugSubdomain = (host: string): [string, string] => {
   const slugEnv = host.split('.')[0];
   const parts = rsplit(slugEnv, '-', 1);
   let slug = parts[0];
