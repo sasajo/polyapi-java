@@ -1,7 +1,18 @@
-import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Logger,
+  Get,
+  Post,
+  Delete,
+  UseGuards,
+  Req,
+  Body,
+  Param,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { Request } from 'express';
-import { CreatePluginDto } from '@poly/model';
+import { CreatePluginDto, Role } from '@poly/model';
 import { GptPluginService, getSlugSubdomain } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
@@ -36,6 +47,13 @@ export class GptPluginController {
     };
   }
 
+  @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
+  @Delete('plugins/:slug')
+  public async pluginDelete(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
+    const plugin = await this.service.deletePlugin(slug, req.user.environment.id);
+    return { plugin };
+  }
+
   @UseGuards(PolyAuthGuard)
   @Post('api')
   public async pluginChat(@Req() req: AuthRequest, @Body() body): Promise<unknown> {
@@ -47,6 +65,19 @@ export class GptPluginController {
     }
     const resp = await this.service.chat(req.user, slug, body.message);
     return resp;
+  }
+
+  @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
+  @Get('plugins')
+  public async pluginList(@Req() req: AuthRequest): Promise<unknown> {
+    const plugins = await this.service.listPlugins(req.user.environment.id);
+    return plugins.map((plugin) => {
+      return {
+        plugin,
+        plugin_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}`,
+        plugin_api_url: `https://${plugin.slug}-${req.user.environment.subdomain}.${req.hostname}/api`,
+      };
+    });
   }
 
   @UseGuards(PolyAuthGuard)

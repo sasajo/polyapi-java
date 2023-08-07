@@ -367,6 +367,23 @@ export class GptPluginService {
     }
   }
 
+  async listPlugins(environmentId: string): Promise<GptPlugin[]> {
+    return this.prisma.gptPlugin.findMany({
+      where: { environmentId },
+      orderBy: { slug: 'asc' },
+    });
+  }
+
+  async deletePlugin(slug: string, environmentId: string): Promise<unknown> {
+    try {
+      return await this.prisma.gptPlugin.delete({
+        where: { slug_environmentId: { slug, environmentId } },
+      });
+    } catch {
+      throw new NotFoundException(`Plugin with slug ${slug} not found!`);
+    }
+  }
+
   async createOrUpdatePlugin(environment: Environment, body: CreatePluginDto): Promise<GptPlugin> {
     // slugs must be lowercase!
     body.slug = body.slug.replaceAll('_', '-');
