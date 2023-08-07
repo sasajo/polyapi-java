@@ -143,8 +143,10 @@ def handle_open_ai_error(e):
     # now you're handling non-HTTP exceptions only
     from flask import current_app
     if isinstance(e, RateLimitError) and str(e).startswith("That model is currently overloaded"):
+        # special message for when OpenAI is overloaded
         msg = "OpenAI is overloaded with other requests at the moment. Please wait a few seconds and try your request again!"
     else:
-        msg = str(e)
+        # just pass along whatever
+        msg = "OpenAI Error: {}".format(str(e))
     current_app.log_exception(msg)
     return msg, 500
