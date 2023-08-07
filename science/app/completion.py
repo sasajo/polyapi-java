@@ -103,6 +103,15 @@ def _join_content(
     return "\n\n".join(parts)
 
 
+def _has_double_data(return_props: Dict) -> bool:
+    try:
+        return bool(return_props.get("data", {}).get("schema", {}).get("properties", {}).get("data"))
+    except:
+        # if there's some data type, just let it go
+        # we are catching an edge case here
+        return False
+
+
 def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
     desc = spec.get("description", "")
     if spec["type"] == "serverVariable":
@@ -122,7 +131,7 @@ def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
             return_type = json.dumps(return_props)
             return_type = return_type.replace("\n", " ")
             return_part = f"// returns {return_type}"
-            if return_props.get("data", {}).get("properties", {}).get("data"):
+            if _has_double_data(return_props):
                 # when we have a double `data.data` sometimes OpenAI gets confused
                 # and thinks it was a mistake and collapses things to a single `data`
                 return_part += "\n// NOTE: please allow `response.data.data...` for this return type"
