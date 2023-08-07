@@ -1,4 +1,4 @@
-import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param } from '@nestjs/common';
+import { Controller, Logger, Get, Post, UseGuards, Req, Body, Param, BadRequestException } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CreatePluginDto } from '@poly/model';
@@ -40,6 +40,11 @@ export class GptPluginController {
   @Post('api')
   public async pluginChat(@Req() req: AuthRequest, @Body() body): Promise<unknown> {
     const slug = getSlugSubdomain(req.hostname)[0];
+    // for testing locally!
+    // const slug = 'megatronical';
+    if (!slug) {
+      throw new BadRequestException('Slug not found! Please use your plugin subdomain like "foo-1234.na1.polyapi.io".');
+    }
     const resp = await this.service.chat(req.user, slug, body.message);
     return resp;
   }

@@ -49,9 +49,7 @@ export class AiService {
           pluginId,
           message,
         })
-        .pipe(
-          map((response) => (response.data)),
-        )
+        .pipe(map((response) => response.data))
         .pipe(catchError(this.processScienceServerError())),
     );
   }

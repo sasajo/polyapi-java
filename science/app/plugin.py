@@ -7,7 +7,6 @@ import openai
 from prisma import get_client
 
 from app.constants import CHAT_GPT_MODEL
-from app.utils import log
 from app.typedefs import ChatGptChoice, MessageDict
 
 
@@ -25,7 +24,7 @@ def _get_openapi_url(plugin_id: int) -> str:
 def _get_openapi_spec(plugin_id: int) -> Dict:
     openapi_url = _get_openapi_url(plugin_id)
     resp = requests.get(openapi_url)
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.content
     return resp.json()
 
 
@@ -50,7 +49,7 @@ def openapi_to_openai_functions(openapi: Dict) -> List[Dict]:
 
 
 def get_plugin_chat(api_key: str, plugin_id: int, message: str) -> List[MessageDict]:
-    """ chat with a plugin, providing
+    """ chat with a plugin
     """
     openapi = _get_openapi_spec(plugin_id)
     functions = openapi_to_openai_functions(openapi)
@@ -63,7 +62,6 @@ def get_plugin_chat(api_key: str, plugin_id: int, message: str) -> List[MessageD
     )
     choice: ChatGptChoice = resp["choices"][0]
     function_call = choice["message"].get("function_call")
-    log(choice)
     if function_call:
         # lets execute the function_call and return the results
         function_call = dict(function_call)
@@ -81,7 +79,6 @@ def get_plugin_chat(api_key: str, plugin_id: int, message: str) -> List[MessageD
         messages = messages[
             1:
         ]  # lets pop off the first question, the user already knows it
-        log(messages)
         return messages
     else:
         # no function call, just return OpenAI's answer

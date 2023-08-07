@@ -109,7 +109,6 @@ def variable_description() -> Response:
 @bp.route("/plugin-chat", methods=["POST"])
 def plugin_chat() -> Response:
     data = request.get_json(force=True)
-    log(data)
     resp = get_plugin_chat(data['apiKey'], data['pluginId'], data['message'])
     return jsonify(resp)
 
@@ -143,10 +142,9 @@ def error_rate_limit():
 def handle_open_ai_error(e):
     # now you're handling non-HTTP exceptions only
     from flask import current_app
-
-    if isinstance(e, RateLimitError):
+    if isinstance(e, RateLimitError) and str(e).startswith("That model is currently overloaded"):
         msg = "OpenAI is overloaded with other requests at the moment. Please wait a few seconds and try your request again!"
     else:
-        msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
+        msg = str(e)
     current_app.log_exception(msg)
     return msg, 500
