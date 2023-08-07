@@ -122,7 +122,7 @@ def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
             return_type = json.dumps(return_props)
             return_type = return_type.replace("\n", " ")
             return_part = f"// returns {return_type}"
-            if return_props.get("data", {}).get("data"):
+            if return_props.get("data", {}).get("properties", {}).get("data"):
                 # when we have a double `data.data` sometimes OpenAI gets confused
                 # and thinks it was a mistake and collapses things to a single `data`
                 return_part += "\n// NOTE: please allow `response.data.data...` for this return type"
