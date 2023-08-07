@@ -55,10 +55,11 @@ export class AiService {
   }
 
   async clearConversation(environmentId: string, userId: string) {
+    // clears ALL conversations for a user
     this.logger.debug(`Clearing conversation for environment: ${environmentId} ${userId}`);
     await lastValueFrom(
       this.httpService
-        .post(`${this.config.scienceServerBaseUrl}/clear-conversation`, {
+        .post(`${this.config.scienceServerBaseUrl}/clear-conversations`, {
           environment_id: environmentId,
           user_id: userId,
         })

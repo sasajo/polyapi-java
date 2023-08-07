@@ -125,7 +125,7 @@ def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
             if "data" in return_props:
                 # when we have a double `data.data` sometimes OpenAI gets confused
                 # and thinks it was a mistake and collapses things to a single `data`
-                return_part += "// NOTE: please allow `response.data.data...` for this return type"
+                return_part += "\n// NOTE: please allow `response.data.data...` for this return type"
             parts.append(return_part)
 
     parts.append(path)
