@@ -4,7 +4,8 @@ from enum import Enum, IntEnum, unique
 # names for ConfigVariables
 @unique
 class VarName(Enum):
-    keyword_similarity_threshold = "OpenAIKeywordSimilarityThreshold"
+    function_keyword_similarity_threshold = "OpenAIKeywordSimilarityThreshold"
+    variable_keyword_similarity_threshold = "OpenAIVariableKeywordSimilarityThreshold"
     function_match_limit = "OpenAIFunctionMatchLimit"
     extract_keywords_temperature = "OpenAIExtractKeywordsTemperature"
 

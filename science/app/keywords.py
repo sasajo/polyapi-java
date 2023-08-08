@@ -34,11 +34,18 @@ Return the keywords as a space separated list. Please return valid JSON in this 
 """
 
 
-def get_similarity_threshold() -> int:
+def get_function_similarity_threshold() -> int:
     # how similar does a function or webhook have to be to be considered a match?
     # scale is 0-100
-    var = get_config_variable(VarName.keyword_similarity_threshold)
+    var = get_config_variable(VarName.function_keyword_similarity_threshold)
     return int(var.value) if var else 41
+
+
+def get_variable_similarity_threshold() -> int:
+    # how similar does a variable have to be to be considered a match?
+    # scale is 0-100
+    var = get_config_variable(VarName.variable_keyword_similarity_threshold)
+    return int(var.value) if var else 35
 
 
 def get_function_match_limit() -> int:
@@ -123,7 +130,7 @@ def keywords_similar(
     if debug:
         log(keywords, similarity_score, func_str)
 
-    return similarity_score > get_similarity_threshold(), similarity_score
+    return similarity_score > get_function_similarity_threshold(), similarity_score
 
 
 def get_top_function_matches(
@@ -141,7 +148,7 @@ def get_top_function_matches(
     stats: StatsDict = {"keyword_extraction": keyword_data}
     stats["config"] = {
         "match_limit": match_limit,
-        "similarity_threshold": get_similarity_threshold(),
+        "similarity_threshold": get_function_similarity_threshold(),
         "extract_keywords_temperature": get_extract_keywords_temperature(),
     }
     stats["keyword_stats"] = keyword_stats
@@ -173,7 +180,7 @@ def _generate_match_count(stats: StatsDict) -> int:
     """for keyword matches, we only return up to `match_limit` matches
     this function counts how many potential matches crossed the similarity threshold
     """
-    threshold = get_similarity_threshold()
+    threshold = get_function_similarity_threshold()
     matches = set()
     for name, score in stats["keyword_stats"].get("function_scores", []):
         if score > threshold:
@@ -189,8 +196,8 @@ def _get_top(
     items: List[SpecificationDto],
     keywords: str,
 ) -> Tuple[List[SpecificationDto], StatsDict]:
-    function_threshold = get_similarity_threshold()
-    variable_threshold = 35  # HACK hardcoded for now
+    function_threshold = get_function_similarity_threshold()
+    variable_threshold = get_variable_similarity_threshold()
 
     funcs = []
     variables = []
@@ -244,13 +251,13 @@ def _get_stats(
 
     function_scores: List[Tuple[str, int]] = []
     for item, score in functions_with_scores:
-        if score > get_similarity_threshold():
+        if score > get_function_similarity_threshold():
             match_count += 1
         function_scores.append((func_path(item), score))
 
     variable_scores: List[Tuple[str, int]] = []
     for item, score in variables_with_scores:
-        if score > get_similarity_threshold():
+        if score > get_function_similarity_threshold():
             match_count += 1
         variable_scores.append((func_path(item), score))
 
