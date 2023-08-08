@@ -271,7 +271,7 @@ def get_variable_description(data: VarDescInputDto) -> Dict:
     prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data["secret"], data["value"])
     messages = [MessageDict(role="user", content=prompt)]
     resp = get_chat_completion(messages)
-    choice = resp["choices"][0]
-    content = choice["message"]["content"].strip("```")
-    rv = json.loads(content)
+    assert isinstance(resp, str)
+    resp = resp.strip("```")
+    rv = json.loads(resp)
     return rv

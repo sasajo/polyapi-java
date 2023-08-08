@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
 import { RawAxiosRequestHeaders } from 'axios/index';
+import EventSource from 'eventsource';
 import { getCredentialsFromExtension } from './common';
 
 const PER_PAGE = 5;
 
 export default class ChatViewProvider implements vscode.WebviewViewProvider {
   private webView?: vscode.WebviewView;
+  private cancelRequest?: () => void;
   private requestAbortController;
   private conversationHistoryFullyLoaded = false;
   private firstMessagesLoaded = false;
@@ -94,7 +96,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         }
         case 'cancelRequest': {
-          this.requestAbortController?.abort();
+          this.cancelRequest?.();
           break;
         }
         case 'goToExtensionSettings': {
@@ -136,6 +138,9 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       });
       return;
     }
+    this.cancelRequest?.();
+
+    const messageID = Math.random().toString(36).substring(7);
 
     this.webView?.webview.postMessage({
       type: 'addQuestion',
@@ -144,37 +149,72 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     this.webView?.webview.postMessage({
       type: 'setLoading',
     });
+    let loadingPresent = true;
 
-    this.requestAbortController?.abort();
-    this.requestAbortController = new AbortController();
-    try {
-      const { data } = await axios.post(`${apiBaseUrl}/chat/question`, {
-        message,
-      }, {
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-        } as RawAxiosRequestHeaders,
-        signal: this.requestAbortController.signal,
+    const removeLoading = () => {
+      this.webView?.webview.postMessage({
+        type: 'removeLoading',
       });
+      loadingPresent = false;
+    };
+
+    const es = new EventSource(`${apiBaseUrl}/chat/question?message=${message}`, {
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    this.cancelRequest = () => {
+      es.close();
+      removeLoading();
+    };
+
+    let answer = '';
+    es.onmessage = (event) => {
+      if (loadingPresent) {
+        removeLoading();
+      }
+
+      answer += event.data;
 
       this.webView?.webview.postMessage({
-        type: 'addResponseTexts',
-        value: data.texts,
+        type: 'updateMessage',
+        data: {
+          type: 'markdown',
+          value: answer + (answer.match(/```/g)?.length % 2 === 1 ? '\n```' : ''),
+        },
+        messageID,
       });
-    } catch (error) {
-      console.error(error);
+    };
 
-      this.webView?.webview.postMessage({
-        type: 'addResponseTexts',
-        value: [
-          {
+    es.onerror = (error) => {
+      removeLoading();
+      if (error.data) {
+        console.error(error);
+        this.webView?.webview.postMessage({
+          type: 'addMessage',
+          data: {
             type: 'error',
-            value: error.response?.data?.message || error.message,
+            value: error.data,
+          },
+        });
+      } else if (error.message) {
+        this.webView?.webview.postMessage({
+          type: 'addMessage',
+          data: {
+            type: 'error',
+            value: error.message,
             error,
           },
-        ],
-      });
-    }
+        });
+      } else {
+        this.webView?.webview.postMessage({
+          type: 'finishMessage',
+          messageID,
+        });
+      }
+      es.close();
+    };
   }
 
   private async sendPolyCommandRequest(command: string) {

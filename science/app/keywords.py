@@ -58,19 +58,19 @@ def extract_keywords(
     messages = [
         MessageDict(role="user", content=prompt),
     ]
-    resp = get_chat_completion(
+    content = get_chat_completion(
         messages,
         temperature=get_extract_keywords_temperature(),
     )
-    answer = resp["choices"][0]["message"]
+    assert isinstance(content, str)
+    content = content.replace("```", "")
 
     # store conversation
-    messages.append(answer)
+    messages.append(MessageDict(role="assistant", content=content))
     insert_internal_step_info(messages, "STEP 1: GET KEYWORDS")
     store_messages(user_id, conversation_id, messages)
 
     # continue
-    content = answer["content"].replace("```", "")
     try:
         rv = json.loads(content)
     except Exception as e:

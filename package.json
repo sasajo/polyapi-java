@@ -45,6 +45,7 @@
     "class-validator": "^0.14.0",
     "cloudevents": "^7.0.1",
     "dotenv": "^16.0.3",
+    "eventsource": "^2.0.2",
     "graphql": "^16.7.1",
     "graphql-2-json-schema": "^0.10.0",
     "handlebars": "^4.7.7",

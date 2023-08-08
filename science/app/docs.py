@@ -4,15 +4,14 @@ then return the response
 """
 import os
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Union
 import openai
 from prisma import get_client
 from prisma.models import ConversationMessage, DocSection
 from app.constants import QUESTION_TEMPLATE, MessageType
-from app.typedefs import ChatGptChoice, MessageDict
+from app.typedefs import MessageDict
 from app.utils import (
     cosine_similarity,
-    create_new_conversation,
     get_chat_completion,
     msgs_to_msg_dicts,
     store_messages,
@@ -37,8 +36,11 @@ Translate the answer to the same language of the question.
 
 
 def documentation_question(
-    user_id: str, question: str, prev_msgs: List[ConversationMessage]
-) -> Tuple[ChatGptChoice, Dict]:
+    user_id: str,
+    conversation_id: str,
+    question: str,
+    prev_msgs: List[ConversationMessage],
+) -> Union[Generator, str]:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
     )
@@ -74,17 +76,10 @@ def documentation_question(
         content = f"The user's instance url is '{host_url}'. Use it to generate the urls for the poly instance specific links."
         messages.append(MessageDict(role="user", content=content))
 
-    resp = get_chat_completion(messages)
-    choice = resp["choices"][0]
+    resp = get_chat_completion(messages, stream=True)
+    store_messages(user_id, conversation_id, messages)
 
-    # let's store conversation for later
-    answer = choice["message"]
-    answer["type"] = MessageType.user
-    messages.append(answer)
-    conversation = create_new_conversation(user_id)
-    store_messages(user_id, conversation.id, messages)
-
-    return choice, stats
+    return resp
 
 
 def update_vector(doc_id: str) -> str:

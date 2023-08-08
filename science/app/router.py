@@ -32,9 +32,9 @@ def route_question_ai(question: str) -> Literal["function", "general", "document
         general = '"general": "The user is asking a general programming or informational question"'
 
     prompt = ROUTER_PROMPT % (general, question)
-    choice = simple_chatgpt_question(prompt)
-    content = json.loads(choice['message']['content'])
-    return content['category']
+    content = simple_chatgpt_question(prompt)
+    data = json.loads(content)
+    return data['category']  # type: ignore
 
 
 def split_route_and_question(question: str) -> Tuple[Literal["function", "general", "documentation", "help"], str]:

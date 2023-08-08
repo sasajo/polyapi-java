@@ -1,11 +1,11 @@
+import EventSource from 'eventsource';
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { catchError, lastValueFrom, map } from 'rxjs';
+import { catchError, lastValueFrom, map, Observable } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { SystemPrompt, DocSection } from '@prisma/client';
 import {
-  FunctionCompletionDto,
   FunctionDescriptionDto,
   PropertySpecification,
   VariableDescriptionDto,
@@ -21,23 +21,24 @@ export class AiService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async getFunctionCompletion(environmentId: string, userId: string, message: string): Promise<FunctionCompletionDto> {
+  getFunctionCompletion(environmentId: string, userId: string, message: string): Observable<string> {
     this.logger.debug(`Sending message to Science server for function completion: ${message}`);
-    return await lastValueFrom(
-      this.httpService
-        .post(`${this.config.scienceServerBaseUrl}/function-completion`, {
-          environment_id: environmentId,
-          user_id: userId,
-          question: message,
-        })
-        .pipe(
-          map((response) => ({
-            answer: response.data.answer,
-            stats: response.data.stats,
-          })),
-        )
-        .pipe(catchError(this.processScienceServerError())),
-    );
+
+    const eventSource = new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question=${message}`);
+
+    return new Observable<string>(subscriber => {
+      eventSource.onmessage = (event) => {
+        subscriber.next(JSON.parse(event.data).chunk);
+      };
+      eventSource.onerror = (error) => {
+        if (error.message) {
+          this.logger.debug(`Error from Science server for function completion: ${error.message}`);
+          subscriber.error(error.message);
+        }
+        subscriber.complete();
+        eventSource.close();
+      };
+    });
   }
 
   async pluginChat(apiKey: string, pluginId: number, message: string): Promise<unknown> {

@@ -11,7 +11,7 @@ from app.completion import (
     get_best_function_messages,
     _extract_ids_from_completion,
 )
-from app.typedefs import ExtractKeywordDto, MessageDict, SpecificationDto
+from app.typedefs import ExtractKeywordDto, SpecificationDto
 from .testing import DbTestCase
 
 EXTRACTION_FALLBACK_EXAMPLE = """The following function can be used to get a list of products from a Shopify store and then log the first product:
@@ -264,7 +264,7 @@ class T(DbTestCase):
         messages = get_chat_completion.call_args[0][0]
         print(messages[0]["content"])
         print(messages[1]["content"])
-        self.assertEqual(len(messages), 4)
+        self.assertEqual(len(messages), 3)
         self.assertEqual(query_node_server.call_count, 1)
 
         self.assertTrue(result)
@@ -287,14 +287,9 @@ class T(DbTestCase):
 
     @patch("app.completion.get_chat_completion")
     def test_general_question(self, get_chat_completion):
-        get_chat_completion.return_value = {
-            "choices": [{"message": MessageDict(role="assistant", content="I am the answer")}]
-        }
+        get_chat_completion.return_value = "I am the answer"
 
         user = test_user_get_or_create()
         conversation = create_new_conversation(user.id)
-        general_question(user.id, conversation.id, "I am the question")
-
-        # should store both question and answer as type = 2
-        msgs = self.db.conversationmessage.find_many(where={"conversationId": conversation.id, "type": 2})
-        self.assertEqual(len(msgs), 2)
+        answer = general_question(user.id, conversation.id, "I am the question")
+        self.assertEqual(answer, "I am the answer")

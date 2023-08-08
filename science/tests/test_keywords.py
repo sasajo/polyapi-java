@@ -129,31 +129,28 @@ class T(DbTestCase):
         self.assertEqual(top_5, [])
 
     @patch("app.keywords.get_chat_completion")
-    def test_extract_keywords(self, chat_create: Mock):
+    def test_extract_keywords(self, get_chat_completion: Mock):
         user = test_user_get_or_create()
         conversation = create_new_conversation(user.id)
 
         mock_response = {
             "keywords": "foo bar",
         }
-        chat_create.return_value = {
-            "choices": [{"message": {"content": json.dumps(mock_response), "role": "assistant"}}]
-        }
+        get_chat_completion.return_value = json.dumps(mock_response)
+
         keyword_data = extract_keywords(user.id, conversation.id, "test")
         assert keyword_data
         self.assertEqual(keyword_data["keywords"], "foo bar")
 
     @patch("app.keywords.get_chat_completion")
-    def test_extract_keywords_lists(self, chat_create: Mock):
+    def test_extract_keywords_lists(self, get_chat_completion: Mock):
         user = test_user_get_or_create()
         conversation = create_new_conversation(user.id)
 
         mock_response = {
             "keywords": ["foo", "bar"],
         }
-        chat_create.return_value = {
-            "choices": [{"message": {"content": json.dumps(mock_response), "role": "assistant"}}]
-        }
+        get_chat_completion.return_value = json.dumps(mock_response)
         keyword_data = extract_keywords(user.id, conversation.id, "test")
         assert keyword_data
         self.assertEqual(keyword_data["keywords"], "foo bar")

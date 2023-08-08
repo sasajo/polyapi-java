@@ -1,3 +1,6 @@
+### 0.1.46
+* Stream api implemented on assistant.
+
 ### 0.1.45
 * Prevent focus being stolen by assistant.
 
@@ -102,7 +105,7 @@
 * Updated Poly library tree icon
 
 ### 0.1.12
-* Using polling instead of event listening for library data changes 
+* Using polling instead of event listening for library data changes
 
 ### 0.1.11
 * Improved Poly library change listener

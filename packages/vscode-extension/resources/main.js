@@ -85,7 +85,6 @@ const COMMANDS = [
 
       codeElements.forEach((codeElement) => {
         const preCode = codeElement.parentElement;
-        preCode.classList.add('code-section', 'rounded-lg');
 
         const buttonWrapper = document.createElement('div');
         buttonWrapper.classList.add('code-actions-wrapper', 'flex', 'gap-4', 'flex-wrap', 'items-center', 'right-2', 'top-1', 'absolute');
@@ -104,11 +103,17 @@ const COMMANDS = [
       return html.documentElement.innerHTML;
     };
 
-    const getResponseWrapper = (content, createdAt = '') => {
+    const getCreatedAtAttribute = (createdAt) => {
+      return createdAt ? `data-created-at="${createdAt}"` : '';
+    };
+
+    const getResponseWrapper = (content, id = '', createdAt) => {
+
+      const messageId = id ? `id='${id}'` : '';
       return `
-        <div class='p-4 self-end' ${createdAt ? `data-created-at="${createdAt}"` : ''}>
+        <div class='p-4 self-end' ${getCreatedAtAttribute(createdAt)}>
           <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
-          <div class="prose prose-headings:font-normal prose-th:font-bold">
+          <div class="prose prose-headings:font-normal prose-th:font-bold" ${messageId}>
             ${content}            
           </div>
         </div>
@@ -117,17 +122,17 @@ const COMMANDS = [
 
     const getQuestionWrapper = (message, createdAt = '') => {
       return `
-      <div class='p-4 self-end relative' style='background: var(--vscode-input-background)' ${createdAt ? `data-created-at="${createdAt}"` : ''}>
+      <div class='p-4 self-end relative' style='background: var(--vscode-input-background)' ${getCreatedAtAttribute(createdAt)}>
         <h2 class='font-bold mb-3 flex items-center'>${userSvg}<span class='ml-1'>You</span></h2>
         <div class='overflow-y-auto question-box'>${message.value}</div>
       </div>
       `;
     }
 
-    const getResponseTextHtml = text => {
-      switch (text.type) {
+    const convertToHtml = data => {
+      switch (data.type) {
         case 'plain':
-          return `<div>${text.value}</div>`;
+          return `<div>${data.value}</div>`;
         case 'error':
 
           const goToSettings = `
@@ -136,13 +141,14 @@ const COMMANDS = [
             </span>
           `;
 
-          const isCredentialsIssue = text.error?.status === 401 || text.error?.status === 403;
+          const isCredentialsIssue = data.error?.status === 401 || data.error?.status === 403;
 
-          return `<div class='response-text-error'>${text.value}. ${isCredentialsIssue ? goToSettings : ''}</div>`;
+          return `<div class='response-text-error'>${data.value}. ${isCredentialsIssue ? goToSettings : ''}</div>`;
         case 'js':
-          return getHtmlWithCodeCopy(marked.parse(`\`\`\`\n${text.value}\n\`\`\``));
+          return marked.parse(`\`\`\`\n${data.value}\n\`\`\``);
         case 'markdown':
-          return getHtmlWithCodeCopy(marked.parse(text.value));
+          // return getHtmlWithCodeCopy(marked.parse(data.value));
+          return marked.parse(data.value);
         default:
           return '';
       }
@@ -155,9 +161,17 @@ const COMMANDS = [
       });
     };
 
+    const disableTextarea = () => {
+      sendMessageButton.setAttribute('disabled', 'disabled');
+      messageInput.setAttribute('data-avoid-send', 'true');
+    }
+
     const removeLoadingContainer = () => {
       const loadingContainer = document.querySelector('.loading-container');
       loadingContainer?.remove();
+    }
+
+    const enableTextarea = () => {
       sendMessageButton.removeAttribute('disabled');
       messageInput.removeAttribute('data-avoid-send');
     }
@@ -179,9 +193,15 @@ const COMMANDS = [
 
 
     const observeFirstMessage = (firstChatElement) => {
+
+      console.log('observeFirstMessage: ', firstChatElement)
+
       if(!firstChatElement) {
         return;
       }
+
+      currentObserver?.disconnect();
+
       setTimeout(() => {
 
         currentObserver = new IntersectionObserver(([entry]) => {
@@ -215,6 +235,7 @@ const COMMANDS = [
         break;
       }
       case 'setLoading': {
+        const loadingContainer = document.querySelector('.loading-container');
 
         const value = message.value || {
           cancellable: true,
@@ -226,8 +247,8 @@ const COMMANDS = [
           removeConversationLoadError();
         }
 
-        sendMessageButton.setAttribute('disabled', 'disabled');
-        messageInput.setAttribute('data-avoid-send', 'true');
+        disableTextarea();
+
 
         if (!loadingContainer) {
 
@@ -244,16 +265,52 @@ const COMMANDS = [
 
         break;
       }
-      case 'addResponseTexts': {
-        const texts = message.value;
+      case 'removeLoading': {
+        removeLoadingContainer();
+        enableTextarea();
+        break;
+      }
+      case 'addMessage': {
+        const data = message.data;
 
         removeLoadingContainer();
 
-        conversationList.innerHTML += getResponseWrapper(texts.map(text => getResponseTextHtml(text)).join(''));
+        conversationList.innerHTML += getResponseWrapper(convertToHtml(data));
         scrollToLastMessage();
         focusMessageInput();
-        
-        currentObserver?.disconnect();
+
+        observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
+
+        break;
+      }
+      case 'updateMessage': {
+
+        const data = message.data;
+        const messageID = message.messageID;
+
+        const messageElement = document.getElementById(messageID);
+        if (messageElement) {
+          messageElement.innerHTML = convertToHtml(data);
+        } else {
+          conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
+        }
+
+        scrollToLastMessage();
+        break;
+      }
+      case 'finishMessage': {
+
+        console.log('finish mesasge', message);
+
+        const messageID = message.messageID;
+
+        const messageElement = document.getElementById(messageID);
+        if (messageElement) {
+          messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
+          scrollToLastMessage();
+          enableTextarea();
+          focusMessageInput();
+        }
 
         observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
 
@@ -277,6 +334,7 @@ const COMMANDS = [
             </div>
           ${conversationList.innerHTML}`;
           removeLoadingContainer();
+          enableTextarea();
           return;
         }
 
@@ -293,7 +351,7 @@ const COMMANDS = [
           }
           
           if(message.role === 'assistant') {
-            newMessagesHtmlContent = `${getResponseWrapper([getResponseTextHtml({ value: message.content, type: 'markdown'})], message.createdAt)}${newMessagesHtmlContent}`
+            newMessagesHtmlContent = `${getResponseWrapper([convertToHtml({ value: message.content, type: 'markdown'})], undefined, message.createdAt)}${newMessagesHtmlContent}`
           }
         }
         
@@ -326,6 +384,10 @@ const COMMANDS = [
         if(messages.length) {
           observeFirstMessage(document.querySelector(`div[data-created-at="${lastMessage.createdAt}"]`))
         }
+
+        observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
+
+        enableTextarea();
 
         break;
       default:

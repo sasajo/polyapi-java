@@ -32,7 +32,7 @@ class T(DbTestCase):
         }
 
         # execute
-        resp = self.client.post("/function-completion", json=mock_input)
+        resp = self.client.get("/function-completion", query_string=mock_input)
 
         # test
         self.assertStatus(resp, 500)

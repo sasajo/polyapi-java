@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import os
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict, Generator, Optional, Union
 from flask import Blueprint, Response, request, jsonify
 from openai.error import OpenAIError, RateLimitError
 from app.completion import general_question, get_completion_answer
+from app.constants import MessageType
 from app.conversation import previous_message_referenced
 from app.description import (
     get_function_description,
@@ -12,8 +13,14 @@ from app.description import (
 )
 from app.docs import documentation_question, update_vector
 from app.plugin import get_plugin_chat
-from app.typedefs import CompletionAnswer, DescInputDto, VarDescInputDto
-from app.utils import clear_conversations, create_new_conversation, get_user, log
+from app.typedefs import DescInputDto, MessageDict, VarDescInputDto
+from app.utils import (
+    clear_conversations,
+    create_new_conversation,
+    get_user,
+    log,
+    store_messages,
+)
 from app.router import split_route_and_question
 
 bp = Blueprint("views", __name__)
@@ -34,9 +41,9 @@ HELP_ANSWER = """Poly conversation special commands
 """
 
 
-@bp.route("/function-completion", methods=["POST"])  # type: ignore
-def function_completion() -> CompletionAnswer:
-    data: Dict = request.get_json(force=True)
+@bp.route("/function-completion", methods=["GET"])  # type: ignore
+def function_completion() -> Response:
+    data: Dict = request.args.to_dict()
     question: str = data["question"].strip()
     user_id: Optional[str] = data.get("user_id")
     environment_id: Optional[str] = data.get("environment_id")
@@ -44,10 +51,12 @@ def function_completion() -> CompletionAnswer:
     assert user_id
     user = get_user(user_id)
     if not user:
-        return {
-            "answer": "This key is not assigned to a user, please use a key assigned to a user with the AI Assistant.",
-            "stats": {},
-        }
+        return Response(
+            {
+                "answer": "This key is not assigned to a user, please use a key assigned to a user with the AI Assistant.",
+                "stats": {},
+            }
+        )
 
     prev_msgs = previous_message_referenced(user_id, question)
     stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
@@ -55,35 +64,66 @@ def function_completion() -> CompletionAnswer:
     route, question = split_route_and_question(question)
     stats["route"] = route
 
+    resp: Union[Generator, str] = ""  # either str or streaming completion type
+    conversation = create_new_conversation(user_id)
     if route == "function":
-        resp, completion_stats = get_completion_answer(
-            user_id, environment_id, question, prev_msgs
+        resp = get_completion_answer(
+            user_id, conversation.id, environment_id, question, prev_msgs
         )
-        stats.update(completion_stats)
+        # TODO fixme?
+        # stats.update(completion_stats)
     elif route == "general":
-        conversation = create_new_conversation(user_id)
-        choice = general_question(user_id, conversation.id, question, prev_msgs)
-        resp = {"answer": choice["message"]["content"]}
+        resp = general_question(user_id, conversation.id, question, prev_msgs)
     elif route == "help":
-        resp = {"answer": HELP_ANSWER}
+        resp = HELP_ANSWER
     elif route == "documentation":
-        choice, doc_stats = documentation_question(user_id, question, prev_msgs)
-        stats.update(doc_stats)
-        resp = {"answer": choice["message"]["content"]}
+        resp = documentation_question(user_id, conversation.id, question, prev_msgs)
+        # TODO fixme?
+        # stats.update(doc_stats)
     else:
-        resp = {"answer": f"unexpected category: {route}"}
-
-    if os.environ.get("HOST_URL") == "https://develop-k8s.polyapi.io":
-        # only send stats back in develop
-        resp["stats"] = stats
-    else:
-        # TODO maybe put the stats somewhere so we can see them in non-develop?
-        resp["stats"] = {}
+        resp = "unexpected category: {route}"
 
     if user.vip:
         log(f"VIP USER {user_id}", resp, sep="\n")
 
-    return resp  # type: ignore
+    def generate():
+        if isinstance(resp, str):
+            yield f"data: {resp}"
+            # store the final message before exiting
+            store_messages(
+                user_id,
+                conversation.id,
+                [
+                    MessageDict(
+                        role="assistant",
+                        content=resp,
+                        type=MessageType.user,
+                    )
+                ],
+            )
+        else:
+            answer_content = ""
+            for chunk in resp:
+                content = chunk["choices"][0].get("delta", {}).get("content")
+                if content is not None:
+                    answer_content += content
+                    # still have data to send back
+                    yield "data: {}\n\n".format(json.dumps({"chunk": content}))
+                else:
+                    # store the final message before exiting
+                    store_messages(
+                        user_id,
+                        conversation.id,
+                        [
+                            MessageDict(
+                                role="assistant",
+                                content=answer_content,
+                                type=MessageType.user,
+                            )
+                        ],
+                    )
+
+    return Response(generate(), mimetype="text/event-stream")
 
 
 @bp.route("/function-description", methods=["POST"])
@@ -116,7 +156,7 @@ def plugin_chat() -> Response:
 @bp.route("/docs/update-vector", methods=["POST"])
 def docs_update_vector() -> str:
     data = request.get_json(force=True)
-    return update_vector(data['id'])
+    return update_vector(data["id"])
 
 
 @bp.route("/clear-conversations", methods=["POST"])

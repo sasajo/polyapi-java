@@ -1,6 +1,6 @@
 import re
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple, Union, Dict
 from prisma import get_client
 from prisma.models import SystemPrompt, ConversationMessage
 from app.constants import QUESTION_TEMPLATE, MessageType
@@ -8,7 +8,7 @@ from app.conversation import insert_prev_msgs
 
 # TODO change to relative imports
 from app.typedefs import (
-    ChatGptChoice,
+    # ChatGptStreamChoice,  TODO
     ExtractKeywordDto,
     StatsDict,
 )
@@ -18,7 +18,6 @@ from app.typedefs import (
     MessageDict,
 )
 from app.utils import (
-    create_new_conversation,
     filter_to_real_public_ids,
     get_return_type_properties,
     insert_internal_step_info,
@@ -205,17 +204,16 @@ def get_best_functions(
         # we have no candidate functions whatsoever, abort!
         return [], stats
 
-    resp = get_chat_completion(messages, temperature=0.2)
+    answer_msg = get_chat_completion(messages, temperature=0.2)
+    assert isinstance(answer_msg, str)
 
     # store conversation
     insert_internal_step_info(messages, "STEP 2: GET BEST FUNCTIONS")
-    answer_msg = resp["choices"][0]["message"]
-    messages.append(answer_msg)
+    messages.append(MessageDict(role="assistant", content=answer_msg))
     store_messages(user_id, conversation_id, messages)
 
     # continue
-    content = answer_msg["content"] or ""
-    public_ids = _extract_ids_from_completion(content)
+    public_ids = _extract_ids_from_completion(answer_msg)
     if public_ids:
         # valid public id, send it back!
         rv = filter_to_real_public_ids(public_ids)
@@ -297,7 +295,7 @@ def get_best_function_example(
     public_ids: List[str],
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
-) -> ChatGptChoice:
+) -> Union[Generator, str]:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
     specs = public_ids_to_specs(user_id, environment_id, public_ids)
@@ -325,54 +323,46 @@ def get_best_function_example(
     insert_prev_msgs(messages, prev_msgs)
     insert_system_prompt(messages, environment_id)
 
-    resp = get_chat_completion(messages, temperature=0.5)
+    resp = get_chat_completion(messages, temperature=0.5, stream=True)
 
     # store conversation
     insert_internal_step_info(messages, "STEP 3: GET FUNCTION EXAMPLE")
-    rv = resp["choices"][0]
-    answer = rv['message']
-    answer["type"] = 2
-    messages.append(answer)
     store_messages(user_id, conversation_id, messages)
 
-    return rv
+    return resp
 
 
 def get_completion_answer(
     user_id: str,
+    conversation_id: str,
     environment_id: str,
     question: str,
     prev_msgs: List[ConversationMessage],
-) -> Tuple[Dict, Dict]:
-    conversation = create_new_conversation(user_id)
+) -> Union[Generator, str]:
     best_function_ids, stats = get_best_functions(
-        user_id, conversation.id, environment_id, question
+        user_id, conversation_id, environment_id, question
     )
 
     if best_function_ids:
         # we found a function that we think should answer this question
         # lets pass ChatGPT the function and ask the question to make this work
-        choice = get_best_function_example(
+        return get_best_function_example(
             user_id,
-            conversation.id,
+            conversation_id,
             environment_id,
             best_function_ids,
             question,
             prev_msgs,
         )
     else:
-        choice = general_question(user_id, conversation.id, question, prev_msgs)
-
-    answer = choice['message']['content']
-    assert answer
-
-    return {"answer": answer}, stats  # type: ignore
+        return general_question(user_id, conversation_id, question, prev_msgs)
 
 
-def simple_chatgpt_question(question: str) -> ChatGptChoice:
+def simple_chatgpt_question(question: str) -> str:
     messages = [MessageDict(role="user", content=question)]
-    resp = get_chat_completion(messages)
-    return resp["choices"][0]
+    content = get_chat_completion(messages)
+    assert isinstance(content, str)
+    return content
 
 
 def general_question(
@@ -380,18 +370,11 @@ def general_question(
     conversation_id: str,
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
-) -> ChatGptChoice:
+) -> Union[Generator, str]:
     """ask a general question not related to any Poly-specific functionality"""
     messages = msgs_to_msg_dicts(prev_msgs) + [
         MessageDict(role="user", content=question, type=MessageType.user)
     ]
 
-    resp = get_chat_completion(messages)
-    choice = resp["choices"][0]
-    answer = choice["message"]
-    answer["type"] = MessageType.user
-    messages.append(answer)
-
-    insert_internal_step_info(messages, "FALLBACK")
-    store_messages(user_id, conversation_id, messages)
-    return choice
+    resp = get_chat_completion(messages, stream=True)
+    return resp

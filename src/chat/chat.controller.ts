@@ -5,16 +5,18 @@ import {
   Logger,
   Post,
   UseGuards,
+  Sse,
   InternalServerErrorException,
   Param,
   Get,
   Header,
   Query,
+  MessageEvent,
   ValidationPipe,
 } from '@nestjs/common';
+import { map, Observable } from 'rxjs';
 import {
   SendQuestionDto,
-  SendQuestionResponseDto,
   SendCommandDto,
   TeachSystemPromptDto,
   TeachSystemPromptResponseDto,
@@ -45,8 +47,8 @@ export class ChatController {
   ) {}
 
   @UseGuards(PolyAuthGuard)
-  @Post('/question')
-  public async sendQuestion(@Req() req: AuthRequest, @Body() body: SendQuestionDto): Promise<SendQuestionResponseDto> {
+  @Sse('/question')
+  public async sendQuestion(@Req() req, @Query() data: SendQuestionDto): Promise<Observable<MessageEvent>> {
     const environmentId = req.user.environment.id;
     const userId = req.user.user?.id || (await this.userService.findAdminUserByEnvironmentId(environmentId))?.id;
 
@@ -56,10 +58,15 @@ export class ChatController {
 
     await this.authService.checkPermissions(req.user, Permission.Use);
 
-    const responseTexts = await this.service.getMessageResponseTexts(environmentId, userId, body.message);
-    return {
-      texts: responseTexts,
-    };
+    this.logger.debug(`Sending question to chat: ${data.message}`);
+
+    return this.service.sendQuestion(environmentId, userId, data.message)
+      .pipe(
+        map(data => ({
+          data,
+        }),
+        ),
+      );
   }
 
   @UseGuards(PolyAuthGuard)

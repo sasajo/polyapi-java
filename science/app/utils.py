@@ -6,10 +6,9 @@ import requests
 import numpy as np
 from requests import Response
 from flask import current_app
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.typedefs import (
-    ChatCompletionResponse,
     MessageDict,
     PropertySpecification,
     SpecificationDto,
@@ -293,8 +292,8 @@ def camel_case(text: str) -> str:
 
 
 def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0
-) -> ChatCompletionResponse:
+    messages: List[MessageDict], *, temperature=1.0, stream=False
+) -> Union[Generator, str]:
     """send the messages to OpenAI and get a response"""
     stripped = copy.deepcopy(messages)
     stripped = [
@@ -303,12 +302,16 @@ def get_chat_completion(
     for s in stripped:
         # remove our internal-use-only fields
         s.pop("type", None)
-    resp: ChatCompletionResponse = openai.ChatCompletion.create(
+    resp = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
         messages=stripped,
         temperature=temperature,
+        stream=stream,
     )
-    return resp
+    if isinstance(resp, Generator):
+        return resp
+    else:
+        return resp["choices"][0]["message"]["content"]
 
 
 def cosine_similarity(a, b):
@@ -384,7 +387,10 @@ def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[Message
         return []
 
 
-def extract_code(content: str) -> Any:
+def extract_code(content: Optional[str]) -> Any:
+    if not content:
+        return None
+
     parts = content.split("```")
     if len(parts) == 1:
         rv = content
