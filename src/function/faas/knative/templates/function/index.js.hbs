@@ -16,21 +16,10 @@ const handle = async (context, body) => {
 
     if (context.cloudevent) {
       const hasResult = typeof result !== 'undefined';
-
-      console.log(JSON.stringify(context.cloudevent))
-      console.log('result: ', result);
-      console.log('hasResult: ', hasResult);
-
-      const response = {
+      return {
         statusCode: hasResult ? 200 : 204,
-        body: hasResult ? result : undefined,
-        response: result,
-        data: result
-      }
-
-      console.log('response: ', response);
-
-      return response;
+        body: hasResult ? result : undefined
+      };
     } else {
       return {
         body: result
