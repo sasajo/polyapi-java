@@ -43,11 +43,6 @@ interface KNativeTriggerDef {
   };
 }
 
-type CloudEventResponse = {
-  body?: string,
-  headers?: Record<string, string>
-}
-
 export class KNativeTriggerProvider implements TriggerProvider {
   private readonly logger = new Logger(KNativeTriggerProvider.name);
 
@@ -230,7 +225,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  async triggerEvent(source: TriggerSource, data: any): Promise<unknown> {
+  async triggerEvent(source: TriggerSource, data: any): Promise<void> {
     const sourceId = crypto.randomBytes(16).toString('hex');
     this.logger.debug(`Triggering event ${sourceId} (source: ${JSON.stringify(source)})`);
     const cloudEvent = new CloudEvent({
@@ -239,17 +234,8 @@ export class KNativeTriggerProvider implements TriggerProvider {
       data,
     });
 
-    const event = await this.emitCloudEvent(cloudEvent) as CloudEventResponse;
-
+    const event = await this.emitCloudEvent(cloudEvent);
     this.logger.debug(`Event ${sourceId} triggered`, event);
-
-    if (typeof event.body !== 'undefined') {
-      try {
-        return JSON.parse(event.body);
-      } catch (err) {
-        return event.body;
-      }
-    }
   }
 
   private getType(source: TriggerSource) {

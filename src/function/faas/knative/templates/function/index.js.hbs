@@ -13,12 +13,9 @@ const handle = async (context, body) => {
   try {
     const result = await {{name}}(...args);
 
-
     if (context.cloudevent) {
-      const hasResult = typeof result !== 'undefined';
       return {
-        statusCode: hasResult ? 200 : 204,
-        body: hasResult ? result : undefined
+        statusCode: 204
       };
     } else {
       return {

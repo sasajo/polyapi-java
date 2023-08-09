@@ -6,5 +6,5 @@ export interface TriggerProvider {
   getTriggers: (environmentId: string) => Promise<TriggerDto[]>;
   createTrigger: (environmentId: string, source: TriggerSource, destination: TriggerDestination) => Promise<TriggerDto>;
   deleteTrigger: (environmentId: string, trigger: TriggerDto) => Promise<void>;
-  triggerEvent: (source: TriggerSource, eventPayload: any) => Promise<unknown>;
+  triggerEvent: (source: TriggerSource, eventPayload: any) => Promise<void>;
 }
