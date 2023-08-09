@@ -181,7 +181,7 @@ class T(DbTestCase):
         self.user = test_user_get_or_create()
         self.environment = test_environment_get_or_create()
 
-    @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
+    @patch("app.keywords.get_function_similarity_threshold", new=_fake_threshold)
     @patch("app.completion.query_node_server")
     def test_library_message_no_keywords(self, query_node_server: Mock) -> None:
         query_node_server.return_value = Mock(
@@ -192,7 +192,7 @@ class T(DbTestCase):
         self.assertEqual(query_node_server.call_count, 0)
         self.assertIsNone(d)
 
-    @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
+    @patch("app.keywords.get_function_similarity_threshold", new=_fake_threshold)
     @patch("app.completion.query_node_server")
     def test_library_message_functions(self, query_node_server: Mock) -> None:
         query_node_server.side_effect = [
@@ -213,7 +213,7 @@ class T(DbTestCase):
         self.assertGreaterEqual(stats["match_count"], 3)
         self.assertIn("Here are some functions", d["content"])
 
-    @patch("app.keywords.get_similarity_threshold", new=_fake_threshold)
+    @patch("app.keywords.get_function_similarity_threshold", new=_fake_threshold)
     @patch("app.completion.query_node_server")
     def test_library_message_webhooks(self, query_node_server: Mock) -> None:
         query_node_server.side_effect = [

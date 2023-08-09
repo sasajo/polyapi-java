@@ -7,6 +7,7 @@ export type ParsedConfigVariable<T = string> = Omit<ConfigVariable, 'value'> & {
 
 export enum ConfigVariableName {
     OpenAIKeywordSimilarityThreshold = 'OpenAIKeywordSimilarityThreshold',
+    OpenAIVariableKeywordSimilarityThreshold = 'OpenAIVariableKeywordSimilarityThreshold',
     OpenAIFunctionMatchLimit = 'OpenAIFunctionMatchLimit',
     OpenAIExtractKeywordsTemperature = 'OpenAIExtractKeywordsTemperature',
     TrainingDataGeneration = 'TrainingDataGeneration'
