@@ -47,7 +47,7 @@ export class TriggerService implements OnModuleInit {
   }
 
   async triggerWebhookEvent(webhookHandleId: string, eventPayload: any) {
-    await this.triggerProvider.triggerEvent({
+    return this.triggerProvider.triggerEvent({
       webhookHandleId,
     }, eventPayload);
   }

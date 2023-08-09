@@ -99,7 +99,7 @@ export class WebhookController {
       return;
     }
 
-    return await this.webhookService.triggerWebhookHandle(webhookHandle, payload);
+    return this.webhookService.triggerWebhookHandle(webhookHandle, payload);
   }
 
   @Delete(':id')
