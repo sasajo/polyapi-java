@@ -390,6 +390,7 @@ def msgs_to_msg_dicts(msgs: Optional[List[Union[ConversationMessage, MessageDict
                 rv.append(MessageDict(role=msg.role, content=msg.content))
             else:  # MessageDict
                 rv.append(msg)
+        return rv
     else:
         return []
 
