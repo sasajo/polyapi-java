@@ -17,6 +17,28 @@ class T(DbTestCase):
 
     @patch("app.views.split_route_and_question")
     @patch("app.views.get_completion_answer")
+    def test_function_completion(self, get_answer: Mock, route_question) -> None:
+        # setup
+        user = test_user_get_or_create()
+        route_question.return_value = "function", "hi world"
+
+        get_answer.return_value = "123"
+        mock_input = {
+            "question": "/d Cómo",
+            "user_id": user.id,
+            "environment_id": "123",
+        }
+
+        # execute
+        resp = self.client.get("/function-completion", query_string=mock_input)
+        self.assertEqual(resp.request.url, "foo")
+
+        # test
+        self.assertStatus(resp, 200)
+        self.assertEqual(get_answer.call_count, 1)
+
+    @patch("app.views.split_route_and_question")
+    @patch("app.views.get_completion_answer")
     def test_function_completion_error(self, get_answer: Mock, route_question) -> None:
         # setup
         user = test_user_get_or_create()
