@@ -382,9 +382,14 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
     return {"data": return_type}
 
 
-def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[MessageDict]:
+def msgs_to_msg_dicts(msgs: Optional[List[Union[ConversationMessage, MessageDict]]]) -> List[MessageDict]:
     if msgs:
-        return [MessageDict(role=msg.role, content=msg.content) for msg in msgs]
+        rv = []
+        for msg in msgs:
+            if isinstance(msg, ConversationMessage):
+                rv.append(MessageDict(role=msg.role, content=msg.content))
+            else:  # MessageDict
+                rv.append(msg)
     else:
         return []
 

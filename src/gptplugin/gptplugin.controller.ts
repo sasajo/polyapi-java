@@ -50,8 +50,8 @@ export class GptPluginController {
   @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
   @Delete('plugins/:slug')
   public async pluginDelete(@Req() req: AuthRequest, @Param('slug') slug): Promise<unknown> {
-    const plugin = await this.service.deletePlugin(slug, req.user.environment.id);
-    return { plugin };
+    await this.service.deletePlugin(slug, req.user.environment.id);
+    return 'deleted';
   }
 
   @UseGuards(PolyAuthGuard)

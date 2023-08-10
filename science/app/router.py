@@ -46,7 +46,7 @@ def split_route_and_question(question: str) -> Tuple[Literal["function", "genera
         if len(parts) == 1:
             question = ""
         else:
-            question = parts[1]
+            question = parts[1].strip()
 
         route = get_route(route_cmd)
         return route, question

@@ -12,6 +12,7 @@ from app.description import (
     get_webhook_description,
 )
 from app.docs import documentation_question, update_vector
+from app.help import help_question
 from app.plugin import get_plugin_chat
 from app.typedefs import DescInputDto, MessageDict, VarDescInputDto
 from app.utils import (
@@ -31,15 +32,6 @@ bp = Blueprint("views", __name__)
 def home():
     readme_link = "<a href='https://github.com/polyapi/poly-alpha/blob/main/science/README.md'>README</a>"
     return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
-
-
-HELP_ANSWER = """Poly conversation special commands
-
-* /functions or /f or no slash command: search functions and variables and use them to answer question
-* /help or /h: list out available commands
-* /poly or /p or /docs or /d: searches poly documentation
-* /general or /g: ask general question straight to ChatGPT
-"""
 
 
 @bp.route("/function-completion", methods=["GET"])  # type: ignore
@@ -85,7 +77,7 @@ def function_completion() -> Response:
     elif route == "general":
         resp = general_question(user_id, conversation.id, question, prev_msgs)
     elif route == "help":
-        resp = HELP_ANSWER
+        resp = help_question(user_id, conversation.id, question, prev_msgs)
     elif route == "documentation":
         resp = documentation_question(user_id, conversation.id, question, prev_msgs)
         # TODO fixme?
