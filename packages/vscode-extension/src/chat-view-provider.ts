@@ -158,7 +158,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       loadingPresent = false;
     };
 
-    const es = new EventSource(`${apiBaseUrl}/chat/question?message=${message}`, {
+    const es = new EventSource(`${apiBaseUrl}/chat/question?message=${encodeURIComponent(message)}`, {
       headers: {
         authorization: `Bearer ${apiKey}`,
       },

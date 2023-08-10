@@ -24,7 +24,7 @@ export class AiService {
   getFunctionCompletion(environmentId: string, userId: string, message: string): Observable<string> {
     this.logger.debug(`Sending message to Science server for function completion: ${message}`);
 
-    const eventSource = new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question=${message}`);
+    const eventSource = new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question=${encodeURIComponent(message)}`);
 
     return new Observable<string>(subscriber => {
       eventSource.onmessage = (event) => {

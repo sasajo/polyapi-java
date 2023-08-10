@@ -1,3 +1,6 @@
+### 0.1.47
+* Fix for sending questions with escaped characters.
+
 ### 0.1.46
 * Stream api implemented on assistant.
 
