@@ -377,4 +377,5 @@ def general_question(
     ]
 
     resp = get_chat_completion(messages, stream=True)
+    store_messages(user_id, conversation_id, messages)
     return resp
