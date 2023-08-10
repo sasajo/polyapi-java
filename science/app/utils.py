@@ -100,7 +100,8 @@ def log(*args, **kwargs) -> None:
 
 
 def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
-    """insert an internal message just for our own tracking purposes"""
+    """ insert an internal message just for our own tracking purposes
+    """
     messages.insert(
         0,
         MessageDict(

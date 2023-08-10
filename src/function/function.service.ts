@@ -58,6 +58,7 @@ import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
 import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospectionQuery, resolveGraphqlArgumentType } from './graphql/utils';
 import { AuthService } from 'auth/auth.service';
 
+
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
 mustache.escape = (text) => {
