@@ -3,12 +3,13 @@ import {
   Body,
   Controller,
   Delete,
-  Get,
+  Get, Headers,
   Logger,
   NotFoundException,
   Param,
   Patch,
-  Post, Query,
+  Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -19,24 +20,30 @@ import {
   ApiFunctionResponseDto,
   CreateApiFunctionDto,
   CreateCustomFunctionDto,
-  ExecuteApiFunctionDto, ExecuteApiFunctionQueryParams,
-  ExecuteCustomFunctionDto, ExecuteCustomFunctionQueryParams,
+  ExecuteApiFunctionDto,
+  ExecuteCustomFunctionDto,
+  ExecuteCustomFunctionQueryParams,
   FunctionBasicDto,
   FunctionDetailsDto,
   Permission,
   Role,
   UpdateApiFunctionDto,
   UpdateCustomFunctionDto,
-} from '@poly/common';
+} from '@poly/model';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
+import { VariableService } from 'variable/variable.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller('functions')
 export class FunctionController {
   private logger: Logger = new Logger(FunctionController.name);
 
-  constructor(private readonly service: FunctionService, private readonly authService: AuthService) {
+  constructor(
+    private readonly service: FunctionService,
+    private readonly authService: AuthService,
+    private readonly variableService: VariableService,
+  ) {
   }
 
   @UseGuards(PolyAuthGuard)
@@ -66,6 +73,7 @@ export class FunctionController {
       templateUrl,
       templateBody,
       id = null,
+      introspectionResponse = null,
     } = data;
     const environmentId = req.user.environment.id;
 
@@ -79,7 +87,7 @@ export class FunctionController {
     return this.service.apiFunctionToBasicDto(
       await this.service.createOrUpdateApiFunction(
         id,
-        environmentId,
+        req.user.environment,
         url,
         body,
         requestName,
@@ -94,6 +102,7 @@ export class FunctionController {
         method,
         templateUrl,
         templateBody,
+        introspectionResponse,
         templateAuth,
       ),
     );
@@ -121,14 +130,19 @@ export class FunctionController {
       description = null,
       arguments: argumentsMetadata = null,
       response,
-      payload = null,
+      payload,
       visibility = null,
     } = data;
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException('Function not found');
     }
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+
+    if (payload !== undefined && response === undefined) {
+      throw new BadRequestException('`payload` cannot be updated without `response`');
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
 
     return this.service.apiFunctionToDetailsDto(
       await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility),
@@ -141,16 +155,16 @@ export class FunctionController {
     @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() data: ExecuteApiFunctionDto,
-    @Query() { clientId }: ExecuteApiFunctionQueryParams,
   ): Promise<ApiFunctionResponseDto | null> {
-    const apiFunction = await this.service.findApiFunction(id);
+    const apiFunction = await this.service.findApiFunction(id, true);
     if (!apiFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
+    data = await this.variableService.unwrapVariables(req.user, data);
 
-    return await this.service.executeApiFunction(apiFunction, data, clientId);
+    return await this.service.executeApiFunction(apiFunction, data, req.user.user?.id, req.user.application?.id);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -161,7 +175,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
     await this.service.deleteApiFunction(id);
   }
 
@@ -251,9 +265,16 @@ export class FunctionController {
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     try {
-      return this.service.customFunctionToDetailsDto(
-        await this.service.createCustomFunction(req.user.environment, context, name, description, code, true, req.user.key),
+      const customFunction = await this.service.createCustomFunction(
+        req.user.environment,
+        context,
+        name,
+        description,
+        code,
+        true,
+        req.user.key,
       );
+      return this.service.customFunctionToDetailsDto(customFunction);
     } catch (e) {
       throw new BadRequestException(e.message);
     }
@@ -312,9 +333,12 @@ export class FunctionController {
     @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() data: ExecuteCustomFunctionDto,
+    @Headers() headers: Record<string, any>,
     @Query() { clientId }: ExecuteCustomFunctionQueryParams,
   ): Promise<any> {
-    const customFunction = await this.service.findServerFunction(id);
+    this.logger.debug(`Headers: ${JSON.stringify(headers)}`);
+
+    const customFunction = await this.service.findServerFunction(id, true);
     if (!customFunction) {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
@@ -323,16 +347,17 @@ export class FunctionController {
     }
 
     await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
+    data = await this.variableService.unwrapVariables(req.user, data);
 
-    return await this.service.executeServerFunction(customFunction, req.user.environment, data, clientId);
+    return await this.service.executeServerFunction(customFunction, data, headers, clientId);
   }
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('/server/all/update')
-  async updateAllServerFunctions(@Req() req: AuthRequest) {
-    this.service.updateAllServerFunctions(req.user.environment, req.user.key)
+  async updateAllServerFunctions() {
+    this.service.updateAllServerFunctions()
       .then(() => {
-        this.logger.debug('All functions are being updated in background.');
+        this.logger.debug('All functions are being updated in background...');
       });
     return 'Functions are being updated in background. Please check logs for more details.';
   }

@@ -1,4 +1,6 @@
-const COMMANDS = ['clear'];
+const COMMANDS = [
+  'clear', 'c'
+];
 
 (function() {
   const vscode = acquireVsCodeApi();
@@ -17,6 +19,40 @@ const COMMANDS = ['clear'];
     xhtml: false,
   });
 
+  /*
+    See: https://tailwindcss.com/docs/typography-plugin#customizing-the-css
+    We need to apply https://tailwindcss.com/docs/typography-plugin  to tailwind css to avoid break markdown html styles,
+    and because tailwind typography plugin comes with different font-size values we have to override them to match vs-code styles.
+  */
+
+  tailwind.config = {
+    theme: {
+      extend: {
+        typography: {
+          DEFAULT: {
+            css: {
+              fontSize: 'var(--vscode-font-size)',
+              '--tw-prose-body': 'var(--vscode-editor-foreground)',
+                '--tw-prose-headings': 'var(--vscode-editor-foreground)',
+                '--tw-prose-lead': 'var(--vscode-editor-foreground)',
+                '--tw-prose-links': 'var(--vscode-textLink-foreground)',
+                '--tw-prose-bold': 'var(--vscode-editor-foreground)',
+                '--tw-prose-counters': 'var(--vscode-editor-foreground)',
+                '--tw-prose-bullets': 'var(--vscode-editor-foreground)',
+                '--tw-prose-hr': 'var(--vscode-editor-foreground)',
+                '--tw-prose-quotes': 'var(--vscode-editor-foreground)',
+                '--tw-prose-quote-borders': 'var(--vscode-textBlockQuote-border)',
+                '--tw-prose-code': 'var(--vscode-textPreformat-foreground)',
+                '--tw-prose-pre-bg': 'rgb(0 0 0 / 50%)',
+                '--tw-prose-th-borders': 'var(--vscode-editor-foreground)',
+                '--tw-prose-td-borders': 'var(--vscode-editor-foreground)'
+            }
+          }
+        }
+      }
+    }
+  }
+
   const loadingSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='48' viewBox='0 0 132 58'><g fill='currentColor' fill-rule='evenodd'><circle class='dot1' cx='25' cy='30' r='13'/><circle class='dot2' cx='65' cy='30' r='13'/><circle class='dot3' cx='105' cy='30' r='13'/></g></svg>`;
   const userSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='10' stroke-width='1.5' d='M18 18.86h-.76c-.8 0-1.56.31-2.12.87l-1.71 1.69c-.78.77-2.05.77-2.83 0l-1.71-1.69c-.56-.56-1.33-.87-2.12-.87H6c-1.66 0-3-1.33-3-2.97V4.98c0-1.64 1.34-2.97 3-2.97h12c1.66 0 3 1.33 3 2.97v10.91c0 1.63-1.34 2.97-3 2.97Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M12 10a2.33 2.33 0 1 0 0-4.66A2.33 2.33 0 0 0 12 10Zm4 5.66c0-1.8-1.79-3.26-4-3.26s-4 1.46-4 3.26'/></svg>`;
   const polySvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 512 512'><path fill='currentColor' d='M160 140.8c14.111 0 25.595 11.482 25.6 25.6 0 14.116-11.483 25.6-25.597 25.6H160c-14.116 0-25.6-11.484-25.6-25.6 0-14.116 11.484-25.6 25.6-25.6z'/><path fill='currentColor' d='M160 70.4c52.934 0 96 43.066 96 96s-43.066 96-96 96-96-43.066-96-96 43.066-96 96-96zm0 153.6c31.761 0 57.6-25.839 57.6-57.6 0-31.761-25.839-57.6-57.6-57.6-31.761 0-57.6 25.839-57.6 57.6 0 31.761 25.839 57.6 57.6 57.6z'/><path fill='currentColor' d='M320 7.282C427.492 17.015 512 107.616 512 217.6v19.2h-78.177c-8.489 59.081-55.543 105.869-114.752 113.953C310.061 437.63 236.421 505.6 147.2 505.6H0V6.4Zm0 304.386c37.56-7.654 67.213-37.308 74.868-74.868H320Zm0-113.268h152.54C463.658 118.428 399.972 54.742 320 45.86ZM38.4 467.2h108.8c74.108 0 134.4-60.292 134.4-134.4v-288H38.4Z'/></svg>`;
@@ -24,13 +60,21 @@ const COMMANDS = ['clear'];
   const copyCheckSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'><path stroke='currentColor' stroke-linejoin='round' stroke-width='2' d='M15 3c1.886 0 2.828 0 3.414.586C19 4.172 19 5.114 19 7v10c0 1.886 0 2.828-.586 3.414C17.828 21 16.886 21 15 21H9c-1.886 0-2.828 0-3.414-.586C5 19.828 5 18.886 5 17V7c0-1.886 0-2.828.586-3.414C6.172 3 7.114 3 9 3h6Z'/><path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V3M9 15l1.5 1.5v0a.707.707 0 0 0 1 0v0L15 13'/></svg>`;
   const cancelSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 32 32'><path d='m7 7 18 18M7 25 25 7' style='fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2px'/></svg>`;
   const messageInput = document.getElementById('message-input');
+  const sendMessageButton = document.getElementById('send-message-button');
   const conversationList = document.getElementById('conversation-list');
+  let chatFocussed = true;
 
   const setInitialMessageInputHeight = () => {
     messageInput.style.height = '38px';
   };
 
   setInitialMessageInputHeight();
+
+  const removeConversationLoadError = () => {
+    const conversationLoadError = document.getElementById('conversation-load-error');
+
+    conversationLoadError?.remove();
+  }
 
   window.addEventListener('message', (event) => {
     const message = event.data;
@@ -41,7 +85,6 @@ const COMMANDS = ['clear'];
 
       codeElements.forEach((codeElement) => {
         const preCode = codeElement.parentElement;
-        preCode.classList.add('code-section', 'rounded-lg');
 
         const buttonWrapper = document.createElement('div');
         buttonWrapper.classList.add('code-actions-wrapper', 'flex', 'gap-4', 'flex-wrap', 'items-center', 'right-2', 'top-1', 'absolute');
@@ -60,16 +103,52 @@ const COMMANDS = ['clear'];
       return html.documentElement.innerHTML;
     };
 
-    const getResponseTextHtml = text => {
-      switch (text.type) {
+    const getCreatedAtAttribute = (createdAt) => {
+      return createdAt ? `data-created-at="${createdAt}"` : '';
+    };
+
+    const getResponseWrapper = (content, id = '', createdAt) => {
+
+      const messageId = id ? `id='${id}'` : '';
+      return `
+        <div class='p-4 self-end' ${getCreatedAtAttribute(createdAt)}>
+          <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
+          <div class="prose prose-headings:font-normal prose-th:font-bold" ${messageId}>
+            ${content}            
+          </div>
+        </div>
+      `;
+    }
+
+    const getQuestionWrapper = (message, createdAt = '') => {
+      return `
+      <div class='p-4 self-end relative' style='background: var(--vscode-input-background)' ${getCreatedAtAttribute(createdAt)}>
+        <h2 class='font-bold mb-3 flex items-center'>${userSvg}<span class='ml-1'>You</span></h2>
+        <div class='overflow-y-auto question-box'>${message.value}</div>
+      </div>
+      `;
+    }
+
+    const convertToHtml = data => {
+      switch (data.type) {
         case 'plain':
-          return `<div>${text.value}</div>`;
+          return `<div>${data.value}</div>`;
         case 'error':
-          return `<div class='response-text-error'>${text.value}</div>`;
+
+          const goToSettings = `
+            <span>
+              Check your credentials <a href="/#" class="go-to-settings">here</a>
+            </span>
+          `;
+
+          const isCredentialsIssue = data.error?.status === 401 || data.error?.status === 403;
+
+          return `<div class='response-text-error'>${data.value}. ${isCredentialsIssue ? goToSettings : ''}</div>`;
         case 'js':
-          return getHtmlWithCodeCopy(marked.parse(`\`\`\`\n${text.value}\n\`\`\``));
+          return marked.parse(`\`\`\`\n${data.value}\n\`\`\``);
         case 'markdown':
-          return getHtmlWithCodeCopy(marked.parse(text.value));
+          // return getHtmlWithCodeCopy(marked.parse(data.value));
+          return marked.parse(data.value);
         default:
           return '';
       }
@@ -82,52 +161,234 @@ const COMMANDS = ['clear'];
       });
     };
 
+    const disableTextarea = () => {
+      sendMessageButton.setAttribute('disabled', 'disabled');
+      messageInput.setAttribute('data-avoid-send', 'true');
+    }
+
+    const removeLoadingContainer = () => {
+      const loadingContainer = document.querySelector('.loading-container');
+      loadingContainer?.remove();
+    }
+
+    const enableTextarea = () => {
+      sendMessageButton.removeAttribute('disabled');
+      messageInput.removeAttribute('data-avoid-send');
+    }
+
+    const getLoadingComponent = (withCancelButton = true) => {
+      return `<div class='loading-container p-4 self-end flex justify-between'>
+        ${loadingSvg}
+        ${withCancelButton ? `
+          <button id='cancel-request-button' class='rounded-lg p-1.5'>
+            ${cancelSvg}
+          </button>        
+        ` : ''}
+      </div>`;
+    }
+    
+    let currentObserver = null; 
+
+    const loadingContainer = document.querySelector('.loading-container');
+
+
+    const observeFirstMessage = (firstChatElement) => {
+
+      console.log('observeFirstMessage: ', firstChatElement)
+
+      if(!firstChatElement) {
+        return;
+      }
+
+      currentObserver?.disconnect();
+
+      setTimeout(() => {
+
+        currentObserver = new IntersectionObserver(([entry]) => {
+
+          if(entry.isIntersecting) {
+            vscode.postMessage({
+              type: 'getMoreConversationMessages',
+              value: firstChatElement.getAttribute('data-created-at'),
+            });
+            currentObserver.disconnect();
+          }
+
+        }, {
+          root: document.getElementById('conversation-list'),
+          threshold: 1.0,
+        });
+        currentObserver.observe(firstChatElement.querySelector('h2'));
+      }, 100)
+    }
+
+    const focusMessageInput = () => {
+      if(chatFocussed) {
+        messageInput?.focus();
+      }
+    }
+
     switch (message.type) {
       case 'addQuestion': {
-        conversationList.innerHTML +=
-          `<div class='p-4 self-end relative' style='background: var(--vscode-input-background)'>
-            <h2 class='font-bold mb-3 flex items-center'>${userSvg}<span class='ml-1'>You</span></h2>
-            <div class='overflow-y-auto'>${message.value}</div>
-          </div>`;
+        conversationList.innerHTML += getQuestionWrapper(message);
         scrollToLastMessage();
         break;
       }
       case 'setLoading': {
         const loadingContainer = document.querySelector('.loading-container');
-        messageInput.setAttribute('disabled', 'disabled');
+
+        const value = message.value || {
+          cancellable: true,
+          prepend: false,
+          skipScrollToLastMessage: false,
+        }
+        
+        if(value.prepend) {
+          removeConversationLoadError();
+        }
+
+        disableTextarea();
+
 
         if (!loadingContainer) {
-          conversationList.innerHTML +=
-            `<div class='loading-container p-4 self-end flex justify-between'>
-              ${loadingSvg}
-              <button id='cancel-request-button' class='rounded-lg p-1.5'>
-                ${cancelSvg}
-              </button>
-            </div>`;
+
+          if(message.value?.prepend) {
+            conversationList.innerHTML = `${getLoadingComponent(value.cancellable)}${conversationList.innerHTML}`;
+          } else {
+            conversationList.innerHTML += getLoadingComponent(value.cancellable);
+          }
         }
+
+        if(!value.skipScrollToLastMessage) {
+          scrollToLastMessage();
+        }
+
+        break;
+      }
+      case 'removeLoading': {
+        removeLoadingContainer();
+        enableTextarea();
+        break;
+      }
+      case 'addMessage': {
+        const data = message.data;
+
+        removeLoadingContainer();
+
+        conversationList.innerHTML += getResponseWrapper(convertToHtml(data));
+        scrollToLastMessage();
+        focusMessageInput();
+
+        observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
+
+        break;
+      }
+      case 'updateMessage': {
+
+        const data = message.data;
+        const messageID = message.messageID;
+
+        const messageElement = document.getElementById(messageID);
+        if (messageElement) {
+          messageElement.innerHTML = convertToHtml(data);
+        } else {
+          conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
+        }
+
         scrollToLastMessage();
         break;
       }
-      case 'addResponseTexts': {
-        const texts = message.value;
-        const loadingContainer = document.querySelector('.loading-container');
+      case 'finishMessage': {
 
-        loadingContainer?.remove();
+        console.log('finish mesasge', message);
 
-        conversationList.innerHTML +=
-          `<div class='p-4 self-end'>
-            <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
-            ${texts.map(text => getResponseTextHtml(text)).join('')}
-          </div>`;
-        scrollToLastMessage();
-        messageInput.removeAttribute('disabled');
+        const messageID = message.messageID;
+
+        const messageElement = document.getElementById(messageID);
+        if (messageElement) {
+          messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
+          scrollToLastMessage();
+          enableTextarea();
+          focusMessageInput();
+        }
+
+        observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
+
         break;
       }
       case 'clearConversation':
         clearConversation();
         break;
       case 'focusMessageInput':
-        messageInput?.focus();
+        focusMessageInput();
+        break;
+      case 'prependConversationHistory':
+
+        if(message.value.type === 'error') {
+          conversationList.innerHTML = `
+            <div id="conversation-load-error" class='response-text-error flex-col flex items-center py-5'>
+              <span>
+                Error loading conversation messages.
+              </span>
+              <button class="load-conversation-messages mt-4"><span class="text-uppercase p-2 hover:!bg-[var(--vscode-button-hoverBackground)]" style="color: var(--vscode-button-foreground); background-color: var(--vscode-button-background);"><span>Try again</span></span></button>
+            </div>
+          ${conversationList.innerHTML}`;
+          removeLoadingContainer();
+          enableTextarea();
+          return;
+        }
+
+        const messages = message.value.messages;
+        const firstLoad = message.value.firstLoad;
+
+        let newMessagesHtmlContent = '';
+
+        const lastScrollHeight = document.querySelector('#conversation-list').scrollHeight;
+        
+        for(const message of messages) {
+          if(message.role === 'user') {
+            newMessagesHtmlContent = `${getQuestionWrapper({value: message.content}, message.createdAt)}${newMessagesHtmlContent}`;
+          }
+          
+          if(message.role === 'assistant') {
+            newMessagesHtmlContent = `${getResponseWrapper([convertToHtml({ value: message.content, type: 'markdown'})], undefined, message.createdAt)}${newMessagesHtmlContent}`
+          }
+        }
+        
+        conversationList.innerHTML = `${newMessagesHtmlContent}${conversationList.innerHTML}`;
+
+        const firstMessage = messages[0];
+        
+        removeLoadingContainer();
+
+        if(firstMessage && !firstLoad) {
+          // Keep scroll in same position.
+          setTimeout(() => {
+
+            const scrollDiff = document.querySelector('#conversation-list').scrollHeight - lastScrollHeight;
+
+            document.querySelector('#conversation-list').scrollTop += scrollDiff;
+
+          }, 0);
+
+        }        
+
+        const lastMessage = messages[messages.length - 1];
+
+        if(firstLoad) {
+          setTimeout(() => {
+            scrollToLastMessage();
+          }, 0);
+        }
+
+        if(messages.length) {
+          observeFirstMessage(document.querySelector(`div[data-created-at="${lastMessage.createdAt}"]`))
+        }
+
+        observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
+
+        enableTextarea();
+
         break;
       default:
         break;
@@ -171,7 +432,9 @@ const COMMANDS = ['clear'];
   messageInput.addEventListener('keydown', function(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      processMessageInputValue();
+      if (event.target.getAttribute('data-avoid-send') !== 'true') {
+        processMessageInputValue();
+      }
     }
   });
   messageInput.addEventListener('input', function(event) {
@@ -186,6 +449,17 @@ const COMMANDS = ['clear'];
 
   document.addEventListener('click', e => {
     const targetButton = e.target.closest('button');
+    const linkButton = e.target.closest('a');
+
+    if(linkButton) {
+      if(linkButton.classList?.contains('go-to-settings')) {
+        e.preventDefault();
+        vscode.postMessage({
+          type: 'goToExtensionSettings',
+        });
+      }
+      return;
+    }
 
     if (!targetButton) {
       return;
@@ -204,7 +478,24 @@ const COMMANDS = ['clear'];
             targetButton.innerHTML = copySvg;
           }, 2000);
         });
+    } else if(targetButton.classList?.contains('load-conversation-messages')) {
+      const firstMessageOnChat = document.querySelector('#conversation-list > div[data-created-at]');
+
+      removeConversationLoadError();
+      
+      vscode.postMessage({
+        type: 'getMoreConversationMessages',
+        value: firstMessageOnChat ? firstMessageOnChat.getAttribute('data-created-at') : ''
+      });
     }
   });
+
+  window.addEventListener('focus', () => {
+    chatFocussed = true;
+  });
+
+  window.addEventListener('blur', () => {
+    chatFocussed = false;
+  })
 
 })();

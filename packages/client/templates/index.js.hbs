@@ -6,6 +6,7 @@ const clientFunctions = require('./client');
 const webhooks = require('./webhooks');
 const authFunctions = require('./auth');
 const serverFunctions = require('./server');
+const vari = require('./vari');
 
 const clientID = '{{clientID}}';
 let socket = null;
@@ -17,34 +18,42 @@ const getSocket = () => {
 };
 
 const errorHandler = {
-  on: (path, callback) => {
+  on: (path, callback, options) => {
     const socket = getSocket();
+    let handlerId = null;
     socket.emit('registerErrorHandler', {
-      clientID,
+      ...options,
       path,
       apiKey: '{{apiKey}}'
+    }, (id) => {
+      handlerId = id;
+      socket.on(`handleError:${handlerId}`, callback);
     });
-    socket.on(`handleError:${path}`, callback);
+
+    return () => {
+      if (handlerId) {
+        socket.off(`handleError:${handlerId}`);
+        socket.emit('unregisterErrorHandler', {
+          id: handlerId,
+          path,
+          apiKey: '{{apiKey}}'
+        });
+      }
+    };
   },
-  off: (path) => {
-    const socket = getSocket();
-    socket.emit('unregisterErrorHandler', {
-      clientID,
-      path,
-      apiKey: '{{apiKey}}'
-    });
-  }
 };
 
 const poly = {};
-module.exports = merge(
+merge(
   poly,
   apiFunctions(clientID),
   clientFunctions(poly),
   serverFunctions(clientID),
   authFunctions(clientID, getSocket),
-  webhooks(clientID, getSocket),
-  {
-    errorHandler
-  }
-);
+  webhooks(clientID, getSocket)
+),
+module.exports = {
+  ...poly,
+  errorHandler,
+  vari: vari(clientID, getSocket)
+};

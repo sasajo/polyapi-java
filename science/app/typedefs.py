@@ -1,9 +1,9 @@
-from typing import Dict, Tuple, TypedDict, List, Literal, Union
+from typing import Any, Dict, Optional, Tuple, TypedDict, List, Literal, Union
 from typing_extensions import NotRequired
-from prisma.models import ApiFunction, CustomFunction, AuthProvider, WebhookHandle
+from prisma.models import ApiFunction, CustomFunction, AuthProvider, WebhookHandle, Variable
 
 
-AnyFunction = Union[ApiFunction, CustomFunction, AuthProvider, WebhookHandle]
+AnyFunction = Union[ApiFunction, CustomFunction, AuthProvider, WebhookHandle, Variable]
 
 
 class DescInputDto(TypedDict):
@@ -12,13 +12,23 @@ class DescInputDto(TypedDict):
     short_description: str
     payload: str
     response: str
+    code: Optional[str]
+    arguments: Optional[List[Dict]]
 
 
 class DescOutputDto(TypedDict):
     name: str
     context: str
     description: str
+    arguments: Optional[List[Dict]]
     openai_response: str
+
+
+class VarDescInputDto(TypedDict):
+    name: str
+    context: str
+    secret: bool
+    value: Union[str, int, float, bool, Dict]
 
 
 class ErrorDto(TypedDict):
@@ -38,6 +48,7 @@ class JsonSchema(TypedDict):
 
 class PropertySpecification(TypedDict):
     name: str
+    description: str
     required: bool
     nullable: NotRequired[bool]
     type: "PropertyType"
@@ -56,7 +67,7 @@ class PropertyType(TypedDict):
 
 class FunctionSpecification(TypedDict):
     arguments: List[PropertySpecification]
-    returnType: Dict[str, str]
+    returnType: Dict[str, Any]
     synchronous: NotRequired[bool]
 
 
@@ -65,14 +76,17 @@ class SpecificationDto(TypedDict):
     context: str
     name: str
     description: str
-    function: FunctionSpecification
-    type: Literal['apiFunction', 'customFunction', 'serverFunction', 'authFunction', 'webhookHandle']
+    function: Optional[FunctionSpecification]
+    # variables have variable: {"secret": boolean} and NO function
+    type: Literal['apiFunction', 'customFunction', 'serverFunction', 'authFunction', 'webhookHandle', 'serverVariable']
 
 
 class MessageDict(TypedDict, total=False):
     role: str
-    content: str
+    content: Optional[str]
     type: int
+    name: NotRequired[str]
+    function_call: NotRequired[Dict]
 
 
 class ChatGptChoice(TypedDict):
@@ -85,12 +99,25 @@ class ChatCompletionResponse(TypedDict):
     choices: List[ChatGptChoice]
 
 
+class ChatGptStreamChoice(TypedDict):
+    delta: MessageDict  # no function_ids or webhook_ids
+    finish_reason: Literal['stop', 'length', 'content_filter', None]
+    index: int
+
+
 class StatsDict(TypedDict, total=False):
     prompt: str
-    total: int
     match_count: int
-    scores: List[Tuple[str, int]]
+    total_functions: int
+    total_variables: int
+    function_scores: List[Tuple[str, int]]
+    variable_scores: List[Tuple[str, int]]
     keyword_extraction: ExtractKeywordDto
     keyword_stats: 'StatsDict'
     semantically_similar_stats: 'StatsDict'
     config: Dict
+
+
+class CompletionAnswer(TypedDict):
+    answer: str
+    stats: Dict

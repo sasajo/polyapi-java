@@ -1,8 +1,15 @@
-from typing import Dict, Union
+from typing import Dict, List, Optional, Union
 import json
 import openai
-from app.typedefs import DescInputDto, DescOutputDto, ErrorDto
-from app.utils import camel_case, log
+from app.typedefs import (
+    DescInputDto,
+    DescOutputDto,
+    ErrorDto,
+    MessageDict,
+    SpecificationDto,
+    VarDescInputDto,
+)
+from app.utils import camel_case, extract_code, func_path_with_args, get_chat_completion, log
 from app.constants import CHAT_GPT_MODEL
 
 # this needs to be 300 or less for the OpenAPI spec
@@ -47,26 +54,66 @@ Request Payload:
 Response Payload:
 {response}
 
-Please return JSON with three keys: context, name, description
+{code}
+
+Please return the context, name, and description in this format:
+
+{format}
+"""
+
+FUNCTION_DESCRIPTION_RETURN_FORMAT = """{
+    "context": "string",
+    "name": "string",
+    "description": "string"
+}"""
+
+
+ARGUMENT_DESCRIPTION_PROMPT = """
+Consider the following function:
+
+```
+// {}
+{}
+```
+
+Please give me the description for each of the arguments.
+
+Return valid JSON in the following format:
+
+{}
 """
 
 
-REVISION_PROMPT = """
-Each of our functions has a context and a name.
+ARGUMENT_DESCRIPTION_RETURN_FORMAT = """[{
+    "name": "string",
+    "description": "string"
+}]"""
 
-Here's our existing contexts and names:
 
-{existing}
+VARIABLE_DESCRIPTION_PROMPT = """
+Here is data about a variable:
 
-Here's the proposed context and name for a new function:
+```
+{
+    "name": %s,
+    "secret": %s,
+    "value": %s
+}
+```
 
-{new}
+Please generate a description that says what the variable means and how it is used.
 
-We would like to have this function use an existing context if it makes sense.
+Assume your guesses are right and write the description confidently.
 
-We would like to have the new name follow similar patterns as the existing names.
+Don't include the current name, context, or value of the variable in the description.
 
-Please determine the best context and name for this new function and return valid JSON with two keys: context, name
+Don't say whether the variable is secret or not.
+
+Return it as JSON in the following format:
+
+```
+{"description": "foo"}
+```
 """
 
 
@@ -80,8 +127,10 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         short_description=short,
         payload=data.get("payload", "None"),
         response=data.get("response", "None"),
+        code=_get_code_prompt(data.get("code")),
         call_type="API call",
         description_length_limit=DESCRIPTION_LENGTH_LIMIT,
+        format=FUNCTION_DESCRIPTION_RETURN_FORMAT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
@@ -98,12 +147,55 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
         log_error(data, completion, prompt)
-    else:
-        # for now log EVERYTHING
-        rv['description'] = rv['description'][:300]
-        log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+        return rv
 
+    # for now log EVERYTHING
+    rv["description"] = rv["description"][:300]
+    log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+
+    rv["arguments"] = get_argument_descriptions(
+        rv["context"], rv["name"], rv["description"], data.get("arguments", [])
+    )
     return rv
+
+
+def get_argument_descriptions(
+    context: str, name: str, description: str, arguments: Optional[List[Dict]]
+):
+    if not arguments:
+        return []
+
+    spec = SpecificationDto(
+        id="unused",
+        context=context,
+        name=name,
+        description=description,
+        function={"arguments": arguments},  # type: ignore
+        type="unused",  # type: ignore
+    )
+    path = func_path_with_args(spec)
+    prompt = ARGUMENT_DESCRIPTION_PROMPT.format(
+        description,
+        path,
+        ARGUMENT_DESCRIPTION_RETURN_FORMAT)
+    prompt_msg = MessageDict(
+        role="user",
+        content=prompt
+    )
+
+    resp = openai.ChatCompletion.create(
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
+    )
+
+    message: MessageDict = resp["choices"][0]["message"]
+    return extract_code(message["content"])
+
+
+def _get_code_prompt(code: Optional[str]) -> str:
+    if code:
+        return f"Code:\n{code}"
+    else:
+        return ""
 
 
 def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
@@ -116,8 +208,10 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         short_description=short,
         payload=data.get("payload", "None"),
         response=data.get("response", "None"),
+        code="",  # no code for webhooks
         call_type="Event handler",
         description_length_limit=DESCRIPTION_LENGTH_LIMIT,
+        format=FUNCTION_DESCRIPTION_RETURN_FORMAT,
         # contexts="\n".join(contexts),
     )
     prompt_msg = {"role": "user", "content": prompt}
@@ -135,7 +229,7 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         log_error(data, completion, prompt)
     else:
         # for now log EVERYTHING
-        rv['description'] = rv['description'][:DESCRIPTION_LENGTH_LIMIT]
+        rv["description"] = rv["description"][:DESCRIPTION_LENGTH_LIMIT]
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
@@ -162,10 +256,22 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
         context=data.get("context", ""),
         name=data.get("name", ""),
         description=data.get("description", ""),
+        arguments=None,
         openai_response=completion,
     )
 
     # make sure there are no spaces or dashes in context or name
     rv["name"] = camel_case(rv["name"])
     rv["context"] = camel_case(rv["context"])
+    return rv
+
+
+def get_variable_description(data: VarDescInputDto) -> Dict:
+    func_name = data["context"] + "." + data["name"]
+    prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data["secret"], data["value"])
+    messages = [MessageDict(role="user", content=prompt)]
+    resp = get_chat_completion(messages)
+    assert isinstance(resp, str)
+    resp = resp.strip("```")
+    rv = json.loads(resp)
     return rv

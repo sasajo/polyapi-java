@@ -1,12 +1,14 @@
 import re
 import json
-from typing import List, Dict, Optional, Tuple
+from typing import Generator, List, Optional, Tuple, Union, Dict
 from prisma import get_client
-from prisma.models import SystemPrompt
+from prisma.models import SystemPrompt, ConversationMessage
+from app.constants import QUESTION_TEMPLATE, MessageType
+from app.conversation import insert_prev_msgs
 
 # TODO change to relative imports
 from app.typedefs import (
-    ChatGptChoice,
+    # ChatGptStreamChoice,  TODO
     ExtractKeywordDto,
     StatsDict,
 )
@@ -16,12 +18,13 @@ from app.typedefs import (
     MessageDict,
 )
 from app.utils import (
-    create_new_conversation,
     filter_to_real_public_ids,
+    get_return_type_properties,
     insert_internal_step_info,
-    public_id_to_spec,
     log,
     func_path_with_args,
+    msgs_to_msg_dicts,
+    public_ids_to_specs,
     query_node_server,
     store_messages,
     get_chat_completion,
@@ -32,25 +35,13 @@ UUID_REGEX = re.compile(
 )
 
 
-def insert_system_prompt(environment_id: str, messages: List[MessageDict]) -> None:
+def insert_system_prompt(messages: List[MessageDict], environment_id: str) -> None:
     """modify the array in place to insert the system prompt at the beginning!"""
     # environment_id is unused but in the near future system prompts will be environment specific!
     system_prompt = get_system_prompt()
     if system_prompt and system_prompt.content:
         p = MessageDict(role="system", content=system_prompt.content)
         messages.insert(0, p)
-
-
-def answer_processing(choice: ChatGptChoice) -> Tuple[str, bool]:
-    content = choice["message"]["content"]
-
-    if choice["finish_reason"] == "length":
-        # incomplete model output due to max_tokens parameter or token limit
-        # let's append a message explaining to the user answer is incomplete
-        content += "\n\nTOKEN LIMIT HIT\n\nPoly has hit the ChatGPT token limit for this conversation. Conversation reset. Please try again to see the full answer."
-        return content, True
-
-    return content, False
 
 
 def get_function_options_prompt(
@@ -63,19 +54,22 @@ def get_function_options_prompt(
         return None, {"match_count": 0}
 
     specs_resp = query_node_server(user_id, environment_id, "specs")
-    items: List[SpecificationDto] = specs_resp.json()
+    specs: List[SpecificationDto] = specs_resp.json()
 
-    top_matches, stats = get_top_function_matches(items, keywords)
+    top_matches, stats = get_top_function_matches(specs, keywords)
 
     function_parts: List[str] = []
     webhook_parts: List[str] = []
+    variable_parts: List[str] = []
     for match in top_matches:
         if match["type"] == "webhookHandle":
             webhook_parts.append(spec_prompt(match))
+        elif match["type"] == "serverVariable":
+            variable_parts.append(spec_prompt(match))
         else:
             function_parts.append(spec_prompt(match))
 
-    content = _join_content(function_parts, webhook_parts)
+    content = _join_content(function_parts, webhook_parts, variable_parts)
 
     if content:
         return {
@@ -86,9 +80,12 @@ def get_function_options_prompt(
         return None, stats
 
 
-def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
+def _join_content(
+    function_parts: List[str], webhook_parts: List[str], variable_parts: List[str]
+) -> str:
     function_preface = "Here are some functions in the Poly API library,"
     webhook_preface = "Here are some event handlers in the Poly API library,"
+    variable_preface = "Here are some variables from the Poly API library,"
     parts = []
     if function_parts:
         parts.append(function_preface)
@@ -98,32 +95,63 @@ def _join_content(function_parts: List[str], webhook_parts: List[str]) -> str:
         parts.append(webhook_preface)
         parts += webhook_parts
 
+    if variable_parts:
+        parts.append(variable_preface)
+        parts += variable_parts
+
     return "\n\n".join(parts)
 
 
-def spec_prompt(match: SpecificationDto) -> str:
-    desc = match.get("description", "")
+def _has_double_data(return_props: Dict) -> bool:
+    try:
+        return bool(return_props.get("data", {}).get("schema", {}).get("properties", {}).get("data"))
+    except:
+        # if there's some data type, just let it go
+        # we are catching an edge case here
+        return False
+
+
+def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
+    desc = spec.get("description", "")
+    if spec["type"] == "serverVariable":
+        path = f"// secret: {spec['variable']['secret']}\n"  # type: ignore
+        path += f"vari.{spec['context']}.{spec['name']}"
+    else:
+        path = func_path_with_args(spec)
+
     parts = [
-        f"// id: {match['id']}",
-        f"// type: {match['type']}",
+        f"// id: {spec['id']}",
+        f"// type: {spec['type']}",
         f"// description: {desc}",
-        func_path_with_args(match),
     ]
+    if include_return_type:
+        return_props = get_return_type_properties(spec)
+        if return_props:
+            return_type = json.dumps(return_props)
+            return_type = return_type.replace("\n", " ")
+            return_part = f"// returns {return_type}"
+            if _has_double_data(return_props):
+                # when we have a double `data.data` sometimes OpenAI gets confused
+                # and thinks it was a mistake and collapses things to a single `data`
+                return_part += "\n// NOTE: please allow `response.data.data...` for this return type"
+            parts.append(return_part)
+
+    parts.append(path)
     return "\n".join(parts)
 
 
 BEST_FUNCTION_CHOICE_TEMPLATE = """
-Which functions could be invoked as is, if any, to implement this user prompt:
+Which functions or variables could be invoked as is, if any, to implement this user prompt:
 
 "%s"
 
-Please return only the ids of the functions and confidence scores, on a scale of 1-3, in this format:
+Please return only the ids of the functions or variables and their confidence scores, on a scale of 1-3, in this format:
 
 ```
 [ {"id": "111111-1111-1111-1111-1111111111", "score": 3}, {"id": "222222-2222-2222-2222-222222222", "score": 1} ]
 ```
 
-If no function is suitable, please return the following:
+If no function or variable is suitable, please return the following:
 
 ```
 []
@@ -131,9 +159,9 @@ If no function is suitable, please return the following:
 
 Here's what each confidence score means, rate it from the bottom up stopping when a match is achieved:
 
-1: Function is similar, but for a different system, resource, or operation and cannot be used as is
+1: Function or variable is similar, but for a different system, resource, or operation and cannot be used as is
 2: It might be useful, but would require more investigation to be sure
-3: The function can be used as is to address the users prompt.
+3: The function or variable can be used as is to address the users prompt.
 """
 
 
@@ -152,9 +180,9 @@ def get_best_function_messages(
 
     messages = [
         options,
-        MessageDict(role="user", content=BEST_FUNCTION_CHOICE_TEMPLATE % question)
+        MessageDict(role="user", content=BEST_FUNCTION_CHOICE_TEMPLATE % question),
     ]
-    insert_system_prompt(environment_id, messages)
+    insert_system_prompt(messages, environment_id)
     return messages, stats
 
 
@@ -169,21 +197,23 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 def get_best_functions(
     user_id: str, conversation_id: str, environment_id: str, question: str
 ) -> Tuple[List[str], StatsDict]:
-    messages, stats = get_best_function_messages(user_id, conversation_id, environment_id, question)
+    messages, stats = get_best_function_messages(
+        user_id, conversation_id, environment_id, question
+    )
     if not messages:
         # we have no candidate functions whatsoever, abort!
         return [], stats
 
-    resp = get_chat_completion(messages, temperature=0.2)
+    answer_msg = get_chat_completion(messages, temperature=0.2)
+    assert isinstance(answer_msg, str)
 
     # store conversation
     insert_internal_step_info(messages, "STEP 2: GET BEST FUNCTIONS")
-    answer_msg = resp["choices"][0]["message"]
-    messages.append(answer_msg)
+    messages.append(MessageDict(role="assistant", content=answer_msg))
     store_messages(user_id, conversation_id, messages)
 
     # continue
-    public_ids = _extract_ids_from_completion(answer_msg["content"])
+    public_ids = _extract_ids_from_completion(answer_msg)
     if public_ids:
         # valid public id, send it back!
         rv = filter_to_real_public_ids(public_ids)
@@ -236,7 +266,26 @@ Use any combination of only the following functions to answer my question:
 
 {spec_str}
 """
-BEST_FUNCTION_QUESTION_TEMPLATE = 'My question:\n"{question}"'
+
+BEST_FUNCTION_VARIABLES_TEMPLATE = """Use any combination of the following variables as arguments to those functions:
+
+%s
+
+To import vari:
+
+`import {vari} from 'polyapi'`
+
+Each variable has the following methods:
+
+* async .get()  // get the value of the variable
+* async .update()  // update the value of the variable
+* async .onUpdate()  // execute function when the variable is updated
+* .inject()  // use the variable inside a poly function to be injected on the poly server at the time of execution
+
+When passing a variable as an argument to a poly function, please prefer the `inject` method over the `get` method. Inject is more efficient.
+
+If the variable is secret: True, then the variable ONLY has access to the `inject` method.
+"""
 
 
 def get_best_function_example(
@@ -245,65 +294,88 @@ def get_best_function_example(
     environment_id: str,
     public_ids: List[str],
     question: str,
-) -> ChatGptChoice:
+    prev_msgs: Optional[List[ConversationMessage]] = None,
+) -> Union[Generator, str]:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
-    specs = [
-        public_id_to_spec(user_id, environment_id, public_id)
-        for public_id in public_ids
-    ]
-    valid_specs = [spec for spec in specs if spec]
-    if len(specs) != len(valid_specs):
-        raise NotImplementedError(
-            f"spec doesnt exist for {public_ids}? was one somehow deleted?"
+    specs = public_ids_to_specs(user_id, environment_id, public_ids)
+
+    # split them out
+    variables = [s for s in specs if s["type"] == "serverVariable"]
+    specs = [s for s in specs if s["type"] != "serverVariable"]
+
+    best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
+        spec_str="\n\n".join(
+            spec_prompt(spec, include_return_type=True) for spec in specs
         )
-
-    best_function_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
-        spec_str="\n\n".join(spec_prompt(spec) for spec in valid_specs)
     )
-    question_prompt = BEST_FUNCTION_QUESTION_TEMPLATE.format(question=question)
-    messages = [
-        MessageDict(role="user", content=best_function_prompt),
-        MessageDict(role="user", content=question_prompt),
-    ]
+    messages = [MessageDict(role="user", content=best_functions_prompt)]
 
-    insert_system_prompt(environment_id, messages)
-    resp = get_chat_completion(messages, temperature=0.5)
+    if variables:
+        best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE % "\n\n".join(spec_prompt(v) for v in variables)
+        messages.append(MessageDict(role="user", content=best_variables_prompt))
+
+    question_msg = MessageDict(
+        role="user", content=QUESTION_TEMPLATE.format(question), type=MessageType.user
+    )
+    messages.append(question_msg)
+
+    insert_prev_msgs(messages, prev_msgs)
+    insert_system_prompt(messages, environment_id)
+
+    resp = get_chat_completion(messages, temperature=0.5, stream=True)
 
     # store conversation
     insert_internal_step_info(messages, "STEP 3: GET FUNCTION EXAMPLE")
-    rv = resp["choices"][0]
-    messages.append(rv["message"])
     store_messages(user_id, conversation_id, messages)
 
-    return rv
+    return resp
 
 
-def get_completion_answer(user_id: str, environment_id: str, question: str) -> Dict:
-    conversation = create_new_conversation(user_id)
+def get_completion_answer(
+    user_id: str,
+    conversation_id: str,
+    environment_id: str,
+    question: str,
+    prev_msgs: List[ConversationMessage],
+) -> Union[Generator, str]:
     best_function_ids, stats = get_best_functions(
-        user_id, conversation.id, environment_id, question
+        user_id, conversation_id, environment_id, question
     )
+
     if best_function_ids:
         # we found a function that we think should answer this question
         # lets pass ChatGPT the function and ask the question to make this work
-        choice = get_best_function_example(
-            user_id, conversation.id, environment_id, best_function_ids, question
+        return get_best_function_example(
+            user_id,
+            conversation_id,
+            environment_id,
+            best_function_ids,
+            question,
+            prev_msgs,
         )
     else:
-        choice = simple_chatgpt_question(question)
-
-        # store conversation
-        messages = [MessageDict(role="user", content=question), choice['message']]
-        insert_internal_step_info(messages, "FALLBACK")
-        store_messages(user_id, conversation.id, messages)
-
-    answer, hit_token_limit = answer_processing(choice)
-
-    return {"answer": answer, "stats": stats}
+        return general_question(user_id, conversation_id, question, prev_msgs)
 
 
-def simple_chatgpt_question(question: str) -> ChatGptChoice:
-    messages: List[MessageDict] = [{"role": "user", "content": question}]
-    resp = get_chat_completion(messages)
-    return resp["choices"][0]
+def simple_chatgpt_question(question: str) -> str:
+    messages = [MessageDict(role="user", content=question)]
+    content = get_chat_completion(messages)
+    assert isinstance(content, str)
+    return content
+
+
+def general_question(
+    user_id: str,
+    conversation_id: str,
+    question: str,
+    prev_msgs: Optional[List[ConversationMessage]] = None,
+) -> Union[Generator, str]:
+    """ask a general question not related to any Poly-specific functionality"""
+    messages = msgs_to_msg_dicts(prev_msgs) + [
+        MessageDict(role="user", content=question, type=MessageType.user)
+    ]
+
+    resp = get_chat_completion(messages, stream=True)
+    store_messages(user_id, conversation_id, messages)
+    return resp

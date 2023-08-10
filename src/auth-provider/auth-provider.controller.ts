@@ -24,17 +24,22 @@ import {
   ExecuteAuthProviderResponseDto,
   Permission,
   UpdateAuthProviderDto,
-} from '@poly/common';
+} from '@poly/model';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
+import { VariableService } from 'variable/variable.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller('auth-providers')
 export class AuthProviderController {
   private readonly logger = new Logger(AuthProviderController.name);
 
-  constructor(private readonly service: AuthProviderService, private readonly authService: AuthService) {
+  constructor(
+    private readonly service: AuthProviderService,
+    private readonly authService: AuthService,
+    private readonly variableService: VariableService,
+  ) {
   }
 
   @UseGuards(PolyAuthGuard)
@@ -118,13 +123,14 @@ export class AuthProviderController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/:id/execute')
-  async executeAuthProvider(@Req() req: AuthRequest, @Param('id') id: string, @Body() executeAuthProvider: ExecuteAuthProviderDto): Promise<ExecuteAuthProviderResponseDto> {
-    const authProvider = await this.service.getAuthProvider(id);
+  async executeAuthProvider(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: ExecuteAuthProviderDto): Promise<ExecuteAuthProviderResponseDto> {
+    const authProvider = await this.service.getAuthProvider(id, true);
     if (!authProvider) {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
 
     await this.authService.checkEnvironmentEntityAccess(authProvider, req.user, true, Permission.Use);
+    data = await this.variableService.unwrapVariables(req.user, data);
 
     const {
       eventsClientId,
@@ -133,8 +139,9 @@ export class AuthProviderController {
       audience = null,
       scopes = [],
       callbackUrl = null,
-    } = executeAuthProvider;
-    return await this.service.executeAuthProvider(authProvider, eventsClientId, clientId, clientSecret, audience, scopes, callbackUrl);
+      userId = null,
+    } = data;
+    return await this.service.executeAuthProvider(authProvider, eventsClientId, clientId, clientSecret, audience, scopes, callbackUrl, userId);
   }
 
   @Get('/:id/callback')
@@ -151,7 +158,7 @@ export class AuthProviderController {
   @UseGuards(PolyAuthGuard)
   @Post('/:id/revoke')
   async revokeToken(@Req() req: AuthRequest, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<void> {
-    const authProvider = await this.service.getAuthProvider(id);
+    const authProvider = await this.service.getAuthProvider(id, true);
     if (!authProvider) {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
@@ -169,7 +176,7 @@ export class AuthProviderController {
   @UseGuards(PolyAuthGuard)
   @Post('/:id/introspect')
   async introspectToken(@Req() req: AuthRequest, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<any> {
-    const authProvider = await this.service.getAuthProvider(id);
+    const authProvider = await this.service.getAuthProvider(id, true);
     if (!authProvider) {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }
@@ -187,7 +194,7 @@ export class AuthProviderController {
   @UseGuards(PolyAuthGuard)
   @Post('/:id/refresh')
   async refreshToken(@Req() req: AuthRequest, @Param('id') id: string, @Body() tokenDto: AuthTokenDto): Promise<any> {
-    const authProvider = await this.service.getAuthProvider(id);
+    const authProvider = await this.service.getAuthProvider(id, true);
     if (!authProvider) {
       throw new NotFoundException(`Auth provider with id ${id} not found.`);
     }

@@ -1,20 +1,27 @@
+import json
 import copy
 import openai
 import string
 import requests
+import numpy as np
 from requests import Response
 from flask import current_app
-from typing import List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.typedefs import (
-    ChatCompletionResponse,
     MessageDict,
     PropertySpecification,
     SpecificationDto,
     AnyFunction,
 )
 from prisma import Prisma, get_client, register
-from prisma.models import ConversationMessage, Conversation, ConfigVariable, ApiKey
+from prisma.models import (
+    ConversationMessage,
+    Conversation,
+    ConfigVariable,
+    ApiKey,
+    User,
+)
 
 
 # HACK should have better name
@@ -31,43 +38,51 @@ def _process_property_spec(arg: PropertySpecification) -> str:
     kind = arg["type"]["kind"]
     if kind == "void":
         # seems weird to have a void argument...
-        return f"{arg['name']}"
+        rv = f"{arg['name']}"
     elif kind == "primitive":
-        return f"{arg['name']}: {arg['type']['type']}"
+        rv = f"{arg['name']}: {arg['type']['type']}"
     elif kind == "array":
         item_type = arg["type"]["items"]["type"]
-        return "{name}: [{item_type}, {item_type}, ...]".format(
+        rv = "{name}: [{item_type}, {item_type}, ...]".format(
             name=arg["name"], item_type=item_type
         )
     elif kind == "object":
         if arg["type"].get("properties"):
             properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
-            sub_props = ", ".join(properties)
-            sub_props = "{" + sub_props + "}"
-            return "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
+            sub_props = "\n".join(properties)
+            sub_props = "{\n" + sub_props + "\n}"
+            rv = "{name}: {sub_props}".format(name=arg["name"], sub_props=sub_props)
         else:
             log(f"WARNING: object with no properties in args - {arg}")
-            return "{name}: object".format(name=arg["name"])
+            rv = "{name}: object".format(name=arg["name"])
     elif kind == "function":
-        return f"{arg['name']}: {kind}"
+        rv = f"{arg['name']}: {kind}"
     elif kind == "plain":
-        return f"{arg['name']}: {arg['type']['value']}"
+        rv = f"{arg['name']}: {arg['type']['value']}"
     else:
         raise NotImplementedError("unrecognized kind")
+
+    rv += ","
+    if arg.get("description"):
+        rv += f"  // {arg['description']}"
+
+    return rv
 
 
 def func_args(spec: SpecificationDto) -> List[str]:
     """get the args for a function from the headers and url"""
     arg_strings = []
-    func = spec["function"]
-    for arg in func["arguments"]:
-        arg_strings.append(_process_property_spec(arg))
+    func = spec.get("function")
+    if func:
+        for arg in func["arguments"]:
+            arg_strings.append(_process_property_spec(arg))
     return arg_strings
 
 
 def func_path_with_args(func: SpecificationDto) -> str:
     args = func_args(func)
-    return f"{func_path(func)}({', '.join(args)})"
+    sep = "\n"
+    return f"{func_path(func)}(\n{sep.join(args)}\n)"
 
 
 def url_function_path(func: AnyFunction) -> str:
@@ -78,7 +93,10 @@ def url_function_path(func: AnyFunction) -> str:
 
 
 def log(*args, **kwargs) -> None:
-    print(*args, **kwargs, flush=True)
+    try:
+        print(*args, **kwargs, flush=True)
+    except UnicodeEncodeError:
+        print("UnicodeEncodeError! TODO FIXME")
 
 
 def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
@@ -115,29 +133,34 @@ def store_message(
         "conversationId": conversation_id,
         "role": data["role"],
         "content": data["content"],
+        "type": data.get("type", 1),
     }
 
     rv = db.conversationmessage.create(data=create_input)  # type: ignore
     return rv
 
 
-def get_conversations_for_user(user_id: str) -> List[ConversationMessage]:
+def get_conversations_for_user(user_id: str) -> List[Conversation]:
     db = get_client()
     return list(
-        db.conversationmessage.find_many(
-            where={"userId": user_id}, order={"createdAt": "asc"}
-        )
+        db.conversation.find_many(where={"userId": user_id}, order={"createdAt": "asc"})
+    )
+
+
+def get_last_conversations(user_id: str, limit: int) -> List[Conversation]:
+    db = get_client()
+    return db.conversation.find_many(
+        where={"userId": user_id}, order={"createdAt": "desc"}, take=limit
     )
 
 
 def create_new_conversation(user_id: str) -> Conversation:
-    # CURRENTLY UNUSED!
+    assert user_id
     db = get_client()
     return db.conversation.create(data={"userId": user_id})
 
 
 def clear_conversations(user_id: str) -> None:
-    # CURRENTLY UNUSED!
     db = get_client()
     db.conversationmessage.delete_many(where={"userId": user_id})
 
@@ -170,14 +193,6 @@ def quick_db_connect():
     return db
 
 
-def is_vip_user(user_id: Optional[str]) -> bool:
-    if not user_id:
-        return False
-
-    user = get_client().user.find_first(where={"id": user_id})
-    return user.vip if user else False
-
-
 remove_punctuation_translation = str.maketrans("", "", string.punctuation)
 
 
@@ -193,6 +208,7 @@ def filter_to_real_public_ids(public_ids: List[str]) -> List[str]:
     real += db.customfunction.find_many(where={"id": {"in": public_ids}})
     real += db.authprovider.find_many(where={"id": {"in": public_ids}})
     real += db.webhookhandle.find_many(where={"id": {"in": public_ids}})
+    real += db.variable.find_many(where={"id": {"in": public_ids}})
     real_ids = {r.id for r in real}
 
     return [pid for pid in public_ids if pid in real_ids]
@@ -224,6 +240,11 @@ def get_public_id(public_id: str) -> Optional[AnyFunction]:
     return None
 
 
+def get_user(user_id: str) -> Optional[User]:
+    db = get_client()
+    return db.user.find_first(where={"id": user_id})
+
+
 def get_user_key(user_id: str, environment_id: str) -> Optional[ApiKey]:
     db = get_client()
     return db.apikey.find_first(
@@ -233,13 +254,6 @@ def get_user_key(user_id: str, environment_id: str) -> Optional[ApiKey]:
 
 def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     user_key = get_user_key(user_id, environment_id)
-    # if not user_key:
-    # db = get_client()
-    #     # HACK just use the default environment for now
-    #     tenant = db.tenant.find_first(where={'name': "poly-trial"})
-    #     environment = db.environment.find_first(where={'name': 'default', 'tenantId': tenant.id})
-    #     user_key = db.apikey.find_first(where={'environmentId': environment.id})
-
     if not user_key:
         raise NotImplementedError(
             f"No user key found for user {user_id} and environment {environment_id}"
@@ -256,15 +270,18 @@ def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     return resp
 
 
-def public_id_to_spec(
-    user_id: str, environment_id: str, public_id: str
-) -> Optional[SpecificationDto]:
+def public_ids_to_specs(
+    user_id: str, environment_id: str, public_ids: List[str]
+) -> List[SpecificationDto]:
+    public_ids_set = set(public_ids)
     specs_resp = query_node_server(user_id, environment_id, "specs")
+
     items: List[SpecificationDto] = specs_resp.json()
+    rv: List[SpecificationDto] = []
     for item in items:
-        if item["id"] == public_id:
-            return item
-    return None
+        if item["id"] in public_ids_set:
+            rv.append(item)
+    return rv
 
 
 def camel_case(text: str) -> str:
@@ -276,16 +293,112 @@ def camel_case(text: str) -> str:
 
 
 def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0
-) -> ChatCompletionResponse:
+    messages: List[MessageDict], *, temperature=1.0, stream=False
+) -> Union[Generator, str]:
     """send the messages to OpenAI and get a response"""
     stripped = copy.deepcopy(messages)
+    stripped = [
+        m for m in stripped if m["role"] != "info"
+    ]  # info is our internal conversation stats, dont send!
     for s in stripped:
         # remove our internal-use-only fields
         s.pop("type", None)
-    resp: ChatCompletionResponse = openai.ChatCompletion.create(
+    resp = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
         messages=stripped,
         temperature=temperature,
+        stream=stream,
     )
-    return resp
+    if isinstance(resp, Generator):
+        return resp
+    else:
+        return resp["choices"][0]["message"]["content"]
+
+
+def cosine_similarity(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def set_all_functions_public(password=""):
+    if password != "DONT RUN THIS IN PROD":
+        raise NotImplementedError("incorrect password, blocking!")
+
+    db = get_client()
+    db.apifunction.update_many(
+        where={"visibility": "TENANT"}, data={"visibility": "PUBLIC"}
+    )
+    db.tenant.update_many(
+        where={"publicVisibilityAllowed": False}, data={"publicVisibilityAllowed": True}
+    )
+
+
+def get_variables(
+    environment_id: str, public_ids: Optional[List[str]] = None
+) -> List[SpecificationDto]:
+    db = get_client()
+
+    if public_ids:
+        vars = db.variable.find_many(
+            where={
+                "AND": [
+                    {"id": {"in": public_ids}},
+                    {
+                        "OR": [
+                            {"environmentId": environment_id},
+                            {"visibility": "PUBLIC"},
+                        ]
+                    },
+                ]
+            }
+        )
+    else:
+        vars = db.variable.find_many(
+            where={"OR": [{"environmentId": environment_id}, {"visibility": "PUBLIC"}]}
+        )
+    return [
+        SpecificationDto(
+            id=var.id,
+            context=var.context,
+            name=var.name,
+            description=var.description,
+            function=None,
+            type="serverVariable",
+        )
+        for var in vars
+    ]
+
+
+def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
+    if not spec or not spec.get("function", {}).get("returnType"):  # type: ignore
+        return None
+
+    return_type = spec.get("function", {}).get("returnType")  # type: ignore
+    if not return_type:
+        return None
+
+    if "title" in return_type:
+        return_type["title"] = "data"
+    return {"data": return_type}
+
+
+def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[MessageDict]:
+    if msgs:
+        return [MessageDict(role=msg.role, content=msg.content) for msg in msgs]
+    else:
+        return []
+
+
+def extract_code(content: Optional[str]) -> Any:
+    if not content:
+        return None
+
+    parts = content.split("```")
+    if len(parts) == 1:
+        rv = content
+    else:
+        rv = parts[1]
+
+    try:
+        return json.loads(rv)
+    except json.JSONDecodeError:
+        return None

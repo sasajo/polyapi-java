@@ -1,10 +1,15 @@
+import EventSource from 'eventsource';
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { catchError, lastValueFrom, map } from 'rxjs';
+import { catchError, lastValueFrom, map, Observable } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { PrismaService } from 'prisma/prisma.service';
-import { SystemPrompt } from '@prisma/client';
-import { FunctionCompletionDto, FunctionDescriptionDto } from '@poly/common';
+import { SystemPrompt, DocSection } from '@prisma/client';
+import {
+  FunctionDescriptionDto,
+  PropertySpecification,
+  VariableDescriptionDto,
+} from '@poly/model';
 
 @Injectable()
 export class AiService {
@@ -16,30 +21,46 @@ export class AiService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async getFunctionCompletion(environmentId: string, userId: string, message: string): Promise<FunctionCompletionDto> {
+  getFunctionCompletion(environmentId: string, userId: string, message: string): Observable<string> {
     this.logger.debug(`Sending message to Science server for function completion: ${message}`);
+
+    const eventSource = new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question=${message}`);
+
+    return new Observable<string>(subscriber => {
+      eventSource.onmessage = (event) => {
+        subscriber.next(JSON.parse(event.data).chunk);
+      };
+      eventSource.onerror = (error) => {
+        if (error.message) {
+          this.logger.debug(`Error from Science server for function completion: ${error.message}`);
+          subscriber.error(error.message);
+        }
+        subscriber.complete();
+        eventSource.close();
+      };
+    });
+  }
+
+  async pluginChat(apiKey: string, pluginId: number, message: string): Promise<unknown> {
+    this.logger.debug(`Sending message to Science server for plugin chat: ${message}`);
     return await lastValueFrom(
       this.httpService
-        .post(`${this.config.scienceServerBaseUrl}/function-completion`, {
-          environment_id: environmentId,
-          user_id: userId,
-          question: message,
+        .post(`${this.config.scienceServerBaseUrl}/plugin-chat`, {
+          apiKey,
+          pluginId,
+          message,
         })
-        .pipe(
-          map((response) => ({
-            answer: response.data.answer,
-            stats: response.data.stats,
-          })),
-        )
+        .pipe(map((response) => response.data))
         .pipe(catchError(this.processScienceServerError())),
     );
   }
 
   async clearConversation(environmentId: string, userId: string) {
+    // clears ALL conversations for a user
     this.logger.debug(`Clearing conversation for environment: ${environmentId} ${userId}`);
     await lastValueFrom(
       this.httpService
-        .post(`${this.config.scienceServerBaseUrl}/clear-conversation`, {
+        .post(`${this.config.scienceServerBaseUrl}/clear-conversations`, {
           environment_id: environmentId,
           user_id: userId,
         })
@@ -51,8 +72,10 @@ export class AiService {
     url: string,
     method: string,
     description: string,
+    args: PropertySpecification[],
     body: string,
     response: string,
+    code?: string,
   ): Promise<FunctionDescriptionDto> {
     this.logger.debug(`Getting description for function: ${url} ${method}`);
     return await lastValueFrom(
@@ -61,8 +84,10 @@ export class AiService {
           url,
           method,
           short_description: description,
+          arguments: args,
           payload: body,
           response,
+          code,
         })
         .pipe(map((response) => response.data))
         .pipe(catchError(this.processScienceServerError())),
@@ -85,6 +110,27 @@ export class AiService {
     );
   }
 
+  async getVariableDescription(
+    name: string,
+    context: string,
+    secret: boolean,
+    value: string,
+  ): Promise<VariableDescriptionDto> {
+    this.logger.debug(`Getting description for variable: ${name}`);
+
+    return await lastValueFrom(
+      this.httpService
+        .post(`${this.config.scienceServerBaseUrl}/variable-description`, {
+          name,
+          context,
+          secret,
+          value,
+        })
+        .pipe(map((response) => response.data))
+        .pipe(catchError(this.processScienceServerError())),
+    );
+  }
+
   async configure(name: string, value: string) {
     // configure the AI server parameters
     return await lastValueFrom(
@@ -97,14 +143,14 @@ export class AiService {
   private processScienceServerError() {
     return (error) => {
       this.logger.error(`Error while communicating with Science server: ${error}`);
-      throw new HttpException(error.response?.data || error.message, error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        error.response?.data || error.message,
+        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     };
   }
 
   async setSystemPrompt(environmentId: string, userId: string, prompt: string): Promise<SystemPrompt> {
-    // clear the conversation so the user can test the new system prompt!
-    await this.clearConversation(environmentId, userId);
-
     const systemPrompt = await this.prisma.systemPrompt.findFirst({ orderBy: { createdAt: 'desc' } });
     if (systemPrompt) {
       this.logger.debug(`Found existing SystemPrompt ${systemPrompt.id}. Updating...`);
@@ -125,5 +171,18 @@ export class AiService {
         content: prompt,
       },
     });
+  }
+
+  async updateDocVector(doc: DocSection): Promise<DocSection> {
+    const p = new Promise<DocSection>((resolve) => {
+      resolve(doc);
+    });
+    const url = `${this.config.scienceServerBaseUrl}/docs/update-vector`;
+    await lastValueFrom(
+      this.httpService.post(url, {
+        id: doc.id,
+      }),
+    );
+    return p;
   }
 }

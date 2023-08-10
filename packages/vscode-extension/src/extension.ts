@@ -1,32 +1,16 @@
 import * as vscode from 'vscode';
-import * as ts from 'typescript';
 import ChatViewProvider from './chat-view-provider';
 import LibraryIndexViewProvider from './library-index-view-provider';
+import { LibraryTreeItemFileDecorationProvider } from './library-tree-item-file-decoration-provider';
 
 import { start as startLibraryWatcher } from './library-watcher';
 import { registerPolySpecsChangedListener } from './events';
+import DefaultView from './default-view';
 
-const isPolyExpression = (node: ts.Node) => {
-  if (!node.parent) {
-    return false;
-  }
-  if (node.kind === ts.SyntaxKind.Identifier && node.getText() === 'poly') {
-    return true;
-  }
-  if (node.parent.kind === ts.SyntaxKind.PropertyAccessExpression) {
-    const currentIndex = node.parent.getChildren().indexOf(node);
-    if (currentIndex === 0) {
-      return false;
-    }
-    return isPolyExpression(node.parent.getChildren()[currentIndex - 1]);
-  }
-
-  return false;
-};
-
-export async function activate(context: vscode.ExtensionContext) {
+export const activate = (context: vscode.ExtensionContext) => {
   const chatViewProvider = new ChatViewProvider(context);
-  const libraryIndexViewProvider = new LibraryIndexViewProvider();
+  const libraryIndexViewProvider = new LibraryIndexViewProvider(context);
+  const defaultView = new DefaultView();
 
   const unregisterPolyFunctionsRegeneratedListener = registerPolySpecsChangedListener(contexData => {
     console.log('POLY: Restarting TS server...');
@@ -43,6 +27,8 @@ export async function activate(context: vscode.ExtensionContext) {
       chatViewProvider.focusMessageInput();
     }),
     vscode.commands.registerCommand('poly.copyLibraryItem', LibraryIndexViewProvider.copyLibraryItem),
+    vscode.commands.registerCommand('poly.setupLibrary', () => defaultView.setupLibrary()),
+    vscode.commands.registerCommand('poly.setupCredentials', () => defaultView.setupLibraryCredentials()),
     vscode.window.registerWebviewViewProvider(
       'poly.ai-view',
       chatViewProvider,
@@ -62,5 +48,6 @@ export async function activate(context: vscode.ExtensionContext) {
     {
       dispose: stopFileWatcher,
     },
+    vscode.window.registerFileDecorationProvider(new LibraryTreeItemFileDecorationProvider()),
   );
-}
+};

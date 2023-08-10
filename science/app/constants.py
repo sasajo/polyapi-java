@@ -4,9 +4,10 @@ from enum import Enum, IntEnum, unique
 # names for ConfigVariables
 @unique
 class VarName(Enum):
-    keyword_similarity_threshold = "keyword_similarity_threshold"
-    function_match_limit = "function_match_limit"
-    extract_keywords_temperature = "extract_keywords_temperature"
+    function_keyword_similarity_threshold = "OpenAIKeywordSimilarityThreshold"
+    variable_keyword_similarity_threshold = "OpenAIVariableKeywordSimilarityThreshold"
+    function_match_limit = "OpenAIFunctionMatchLimit"
+    extract_keywords_temperature = "OpenAIExtractKeywordsTemperature"
 
 
 @unique
@@ -16,4 +17,7 @@ class MessageType(IntEnum):
     internal = 3  # totally internal messages for our own logging
 
 
-CHAT_GPT_MODEL = "gpt-4-0314"
+CHAT_GPT_MODEL = "gpt-4-0613"
+
+# standard question template where the FE knows how to extract the stuff in the quotes
+QUESTION_TEMPLATE = 'Question: "{}"'

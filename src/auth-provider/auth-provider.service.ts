@@ -16,8 +16,8 @@ import {
   AuthFunctionSpecification,
   AuthProviderDto,
   ExecuteAuthProviderResponseDto,
-  PropertySpecification, Visibility,
-} from '@poly/common';
+  PropertySpecification, Visibility, VisibilityQuery,
+} from '@poly/model';
 import { ConfigService } from 'config/config.service';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -63,20 +63,23 @@ export class AuthProviderService {
       },
     ];
 
-    this.logger.debug(`auth providers filter conditions: ${JSON.stringify([{ AND: filterConditions }, ...idConditions])}`);
+    this.logger.debug(`auth providers filter conditions: ${JSON.stringify([
+{ AND: filterConditions },
+      ...idConditions,
+])}`);
 
     return [{ AND: filterConditions }, ...idConditions];
   }
 
-  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<AuthProvider[]> {
+  async getAuthProviders(environmentId: string, contexts?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false): Promise<AuthProvider[]> {
     return this.prisma.authProvider.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
@@ -97,10 +100,13 @@ export class AuthProviderService {
     });
   }
 
-  async getAuthProvider(id: string): Promise<AuthProvider | null> {
+  async getAuthProvider(id: string, includeEnvironment = false): Promise<AuthProvider | null> {
     return this.prisma.authProvider.findFirst({
       where: {
         id,
+      },
+      include: {
+        environment: includeEnvironment,
       },
     });
   }
@@ -209,7 +215,42 @@ export class AuthProviderService {
     };
   }
 
-  public async executeAuthProvider(authProvider: AuthProvider, eventsClientId: string, clientId: string, clientSecret: string, audience: string | null, scopes: string[], callbackUrl: string | null): Promise<ExecuteAuthProviderResponseDto> {
+  public async executeAuthProvider(
+    authProvider: AuthProvider,
+    eventsClientId: string,
+    clientId: string,
+    clientSecret: string,
+    audience: string | null,
+    scopes: string[],
+    callbackUrl: string | null,
+    userId: string | null,
+  ): Promise<ExecuteAuthProviderResponseDto> {
+    this.logger.debug(`Executing auth provider ${authProvider.id}`);
+
+    if (userId) {
+      this.logger.debug(`User ID specified (${userId}). Checking if token exists for user...`);
+      const existingToken = await this.prisma.authToken.findFirst({
+        where: {
+          authProvider: {
+            id: authProvider.id,
+          },
+          clientId,
+          clientSecret,
+          eventsClientId,
+          userId,
+        },
+      });
+      if (existingToken?.accessToken) {
+        this.logger.debug(`Token exists for user ${userId}.`);
+        return {
+          url: this.getAuthProviderAuthorizationUrl(authProvider, existingToken),
+          token: existingToken.accessToken,
+        };
+      } else {
+        this.logger.debug(`Token does not exist for user ${userId}. Continuing OAuth flow...`);
+      }
+    }
+
     await this.prisma.authToken.deleteMany({
       where: {
         authProvider: {
@@ -236,6 +277,7 @@ export class AuthProviderService {
         state,
         callbackUrl,
         eventsClientId,
+        userId,
       },
     });
 
@@ -400,25 +442,28 @@ export class AuthProviderService {
       this.logger.debug(`No auth token found for auth function ${authProvider.id}`);
       return;
     }
-    await this.httpService
-      .request({
-        url: authProvider.revokeUrl,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          client_id: authToken.clientId,
-          client_secret: authToken.clientSecret,
-          token: authToken.accessToken,
-        },
-      })
-      .pipe(
-        catchError((error: AxiosError) => {
-          this.logger.error(`Error while performing token revoke for auth function (id: ${authProvider.id}): ${error}`);
-          throw new InternalServerErrorException(error.response?.data || error.message);
-        }),
-      );
+
+    await lastValueFrom(
+      this.httpService
+        .request({
+          url: authProvider.revokeUrl,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            client_id: authToken.clientId,
+            client_secret: authToken.clientSecret,
+            token: authToken.accessToken,
+          },
+        })
+        .pipe(
+          catchError((error: AxiosError) => {
+            this.logger.error(`Error while performing token revoke for auth function (id: ${authProvider.id}): ${error}`);
+            throw new InternalServerErrorException(error.response?.data || error.message);
+          }),
+        ),
+    );
   }
 
   async introspectAuthToken(authProvider: AuthProvider, token: string): Promise<any> {
@@ -532,8 +577,25 @@ export class AuthProviderService {
       function: {
         arguments: this.getGetTokenFunctionArguments(authProvider),
         returnType: {
-          kind: 'void',
+          kind: 'object',
+          properties: [
+            {
+              name: 'close',
+              type: {
+                kind: 'function',
+                spec: {
+                  arguments: [],
+                  returnType: {
+                    kind: 'void',
+                  },
+                  synchronous: true,
+                },
+              },
+              required: true,
+            },
+          ],
         },
+        synchronous: true,
       },
       visibilityMetadata: {
         visibility: authProvider.visibility as Visibility,
@@ -750,6 +812,14 @@ export class AuthProviderService {
             },
             {
               name: 'autoCloseOnToken',
+              required: false,
+              type: {
+                kind: 'primitive',
+                type: 'boolean',
+              },
+            },
+            {
+              name: 'autoCloseOnUrl',
               required: false,
               type: {
                 kind: 'primitive',

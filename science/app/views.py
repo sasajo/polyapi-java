@@ -1,11 +1,27 @@
 #!/usr/bin/env python3
-from typing import Dict, Optional, Tuple
+import json
+from typing import Any, Dict, Generator, Optional, Union
 from flask import Blueprint, Response, request, jsonify
 from openai.error import OpenAIError, RateLimitError
-from app.completion import get_completion_answer
-from app.description import get_function_description, get_webhook_description
-from app.typedefs import DescInputDto
-from app.utils import is_vip_user, log, set_config_variable
+from app.completion import general_question, get_completion_answer
+from app.constants import MessageType
+from app.conversation import previous_message_referenced
+from app.description import (
+    get_function_description,
+    get_variable_description,
+    get_webhook_description,
+)
+from app.docs import documentation_question, update_vector
+from app.plugin import get_plugin_chat
+from app.typedefs import DescInputDto, MessageDict, VarDescInputDto
+from app.utils import (
+    clear_conversations,
+    create_new_conversation,
+    get_user,
+    log,
+    store_messages,
+)
+from app.router import split_route_and_question
 
 bp = Blueprint("views", __name__)
 
@@ -16,21 +32,98 @@ def home():
     return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
 
 
-@bp.route("/function-completion", methods=["POST"])  # type: ignore
-def function_completion() -> Dict:
-    data: Dict = request.get_json(force=True)
+HELP_ANSWER = """Poly conversation special commands
+
+* /functions or /f or no slash command: search functions and variables and use them to answer question
+* /help or /h: list out available commands
+* /poly or /p or /docs or /d: searches poly documentation
+* /general or /g: ask general question straight to ChatGPT
+"""
+
+
+@bp.route("/function-completion", methods=["GET"])  # type: ignore
+def function_completion() -> Response:
+    data: Dict = request.args.to_dict()
     question: str = data["question"].strip()
     user_id: Optional[str] = data.get("user_id")
     environment_id: Optional[str] = data.get("environment_id")
-    assert user_id
     assert environment_id
+    assert user_id
+    user = get_user(user_id)
+    if not user:
+        return Response(
+            {
+                "answer": "This key is not assigned to a user, please use a key assigned to a user with the AI Assistant.",
+                "stats": {},
+            }
+        )
 
-    resp = get_completion_answer(user_id, environment_id, question)
+    prev_msgs = previous_message_referenced(user_id, question)
+    stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
 
-    if is_vip_user(user_id):
+    route, question = split_route_and_question(question)
+    stats["route"] = route
+
+    resp: Union[Generator, str] = ""  # either str or streaming completion type
+    conversation = create_new_conversation(user_id)
+    if route == "function":
+        resp = get_completion_answer(
+            user_id, conversation.id, environment_id, question, prev_msgs
+        )
+        # TODO fixme?
+        # stats.update(completion_stats)
+    elif route == "general":
+        resp = general_question(user_id, conversation.id, question, prev_msgs)
+    elif route == "help":
+        resp = HELP_ANSWER
+    elif route == "documentation":
+        resp = documentation_question(user_id, conversation.id, question, prev_msgs)
+        # TODO fixme?
+        # stats.update(doc_stats)
+    else:
+        resp = "unexpected category: {route}"
+
+    if user.vip:
         log(f"VIP USER {user_id}", resp, sep="\n")
 
-    return resp
+    def generate():
+        if isinstance(resp, str):
+            yield f"data: {resp}"
+            # store the final message before exiting
+            store_messages(
+                user_id,
+                conversation.id,
+                [
+                    MessageDict(
+                        role="assistant",
+                        content=resp,
+                        type=MessageType.user,
+                    )
+                ],
+            )
+        else:
+            answer_content = ""
+            for chunk in resp:
+                content = chunk["choices"][0].get("delta", {}).get("content")
+                if content is not None:
+                    answer_content += content
+                    # still have data to send back
+                    yield "data: {}\n\n".format(json.dumps({"chunk": content}))
+                else:
+                    # store the final message before exiting
+                    store_messages(
+                        user_id,
+                        conversation.id,
+                        [
+                            MessageDict(
+                                role="assistant",
+                                content=answer_content,
+                                type=MessageType.user,
+                            )
+                        ],
+                    )
+
+    return Response(generate(), mimetype="text/event-stream")
 
 
 @bp.route("/function-description", methods=["POST"])
@@ -47,17 +140,30 @@ def webhook_description() -> Response:
     return jsonify(get_webhook_description(data))
 
 
-@bp.route("/configure", methods=["POST"])
-def configure() -> Tuple[str, int]:
-    data = request.get_json(force=True)
-    name = data["name"]
-    value = data["value"]
-    try:
-        set_config_variable(name, value)
-    except ValueError:
-        return f"Invalid config variable name: {name}", 400
+@bp.route("/variable-description", methods=["POST"])
+def variable_description() -> Response:
+    data: VarDescInputDto = request.get_json(force=True)
+    return jsonify(get_variable_description(data))
 
-    return "Configured", 201
+
+@bp.route("/plugin-chat", methods=["POST"])
+def plugin_chat() -> Response:
+    data = request.get_json(force=True)
+    resp = get_plugin_chat(data['apiKey'], data['pluginId'], data['message'])
+    return jsonify(resp)
+
+
+@bp.route("/docs/update-vector", methods=["POST"])
+def docs_update_vector() -> str:
+    data = request.get_json(force=True)
+    return update_vector(data["id"])
+
+
+@bp.route("/clear-conversations", methods=["POST"])
+def clear_conversations_view() -> str:
+    user_id = request.get_json(force=True)["user_id"]
+    clear_conversations(user_id)
+    return "Conversation Cleared"
 
 
 @bp.route("/error")
@@ -76,10 +182,11 @@ def error_rate_limit():
 def handle_open_ai_error(e):
     # now you're handling non-HTTP exceptions only
     from flask import current_app
-
-    if isinstance(e, RateLimitError):
+    if isinstance(e, RateLimitError) and str(e).startswith("That model is currently overloaded"):
+        # special message for when OpenAI is overloaded
         msg = "OpenAI is overloaded with other requests at the moment. Please wait a few seconds and try your request again!"
     else:
-        msg = f"Sadly, OpenAI appears to be down. Please try again later. ({e.__class__.__name__})"
+        # just pass along whatever
+        msg = "OpenAI Error: {}".format(str(e))
     current_app.log_exception(msg)
     return msg, 500

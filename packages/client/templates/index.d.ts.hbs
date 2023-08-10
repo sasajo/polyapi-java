@@ -1,31 +1,50 @@
 {{#each contexts}}
 /// <reference path="./{{fileName}}" />
 {{/each}}
+/// <reference path="./vari/index.d.ts" />
 
 {{#each contexts}}
 {{#if firstLevel}}
-export const {{name}}: poly.{{interfaceName}};
+export const {{name}}: {{interfaceName}};
 {{/if}}
 {{/each}}
 
-export = poly;
-export as namespace poly;
+declare const poly: Poly;
+export default poly;
 
-declare const poly: poly.Poly;
-
-declare namespace poly {
-  interface Poly {}
+export type UnregisterWebhookEventListener = () => void;
+export type AuthFunctionCallback = (token?: string, url?: string, error?: any) => any;
+export interface ApiFunctionResponse<T> {
+  status: number;
+  data: T;
+  headers: Record<string, string>;
 }
 
-interface ErrorEvent {
+export interface GraphqlAPIFunctionResponse<T> {
+  status: number;
+  headers: Record<string, string>;
+  data: Partial<T & { errors?: any[]}>
+}
+
+export interface ErrorEvent {
   message: string;
   data?: any;
   status?: number;
   statusText?: string;
+  functionId: string;
+  applicationId?: string;
+  userId?: string;
 }
+export interface ErrorHandlerOptions {
+  applicationIds?: string[];
+  environmentIds?: string[];
+  functionIds?: string[];
+  tenant?: boolean;
+}
+export type UnregisterErrorHandler = () => void;
 
 interface ErrorHandler {
-  on: (path: string, handler: (error: ErrorEvent) => void) => void;
-  off: (path: string) => void;
+  on: (path: string, handler: (error: ErrorEvent) => void, options?: ErrorHandlerOptions) => UnregisterErrorHandler;
 }
 export const errorHandler: ErrorHandler;
+export const vari: vari.Vari;

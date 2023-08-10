@@ -3,28 +3,49 @@ import { exec as execAsync } from 'child_process';
 import handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
+import { pick } from 'lodash';
 import { Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
 import { FaasService } from '../faas.service';
+import { CustomObjectsApi } from '@kubernetes/client-node';
+import { makeCustomObjectsApiClient } from 'kubernetes/client';
 
 // sleep function from SO
 // https://stackoverflow.com/a/39914235
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const exec = util.promisify(execAsync);
+const exists = util.promisify(fs.exists);
+const readFile = util.promisify(fs.readFile);
+const writeFile = util.promisify(fs.writeFile);
+const mkdir = util.promisify(fs.mkdir);
+const rm = util.promisify(fs.rm);
 
-const KNATIVE_EXEC_FILE = process.env.KNATIVE_EXEC_FILE || `${process.cwd()}/bin/kn-func`;
-const BASE_FOLDER = process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`;
+const SERVING_GROUP = 'serving.knative.dev';
+const SERVING_VERSION = 'v1';
+const SERVICES_NAME = 'services';
+const ROUTES_NAME = 'routes';
+const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id', 'openai-conversation-id'];
+
+interface KNativeRouteDef {
+  status: {
+    url: string;
+  }
+}
 
 export class KNativeFaasService implements FaasService {
   private logger = new Logger(KNativeFaasService.name);
+  private k8sApi: CustomObjectsApi;
 
-  constructor(private readonly config: ConfigService, private readonly http: HttpService) {}
+  constructor(private readonly config: ConfigService, private readonly http: HttpService) {
+  }
 
   async init(): Promise<void> {
+    this.logger.debug('Initializing KNativeFaasService...');
+    this.logger.debug('Initializing docker config...');
     if (!this.config.faasDockerUsername || !this.config.faasDockerPassword) {
       this.logger.debug('No docker credentials provided, skipping docker config creation');
       return;
@@ -44,8 +65,11 @@ export class KNativeFaasService implements FaasService {
     };
 
     this.logger.debug(`Writing docker config to ${this.config.faasDockerConfigFile}`);
-    fs.mkdirSync(path.dirname(this.config.faasDockerConfigFile), { recursive: true });
-    fs.writeFileSync(this.config.faasDockerConfigFile, JSON.stringify(getConfig(), null, 2));
+    await mkdir(path.dirname(this.config.faasDockerConfigFile), { recursive: true });
+    await writeFile(this.config.faasDockerConfigFile, JSON.stringify(getConfig(), null, 2));
+
+    this.logger.debug('Initializing Kubernetes API client...');
+    this.k8sApi = makeCustomObjectsApiClient();
   }
 
   async createFunction(
@@ -57,23 +81,38 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
   ): Promise<void> {
+    this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
+
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    if (fs.existsSync(functionPath)) {
-      await this.cleanUpFunction(id, functionPath);
+    const prepareAndDeploy = async (imageName: string) => {
+      if (!await exists(`${functionPath}/function`)) {
+        await mkdir(`${functionPath}/function`, { recursive: true });
+      }
+
+      const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/function/index.js.hbs`, 'utf8');
+      const content = handlebars.compile(template)({
+        name,
+        code,
+      });
+      this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
+      await writeFile(`${functionPath}/function/index.js`, content);
+
+      await this.deploy(id, tenantId, environmentId, imageName, apiKey);
+    };
+
+    const additionalRequirements = this.filterPreinstalledNpmPackages(requirements);
+    if (additionalRequirements.length > 0) {
+      const customImageName = `${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)}`;
+
+      // not awaiting on purpose, so it returns immediately with the message
+      this.logger.debug(`Additional requirements found for function '${id}'. Building custom image ${customImageName}...`);
+
+      await this.buildCustomImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey, name, code);
+
+      await prepareAndDeploy(customImageName);
+    } else {
+      await prepareAndDeploy(`${this.config.faasDockerImageFunctionNode}`);
     }
-    await exec(`${KNATIVE_EXEC_FILE} create ${functionPath} -l node`);
-
-    await this.preparePolyLib(functionPath, apiKey);
-    await this.prepareRequirements(functionPath, requirements);
-
-    const template = fs.readFileSync(`${process.cwd()}/dist/function/faas/knative/templates/index.js.hbs`, 'utf8');
-    const indexFileContent = handlebars.compile(template)({
-      name,
-      code,
-    });
-    fs.writeFileSync(`${functionPath}/index.js`, indexFileContent);
-
-    await this.deploy(id, tenantId, environmentId);
   }
 
   async executeFunction(
@@ -81,27 +120,22 @@ export class KNativeFaasService implements FaasService {
     tenantId: string,
     environmentId: string,
     args: any[],
+    headers = {},
     maxRetryCount = 3,
   ): Promise<any> {
-    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    const functionUrl = await this.getFunctionUrl(functionPath);
+    const functionUrl = await this.getFunctionUrl(id);
 
     if (!functionUrl) {
-      if (maxRetryCount > 0) {
-        await this.deploy(id, tenantId, environmentId);
-        return this.executeFunction(id, tenantId, environmentId, args, maxRetryCount - 1);
-      } else {
-        this.logger.error(`Function ${id} is not running`);
-        throw new Error(`Function ${id} is not running`);
-      }
+      this.logger.error(`Function ${id} is does not exists.`);
+      throw new Error(`Function ${id} is does not exists.`);
     }
 
-    this.logger.debug(`Executing server function '${id}' (maxRetryCount=${maxRetryCount})...`);
+    this.logger.debug(`Executing server function '${id}'...`);
     this.logger.verbose(`Calling ${functionUrl}`);
     this.logger.verbose({ args });
     return await lastValueFrom(
       this.http
-        .post(`${functionUrl}`, { args })
+        .post(`${functionUrl}`, { args }, { headers: this.filterPassThroughHeaders(headers) })
         .pipe(map((response) => response.data))
         .pipe(
           catchError(async (error: AxiosError) => {
@@ -112,7 +146,7 @@ export class KNativeFaasService implements FaasService {
             );
             if (maxRetryCount > 0) {
               await sleep(2000);
-              return this.executeFunction(id, tenantId, environmentId, args, 0);
+              return this.executeFunction(id, tenantId, environmentId, args, headers, 0);
             }
 
             throw error;
@@ -121,37 +155,56 @@ export class KNativeFaasService implements FaasService {
     );
   }
 
-  async updateFunction(
+  updateFunction(
     id: string,
     tenantId: string,
     environmentId: string,
+    name: string,
+    code: string,
     requirements: string[],
     apiKey: string,
-  ): Promise<void> {
+  ) {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    if (!fs.existsSync(functionPath)) {
+    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey);
+  }
+
+  async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {
+    this.logger.debug(`Deleting server function '${id}'...`);
+
+    try {
+      await this.k8sApi.deleteNamespacedCustomObject(
+        SERVING_GROUP,
+        SERVING_VERSION,
+        this.config.knativeTriggerNamespace,
+        SERVICES_NAME,
+        this.getFunctionName(id),
+      );
+    } catch (e) {
+      if (e.body?.code === 404) {
+        this.logger.debug(`Server function '${id}' doesn't exist, nothing to delete.`);
+        return;
+      }
+      this.logger.error(`Error deleting server function '${id}':`, e);
+      throw e;
+    }
+    this.logger.debug(`Server function '${id}' removed.`);
+
+    if (!cleanPath) {
       return;
     }
 
-    await this.preparePolyLib(functionPath, apiKey);
-    await this.prepareRequirements(functionPath, requirements);
-  }
-
-  async deleteFunction(id: string, tenantId: string, environmentId: string): Promise<void> {
-    this.logger.debug(`Deleting server function '${id}'...`);
-
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    await this.cleanUpFunction(id, functionPath);
-    await exec(`docker rmi ${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)} -f`);
-    await exec(`rm -rf ${functionPath}`);
-
-    this.logger.debug(`Server function '${id}' docker container and files removed.`);
+    if (await exists(functionPath)) {
+      await rm(functionPath, { recursive: true });
+      this.logger.debug(`Removed function folder (${functionPath})`);
+    } else {
+      this.logger.debug(`Didn't remove function folder, functionPath (${functionPath}) doesn't exist.`);
+    }
   }
 
-  private getFunctionPath(id: string, tenantId: string, environmentId: string): string {
-    return `${BASE_FOLDER}/${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+  private getFunctionPath(id: string, tenantId: string, environmentId: string, relative = false): string {
+    return `${relative ? '' : `${this.config.faasFunctionsBasePath}/`}${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
   }
 
   private getFunctionName(id: string) {
@@ -159,8 +212,9 @@ export class KNativeFaasService implements FaasService {
   }
 
   private async preparePolyLib(functionPath: string, apiKey: string) {
+    this.logger.debug(`Preparing polyapi library for function '${functionPath}'...`);
     await exec(`npm install --prefix ${functionPath} polyapi@${this.config.polyClientNpmVersion}`);
-    fs.mkdirSync(`${functionPath}/node_modules/.poly`, { recursive: true });
+    await mkdir(`${functionPath}/node_modules/.poly`, { recursive: true });
     await exec(
       `POLY_API_BASE_URL=${this.config.faasPolyServerUrl} POLY_API_KEY=${apiKey} npx --prefix ${functionPath} poly generate`,
     );
@@ -171,57 +225,147 @@ export class KNativeFaasService implements FaasService {
       return;
     }
 
+    this.logger.debug(`Preparing additional requirements for function '${functionPath}'...`);
     for (const library of requirements) {
       await exec(`npm install --prefix ${functionPath} ${library}`);
     }
   }
 
-  private async deploy(id: string, tenantId: string, environmentId: string) {
-    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+  private async deploy(id: string, tenantId: string, environmentId: string, imageName: string, apiKey: string) {
+    this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
+    await this.deleteFunction(id, tenantId, environmentId, false);
 
-    this.logger.debug(`Building server function '${id}'...`);
-    await exec(`${KNATIVE_EXEC_FILE} build --registry ${this.config.faasDockerContainerRegistry}`, {
-      cwd: functionPath,
-    });
+    this.logger.debug(`Creating KNative service for function '${id}'...`);
 
-    this.logger.debug(`Deploying server function '${id}'...`);
-    await exec(`${KNATIVE_EXEC_FILE} deploy --registry ${this.config.faasDockerContainerRegistry}`, {
-      cwd: functionPath,
-    });
+    const workingDir = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
 
-    await sleep(5000);
+    const options = {
+      apiVersion: 'serving.knative.dev/v1',
+      kind: 'Service',
+      metadata: {
+        name: this.getFunctionName(id),
+        namespace: this.config.faasNamespace,
+      },
+      spec: {
+        template: {
+          spec: {
+            containers: [
+              {
+                image: `${imageName}`,
+                volumeMounts: [
+                  {
+                    mountPath: '/workspace/function',
+                    name: 'functions-volume',
+                    readOnly: false,
+                  },
+                ],
+                env: [
+                  {
+                    name: 'POLY_API_BASE_URL',
+                    value: this.config.faasPolyServerUrl,
+                  },
+                  {
+                    name: 'POLY_API_KEY',
+                    value: apiKey,
+                  },
+                ],
+                command: ['/bin/sh', '-c'],
+                args: [`if [ -f "/workspace/function/${workingDir}/function/index.js" ]; then /cnb/lifecycle/launcher "cp -f function/${workingDir}/function/index.js $home/workspace && npx poly generate && npm start"; else /cnb/lifecycle/launcher "npx poly generate && npm start"; fi`],
+                workingDir: `/workspace/function/${workingDir}/function`,
+              },
+            ],
+            volumes: [
+              {
+                name: 'functions-volume',
+                persistentVolumeClaim: {
+                  claimName: this.config.faasPvcName,
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    this.logger.debug(`createNamespacedCustomObject options - ${JSON.stringify(options)}`);
+
+    try {
+      await this.k8sApi.createNamespacedCustomObject(
+        SERVING_GROUP,
+        SERVING_VERSION,
+        this.config.faasNamespace,
+        SERVICES_NAME,
+        options,
+      );
+      this.logger.debug(`KNative service for function '${id}' created. Function deployed.`);
+    } catch (e) {
+      if (e.body?.code === 409) {
+        this.logger.warn(`Server function '${id}' already exists, skipping.`);
+        return;
+      }
+      this.logger.error(`Error while creating KNative service: ${e.message}`, JSON.stringify(e));
+      throw e;
+    }
   }
 
-  private async cleanUpFunction(id: string, functionPath: string) {
-    try {
-      const knativeId = this.getFunctionName(id);
-      await exec(`${KNATIVE_EXEC_FILE} delete ${knativeId}`);
-      this.logger.debug(`Removed function ${id} from knative with id ${knativeId}`);
-    } catch (e) {
-      this.logger.error(`Error while deleting KNative function: ${e.message}`);
-    }
-
-    if (fs.existsSync(functionPath)) {
-      fs.rmSync(functionPath, { recursive: true });
-      this.logger.debug(`Removed function folder (${functionPath})`);
-    } else {
-      this.logger.debug(`Didn't remove function folder, functionPath (${functionPath}) doesn't exist.`);
-    }
+  private filterPreinstalledNpmPackages(requirements: string[]): string[] {
+    return requirements.filter((requirement) => !this.config.faasPreinstalledNpmPackages.includes(requirement));
   }
 
-  private async getFunctionUrl(functionPath: string): Promise<string | null> {
+  private async getFunctionUrl(id: string): Promise<string | null> {
+    const name = this.getFunctionName(id);
+
     try {
-      const { stdout, stderr } = await exec(`${KNATIVE_EXEC_FILE} describe -o url`, { cwd: functionPath });
-      if (stdout) {
-        return stdout;
-      }
-      if (stderr) {
-        this.logger.error(`Function not running: ${stderr}`);
-      }
+      const response = await this.k8sApi.getNamespacedCustomObject(
+        SERVING_GROUP,
+        SERVING_VERSION,
+        this.config.faasNamespace,
+        ROUTES_NAME,
+        name,
+      );
+
+      const route = response.body as KNativeRouteDef;
+      return route.status.url;
     } catch (e) {
-      this.logger.error(`Error while building function: ${e}`);
+      if (e.body?.code === 404) {
+        this.logger.debug(`Server function '${id}' doesn't exist.`);
+      } else {
+        this.logger.error(`Error while getting function: ${e.message}`, e);
+      }
     }
 
     return null;
+  }
+
+  private filterPassThroughHeaders(headers: Record<string, any>): Record<string, any> {
+    return pick(headers, PASS_THROUGH_HEADERS);
+  }
+
+  private async buildCustomImage(id: string, tenantId: string, environmentId: string, imageName: string, additionalRequirements: string[], apiKey: string, name: string, code: string) {
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+    const allRequirements = [...this.config.faasPreinstalledNpmPackages, ...additionalRequirements];
+
+    try {
+      await rm(functionPath, { recursive: true });
+    } catch (err) {
+      this.logger.debug(`Err removing previous function path ${functionPath}, creating new folder...`, err);
+    }
+    await mkdir(functionPath, { recursive: true });
+    await exec(`${this.config.knativeFuncExecFile} create ${functionPath} -l node`);
+
+    await this.preparePolyLib(functionPath, apiKey);
+    await this.prepareRequirements(functionPath, allRequirements);
+
+    const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/function/index.js.hbs`, 'utf8');
+    const content = handlebars.compile(template)({
+      name,
+      code,
+    });
+    await writeFile(`${functionPath}/index.js`, content);
+
+    this.logger.debug(`Building custom server function image '${imageName}'...`);
+    await exec(`${this.config.knativeFuncExecFile} build --image ${imageName} --push`, {
+      cwd: functionPath,
+    });
   }
 }

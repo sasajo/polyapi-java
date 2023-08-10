@@ -15,7 +15,7 @@ import {
 import { ApiSecurity } from '@nestjs/swagger';
 import { WebhookService } from 'webhook/webhook.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
-import { CreateWebhookHandleDto, Permission, UpdateWebhookHandleDto } from '@poly/common';
+import { CreateWebhookHandleDto, Permission, UpdateWebhookHandleDto } from '@poly/model';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 
@@ -55,7 +55,7 @@ export class WebhookController {
     await this.authService.checkPermissions(req.user, Permission.Teach);
 
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
-      req.user.environment.id,
+      req.user.environment,
       context,
       name,
       eventPayload,
@@ -126,7 +126,7 @@ export class WebhookController {
     await this.authService.checkPermissions(req.user, Permission.Teach);
 
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
-      req.user.environment.id,
+      req.user.environment,
       context,
       name,
       payload,
@@ -140,7 +140,7 @@ export class WebhookController {
   public async registerWebhookFunction(@Req() req: AuthRequest, @Param('name') name: string, @Body() payload: any) {
     await this.authService.checkPermissions(req.user, Permission.Teach);
 
-    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user.environment.id, null, name, payload, '');
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user.environment, '', name, payload, '');
     return this.webhookService.toDto(webhookHandle);
   }
 }

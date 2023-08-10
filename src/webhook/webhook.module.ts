@@ -9,11 +9,24 @@ import { UserModule } from 'user/user.module';
 import { SpecsModule } from 'specs/specs.module';
 import { AiModule } from 'ai/ai.module';
 import { AuthModule } from 'auth/auth.module';
+import { ConfigVariableModule } from 'config-variable/config-variable.module';
+import { TriggerModule } from 'trigger/trigger.module';
 
 @Module({
   providers: [WebhookService],
   controllers: [WebhookController],
-  imports: [PrismaModule, HttpModule, EventModule, CommonModule, UserModule, AiModule, AuthModule, forwardRef(() => SpecsModule)],
+  imports: [
+    PrismaModule,
+    HttpModule,
+    forwardRef(() => EventModule),
+    CommonModule,
+    UserModule,
+    AiModule,
+    AuthModule,
+    forwardRef(() => SpecsModule),
+    ConfigVariableModule,
+    forwardRef(() => TriggerModule),
+  ],
   exports: [WebhookService],
 })
 export class WebhookModule {

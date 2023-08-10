@@ -1,21 +1,78 @@
 import * as vscode from 'vscode';
-import axios, { AxiosHeaders } from 'axios';
+import axios from 'axios';
 import { RawAxiosRequestHeaders } from 'axios/index';
+import EventSource from 'eventsource';
+import { getCredentialsFromExtension } from './common';
+
+const PER_PAGE = 5;
 
 export default class ChatViewProvider implements vscode.WebviewViewProvider {
-
   private webView?: vscode.WebviewView;
+  private cancelRequest?: () => void;
   private requestAbortController;
+  private conversationHistoryFullyLoaded = false;
+  private firstMessagesLoaded = false;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
   ) {
   }
 
+  private async getConversationHistory(firstMessageDate = '') {
+    const {
+      apiBaseUrl,
+      apiKey,
+    } = getCredentialsFromExtension();
+
+    if (!apiBaseUrl || !apiKey) {
+      return;
+    }
+
+    try {
+      this.webView?.webview.postMessage({
+        type: 'setLoading',
+        value: {
+          cancellable: false,
+          prepend: true,
+          skipScrollToLastMessage: true,
+        },
+      });
+
+      const firstMessageDateQueryParam = firstMessageDate ? `&firstMessageDate=${firstMessageDate}` : '';
+
+      const { data } = await axios.get(`${apiBaseUrl}/chat/history?perPage=${PER_PAGE}${firstMessageDateQueryParam}`, {
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+        } as RawAxiosRequestHeaders,
+      });
+
+      this.webView?.webview.postMessage({
+        type: 'prependConversationHistory',
+        value: {
+          messages: data,
+          firstLoad: !this.firstMessagesLoaded,
+        },
+      });
+
+      if (!data.length) {
+        this.conversationHistoryFullyLoaded = true;
+      }
+
+      if (!this.firstMessagesLoaded) {
+        this.firstMessagesLoaded = true;
+      }
+    } catch (error) {
+      this.webView?.webview.postMessage({
+        type: 'prependConversationHistory',
+        value: {
+          type: 'error',
+        },
+      });
+    }
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken,
   ) {
     this.webView = webviewView;
 
@@ -23,9 +80,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       // Allow scripts in the webview
       enableScripts: true,
 
-      localResourceRoots: [
-        this.context.extensionUri,
-      ],
+      localResourceRoots: [this.context.extensionUri],
     };
 
     webviewView.webview.html = this.getWebviewHtml(webviewView.webview);
@@ -41,21 +96,51 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         }
         case 'cancelRequest': {
-          this.requestAbortController?.abort();
+          this.cancelRequest?.();
+          break;
+        }
+        case 'goToExtensionSettings': {
+          this.goToExtensionSettings();
+          break;
+        }
+        case 'getMoreConversationMessages': {
+          if (!this.conversationHistoryFullyLoaded) {
+            this.getConversationHistory(data.value);
+          }
           break;
         }
       }
     });
+
+    webviewView.onDidChangeVisibility(async () => {
+      const visible = webviewView.visible;
+      if (visible && !this.firstMessagesLoaded) {
+        await this.getConversationHistory();
+      }
+    });
+
+    if (!this.firstMessagesLoaded) {
+      this.getConversationHistory();
+    }
   }
 
   private async sendPolyQuestionRequest(message: string) {
-    const apiBaseUrl = vscode.workspace.getConfiguration('poly').get('apiBaseUrl');
-    const apiKey = vscode.workspace.getConfiguration('poly').get('apiKey');
+    const {
+      apiBaseUrl,
+      apiKey,
+    } = getCredentialsFromExtension();
 
     if (!apiBaseUrl || !apiKey) {
-      vscode.window.showErrorMessage('Please set the API base URL and API key in the extension settings.');
+      vscode.window.showErrorMessage('Please set the API base URL and API key in the extension settings.', 'Go to settings').then(selection => {
+        if (selection === 'Go to settings') {
+          this.goToExtensionSettings();
+        }
+      });
       return;
     }
+    this.cancelRequest?.();
+
+    const messageID = Math.random().toString(36).substring(7);
 
     this.webView?.webview.postMessage({
       type: 'addQuestion',
@@ -64,42 +149,72 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     this.webView?.webview.postMessage({
       type: 'setLoading',
     });
+    let loadingPresent = true;
 
-    this.requestAbortController?.abort();
-    this.requestAbortController = new AbortController();
-    try {
-      const { data } = await axios.post(`${apiBaseUrl}/chat/question`, {
-        message,
-      }, {
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-        } as RawAxiosRequestHeaders,
-        signal: this.requestAbortController.signal,
-      });
-
+    const removeLoading = () => {
       this.webView?.webview.postMessage({
-        type: 'addResponseTexts',
-        value: data.texts,
+        type: 'removeLoading',
       });
-      this.logStats(data.texts);
-    } catch (error) {
-      console.error(error);
-      this.webView?.webview.postMessage({
-        type: 'addResponseTexts',
-        value: [{
-          type: 'error',
-          value: error.response?.data?.message || error.message,
-        }],
-      });
-    }
-  }
+      loadingPresent = false;
+    };
 
-  private logStats(texts) {
-    texts.forEach(text => {
-      if (text.stats) {
-        console.log('%c Poly Debug Stats:', 'background: green; color: black', text.stats);
-      }
+    const es = new EventSource(`${apiBaseUrl}/chat/question?message=${message}`, {
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+      },
     });
+
+    this.cancelRequest = () => {
+      es.close();
+      removeLoading();
+    };
+
+    let answer = '';
+    es.onmessage = (event) => {
+      if (loadingPresent) {
+        removeLoading();
+      }
+
+      answer += event.data;
+
+      this.webView?.webview.postMessage({
+        type: 'updateMessage',
+        data: {
+          type: 'markdown',
+          value: answer + (answer.match(/```/g)?.length % 2 === 1 ? '\n```' : ''),
+        },
+        messageID,
+      });
+    };
+
+    es.onerror = (error) => {
+      removeLoading();
+      if (error.data) {
+        console.error(error);
+        this.webView?.webview.postMessage({
+          type: 'addMessage',
+          data: {
+            type: 'error',
+            value: error.data,
+          },
+        });
+      } else if (error.message) {
+        this.webView?.webview.postMessage({
+          type: 'addMessage',
+          data: {
+            type: 'error',
+            value: error.message,
+            error,
+          },
+        });
+      } else {
+        this.webView?.webview.postMessage({
+          type: 'finishMessage',
+          messageID,
+        });
+      }
+      es.close();
+    };
   }
 
   private async sendPolyCommandRequest(command: string) {
@@ -111,16 +226,23 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    this.webView?.webview.postMessage({
-      type: 'clearConversation',
-    });
+    switch (command) {
+      case 'c':
+      case 'clear':
+        this.webView?.webview.postMessage({
+          type: 'clearConversation',
+        });
+        break;
+      default:
+        break;
+    }
 
     try {
       await axios.post(`${apiBaseUrl}/chat/command`, {
         command,
       }, {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         } as RawAxiosRequestHeaders,
       });
     } catch (error) {
@@ -133,6 +255,10 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     this.webView?.webview.postMessage({
       type: 'focusMessageInput',
     });
+  }
+
+  private goToExtensionSettings() {
+    vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.context.extension.id}`);
   }
 
   private getWebviewHtml(webview: vscode.Webview) {
@@ -160,6 +286,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       </head>
       <body class='overflow-hidden'>
         <div class='flex flex-col h-screen'>
+        
           <div class='flex-1 overflow-y-auto' id='conversation-list' data-vscode-context='{"webviewSection": "conversationList", "preventDefaultContextMenuItems": true}'></div>
           <div class='p-2 flex items-center pb-4'>
             <div class='flex-1 message-input-wrapper'>
@@ -177,7 +304,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
             </button>
           </div>
         </div>
-		    <script src='${mainJs}'></script>
+        <script src='${mainJs}'></script>
       </body>
       </html>`
     );

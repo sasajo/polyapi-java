@@ -18,7 +18,8 @@ from prisma import get_client
 KEYWORD_PROMPT = """For the following prompt, give me back the keywords from my prompt
 This will be used to power an API discovery service.
 Each keyword must be a single word.
-Keep the list to the top 8 keywords relevant to APIs.
+Return 8 or fewer keywords.
+Return only the keywords most relevant to APIs or variables.
 Don't include "API" or "resource" as keywords.
 
 Here is the prompt:
@@ -33,11 +34,18 @@ Return the keywords as a space separated list. Please return valid JSON in this 
 """
 
 
-def get_similarity_threshold() -> int:
+def get_function_similarity_threshold() -> int:
     # how similar does a function or webhook have to be to be considered a match?
     # scale is 0-100
-    var = get_config_variable(VarName.keyword_similarity_threshold)
-    return int(var.value) if var else 55
+    var = get_config_variable(VarName.function_keyword_similarity_threshold)
+    return int(var.value) if var else 41
+
+
+def get_variable_similarity_threshold() -> int:
+    # how similar does a variable have to be to be considered a match?
+    # scale is 0-100
+    var = get_config_variable(VarName.variable_keyword_similarity_threshold)
+    return int(var.value) if var else 35
 
 
 def get_function_match_limit() -> int:
@@ -56,24 +64,20 @@ def extract_keywords(
     prompt = KEYWORD_PROMPT % question
     messages = [
         MessageDict(role="user", content=prompt),
-        MessageDict(
-            role="user",
-            content='',
-        ),
     ]
-    resp = get_chat_completion(
+    content = get_chat_completion(
         messages,
         temperature=get_extract_keywords_temperature(),
     )
-    answer = resp["choices"][0]["message"]
+    assert isinstance(content, str)
+    content = content.replace("```", "")
 
     # store conversation
-    messages.append(answer)
+    messages.append(MessageDict(role="assistant", content=content))
     insert_internal_step_info(messages, "STEP 1: GET KEYWORDS")
     store_messages(user_id, conversation_id, messages)
 
     # continue
-    content = answer["content"]
     try:
         rv = json.loads(content)
     except Exception as e:
@@ -122,11 +126,11 @@ def keywords_similar(
 
     keywords = remove_blacklist(keywords)
 
-    similarity_score = fuzz.token_set_ratio(keywords, func_str)
+    similarity_score = fuzz.partial_token_set_ratio(keywords, func_str)
     if debug:
         log(keywords, similarity_score, func_str)
 
-    return similarity_score > get_similarity_threshold(), similarity_score
+    return similarity_score > get_function_similarity_threshold(), similarity_score
 
 
 def get_top_function_matches(
@@ -143,8 +147,8 @@ def get_top_function_matches(
 
     stats: StatsDict = {"keyword_extraction": keyword_data}
     stats["config"] = {
-        "function_match_limit": match_limit,
-        "similarity_threshold": get_similarity_threshold(),
+        "match_limit": match_limit,
+        "similarity_threshold": get_function_similarity_threshold(),
         "extract_keywords_temperature": get_extract_keywords_temperature(),
     }
     stats["keyword_stats"] = keyword_stats
@@ -173,12 +177,15 @@ def filter_items_based_on_http_method(
 
 
 def _generate_match_count(stats: StatsDict) -> int:
-    """ for keyword matches, we only return up to `match_limit` matches
+    """for keyword matches, we only return up to `match_limit` matches
     this function counts how many potential matches crossed the similarity threshold
     """
-    threshold = get_similarity_threshold()
+    threshold = get_function_similarity_threshold()
     matches = set()
-    for name, score in stats["keyword_stats"]["scores"]:
+    for name, score in stats["keyword_stats"].get("function_scores", []):
+        if score > threshold:
+            matches.add(name)
+    for name, score in stats["keyword_stats"].get("variable_scores", []):
         if score > threshold:
             matches.add(name)
     return len(matches)
@@ -189,33 +196,72 @@ def _get_top(
     items: List[SpecificationDto],
     keywords: str,
 ) -> Tuple[List[SpecificationDto], StatsDict]:
-    threshold = get_similarity_threshold()
+    function_threshold = get_function_similarity_threshold()
+    variable_threshold = get_variable_similarity_threshold()
+
+    funcs = []
+    variables = []
+    for item in items:
+        if item["type"] == "serverVariable":
+            variables.append(item)
+        else:
+            funcs.append(item)
 
     if not keywords:
-        return [], {"total": len(items), "match_count": 0, "scores": []}
+        return [], {
+            "total_functions": len(funcs),
+            "total_variables": len(variables),
+            "match_count": 0,
+        }
 
-    items_with_scores = []
-    for item in items:
-        _, score = keywords_similar(keywords, item)
-        items_with_scores.append((item, score))
+    functions_with_scores = []
+    for func in funcs:
+        _, score = keywords_similar(keywords, func)
+        functions_with_scores.append((func, score))
 
-    items_with_scores = sorted(items_with_scores, key=lambda x: x[1], reverse=True)
-    stats = _get_stats(items_with_scores)
+    variables_with_scores = []
+    for variable in variables:
+        _, score = keywords_similar(keywords, variable)
+        variables_with_scores.append((variable, score))
 
-    top_matches = [item for item, score in items_with_scores if score > threshold]
-    return top_matches[:match_limit], stats
+    functions_with_scores = sorted(
+        functions_with_scores, key=lambda x: x[1], reverse=True
+    )
+    variables_with_scores = sorted(
+        variables_with_scores, key=lambda x: x[1], reverse=True
+    )
+    top_functions = [item for item, score in functions_with_scores if score > function_threshold]
+    top_functions = top_functions[:match_limit]
+    top_variables = [item for item, score in variables_with_scores if score > variable_threshold]
+    top_variables = top_variables[:match_limit]
+
+    stats = _get_stats(functions_with_scores, variables_with_scores)
+    return top_functions + top_variables, stats
 
 
-def _get_stats(items_with_scores: List[Tuple[SpecificationDto, int]]) -> StatsDict:
-    stats: StatsDict = {"total": len(items_with_scores)}
+def _get_stats(
+    functions_with_scores: List[Tuple[SpecificationDto, int]],
+    variables_with_scores: List[Tuple[SpecificationDto, int]],
+) -> StatsDict:
+    stats: StatsDict = {
+        "total_functions": len(functions_with_scores),
+        "total_variables": len(variables_with_scores),
+    }
     match_count = 0
 
-    scores: List[Tuple[str, int]] = []
-    for item, score in items_with_scores:
-        if score > get_similarity_threshold():
+    function_scores: List[Tuple[str, int]] = []
+    for item, score in functions_with_scores:
+        if score > get_function_similarity_threshold():
             match_count += 1
-        scores.append((func_path(item), score))
+        function_scores.append((func_path(item), score))
 
-    stats["scores"] = scores
+    variable_scores: List[Tuple[str, int]] = []
+    for item, score in variables_with_scores:
+        if score > get_function_similarity_threshold():
+            match_count += 1
+        variable_scores.append((func_path(item), score))
+
+    stats["function_scores"] = function_scores
+    stats["variable_scores"] = variable_scores
     stats["match_count"] = match_count
     return stats

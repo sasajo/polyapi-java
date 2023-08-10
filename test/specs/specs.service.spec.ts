@@ -1,32 +1,26 @@
 import { Test } from '@nestjs/testing';
 import { SpecsService } from 'specs/specs.service';
 import { FunctionService } from 'function/function.service';
-import { getFnMock, mockedAuthData, TypedMock } from '../utils/test-utils';
+import { mockedAuthData } from '../utils/test-utils';
 import { WebhookService } from 'webhook/webhook.service';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
-import { ApiFunction, AuthProvider, CustomFunction, WebhookHandle } from '@prisma/client';
+import { ApiFunction, AuthProvider, CustomFunction, Variable, WebhookHandle } from '@prisma/client';
 import { createMock } from '@golevelup/ts-jest';
 import {
   ApiFunctionSpecification,
   AuthFunctionSpecification,
-  CustomFunctionSpecification,
+  CustomFunctionSpecification, ServerVariableSpecification,
   Specification,
   Visibility,
   WebhookHandleSpecification,
-} from '@poly/common';
+} from '@poly/model';
+
+import { functionServiceMock, webhookServiceMock, authProviderServiceMock, variableServiceMock } from '../mocks';
+import { resetMocks } from '../mocks/utils';
+import { VariableService } from 'variable/variable.service';
 
 describe('SpecsService', () => {
   let specsService: SpecsService;
-
-  const getApiFunctions = getFnMock<FunctionService['getApiFunctions']>();
-  const getCustomFunctions = getFnMock<FunctionService['getCustomFunctions']>();
-  const getWebhookHandles = getFnMock<WebhookService['getWebhookHandles']>();
-  const getAuthProviders = getFnMock<AuthProviderService['getAuthProviders']>();
-
-  const toApiFunctionSpecification = getFnMock<FunctionService['toApiFunctionSpecification']>();
-  const toCustomFunctionSpecification = getFnMock<FunctionService['toCustomFunctionSpecification']>();
-  const toWebhookHandleSpecification = getFnMock<WebhookService['toWebhookHandleSpecification']>();
-  const toAuthFunctionSpecifications = getFnMock<AuthProviderService['toAuthFunctionSpecifications']>();
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -34,31 +28,26 @@ describe('SpecsService', () => {
         SpecsService,
         {
           provide: FunctionService,
-          useValue: {
-            getApiFunctions,
-            getCustomFunctions,
-            toApiFunctionSpecification,
-            toCustomFunctionSpecification,
-          } as TypedMock<FunctionService>,
+          useValue: functionServiceMock,
         },
         {
           provide: WebhookService,
-          useValue: {
-            getWebhookHandles,
-            toWebhookHandleSpecification,
-          } as TypedMock<WebhookService>,
+          useValue: webhookServiceMock,
         },
         {
           provide: AuthProviderService,
-          useValue: {
-            getAuthProviders,
-            toAuthFunctionSpecifications,
-          } as TypedMock<AuthProviderService>,
+          useValue: authProviderServiceMock,
+        },
+        {
+          provide: VariableService,
+          useValue: variableServiceMock,
         },
       ],
     }).compile();
 
     specsService = moduleRef.get(SpecsService);
+
+    resetMocks(functionServiceMock, webhookServiceMock, authProviderServiceMock);
   });
 
   describe('getSpecifications()', () => {
@@ -93,10 +82,17 @@ describe('SpecsService', () => {
         },
       ]);
 
-      getApiFunctions.mockResolvedValue(apiFunctions);
-      getCustomFunctions.mockResolvedValue(customFunctions);
-      getWebhookHandles.mockResolvedValue(webhookHandles);
-      getAuthProviders.mockResolvedValue(authProviders);
+      const variables = createMock<Variable[]>([
+        {
+          context: 'variable.var1',
+        },
+      ]);
+
+      functionServiceMock.getApiFunctions?.mockResolvedValue(apiFunctions);
+      functionServiceMock.getCustomFunctions?.mockResolvedValue(customFunctions);
+      webhookServiceMock.getWebhookHandles?.mockResolvedValue(webhookHandles);
+      authProviderServiceMock.getAuthProviders?.mockResolvedValue(authProviders);
+      variableServiceMock.getAll?.mockResolvedValue(variables);
 
       const apiFunctionSpecification = createMock<ApiFunctionSpecification>({
         context: apiFunctions[0].context,
@@ -128,13 +124,22 @@ describe('SpecsService', () => {
         },
       ]);
 
-      toApiFunctionSpecification.mockResolvedValue(apiFunctionSpecification);
+      const serverVariableSpecification = createMock<ServerVariableSpecification>({
+        context: variables[0].context,
+        visibilityMetadata: {
+          visibility: Visibility.Environment,
+        },
+      });
 
-      toCustomFunctionSpecification.mockResolvedValue(customFunctionSpecification);
+      functionServiceMock.toApiFunctionSpecification?.mockResolvedValue(apiFunctionSpecification);
 
-      toWebhookHandleSpecification.mockResolvedValue(webhookHandleSpecification);
+      functionServiceMock.toCustomFunctionSpecification?.mockResolvedValue(customFunctionSpecification);
 
-      toAuthFunctionSpecifications.mockResolvedValue(authFunctionSpecifications);
+      webhookServiceMock.toWebhookHandleSpecification?.mockResolvedValue(webhookHandleSpecification);
+
+      authProviderServiceMock.toAuthFunctionSpecifications?.mockResolvedValue(authFunctionSpecifications);
+
+      variableServiceMock.toServerVariableSpecification?.mockResolvedValue(serverVariableSpecification);
 
       // Action
       const result = await specsService.getSpecifications(mockedAuthData.environment.id, mockedAuthData.tenant.id, contexts, names, ids);
@@ -145,6 +150,7 @@ describe('SpecsService', () => {
         customFunctionSpecification,
         webhookHandleSpecification,
         authFunctionSpecifications,
+        serverVariableSpecification,
       ]);
     });
   });
@@ -177,7 +183,8 @@ describe('SpecsService', () => {
         {
           id: firstId,
           path: 'fooBar',
-        }, {
+        },
+        {
           id: secondId,
           path: 'store.fooBar',
         },

@@ -10,32 +10,35 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
+import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
-import { catchError, lastValueFrom, map, of } from 'rxjs';
+import { catchError, from, lastValueFrom, map } from 'rxjs';
 import mustache from 'mustache';
+import { stripComments } from 'jsonc-parser';
 import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ApiFunctionResponseDto,
+  ApiFunctionSpecification,
   ArgumentsMetadata,
-  ArgumentType,
   Auth,
   Body,
+  ConfigVariableName,
   CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
   FunctionDetailsDto,
+  GraphQLBody,
   Header,
   Method,
   PostmanVariableEntry,
   PropertySpecification,
-  PropertyType,
+  PropertyType, Role,
   ServerFunctionSpecification,
-  Specification,
+  TrainingDataGeneration,
   Variables,
-  Visibility,
-} from '@poly/common';
+  Visibility, VisibilityQuery,
+} from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
 import { CommonService } from 'common/common.service';
@@ -48,10 +51,15 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { uniqBy, mergeWith, omit, cloneDeep, isPlainObject } from 'lodash';
+import { uniqBy, mergeWith, omit, isPlainObject, cloneDeep } from 'lodash';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
+import { VariableService } from 'variable/variable.service';
+import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
+import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospectionQuery, resolveGraphqlArgumentType } from './graphql/utils';
+import { AuthService } from 'auth/auth.service';
+
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
-const ARGUMENT_TYPE_SUFFIX = '.Argument';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -75,6 +83,9 @@ export class FunctionService implements OnModuleInit {
     private readonly aiService: AiService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
+    private readonly configVariableService: ConfigVariableService,
+    private readonly variableService: VariableService,
+    private readonly authService: AuthService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
   }
@@ -83,24 +94,23 @@ export class FunctionService implements OnModuleInit {
     await this.faasService.init();
   }
 
-  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
+  async getApiFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false) {
     return this.prisma.apiFunction.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: includeTenant
         ? {
             environment: {
@@ -110,13 +120,17 @@ export class FunctionService implements OnModuleInit {
             },
           }
         : undefined,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
   }
 
-  async findApiFunction(id: string) {
+  async findApiFunction(id: string, includeEnvironment = false) {
     return this.prisma.apiFunction.findFirst({
       where: {
         id,
+      },
+      include: {
+        environment: includeEnvironment,
       },
     });
   }
@@ -141,7 +155,7 @@ export class FunctionService implements OnModuleInit {
 
   async createOrUpdateApiFunction(
     id: string | null,
-    environmentId: string,
+    environment: Environment,
     url: string,
     body: Body,
     requestName: string,
@@ -156,6 +170,7 @@ export class FunctionService implements OnModuleInit {
     method: Method,
     templateUrl: string,
     templateBody: Body,
+    introspectionResponse: IntrospectionQuery | null,
     templateAuth?: Auth,
   ): Promise<ApiFunction> {
     if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.AMBIGUOUS)) {
@@ -164,41 +179,69 @@ export class FunctionService implements OnModuleInit {
       );
     }
 
+    const isGraphQL = this.isGraphQLBody(templateBody);
+
+    if (isGraphQL && (response.errors || []).length) {
+      throw new BadRequestException('Cannot teach a graphql call that contains errors.');
+    }
+
     let apiFunction: ApiFunction | null = null;
 
     const finalAuth = templateAuth ? JSON.stringify(templateAuth) : null;
     const finalBody = JSON.stringify(this.getBodyWithContentFiltered(templateBody));
-    const finalHeaders = JSON.stringify(this.filterDisabledValues(templateHeaders));
+    const finalHeaders = JSON.stringify(this.getFilteredHeaders(templateHeaders));
+    const graphqlIdentifier = isGraphQL ? getGraphqlIdentifier(templateBody.graphql.query) : '';
+
+    const graphqlIntrospectionResponse = introspectionResponse ? JSON.stringify(introspectionResponse) : null;
 
     if (id === null) {
       const templateBaseUrl = templateUrl.split('?')[0];
 
-      const apiFunctions = await this.prisma.apiFunction.findMany({
-        where: {
-          environmentId,
-          OR: [
-            {
-              url: {
-                startsWith: `${templateBaseUrl}?`,
-              },
-            },
-            {
-              url: templateUrl,
-            },
-          ],
-          method,
-        },
-      });
+      if (isGraphQL) {
+        const apiFunctions = await this.prisma.apiFunction.findMany({
+          where: {
+            environmentId: environment.id,
+            method,
+            graphqlIdentifier,
+            url: templateBaseUrl,
+          },
+        });
 
-      if (apiFunctions.length) {
-        apiFunction = await this.findApiFunctionForRetraining(
-          apiFunctions,
-          finalBody,
-          finalHeaders,
-          templateUrl,
-          variables,
-          finalAuth,
-        );
+        if (apiFunctions.length > 1) {
+          throw new BadRequestException('There exist more than 1 api function with same graphql alias:query combination, use { id: string } on polyData Postman environment variable to specify which one do you want to retrain.');
+        }
+
+        apiFunction = apiFunctions[0] || null;
+      }
+
+      if (!isGraphQL) {
+        const apiFunctions = await this.prisma.apiFunction.findMany({
+          where: {
+            environmentId: environment.id,
+            OR: [
+              {
+                url: {
+                  startsWith: `${templateBaseUrl}?`,
+                },
+              },
+              {
+                url: templateBaseUrl,
+              },
+            ],
+            method,
+          },
+        });
+
+        if (apiFunctions.length) {
+          apiFunction = await this.findApiFunctionForRetraining(
+            apiFunctions,
+            finalBody,
+            finalHeaders,
+            templateUrl,
+            variables,
+            finalAuth,
+          );
+        }
       }
     } else if (id !== 'new') {
       apiFunction = await this.prisma.apiFunction.findFirst({
@@ -211,10 +254,27 @@ export class FunctionService implements OnModuleInit {
         throw new NotFoundException(`Function not found for id ${id}.`);
       }
 
+      if ((!apiFunction.graphqlIdentifier && isGraphQL) || (!isGraphQL && !!apiFunction.graphqlIdentifier)) {
+        throw new BadRequestException('Cannot mix training between graphql and api rest functions.');
+      }
+
       this.logger.debug(`Explicitly retraining function with id ${id}.`);
     }
 
     const willRetrain = (id === null || id !== 'new') && apiFunction !== null;
+    const argumentsMetadata = await this.resolveArgumentsMetadata(
+      {
+        argumentsMetadata: null,
+        auth: finalAuth,
+        body: finalBody,
+        headers: finalHeaders,
+        url: templateUrl,
+        id: apiFunction?.id,
+        graphqlIntrospectionResponse,
+      },
+      variables,
+      true,
+    );
 
     if (id === 'new') {
       this.logger.debug('Explicitly avoid retrain.');
@@ -229,35 +289,48 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug('Creating new poly function...');
     }
 
-    response = this.commonService.trimDownObject(response, 1);
-
     if ((!name || !context || !description) && !willRetrain) {
-      try {
-        const {
-          name: aiName,
-          description: aiDescription,
-          context: aiContext,
-        } = await this.aiService.getFunctionDescription(
-          url,
-          apiFunction?.method || method,
-          description || apiFunction?.description || '',
-          JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
-          JSON.stringify(response),
-        );
+      if (await this.isApiFunctionAITrainingEnabled(environment)) {
+        try {
+          const {
+            name: aiName,
+            description: aiDescription,
+            arguments: aiArguments,
+            context: aiContext,
+          } = await this.aiService.getFunctionDescription(
+            url,
+            apiFunction?.method || method,
+            description || apiFunction?.description || '',
+            await this.toArgumentSpecifications(argumentsMetadata),
+            JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
+            JSON.stringify(this.commonService.trimDownObject(response)),
+          );
 
-        if (!name) {
-          name = this.commonService.sanitizeNameIdentifier(aiName);
-        }
-        if (!context && !apiFunction?.context) {
-          context = this.commonService.sanitizeContextIdentifier(aiContext);
-        }
-        if (!description && !apiFunction?.description) {
-          description = aiDescription;
-        }
-      } catch (err) {
-        this.logger.error('Failed to generate AI data for new api function. Taking function name from request name if not provided...');
-        if (!name) {
-          name = this.commonService.sanitizeNameIdentifier(requestName);
+          if (!name) {
+            name = aiName
+              ? this.commonService.sanitizeNameIdentifier(aiName)
+              : this.commonService.sanitizeNameIdentifier(requestName);
+          }
+          if (!context && !apiFunction?.context) {
+            context = this.commonService.sanitizeContextIdentifier(aiContext);
+          }
+          if (!description && !apiFunction?.description) {
+            description = aiDescription;
+          }
+
+          this.logger.debug(`Setting argument descriptions to arguments metadata from AI: ${JSON.stringify(aiArguments)}...`);
+
+          aiArguments
+            .filter((aiArgument) => !argumentsMetadata[aiArgument.name].description)
+            .forEach((aiArgument) => {
+              argumentsMetadata[aiArgument.name].description = aiArgument.description;
+            });
+        } catch (err) {
+          this.logger.error('Failed to generate AI data for new api function. Taking function name from request name if not provided...');
+
+          if (!name) {
+            name = this.commonService.sanitizeNameIdentifier(requestName);
+          }
         }
       }
     }
@@ -281,17 +354,37 @@ export class FunctionService implements OnModuleInit {
       throw new BadRequestException('Couldn\'t infer function name neither from user, ai service or postman request name.');
     }
 
-    await this.throwErrIfInvalidResponse(response, payload, context || '', finalName);
+    let responseType: string;
+    try {
+      responseType = await this.getResponseType(response, payload);
+    } catch (e) {
+      if (e instanceof PathError) {
+        throw new BadRequestException(e.message);
+      } else {
+        throw e;
+      }
+    }
+
+    const currentArgumentsMetadata = JSON.parse(apiFunction?.argumentsMetadata || '{}') as ArgumentsMetadata;
+
+    for (const [key, value] of Object.entries(currentArgumentsMetadata)) {
+      if (typeof argumentsMetadata[key] !== 'undefined' && value.description) {
+        argumentsMetadata[key].description = value.description;
+      }
+    }
 
     const upsertPayload = {
       context: finalContext,
       description: finalDescription,
       payload,
-      response: JSON.stringify(response),
+      responseType,
       body: finalBody,
       headers: finalHeaders,
       auth: finalAuth,
       url: templateUrl,
+      argumentsMetadata: JSON.stringify(argumentsMetadata),
+      graphqlIdentifier,
+      graphqlIntrospectionResponse,
     };
 
     if (apiFunction && willRetrain) {
@@ -301,18 +394,7 @@ export class FunctionService implements OnModuleInit {
         },
         data: {
           ...upsertPayload,
-          name: await this.resolveFunctionName(environmentId, finalName, finalContext, true, true, [apiFunction.id]),
-          argumentsMetadata: await this.resolveArgumentsMetadata(
-            {
-              argumentsMetadata: apiFunction.argumentsMetadata,
-              auth: finalAuth,
-              body: finalBody,
-              headers: finalHeaders,
-              url: templateUrl,
-              id: apiFunction.id,
-            },
-            variables,
-          ),
+          name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true, [apiFunction.id]),
         },
       });
     }
@@ -321,21 +403,11 @@ export class FunctionService implements OnModuleInit {
       data: {
         environment: {
           connect: {
-            id: environmentId,
+            id: environment.id,
           },
         },
         ...upsertPayload,
-        name: await this.resolveFunctionName(environmentId, finalName, finalContext, true, true),
-        argumentsMetadata: await this.resolveArgumentsMetadata(
-          {
-            argumentsMetadata: null,
-            url: templateUrl,
-            auth: finalAuth,
-            body: finalBody,
-            headers: finalHeaders,
-          },
-          variables,
-        ),
+        name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true),
         method,
       },
     });
@@ -347,8 +419,8 @@ export class FunctionService implements OnModuleInit {
     context: string | null,
     description: string | null,
     argumentsMetadata: ArgumentsMetadata | null,
-    response: any,
-    payload: string | null,
+    response: any | undefined,
+    payload: string | undefined,
     visibility: Visibility | null,
   ) {
     if (name != null || context != null) {
@@ -364,7 +436,7 @@ export class FunctionService implements OnModuleInit {
     }
 
     if (argumentsMetadata != null) {
-      this.checkArgumentsMetadata(apiFunction, argumentsMetadata);
+      await this.checkArgumentsMetadata(apiFunction, argumentsMetadata);
       argumentsMetadata = await this.resolveArgumentsTypeDeclarations(apiFunction, argumentsMetadata);
     }
 
@@ -387,7 +459,10 @@ export class FunctionService implements OnModuleInit {
     const finalContext = (context == null ? apiFunction.context : context).trim();
     const finalName = name || apiFunction.name;
 
-    await this.throwErrIfInvalidResponse(response, payload, finalContext, finalName);
+    let responseType: string | undefined;
+    if (response !== undefined) {
+      responseType = await this.getResponseType(response, payload ?? apiFunction.payload);
+    }
 
     return this.prisma.apiFunction.update({
       where: {
@@ -398,38 +473,54 @@ export class FunctionService implements OnModuleInit {
         context: finalContext,
         description: description == null ? apiFunction.description : description,
         argumentsMetadata: JSON.stringify(argumentsMetadata),
-        ...(response ? { response: JSON.stringify(response) } : null),
+        responseType,
+        payload,
         visibility: visibility == null ? apiFunction.visibility : visibility,
       },
     });
   }
 
-  async executeApiFunction(apiFunction: ApiFunction, args: Record<string, any>, clientId: string | null = null): Promise<ApiFunctionResponseDto | null> {
-    this.logger.debug(`Executing function ${apiFunction.id} with arguments ${JSON.stringify(args)}`);
+  async executeApiFunction(
+    apiFunction: ApiFunction & { environment: Environment },
+    args: Record<string, any>,
+    userId: string | null = null,
+    applicationId: string | null = null,
+  ): Promise<ApiFunctionResponseDto | null> {
+    this.logger.debug(`Executing function ${apiFunction.id}...`);
 
-    const argumentsMap = this.getArgumentsMap(apiFunction, args);
-    const url = mustache.render(apiFunction.url, argumentsMap);
+    const argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
+    const url = mustache.render(apiFunction.url, argumentValueMap);
     const method = apiFunction.method;
-    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentsMap)) : null;
-    const body = this.getSanitizedRawBody(apiFunction, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentsMap);
+    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
+    const body = this.getSanitizedRawBody(apiFunction, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentValueMap);
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
 
     const headers = {
-      ...JSON.parse(mustache.render(apiFunction.headers || '[]', argumentsMap)).reduce(
-        (headers, header) => Object.assign(headers, { [header.key]: header.value }),
-        {},
-      ),
+      ...JSON.parse(mustache.render(apiFunction.headers || '[]', argumentValueMap))
+        .filter((header) => !!header.key?.trim())
+        .reduce(
+          (headers, header) => Object.assign(headers, { [header.key]: header.value }),
+          {},
+        ),
       ...this.getContentTypeHeaders(body),
       ...this.getAuthorizationHeaders(auth),
     };
+
+    const isGraphql = this.isGraphQLBody(body);
 
     this.logger.debug(
       `Performing HTTP request ${method} ${url} (id: ${apiFunction.id})...\nHeaders:\n${JSON.stringify(
         headers,
       )}\nBody:\n${JSON.stringify(body)}`,
     );
+
+    const executionData = this.getBodyData(body);
+
+    if (isGraphql) {
+      executionData.variables = args;
+    }
 
     return lastValueFrom(
       this.httpService
@@ -438,7 +529,7 @@ export class FunctionService implements OnModuleInit {
           method,
           headers,
           params,
-          data: this.getBodyData(body),
+          data: executionData,
         })
         .pipe(
           map((response) => {
@@ -460,33 +551,48 @@ export class FunctionService implements OnModuleInit {
 
             this.logger.debug(`Raw response (id: ${apiFunction.id}):\nStatus: ${response.status}\n${JSON.stringify(response.data)}`);
 
-            return {
+            const finalResponse = {
               status: response.status,
               headers: response.headers,
+            };
+
+            return {
+              ...finalResponse,
               data: processData(),
             } as ApiFunctionResponseDto;
           }),
         )
         .pipe(
           catchError((error: AxiosError) => {
-            this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
+            const processError = async () => {
+              this.logger.error(`Error while performing HTTP request (id: ${apiFunction.id}): ${error}`);
 
-            const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
-            const errorEventSent = this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error));
+              const functionPath = `${apiFunction.context ? `${apiFunction.context}.` : ''}${apiFunction.name}`;
+              const errorEventSent = await this.eventService.sendErrorEvent(
+                apiFunction.id,
+                apiFunction.environmentId,
+                apiFunction.environment.tenantId,
+                apiFunction.visibility as Visibility,
+                applicationId,
+                userId,
+                functionPath,
+                this.eventService.getEventError(error),
+              );
 
-            if (error.response) {
-              return of(
-                {
+              if (error.response) {
+                return {
                   status: error.response.status,
                   headers: error.response.headers,
                   data: error.response.data,
-                } as ApiFunctionResponseDto,
-              );
-            } else if (!errorEventSent) {
-              throw new InternalServerErrorException(error.message);
-            } else {
-              return of(null);
-            }
+                } as ApiFunctionResponseDto;
+              } else if (!errorEventSent) {
+                throw new InternalServerErrorException(error.message);
+              } else {
+                return null;
+              }
+            };
+
+            return from(processError());
           }),
         ),
     );
@@ -501,29 +607,28 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async toApiFunctionSpecification(apiFunction: ApiFunction): Promise<Specification> {
-    const functionArguments = this.getFunctionArguments(apiFunction);
+  async toApiFunctionSpecification(apiFunction: ApiFunction): Promise<ApiFunctionSpecification> {
+    const functionArguments = this.getFunctionArguments(apiFunction)
+      .filter(arg => !arg.variable);
     const requiredArguments = functionArguments.filter((arg) => !arg.payload && arg.required);
     const optionalArguments = functionArguments.filter((arg) => !arg.payload && !arg.required);
     const payloadArguments = functionArguments.filter((arg) => arg.payload);
 
-    const toPropertySpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
-      name: arg.name,
-      required: arg.required == null ? true : arg.required,
-      type: await this.toPropertyType(arg.name, arg.type, arg.typeObject),
-    });
-
-    const getReturnType = async () => {
-      const responseObject = apiFunction.response
-        ? this.commonService.getPathContent(JSON.parse(apiFunction.response), apiFunction.payload)
-        : null;
-      const [type, typeSchema] = responseObject
-        ? await this.commonService.resolveType('ReturnType', JSON.stringify(responseObject))
-        : ['void'];
-      return {
-        ...await this.toPropertyType('ReturnType', type),
-        schema: typeSchema,
-      };
+    const getReturnType = async (): Promise<PropertyType> => {
+      if (!apiFunction.responseType) {
+        return {
+          kind: 'void',
+        };
+      }
+      try {
+        const schema = JSON.parse(apiFunction.responseType);
+        return {
+          kind: 'object',
+          schema,
+        };
+      } catch {
+        return await this.commonService.toPropertyType('ReturnType', apiFunction.responseType);
+      }
     };
 
     return {
@@ -534,7 +639,7 @@ export class FunctionService implements OnModuleInit {
       description: apiFunction.description,
       function: {
         arguments: [
-          ...(await Promise.all(requiredArguments.map(toPropertySpecification))),
+          ...(await Promise.all(requiredArguments.map(arg => this.toArgumentSpecification(arg)))),
           ...(
             payloadArguments.length > 0
               ? [
@@ -543,36 +648,37 @@ export class FunctionService implements OnModuleInit {
                     required: true,
                     type: {
                       kind: 'object',
-                      properties: await Promise.all(payloadArguments.map(toPropertySpecification)),
+                      properties: await Promise.all(payloadArguments.map(arg => this.toArgumentSpecification(arg))),
                     },
                   },
                 ]
               : []
           ),
-          ...(await Promise.all(optionalArguments.map(toPropertySpecification))),
+          ...(await Promise.all(optionalArguments.map(arg => this.toArgumentSpecification(arg)))),
         ] as PropertySpecification[],
         returnType: await getReturnType(),
       },
       visibilityMetadata: {
         visibility: apiFunction.visibility as Visibility,
       },
+      apiType: apiFunction.graphqlIdentifier ? 'graphql' : 'rest',
     };
   }
 
-  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false) {
+  async getCustomFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false) {
     return this.prisma.customFunction.findMany({
       where: {
         AND: [
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
       },
@@ -618,14 +724,15 @@ export class FunctionService implements OnModuleInit {
     customCode: string,
     serverFunction: boolean,
     apiKey: string,
-  ) {
+  ): Promise<CustomFunction> {
     const {
       code,
       args,
       returnType,
+      synchronous,
       contextChain,
       requirements,
-    } = transpileCode(name, customCode);
+    } = await transpileCode(name, customCode);
 
     context = context || contextChain.join('.');
 
@@ -636,6 +743,30 @@ export class FunctionService implements OnModuleInit {
         context,
       },
     });
+
+    const argumentsNeedDescription = !customFunction || JSON.parse(customFunction.arguments).some((arg) => {
+      const newArg = args.find((a) => a.key === arg.key);
+      return !newArg || newArg.type !== arg.type || !arg.description;
+    });
+
+    if ((!description && !customFunction?.description) || argumentsNeedDescription) {
+      if (await this.isCustomFunctionAITrainingEnabled(environment, serverFunction)) {
+        const {
+          description: aiDescription,
+          arguments: aiArguments,
+        } = await this.getCustomFunctionAIData(description, args, code);
+        const existingArguments = JSON.parse(customFunction?.arguments || '[]') as FunctionArgument[];
+
+        description = description || customFunction?.description || aiDescription;
+        aiArguments.forEach(aiArgument => {
+          const existingArgument = existingArguments.find(arg => arg.key === aiArgument.name);
+          const updatedArgument = args.find(arg => arg.key === aiArgument.name);
+          if (updatedArgument && !existingArgument?.description) {
+            updatedArgument.description = aiArgument.description;
+          }
+        });
+      }
+    }
 
     if (customFunction) {
       this.logger.debug(`Updating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
@@ -650,6 +781,7 @@ export class FunctionService implements OnModuleInit {
           description: description || customFunction.description,
           arguments: JSON.stringify(args),
           returnType,
+          synchronous,
           requirements: JSON.stringify(requirements),
           serverSide: serverFunction,
         },
@@ -661,6 +793,7 @@ export class FunctionService implements OnModuleInit {
       }
     } else {
       this.logger.debug(`Creating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
+
       customFunction = await this.prisma.customFunction.create({
         data: {
           environment: {
@@ -674,7 +807,10 @@ export class FunctionService implements OnModuleInit {
           code,
           arguments: JSON.stringify(args),
           returnType,
+          synchronous,
           requirements: JSON.stringify(requirements),
+          serverSide: serverFunction,
+          apiKey: serverFunction ? apiKey : null,
         },
       });
     }
@@ -682,20 +818,35 @@ export class FunctionService implements OnModuleInit {
     if (serverFunction) {
       this.logger.debug(`Creating server side custom function ${name}`);
 
-      try {
-        await this.faasService.createFunction(customFunction.id, environment.tenantId, environment.id, name, code, requirements, apiKey);
-        customFunction = await this.prisma.customFunction.update({
+      const revertServerFunctionFlag = async () => {
+        await this.prisma.customFunction.update({
           where: {
-            id: customFunction.id,
+            id: customFunction?.id,
           },
           data: {
-            serverSide: true,
+            serverSide: false,
+            apiKey: null,
           },
         });
+      };
+
+      try {
+        await this.faasService.createFunction(
+          customFunction.id,
+          environment.tenantId,
+          environment.id,
+          name,
+          code,
+          requirements,
+          apiKey,
+        );
+
+        return customFunction;
       } catch (e) {
         this.logger.error(
           `Error creating server side custom function ${name}: ${e.message}. Function created as client side.`,
         );
+        await revertServerFunctionFlag();
         throw e;
       }
     }
@@ -737,7 +888,9 @@ export class FunctionService implements OnModuleInit {
     });
 
     if (customFunction.serverSide) {
-      await this.faasService.deleteFunction(id, environment.tenantId, environment.id);
+      this.faasService.deleteFunction(id, environment.tenantId, environment.id).catch((err) => {
+        this.logger.error(err, `Something failed when removing custom function ${id}.`);
+      });
     }
   }
 
@@ -752,7 +905,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
         serverSide: false,
@@ -781,7 +934,7 @@ export class FunctionService implements OnModuleInit {
             ],
           },
           {
-            OR: this.getFunctionFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
         serverSide: true,
@@ -790,23 +943,32 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async findServerFunction(id: string) {
+  async findServerFunction(id: string, includeEnvironment = false) {
     return this.prisma.customFunction.findFirst({
       where: {
         id,
         serverSide: true,
       },
+      include: {
+        environment: includeEnvironment,
+      },
     });
   }
 
-  async executeServerFunction(customFunction: CustomFunction, environment: Environment, args: Record<string, any>, clientId: string | null = null) {
-    this.logger.debug(`Executing server function ${customFunction.id} with arguments ${JSON.stringify(args)}`);
+  async executeServerFunction(
+    customFunction: CustomFunction & { environment: Environment },
+    args: Record<string, any>,
+    headers: Record<string, any>,
+    userId: string | null = null,
+    applicationId: string | null = null,
+  ) {
+    this.logger.debug(`Executing server function ${customFunction.id}...`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
     const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, environment.tenantId, environment.id, argumentsList);
+      const result = await this.faasService.executeFunction(customFunction.id, customFunction.environment.tenantId, customFunction.environment.id, argumentsList, headers);
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );
@@ -814,7 +976,16 @@ export class FunctionService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Error executing server function ${customFunction.id}: ${error.message}`);
       const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
-      if (this.eventService.sendErrorEvent(clientId, functionPath, this.eventService.getEventError(error))) {
+      if (await this.eventService.sendErrorEvent(
+        customFunction.id,
+        customFunction.environmentId,
+        customFunction.environment.tenantId,
+        customFunction.visibility as Visibility,
+        applicationId,
+        userId,
+        functionPath,
+        this.eventService.getEventError(error),
+      )) {
         return;
       }
 
@@ -822,21 +993,40 @@ export class FunctionService implements OnModuleInit {
     }
   }
 
-  async updateAllServerFunctions(environment: Environment, apiKey: string) {
-    this.logger.debug(`Updating all server functions in environment ${environment.id}...`);
+  async updateAllServerFunctions() {
+    this.logger.debug('Updating all server functions...');
     const serverFunctions = await this.prisma.customFunction.findMany({
       where: {
-        environmentId: environment.id,
         serverSide: true,
+      },
+      include: {
+        environment: true,
       },
     });
 
     for (const serverFunction of serverFunctions) {
+      const getApiKey = async () => {
+        if (serverFunction.apiKey) {
+          return serverFunction.apiKey;
+        }
+        const apiKeys = await this.authService.getAllApiKeys(serverFunction.environmentId);
+        const adminApiKey = apiKeys.find((apiKey) => apiKey.user?.role === Role.Admin);
+        return adminApiKey?.key;
+      };
+
+      const apiKey = serverFunction.apiKey || await getApiKey();
+      if (!apiKey) {
+        this.logger.error(`No API key found for server function ${serverFunction.id}`);
+        continue;
+      }
+
       this.logger.debug(`Updating server function ${serverFunction.id}...`);
       await this.faasService.updateFunction(
         serverFunction.id,
-        environment.tenantId,
-        environment.id,
+        serverFunction.environment.tenantId,
+        serverFunction.environment.id,
+        serverFunction.name,
+        serverFunction.code,
         JSON.parse(serverFunction.requirements || '[]'),
         apiKey,
       );
@@ -846,14 +1036,18 @@ export class FunctionService implements OnModuleInit {
   async toCustomFunctionSpecification(customFunction: CustomFunction): Promise<CustomFunctionSpecification | ServerFunctionSpecification> {
     const parsedArguments = JSON.parse(customFunction.arguments || '[]');
 
-    const toArgumentSpecification = async (arg: FunctionArgument): Promise<PropertySpecification> => ({
-      name: arg.name,
-      required: typeof arg.required === 'undefined' ? true : arg.required,
-      type: {
-        kind: 'plain',
-        value: arg.type,
-      },
-    });
+    const isReturnTypeSchema = (): boolean => {
+      if (!customFunction.returnType) {
+        return false;
+      }
+      try {
+        JSON.parse(customFunction.returnType);
+        return true;
+      } catch (error) {
+        // ignore, not a valid JSON schema
+      }
+      return false;
+    };
 
     return {
       id: customFunction.id,
@@ -863,15 +1057,21 @@ export class FunctionService implements OnModuleInit {
       description: customFunction.description,
       requirements: JSON.parse(customFunction.requirements || '[]'),
       function: {
-        arguments: await Promise.all(parsedArguments.map(toArgumentSpecification)),
+        arguments: await Promise.all(parsedArguments.map(arg => this.toArgumentSpecification(arg))),
         returnType: customFunction.returnType
-          ? {
-              kind: 'plain',
-              value: customFunction.returnType,
-            }
+          ? isReturnTypeSchema()
+            ? {
+                kind: 'object',
+                schema: JSON.parse(customFunction.returnType),
+              }
+            : {
+                kind: 'plain',
+                value: customFunction.returnType,
+              }
           : {
               kind: 'void',
             },
+        synchronous: customFunction.synchronous,
       },
       code: customFunction.code,
       visibilityMetadata: {
@@ -880,12 +1080,35 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  private isGraphQLBody(body: Body): body is GraphQLBody {
+    return body.mode === 'graphql';
+  }
+
+  async getFunctionsWithVariableArgument(environmentId: string, variablePath: string) {
+    return this.prisma.apiFunction.findMany({
+      where: {
+        argumentsMetadata: {
+          contains: `"variable":"${variablePath}"`,
+        },
+        environmentId,
+      },
+    });
+  }
+
   private filterDisabledValues<T extends PostmanVariableEntry>(values: T[]) {
     return values.filter(({ disabled }) => !disabled);
   }
 
   private getBodyWithContentFiltered(body: Body): Body {
     switch (body.mode) {
+      case 'raw':
+        if (body.options?.raw?.language === 'json') {
+          return {
+            ...body,
+            raw: this.filterJSONComments(body.raw),
+          };
+        }
+        return body;
       case 'formdata':
         return {
           ...body,
@@ -901,9 +1124,15 @@ export class FunctionService implements OnModuleInit {
     }
   }
 
+  private getFilteredHeaders(headers: Header[]): Header[] {
+    return this.filterDisabledValues(headers)
+      .filter(({ key }) => !!key?.trim());
+  }
+
   private getFunctionArguments(apiFunction: ApiFunctionArguments): FunctionArgument[] {
     const toArgument = (arg: string) => this.toArgument(arg, JSON.parse(apiFunction.argumentsMetadata || '{}'));
     const args: FunctionArgument[] = [];
+    const parsedBody = JSON.parse(apiFunction.body || '{}');
 
     args.push(...(apiFunction.url.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
       ...toArgument(arg),
@@ -918,12 +1147,26 @@ export class FunctionService implements OnModuleInit {
       location: 'auth',
     })) || []));
 
-    const bodyArgs = (apiFunction.body?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
-      ...toArgument(arg),
-      location: 'body',
-    })) || []).filter(bodyArg => !args.some(arg => arg.key === bodyArg.key));
+    if (this.isGraphQLBody(parsedBody)) {
+      const graphqlVariables = getGraphqlVariables(parsedBody.graphql.query);
 
-    args.push(...bodyArgs);
+      const graphqlFunctionArguments = graphqlVariables.map<FunctionArgument>(graphqlVariableDefinition => ({ ...toArgument(graphqlVariableDefinition.variable.name.value), location: 'body' }));
+
+      if (apiFunction.graphqlIntrospectionResponse) {
+        args.push(...graphqlFunctionArguments);
+      } else {
+        const parsedGraphqlVariablesFromBody = JSON.parse(parsedBody.graphql.variables);
+        args.push(...graphqlFunctionArguments.filter(argument => {
+          const value = parsedGraphqlVariablesFromBody[argument.name];
+          return typeof value !== 'undefined' && value !== null;
+        }));
+      }
+    } else {
+      args.push(...((apiFunction.body?.match(ARGUMENT_PATTERN)?.map<FunctionArgument>(arg => ({
+        ...toArgument(arg),
+        location: 'body',
+      })) || []).filter(bodyArg => !args.some(arg => arg.key === bodyArg.key))));
+    }
 
     args.sort(compareArgumentsByRequired);
 
@@ -934,15 +1177,18 @@ export class FunctionService implements OnModuleInit {
     return {
       key: argument,
       name: argumentsMetadata[argument]?.name || argument,
+      description: argumentsMetadata[argument]?.description || '',
       type: argumentsMetadata[argument]?.type || 'string',
       typeObject: argumentsMetadata[argument]?.typeObject,
+      typeSchema: argumentsMetadata[argument]?.typeSchema && JSON.stringify(argumentsMetadata[argument]?.typeSchema),
       payload: argumentsMetadata[argument]?.payload || false,
       required: argumentsMetadata[argument]?.required !== false,
       secure: argumentsMetadata[argument]?.secure || false,
+      variable: argumentsMetadata[argument]?.variable || undefined,
     };
   }
 
-  private getArgumentsMap(apiFunction: ApiFunction, args: Record<string, any>) {
+  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>) {
     const normalizeArg = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
@@ -960,58 +1206,49 @@ export class FunctionService implements OnModuleInit {
     };
 
     const functionArgs = this.getFunctionArguments(apiFunction);
-    const getPayloadArgs = () => {
-      const payloadArgs = functionArgs.filter((arg) => arg.payload);
-      if (payloadArgs.length === 0) {
-        return {};
-      }
-      const payload = args['payload'];
-      if (typeof payload !== 'object') {
-        this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
-        return {};
-      }
-      return payloadArgs.reduce(
-        (result, arg) => Object.assign(result, { [arg.key]: normalizeArg(payload[arg.name]) }),
-        {},
-      );
-    };
+    const argumentValueMap = {};
 
+    for (const arg of functionArgs) {
+      if (arg.variable) {
+        const variable = await this.variableService.findByPath(
+          apiFunction.environmentId,
+          'environment' in apiFunction ? (apiFunction.environment as Environment).tenantId : null,
+          arg.variable,
+        );
+        argumentValueMap[arg.key] = variable ? await this.variableService.getVariableValue(variable) : undefined;
+        this.logger.debug(`Argument '${arg.name}' resolved to variable ${variable?.id}`);
+      } else if (arg.payload) {
+        const payload = args['payload'];
+        if (typeof payload !== 'object') {
+          this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
+          continue;
+        }
+        argumentValueMap[arg.key] = normalizeArg(payload[arg.name]);
+      } else {
+        argumentValueMap[arg.key] = normalizeArg(args[arg.name]);
+      }
+    }
+
+    return argumentValueMap;
+  }
+
+  private async toArgumentSpecification(arg: FunctionArgument): Promise<PropertySpecification> {
     return {
-      ...functionArgs
-        .filter((arg) => !arg.payload)
-        .reduce((result, arg) => Object.assign(result, { [arg.key]: normalizeArg(args[arg.name]) }), {}),
-      ...getPayloadArgs(),
+      name: arg.name,
+      description: arg.description,
+      required: arg.required == null ? true : arg.required,
+      type: await this.commonService.toPropertyType(arg.name, arg.type, arg.typeObject, arg.typeSchema && JSON.parse(arg.typeSchema)),
     };
   }
 
-  private getFunctionFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
-    const contextConditions = contexts?.length
-      ? contexts.filter(Boolean).map((context) => {
-        return {
-          OR: [
-            {
-              context: { startsWith: `${context}.` },
-            },
-            {
-              context,
-            },
-          ],
-        };
-      })
-      : [];
+  private async toArgumentSpecifications(argumentsMetadata: ArgumentsMetadata): Promise<PropertySpecification[]> {
+    const argumentSpecifications: PropertySpecification[] = [];
 
-    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
+    for (const key of Object.keys(argumentsMetadata)) {
+      argumentSpecifications.push(await this.toArgumentSpecification(this.toArgument(key, argumentsMetadata)));
+    }
 
-    const filterConditions = [
-      {
-        OR: contextConditions,
-      },
-      names?.length ? { name: { in: names } } : undefined,
-    ].filter(Boolean) as any[];
-
-    this.logger.debug(`functions filter conditions: ${JSON.stringify(filterConditions)}`);
-
-    return [{ AND: filterConditions }, ...idConditions];
+    return argumentSpecifications;
   }
 
   private async resolveFunctionName(
@@ -1125,6 +1362,10 @@ export class FunctionService implements OnModuleInit {
         return body.formdata.reduce((data, item) => Object.assign(data, { [item.key]: item.value }), {});
       case 'urlencoded':
         return body.urlencoded.reduce((data, item) => Object.assign(data, { [item.key]: item.value }), {});
+      case 'graphql':
+        return {
+          query: body.graphql.query,
+        };
       default:
         return undefined;
     }
@@ -1193,50 +1434,6 @@ export class FunctionService implements OnModuleInit {
     return payload;
   }
 
-  private async toPropertyType(name: string, type: ArgumentType, typeObject?: object): Promise<PropertyType> {
-    if (type.endsWith('[]')) {
-      return {
-        kind: 'array',
-        items: await this.toPropertyType(name, type.substring(0, type.length - 2)),
-      };
-    }
-    if (type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
-      // backward compatibility (might be removed in the future)
-      type = 'object';
-    }
-
-    switch (type) {
-      case 'string':
-      case 'number':
-      case 'boolean':
-        return {
-          kind: 'primitive',
-          type,
-        };
-      case 'void':
-        return {
-          kind: 'void',
-        };
-      case 'object':
-        if (typeObject) {
-          const schema = await this.commonService.getJsonSchema(toPascalCase(name), typeObject);
-          return {
-            kind: 'object',
-            schema: schema || undefined,
-          };
-        } else {
-          return {
-            kind: 'object',
-          };
-        }
-      default:
-        return {
-          kind: 'plain',
-          value: type,
-        };
-    }
-  }
-
   private findDuplicatedArgumentName(args: FunctionArgument[]) {
     const names = new Set<string>();
 
@@ -1255,11 +1452,23 @@ export class FunctionService implements OnModuleInit {
     variables: Variables,
     debug?: boolean,
   ) {
+    const { graphqlIntrospectionResponse } = apiFunction;
+
+    const introspectionJSONSchema = graphqlIntrospectionResponse ? getJsonSchemaFromIntrospectionQuery(JSON.parse(graphqlIntrospectionResponse)) : null;
+
     const functionArgs = this.getFunctionArguments(apiFunction);
     const newMetadata: ArgumentsMetadata = {};
     const metadata: ArgumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}');
 
-    const resolveArgumentParameterLimit = () => {
+    const parsedBody = JSON.parse(apiFunction.body || '{}');
+
+    const isGraphQL = this.isGraphQLBody(parsedBody);
+
+    const graphqlVariables = isGraphQL ? getGraphqlVariables(parsedBody.graphql.query) : null;
+
+    const graphqlVariablesBody = isGraphQL ? JSON.parse(parsedBody.graphql.variables || '{}') : {};
+
+    const resolvePayloadArguments = () => {
       if (functionArgs.length <= this.config.functionArgsParameterLimit) {
         return;
       }
@@ -1284,6 +1493,21 @@ export class FunctionService implements OnModuleInit {
         }
       });
     };
+
+    const assignNewMetadata = (arg: FunctionArgument, type: string, typeSchema: Record<string, any> | undefined, required?) => {
+      if (newMetadata[arg.key]) {
+        newMetadata[arg.key].type = type;
+        newMetadata[arg.key].typeSchema = typeSchema;
+        newMetadata[arg.key].required = required;
+      } else {
+        newMetadata[arg.key] = {
+          type,
+          typeSchema,
+          required,
+        };
+      }
+    };
+
     const resolveArgumentTypes = async () => {
       if (debug) {
         if (apiFunction.id) {
@@ -1303,25 +1527,58 @@ export class FunctionService implements OnModuleInit {
         }
         const value = variables[arg.key];
 
-        const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
+        if (isGraphQL && arg.location === 'body') {
+          for (const graphqlVariable of (graphqlVariables as VariableDefinitionNode[])) {
+            const graphqlVariableName = graphqlVariable.variable.name.value;
+            if (graphqlVariableName !== arg.name) {
+              continue;
+            }
 
-        if (newMetadata[arg.key]) {
-          newMetadata[arg.key].type = type;
-          newMetadata[arg.key].typeSchema = typeSchema;
+            if (introspectionJSONSchema) {
+              const {
+                required,
+                type,
+                typeSchema,
+              } = resolveGraphqlArgumentType(graphqlVariable.type, introspectionJSONSchema);
+
+              assignNewMetadata(arg, type, typeSchema, required);
+            } else {
+              const graphqlVariableBodyValue = graphqlVariablesBody[graphqlVariableName];
+
+              if (typeof graphqlVariableBodyValue !== 'undefined') {
+                const [type, typeSchema] = await this.resolveArgumentType(JSON.stringify(graphqlVariableBodyValue));
+
+                assignNewMetadata(arg, type, typeSchema);
+              }
+            }
+          }
         } else {
-          newMetadata[arg.key] = {
-            type,
-            typeSchema,
-          };
+          const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
+
+          assignNewMetadata(arg, type, typeSchema);
         }
       }
     };
 
-    resolveArgumentParameterLimit();
+    const resolveSecureArguments = () => {
+      functionArgs.forEach((arg) => {
+        if (arg.location === 'auth') {
+          if (newMetadata[arg.key]) {
+            newMetadata[arg.key].secure = true;
+          } else {
+            newMetadata[arg.key] = {
+              secure: true,
+            };
+          }
+        }
+      });
+    };
 
+    await resolvePayloadArguments();
+    await resolveSecureArguments();
     await resolveArgumentTypes();
 
-    return JSON.stringify(newMetadata);
+    return newMetadata;
   }
 
   private async resolveArgumentType(value: string) {
@@ -1350,14 +1607,25 @@ export class FunctionService implements OnModuleInit {
     return argumentsMetadata;
   }
 
-  private checkArgumentsMetadata(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
+  private async checkArgumentsMetadata(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
     const functionArgs = this.getFunctionArguments(apiFunction);
 
-    Object.keys(argumentsMetadata).forEach((key) => {
+    for (const key of Object.keys(argumentsMetadata)) {
+      const argMetadata = argumentsMetadata[key];
       if (!functionArgs.find((arg) => arg.key === key)) {
         throw new BadRequestException(`Argument '${key}' not found in function`);
       }
-    });
+      if (argMetadata.variable) {
+        const variable = await this.variableService.findByPath(
+          apiFunction.environmentId,
+          'environment' in apiFunction ? (apiFunction.environment as Environment).tenantId : null,
+          argMetadata.variable,
+        );
+        if (!variable) {
+          throw new BadRequestException(`Variable on path '${argMetadata.variable}' not found.`);
+        }
+      }
+    }
   }
 
   private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
@@ -1372,25 +1640,6 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  private async throwErrIfInvalidResponse(response: any, payload: string | null, context: string, name: string) {
-    try {
-      const content = this.commonService.getPathContent(response, payload);
-
-      const responseType = await this.commonService.generateTypeDeclaration(
-        'ResponseType',
-        content,
-        toPascalCase(`${context} ${name}`),
-      );
-      this.logger.debug(`Generated response type:\n${responseType}`);
-    } catch (e) {
-      if (e instanceof PathError) {
-        throw new BadRequestException(e.message);
-      } else {
-        throw e;
-      }
-    }
-  }
-
   private async findApiFunctionForRetraining(
     apiFunctions: ApiFunction[],
     body: string,
@@ -1401,7 +1650,7 @@ export class FunctionService implements OnModuleInit {
   ): Promise<ApiFunction | null> {
     let apiFunction: ApiFunction | null = null;
 
-    for await (const currentApiFunction of apiFunctions) {
+    for (const currentApiFunction of apiFunctions) {
       const newArgumentsMetaData = await this.resolveArgumentsMetadata(
         {
           argumentsMetadata: currentApiFunction.argumentsMetadata,
@@ -1410,6 +1659,7 @@ export class FunctionService implements OnModuleInit {
           headers,
           url,
           id: currentApiFunction.id,
+          graphqlIntrospectionResponse: null,
         },
         variables,
       );
@@ -1417,10 +1667,14 @@ export class FunctionService implements OnModuleInit {
       const parsedCurrentArgumentsMetaData = JSON.parse(
         currentApiFunction.argumentsMetadata || '{}',
       ) as ArgumentsMetadata;
-      const parsedNewArgumentsMetaData = JSON.parse(newArgumentsMetaData) as ArgumentsMetadata;
+
+      const equalArgumentsCount = Object.keys(parsedCurrentArgumentsMetaData).length === Object.keys(newArgumentsMetaData).length;
+      if (equalArgumentsCount && apiFunction) {
+        throw new BadRequestException('There exist more than 1 api function with same arguments, use { id: string } on polyData Postman environment variable to specify which one do you want to retrain.');
+      }
 
       // Check arguments length difference.
-      if (Object.keys(parsedCurrentArgumentsMetaData).length !== Object.keys(parsedNewArgumentsMetaData).length) {
+      if (!equalArgumentsCount) {
         continue;
       }
 
@@ -1428,8 +1682,8 @@ export class FunctionService implements OnModuleInit {
       if (
         !Object.keys(parsedCurrentArgumentsMetaData).every((key) => {
           return (
-            parsedNewArgumentsMetaData.hasOwnProperty(key) &&
-            parsedCurrentArgumentsMetaData[key].type === parsedNewArgumentsMetaData[key].type
+            newArgumentsMetaData.hasOwnProperty(key) &&
+            parsedCurrentArgumentsMetaData[key].type === newArgumentsMetaData[key].type
           );
         })
       ) {
@@ -1437,10 +1691,56 @@ export class FunctionService implements OnModuleInit {
       }
 
       apiFunction = currentApiFunction;
-      break;
     }
 
     return apiFunction;
+  }
+
+  private async getCustomFunctionAIData(description: string, args: FunctionArgument[], code: string) {
+    const {
+      description: aiDescription,
+      arguments: aiArguments,
+    } = await this.aiService.getFunctionDescription(
+      '',
+      '',
+      description,
+      await Promise.all(args.map(arg => this.toArgumentSpecification(arg))),
+      '',
+      '',
+      code,
+    );
+
+    return {
+      description: aiDescription,
+      arguments: aiArguments,
+    };
+  }
+
+  private async isApiFunctionAITrainingEnabled(environment: Environment) {
+    const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
+
+    return trainingDataCfgVariable?.value.apiFunctions;
+  }
+
+  private async isCustomFunctionAITrainingEnabled(environment: Environment, serverFunction: boolean) {
+    const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
+
+    return (trainingDataCfgVariable?.value.clientFunctions && !serverFunction) || (trainingDataCfgVariable?.value.serverFunctions && serverFunction);
+  }
+
+  private async getResponseType(response: any, payload: string | null): Promise<string> {
+    const responseObject = response
+      ? this.commonService.getPathContent(response, payload)
+      : null;
+    const [type, typeSchema] = responseObject
+      ? await this.commonService.resolveType('ResponseType', JSON.stringify(responseObject))
+      : ['void'];
+
+    return type === 'object' ? JSON.stringify(typeSchema) : type;
+  }
+
+  private filterJSONComments(jsonString: string) {
+    return stripComments(jsonString);
   }
 
   private getSanitizedRawBody(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): Body {

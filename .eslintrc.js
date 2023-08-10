@@ -2,7 +2,7 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   parserOptions: {
     project: 'tsconfig.json',
-    tsconfigRootDir: __dirname,
+    tsconfigRootDir: '.',
     sourceType: 'module',
   },
   plugins: ['@typescript-eslint/eslint-plugin'],
@@ -22,6 +22,7 @@ module.exports = {
 
     'accessor-pairs': ['error', { setWithoutGet: true, enforceForClassMembers: true }],
     'array-bracket-spacing': ['error', 'never'],
+    'array-bracket-newline': ['error', { multiline: true }],
     'array-callback-return': ['error', {
       allowImplicit: false,
       checkForEach: false,
@@ -51,6 +52,7 @@ module.exports = {
     'eol-last': 'error',
     'eqeqeq': ['error', 'always', { null: 'ignore' }],
     'func-call-spacing': ['error', 'never'],
+    'func-style': ['error', 'expression', { allowArrowFunctions: true }],
     'generator-star-spacing': ['error', { before: true, after: true }],
     'indent': ['error', 2, {
       SwitchCase: 1,
@@ -65,7 +67,26 @@ module.exports = {
       ImportDeclaration: 1,
       flatTernaryExpressions: false,
       ignoreComments: false,
-      ignoredNodes: ['TemplateLiteral *', 'JSXElement', 'JSXElement > *', 'JSXAttribute', 'JSXIdentifier', 'JSXNamespacedName', 'JSXMemberExpression', 'JSXSpreadAttribute', 'JSXExpressionContainer', 'JSXOpeningElement', 'JSXClosingElement', 'JSXFragment', 'JSXOpeningFragment', 'JSXClosingFragment', 'JSXText', 'JSXEmptyExpression', 'JSXSpreadChild'],
+      ignoredNodes: [
+        'TemplateLiteral *',
+        'JSXElement',
+        'JSXElement > *',
+        'JSXAttribute',
+        'JSXIdentifier',
+        'JSXNamespacedName',
+        'JSXMemberExpression',
+        'JSXSpreadAttribute',
+        'JSXExpressionContainer',
+        'JSXOpeningElement',
+        'JSXClosingElement',
+        'JSXFragment',
+        'JSXOpeningFragment',
+        'JSXClosingFragment',
+        'JSXText',
+        'JSXEmptyExpression',
+        'JSXSpreadChild',
+        'PropertyDefinition[decorators]'
+      ],
       offsetTernaryExpressions: true,
     }],
     'key-spacing': ['error', { beforeColon: false, afterColon: true }],
@@ -168,12 +189,11 @@ module.exports = {
       ignoreRestSiblings: true,
       vars: 'all',
     }],
-    'no-use-before-define': ['error', { functions: false, classes: false, variables: false }],
     'no-useless-call': 'error',
     'no-useless-computed-key': 'error',
     'no-useless-rename': 'error',
     'no-useless-return': 'error',
-    'no-void': 'error',
+    'no-void': ['error', { allowAsStatement: true }],
     'no-whitespace-before-property': 'error',
     'no-with': 'error',
     'object-curly-newline': ['error', { multiline: true, consistent: true }],
@@ -191,10 +211,10 @@ module.exports = {
     'semi': ['error', 'always'],
     'semi-spacing': ['error', { before: false, after: true }],
     'space-before-blocks': ['error', 'always'],
-    'space-before-function-paren': ["error", {
-      "anonymous": "always",
-      "named": "never",
-      "asyncArrow": "always"
+    'space-before-function-paren': ['error', {
+      'anonymous': 'always',
+      'named': 'never',
+      'asyncArrow': 'always',
     }],
     'space-in-parens': ['error', 'never'],
     'space-infix-ops': 'error',
@@ -225,7 +245,23 @@ module.exports = {
       0,
       {
         'endOfLine': 'auto',
-      }
+      },
     ],
+    "@typescript-eslint/naming-convention": [
+      "error",
+      {
+        "selector": [
+          "classProperty",
+          "typeProperty",
+          "classMethod",
+          "objectLiteralMethod",
+          "typeMethod",
+          "accessor",
+          "enumMember"
+        ],
+        "format": ["strictCamelCase"],
+        "modifiers": ["requiresQuotes"]
+      }
+    ]
   },
 };

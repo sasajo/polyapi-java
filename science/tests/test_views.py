@@ -2,8 +2,6 @@ import json
 from mock import patch, Mock
 from openai.error import ServiceUnavailableError
 
-from app.keywords import get_function_match_limit
-
 from .testing import DbTestCase
 
 # TODO make relative?
@@ -12,25 +10,29 @@ from load_fixtures import test_user_get_or_create
 
 
 class T(DbTestCase):
-    def test_user_get_or_create(self) -> None:
+    def test_test_user_get_or_create(self) -> None:
         user = test_user_get_or_create()
         self.assertEqual(user.name, "test")
         self.assertEqual("foo", "foo")
 
+    @patch("app.views.split_route_and_question")
     @patch("app.views.get_completion_answer")
-    def test_function_completion_error(self, get_answer: Mock) -> None:
+    def test_function_completion_error(self, get_answer: Mock, route_question) -> None:
         # setup
+        user = test_user_get_or_create()
+        route_question.return_value = "function", "hi world"
+
         get_answer.side_effect = ServiceUnavailableError(
             "The server is overloaded or not ready yet."
         )
         mock_input = {
             "question": "hi world",
-            "user_id": 1,
-            "environment_id": 1,
+            "user_id": user.id,
+            "environment_id": "123",
         }
 
         # execute
-        resp = self.client.post("/function-completion", json=mock_input)
+        resp = self.client.get("/function-completion", query_string=mock_input)
 
         # test
         self.assertStatus(resp, 500)
@@ -53,6 +55,8 @@ class T(DbTestCase):
             "short_description": "I am the description",
             "payload": "I am the payload",
             "response": "I am the response",
+            "code": None,
+            "arguments": None,
         }
 
         # execute
@@ -82,6 +86,8 @@ class T(DbTestCase):
             "short_description": "I am the description",
             "payload": "I am the payload",
             "response": "I am the response",
+            "code": None,
+            "arguments": None,
         }
 
         # execute
@@ -93,13 +99,6 @@ class T(DbTestCase):
         self.assertEqual(output["context"], "booking.reservations")
         self.assertEqual(output["name"], "createReservation")
         self.assertEqual(output["description"], "This Event handler...")
-
-    def test_configure(self):
-        data = {"name": "function_match_limit", "value": "4"}
-        resp = self.client.post("/configure", json=data)
-        self.assertEqual(resp.status_code, 201)
-        out = get_function_match_limit()
-        self.assertEqual(out, 4)
 
     def test_rate_limit_error(self):
         resp = self.client.get("/error-rate-limit")

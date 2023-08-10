@@ -1,14 +1,29 @@
-import { Req, Body, Controller, Logger, Post, UseGuards, InternalServerErrorException, Param, Get, Header, Query } from '@nestjs/common';
+import {
+  Req,
+  Body,
+  Controller,
+  Logger,
+  Post,
+  UseGuards,
+  Sse,
+  InternalServerErrorException,
+  Param,
+  Get,
+  Header,
+  Query,
+  MessageEvent,
+  ValidationPipe,
+} from '@nestjs/common';
+import { map, Observable } from 'rxjs';
 import {
   SendQuestionDto,
-  SendQuestionResponseDto,
   SendCommandDto,
-  SendConfigureDto,
   TeachSystemPromptDto,
   TeachSystemPromptResponseDto,
   Role,
   Permission,
-} from '@poly/common';
+  Pagination,
+} from '@poly/model';
 import { ApiSecurity } from '@nestjs/swagger';
 import { ChatService } from 'chat/chat.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
@@ -16,6 +31,8 @@ import { AiService } from 'ai/ai.service';
 import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { AuthService } from 'auth/auth.service';
+import { MessageDto } from '@poly/model';
+import { MergeRequestData } from 'common/decorators';
 
 @ApiSecurity('PolyApiKey')
 @Controller('chat')
@@ -30,8 +47,8 @@ export class ChatController {
   ) {}
 
   @UseGuards(PolyAuthGuard)
-  @Post('/question')
-  public async sendQuestion(@Req() req: AuthRequest, @Body() body: SendQuestionDto): Promise<SendQuestionResponseDto> {
+  @Sse('/question')
+  public async sendQuestion(@Req() req, @Query() data: SendQuestionDto): Promise<Observable<MessageEvent>> {
     const environmentId = req.user.environment.id;
     const userId = req.user.user?.id || (await this.userService.findAdminUserByEnvironmentId(environmentId))?.id;
 
@@ -41,10 +58,15 @@ export class ChatController {
 
     await this.authService.checkPermissions(req.user, Permission.Use);
 
-    const responseTexts = await this.service.getMessageResponseTexts(environmentId, userId, body.message);
-    return {
-      texts: responseTexts,
-    };
+    this.logger.debug(`Sending question to chat: ${data.message}`);
+
+    return this.service.sendQuestion(environmentId, userId, data.message)
+      .pipe(
+        map(data => ({
+          data,
+        }),
+        ),
+      );
   }
 
   @UseGuards(PolyAuthGuard)
@@ -62,13 +84,6 @@ export class ChatController {
     await this.service.processCommand(environmentId, userId, body.command);
   }
 
-  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
-  @Post('/ai-configuration')
-  async aiConfiguration(@Req() req: AuthRequest, @Body() body: SendConfigureDto): Promise<string> {
-    await this.aiService.configure(body.name, body.value);
-    return 'chirp';
-  }
-
   @UseGuards(new PolyAuthGuard([Role.Admin, Role.SuperAdmin]))
   @Post('/system-prompt')
   async teachSystemPrompt(
@@ -83,15 +98,12 @@ export class ChatController {
     }
 
     await this.aiService.setSystemPrompt(environmentId, userId, body.prompt);
-    return { response: 'Conversation cleared and new system prompt set!' };
+    return { response: 'New system prompt set!' };
   }
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Get('/conversations')
-  public async conversationsList(
-    @Req() req: AuthRequest,
-    @Query('userId') userId: string,
-  ) {
+  public async conversationsList(@Req() req: AuthRequest, @Query('userId') userId: string) {
     const conversationIds = await this.service.getConversationIds(userId);
     return { conversationIds };
   }
@@ -106,5 +118,22 @@ export class ChatController {
   ) {
     const conversation = await this.service.getConversationDetail(userId, conversationId);
     return conversation;
+  }
+
+  @UseGuards(new PolyAuthGuard())
+  @Get('/history')
+  public async chatHistory(
+    @Req() req: AuthRequest,
+    @MergeRequestData(['query'], new ValidationPipe({ validateCustomDecorators: true, transform: true })) pagination: Pagination,
+  ): Promise<MessageDto[]> {
+    const {
+      perPage = '10',
+      firstMessageDate = null,
+    } = pagination;
+
+    // returns the conversation history for this specific user
+    const history = await this.service.getHistory(req.user.user?.id, Number(perPage), firstMessageDate);
+
+    return history;
   }
 }

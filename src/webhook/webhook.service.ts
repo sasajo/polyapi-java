@@ -1,15 +1,24 @@
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
-import { Prisma, WebhookHandle } from '@prisma/client';
+import { Environment, WebhookHandle } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { CommonService } from 'common/common.service';
-import { PrismaService, PrismaTransaction } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
 import { UserService } from 'user/user.service';
 import { AiService } from 'ai/ai.service';
-import { PropertySpecification, Visibility, WebhookHandleDto, WebhookHandleSpecification } from '@poly/common';
+import {
+  ConfigVariableName,
+  PropertySpecification,
+  TrainingDataGeneration,
+  Visibility, VisibilityQuery,
+  WebhookHandleDto,
+  WebhookHandleSpecification,
+} from '@poly/model';
 import { ConfigService } from 'config/config.service';
 import { SpecsService } from 'specs/specs.service';
 import { toCamelCase } from '@guanghechen/helper-string';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
+import { TriggerService } from 'trigger/trigger.service';
 
 @Injectable()
 export class WebhookService {
@@ -25,53 +34,9 @@ export class WebhookService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
+    private readonly configVariableService: ConfigVariableService,
+    private readonly triggerService: TriggerService,
   ) {
-  }
-
-  private create(data: Omit<Prisma.WebhookHandleCreateInput, 'createdAt'>, tx?: PrismaTransaction): Promise<WebhookHandle> {
-    const createData = {
-      data: {
-        createdAt: new Date(),
-        ...data,
-      },
-    };
-
-    if (tx) {
-      return tx.webhookHandle.create(createData);
-    }
-
-    return this.prisma.webhookHandle.create(createData);
-  }
-
-  private getWebhookFilterConditions(contexts?: string[], names?: string[], ids?: string[]) {
-    const contextConditions = contexts?.length
-      ? contexts.filter(Boolean).map((context) => {
-        return {
-          OR: [
-            {
-              context: { startsWith: `${context}.` },
-            },
-            {
-              context,
-            },
-          ],
-        };
-      })
-      : [];
-
-    const idConditions = [ids?.length ? { id: { in: ids } } : undefined].filter(Boolean) as any;
-
-    const filterConditions = [
-      {
-        OR: contextConditions,
-      },
-      names?.length ? { name: { in: names } } : undefined,
-    ].filter(Boolean) as any[];
-
-    this.logger.debug(`webhookHandles filter conditions: ${JSON.stringify([{ AND: filterConditions },
-      ...idConditions])}`);
-
-    return [{ AND: filterConditions }, ...idConditions];
   }
 
   public async findWebhookHandle(id: string): Promise<WebhookHandle | null> {
@@ -82,7 +47,7 @@ export class WebhookService {
     });
   }
 
-  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], includePublic = false, includeTenant = false): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for environment ${environmentId}...`);
     return this.prisma.webhookHandle.findMany({
       where: {
@@ -90,13 +55,13 @@ export class WebhookService {
           {
             OR: [
               { environmentId },
-              includePublic
-                ? this.commonService.getPublicVisibilityFilterCondition()
+              visibilityQuery
+                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
                 : {},
             ],
           },
           {
-            OR: this.getWebhookFilterConditions(contexts, names, ids),
+            OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
         ],
       },
@@ -134,8 +99,8 @@ export class WebhookService {
   }
 
   public async createOrUpdateWebhookHandle(
-    environmentId: string,
-    context: string | null,
+    environment: Environment,
+    context: string,
     name: string,
     eventPayload: any,
     description: string,
@@ -144,20 +109,18 @@ export class WebhookService {
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
-      where: context === null
-        ? { name }
-        : {
-            name,
-            context,
-            environmentId,
-          },
+      where: {
+        name,
+        context,
+        environmentId: environment.id,
+      },
     });
 
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
 
     if (!(await this.checkContextAndNameDuplicates(
-      environmentId,
+      environment.id,
       context,
       name,
       webhookHandle ? [webhookHandle.id] : [])
@@ -169,19 +132,21 @@ export class WebhookService {
       this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
 
       if (!name || !context || !description) {
-        const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
+        if (await this.isWebhookAITrainingEnabled(environment)) {
+          const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
 
-        return this.prisma.webhookHandle.update({
-          where: {
-            id: webhookHandle.id,
-          },
-          data: {
-            eventPayload: JSON.stringify(eventPayload),
-            context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
-            description: description || aiResponse.description,
-            name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
-          },
-        });
+          return this.prisma.webhookHandle.update({
+            where: {
+              id: webhookHandle.id,
+            },
+            data: {
+              eventPayload: JSON.stringify(eventPayload),
+              context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
+              description: description || aiResponse.description,
+              name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
+            },
+          });
+        }
       }
 
       return this.prisma.webhookHandle.update({
@@ -196,15 +161,15 @@ export class WebhookService {
         },
       });
     } else {
-      this.logger.debug(`Creating new webhook handle in environment ${environmentId} for ${context}/${name}...`);
+      this.logger.debug(`Creating new webhook handle in environment ${environment.id} for ${context}/${name}...`);
 
       return this.prisma.$transaction(
         async (tx) => {
-          let webhookHandle = await this.create(
-            {
+          let webhookHandle = await tx.webhookHandle.create({
+            data: {
               environment: {
                 connect: {
-                  id: environmentId,
+                  id: environment.id,
                 },
               },
               name,
@@ -212,23 +177,26 @@ export class WebhookService {
               eventPayload: JSON.stringify(eventPayload),
               description,
             },
-            tx,
-          );
+          });
 
           if (!name || !description || !context) {
-            const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
+            const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
 
-            webhookHandle = await tx.webhookHandle.update({
-              where: {
-                id: webhookHandle.id,
-              },
-              data: {
-                eventPayload: JSON.stringify(eventPayload),
-                context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
-                description: description || aiResponse.description,
-                name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
-              },
-            });
+            if (trainingDataCfgVariable?.value.webhooks) {
+              const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
+
+              webhookHandle = await tx.webhookHandle.update({
+                where: {
+                  id: webhookHandle.id,
+                },
+                data: {
+                  eventPayload: JSON.stringify(eventPayload),
+                  context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
+                  description: description || aiResponse.description,
+                  name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
+                },
+              });
+            }
           }
 
           return webhookHandle;
@@ -243,6 +211,7 @@ export class WebhookService {
   async triggerWebhookHandle(webhookHandle: WebhookHandle, eventPayload: any) {
     this.logger.debug(`Triggering webhook for ${webhookHandle.id}...`);
     this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
+    await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload);
   }
 
   toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
@@ -327,6 +296,12 @@ export class WebhookService {
     }
 
     return visibility;
+  }
+
+  private async isWebhookAITrainingEnabled(environment: Environment) {
+    const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
+
+    return trainingDataCfgVariable?.value.webhooks;
   }
 
   async deleteWebhookHandle(id: string) {

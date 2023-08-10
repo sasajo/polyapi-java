@@ -1,9 +1,9 @@
 import { ExecutionContext } from '@nestjs/common';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 
-import { Role } from '@poly/common';
+import { Role } from '@poly/model';
 import { AuthData } from 'common/types';
-import { Permission } from '@poly/common';
+import { Permission } from '@poly/model';
 
 const currentDate = new Date();
 
@@ -17,7 +17,9 @@ export type ExtractMethods<Type> = {
 /**
  * Utility type for using among with `useValue` when mock a provider to get full instellisense about provider methods.
  */
-export type TypedMock<T> = Partial<ExtractMethods<T>>;
+export type TypedMock<T> = Partial<{
+  [Key in keyof ExtractMethods<T>]: ExtractMethods<T>[Key] & ExtractMethods<T>[Key] extends (...args: any[]) => any ? ReturnType<typeof getFnMock<ExtractMethods<T>[Key]>> : object;
+}>;
 
 const tenantId = '2a918df0-dffd-4773-b2b4-2b5cd3182c5f';
 /**
@@ -34,14 +36,14 @@ export const mockedAuthData: AuthData = {
   },
   environment: {
     createdAt: currentDate,
-    id: '',
+    id: '8f095786-e032-48f3-8790-d3eb30865db7',
     name: '',
     subdomain: '',
     tenantId: '',
   },
   tenant: {
     createdAt: currentDate,
-    id: '',
+    id: 'fbabafff-f506-47fd-8cf3-509d711fcde3',
     name: '',
     publicVisibilityAllowed: true,
   },
@@ -60,20 +62,16 @@ export const mockedAuthData: AuthData = {
 };
 
 /**
- * Get mocked `PolyAuthGuard`.
- */
-export function getMockedPolyAuthGuard(user: AuthData = mockedAuthData): TypedMock<PolyAuthGuard> {
-  return {
-    async canActivate(context: ExecutionContext): Promise<any> {
-      context.switchToHttp().getRequest().user = user;
-      return true;
-    },
-  };
-}
-
-/**
  * Get typed mock using `jest.fn`.
  */
-export function getFnMock<T extends(...args: any) => any>() {
-  return jest.fn<ReturnType<T>, Parameters<T>>();
-}
+export const getFnMock = <T extends(...args: any) => any>() => jest.fn<ReturnType<T>, Parameters<T>>();
+
+/**
+ * Get mocked `PolyAuthGuard`.
+ */
+export const getMockedPolyAuthGuard = (user: AuthData = mockedAuthData): TypedMock<PolyAuthGuard> => ({
+  canActivate: getFnMock<PolyAuthGuard['canActivate']>().mockImplementation(async (context: ExecutionContext) => {
+    context.switchToHttp().getRequest().user = user;
+    return true;
+  }),
+});

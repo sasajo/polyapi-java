@@ -103,6 +103,10 @@ export class ConfigService {
     return this.get('FAAS_DOCKER_CONTAINER_REGISTRY', 'ghcr.io/polyapi/poly-alpha');
   }
 
+  get faasDockerImageFunctionNode(): string {
+    return this.get('FAAS_DOCKER_IMAGE_FUNCTION_NODE');
+  }
+
   get faasDockerUsername(): string {
     return this.get('FAAS_DOCKER_USERNAME');
   }
@@ -113,5 +117,53 @@ export class ConfigService {
 
   get faasDockerConfigFile(): string {
     return this.get('FAAS_DOCKER_CONFIG_FILE', `${process.env.HOME}/.docker/config.json`);
+  }
+
+  get faasFunctionsBasePath(): string {
+    return this.get('FAAS_FUNCTIONS_BASE_PATH', process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`);
+  }
+
+  get faasNamespace(): string {
+    return this.get('FAAS_NAMESPACE', 'default');
+  }
+
+  get faasPvcName(): string {
+    return this.get('FAAS_PVC_NAME', 'poly-functions');
+  }
+
+  get faasPreinstalledNpmPackages(): string[] {
+    return this.get('FAAS_PREINSTALLED_NPM_PACKAGES', '').split(',');
+  }
+
+  get vaultAddress(): string {
+    return this.get('VAULT_ADDRESS');
+  }
+
+  get vaultToken(): string {
+    return this.get('VAULT_TOKEN');
+  }
+
+  get redisUrl(): string {
+    return this.get('REDIS_URL') || 'redis://127.0.0.1:6379';
+  }
+
+  get cacheTTL(): number {
+    return Number(this.get('CACHE_TTL', 24 * 60 * 60));
+  }
+
+  get knativeFuncExecFile(): string {
+    return this.get('KNATIVE_EXEC_FILE', `${process.cwd()}/bin/kn-func`);
+  }
+
+  get knativeBrokerName(): string {
+    return this.get('KNATIVE_BROKER_NAME', 'default');
+  }
+
+  get knativeBrokerUrl(): string {
+    return this.get('KNATIVE_BROKER_URL');
+  }
+
+  get knativeTriggerNamespace(): string {
+    return this.get('KNATIVE_TRIGGER_NAMESPACE', 'default');
   }
 }

@@ -1,3 +1,67 @@
+### 0.1.46
+* Stream api implemented on assistant.
+
+### 0.1.45
+* Prevent focus being stolen by assistant.
+
+### 0.1.44
+* Added conversation history to assistant.
+
+### 0.1.43
+* Fix missing lodash lib.
+
+### 0.1.42
+* Removed pattern checks for configuration properties
+
+### 0.1.41
+* Added /c command as alternative to /clear
+
+### 0.1.40
+* Fix infinite `typescript.restartTsServer` on edge-case.
+
+### 0.1.39
+* Removed debug logging
+
+### 0.1.38
+* Changed description for Variables
+
+### 0.1.37
+* Added variable into Poly tree
+* Updated colors of nodes in Poly tree
+
+### 0.1.36
+* Synchronization of credentials across client library and vscode extension.
+
+### 0.1.35
+* Poly setup through graphic UI
+* Sync credentials from vscode extension to poly lib.
+
+### 0.1.34
+* Updated empty credentials text.
+* Added action to go to settings on notification when credentials are empty.
+
+### 0.1.33
+* Enable textarea typing when sending poly question.
+
+### 0.1.32
+* Add setup message if credentials are not found.
+
+### 0.1.31
+* Apply and copy vscode markdown styles instead of using "dark-invert" feature from tailwindcss typography plugin
+* Fixed responsive answer. Tailwind typography plugin was applying an arbitrary max-width.
+
+### 0.1.30
+* Applied tailwindcss typography plugin for ai responses.
+
+### 0.1.29
+* Fixed input box for question focus lost when sending a question
+
+### 0.1.28
+* Preserve newlines, line breaks and whitespace in question's box.
+
+### 0.1.27
+* Added common module
+
 ### 0.1.26
 * Added tenant name information to public functions
 
@@ -8,7 +72,7 @@
 * Set textarea disabled when sending a question through chat.
 
 ### 0.1.23
-* Removed "Copy selection to Poly" button due a vscode issue on Windows plattform.
+* Removed "Copy selection to Poly" button due a vscode issue on Windows platform.
 
 ### 0.1.22
 * Added webhook description
@@ -41,7 +105,7 @@
 * Updated Poly library tree icon
 
 ### 0.1.12
-* Using polling instead of event listening for library data changes 
+* Using polling instead of event listening for library data changes
 
 ### 0.1.11
 * Improved Poly library change listener
