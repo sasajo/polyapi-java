@@ -155,7 +155,9 @@ function teachPoly(introspectionResponse) {
       response = await teachPoly(introspectionResponse.data);
 
     } else {
-      console.log('`inferArgTypesFromPostmanGraphqlVariables` flag activated, inferring argument types from postman graphql variables box...');
+      if(body.mode === 'graphql') {
+        console.log('`inferArgTypesFromPostmanGraphqlVariables` flag activated, inferring argument types from postman graphql variables box...');
+      }
       response = await teachPoly();
     }
 
