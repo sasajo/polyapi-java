@@ -19,6 +19,7 @@ from app.utils import (
     create_new_conversation,
     get_user,
     log,
+    redis_get,
     store_messages,
 )
 from app.router import split_route_and_question
@@ -44,7 +45,16 @@ HELP_ANSWER = """Poly conversation special commands
 @bp.route("/function-completion", methods=["GET"])  # type: ignore
 def function_completion() -> Response:
     data: Dict = request.args.to_dict()
-    question: str = data["question"].strip()
+
+    # default to question, fallback to question_uuid
+    question: str = data.get("question", "").strip()
+    if not question:
+        message_uuid = data.get("question_uuid", "").strip()
+        question = redis_get(message_uuid)
+
+    if not question:
+        raise NotImplementedError("No question or question_uuid passed!")
+
     user_id: Optional[str] = data.get("user_id")
     environment_id: Optional[str] = data.get("environment_id")
     assert environment_id

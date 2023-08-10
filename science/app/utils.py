@@ -3,6 +3,7 @@ import copy
 import openai
 import string
 import requests
+import redis
 import numpy as np
 from requests import Response
 from flask import current_app
@@ -402,3 +403,12 @@ def extract_code(content: Optional[str]) -> Any:
         return json.loads(rv)
     except json.JSONDecodeError:
         return None
+
+
+def redis_get(key: str) -> str:
+    redis_client = redis.Redis()
+    val = redis_client.get(key)
+    if val:
+        return val.decode()
+    else:
+        return ""
