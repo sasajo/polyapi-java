@@ -38,11 +38,13 @@ class T(DbTestCase):
         self.assertStatus(resp, 200)
         self.assertEqual(get_answer.call_count, 1)
 
+    @patch("app.views.redis_get")
     @patch("app.views.split_route_and_question")
     @patch("app.views.get_completion_answer")
-    def test_function_completion_question_uuid(self, get_answer: Mock, route_question) -> None:
+    def test_function_completion_question_uuid(self, get_answer: Mock, route_question, redis_get: Mock) -> None:
         # setup
         user = test_user_get_or_create()
+        redis_get.return_value = "first three numbers"
         route_question.return_value = "function", "hi world"
 
         question_uuid = str(uuid.uuid4())
