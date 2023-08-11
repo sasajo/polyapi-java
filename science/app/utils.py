@@ -1,3 +1,4 @@
+import os
 import json
 import copy
 import openai
@@ -412,7 +413,7 @@ def extract_code(content: Optional[str]) -> Any:
 
 
 def redis_get(key: str) -> str:
-    redis_client = redis.Redis()
+    redis_client = redis.Redis(os.environ.get("REDIS_URL"))
     val = redis_client.get(key)
     if val:
         return val.decode()

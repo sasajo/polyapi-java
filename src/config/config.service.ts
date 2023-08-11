@@ -120,7 +120,10 @@ export class ConfigService {
   }
 
   get faasFunctionsBasePath(): string {
-    return this.get('FAAS_FUNCTIONS_BASE_PATH', process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`);
+    return this.get(
+      'FAAS_FUNCTIONS_BASE_PATH',
+      process.env.FUNCTIONS_BASE_FOLDER || `${process.cwd()}/server-functions`,
+    );
   }
 
   get faasNamespace(): string {
@@ -144,7 +147,12 @@ export class ConfigService {
   }
 
   get redisUrl(): string {
-    return this.get('REDIS_URL') || 'redis://127.0.0.1:6379';
+    const redisUrl = this.get('REDIS_URL');
+    if (redisUrl) {
+      return `redis://${redisUrl}:6379`;
+    } else {
+      return 'redis://127.0.0.1:6379';
+    }
   }
 
   get cacheTTL(): number {
