@@ -147,9 +147,9 @@ export class ConfigService {
   }
 
   get redisUrl(): string {
-    const redisUrl = this.get('REDIS_URL');
-    if (redisUrl) {
-      return `redis://${redisUrl}:6379`;
+    const url = this.get('REDIS_URL');
+    if (url) {
+      return `redis://${url}:6379`;
     } else {
       return 'redis://127.0.0.1:6379';
     }
