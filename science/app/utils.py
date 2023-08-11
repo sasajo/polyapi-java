@@ -413,7 +413,7 @@ def extract_code(content: Optional[str]) -> Any:
 
 
 def redis_get(key: str) -> str:
-    redis_client = redis.Redis(os.environ.get("REDIS_URL"))
+    redis_client = redis.Redis(os.environ.get("REDIS_URL", ""))
     val = redis_client.get(key)
     if val:
         return val.decode()
