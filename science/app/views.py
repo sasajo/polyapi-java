@@ -12,6 +12,7 @@ from app.description import (
     get_webhook_description,
 )
 from app.docs import documentation_question, update_vector
+from app.help import help_question
 from app.plugin import get_plugin_chat
 from app.typedefs import DescInputDto, MessageDict, VarDescInputDto
 from app.utils import (
@@ -19,6 +20,7 @@ from app.utils import (
     create_new_conversation,
     get_user,
     log,
+    redis_get,
     store_messages,
 )
 from app.router import split_route_and_question
@@ -32,19 +34,19 @@ def home():
     return f"<h1>Hello, World!</h1>\n<div>You probably want `POST /function_completion`! See the {readme_link} for details"
 
 
-HELP_ANSWER = """Poly conversation special commands
-
-* /functions or /f or no slash command: search functions and variables and use them to answer question
-* /help or /h: list out available commands
-* /poly or /p or /docs or /d: searches poly documentation
-* /general or /g: ask general question straight to ChatGPT
-"""
-
-
 @bp.route("/function-completion", methods=["GET"])  # type: ignore
 def function_completion() -> Response:
     data: Dict = request.args.to_dict()
-    question: str = data["question"].strip()
+
+    # default to question, fallback to question_uuid
+    question: str = data.get("question", "").strip()
+    if not question:
+        message_uuid = data.get("question_uuid", "").strip()
+        question = redis_get(message_uuid)
+
+    if not question:
+        raise NotImplementedError("No question or question_uuid passed!")
+
     user_id: Optional[str] = data.get("user_id")
     environment_id: Optional[str] = data.get("environment_id")
     assert environment_id
@@ -75,7 +77,7 @@ def function_completion() -> Response:
     elif route == "general":
         resp = general_question(user_id, conversation.id, question, prev_msgs)
     elif route == "help":
-        resp = HELP_ANSWER
+        resp = help_question(user_id, conversation.id, question, prev_msgs)
     elif route == "documentation":
         resp = documentation_question(user_id, conversation.id, question, prev_msgs)
         # TODO fixme?

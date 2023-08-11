@@ -1,8 +1,10 @@
+import os
 import json
 import copy
 import openai
 import string
 import requests
+import redis
 import numpy as np
 from requests import Response
 from flask import current_app
@@ -381,9 +383,15 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
     return {"data": return_type}
 
 
-def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[MessageDict]:
+def msgs_to_msg_dicts(msgs: Optional[List[Union[ConversationMessage, MessageDict]]]) -> List[MessageDict]:
     if msgs:
-        return [MessageDict(role=msg.role, content=msg.content) for msg in msgs]
+        rv = []
+        for msg in msgs:
+            if isinstance(msg, ConversationMessage):
+                rv.append(MessageDict(role=msg.role, content=msg.content))
+            else:  # MessageDict
+                rv.append(msg)
+        return rv
     else:
         return []
 
@@ -402,3 +410,12 @@ def extract_code(content: Optional[str]) -> Any:
         return json.loads(rv)
     except json.JSONDecodeError:
         return None
+
+
+def redis_get(key: str) -> str:
+    redis_client = redis.Redis(os.environ.get("REDIS_URL", "localhost"))
+    val = redis_client.get(key)
+    if val:
+        return val.decode()
+    else:
+        return ""

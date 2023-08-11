@@ -355,7 +355,7 @@ def get_completion_answer(
             prev_msgs,
         )
     else:
-        return general_question(user_id, conversation_id, question, prev_msgs)
+        return general_question(user_id, conversation_id, question, prev_msgs)  # type: ignore
 
 
 def simple_chatgpt_question(question: str) -> str:
@@ -369,7 +369,7 @@ def general_question(
     user_id: str,
     conversation_id: str,
     question: str,
-    prev_msgs: Optional[List[ConversationMessage]] = None,
+    prev_msgs: Optional[List[Union[ConversationMessage, MessageDict]]] = None,
 ) -> Union[Generator, str]:
     """ask a general question not related to any Poly-specific functionality"""
     messages = msgs_to_msg_dicts(prev_msgs) + [

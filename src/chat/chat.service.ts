@@ -9,7 +9,7 @@ export class ChatService {
 
   constructor(private readonly aiService: AiService, private readonly prisma: PrismaService) {}
 
-  public sendQuestion(environmentId: string, userId: string, message: string): Observable<string> {
+  public sendQuestion(environmentId: string, userId: string, message: string): Promise<Observable<string>> {
     return this.aiService.getFunctionCompletion(environmentId, userId, message);
   }
 

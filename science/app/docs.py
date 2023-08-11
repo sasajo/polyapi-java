@@ -48,7 +48,7 @@ def documentation_question(
 
     db = get_client()
     docs = db.docsection.find_many()
-    most_similar_doc: Optional[DocSection]
+    most_similar_doc: Optional[DocSection] = None
     max_similarity = -2.0  # similarity is -1 to 1
     stats: Dict[str, Dict] = {"similarity": {}}
     for doc in docs:
