@@ -1,5 +1,5 @@
 import EventSource from 'eventsource';
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { catchError, lastValueFrom, map, Observable } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
@@ -10,21 +10,35 @@ import {
   PropertySpecification,
   VariableDescriptionDto,
 } from '@poly/model';
+import { Cache } from 'cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import crypto from 'crypto';
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
   constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {}
 
-  getFunctionCompletion(environmentId: string, userId: string, message: string): Observable<string> {
-    this.logger.debug(`Sending message to Science server for function completion: ${message}`);
+  async getFunctionCompletion(environmentId: string, userId: string, message: string): Promise<Observable<string>> {
+    const messageUUID = crypto.randomUUID();
 
-    const eventSource = new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question=${encodeURIComponent(message)}`);
+    const messageKey = `questions:${messageUUID}`;
+
+    this.logger.debug(`Saving message in cache manager with key: ${messageKey}`);
+
+    await this.cacheManager.set(messageKey, message);
+
+    this.logger.debug(`Saved message: ${message}`);
+
+    this.logger.debug(`Sending message to Science server for function completion with key: ${messageKey}`);
+
+    const eventSource = new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question_uuid=${messageKey}`);
 
     return new Observable<string>(subscriber => {
       eventSource.onmessage = (event) => {
@@ -37,6 +51,12 @@ export class AiService {
         }
         subscriber.complete();
         eventSource.close();
+
+        this.cacheManager.del(messageKey).then(() => {
+          this.logger.debug(`Message key ${messageKey} removed from cache manager after science server message is fully received.`);
+        }).catch(err => {
+          this.logger.error(`Couldn't delete message key ${messageKey} from cache manager after science server message is fully received`, err);
+        });
       };
     });
   }
