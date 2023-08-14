@@ -9,6 +9,7 @@ from prisma import get_client
 
 from app.constants import CHAT_GPT_MODEL
 from app.typedefs import ChatGptChoice, MessageDict
+from app.utils import log
 
 
 def _get_openapi_url(plugin_id: int) -> str:
@@ -31,10 +32,14 @@ def _get_openapi_spec(plugin_id: int) -> Dict:
 
 
 def _get_body_schema_name(post: Dict) -> str:
-    schema_ref: str = post["requestBody"]["content"]["application/json"]["schema"][
-        "$ref"
-    ]
-    schema_name = schema_ref.rsplit("/", 1)[1]
+    try:
+        schema_ref: str = post["requestBody"]["content"]["application/json"]["schema"][
+            "$ref"
+        ]
+        schema_name = schema_ref.rsplit("/", 1)[1]
+    except Exception as e:
+        log(f"_get_body_schema_problem:{e}\n{post}")
+        return ""
     return schema_name
 
 
@@ -44,7 +49,8 @@ def openapi_to_openai_functions(openapi: Dict) -> List[Dict]:
         post = data["post"]
         func = {"name": post["operationId"], "description": post["summary"]}
         schema_name = _get_body_schema_name(post)
-        func["parameters"] = openapi["components"]["schemas"][schema_name]
+        if schema_name:
+            func["parameters"] = openapi["components"]["schemas"][schema_name]
         rv.append(func)
 
     return rv
@@ -63,6 +69,8 @@ def get_plugin_chat(api_key: str, plugin_id: int, message: str) -> List[MessageD
         temperature=0.2,
     )
     choice: ChatGptChoice = resp["choices"][0]
+    if not choice.get("message"):
+        raise NotImplementedError(f"Got weird OpenAI response: {choice}")
     function_call = choice["message"].get("function_call")
     if function_call:
         # lets execute the function_call and return the results
