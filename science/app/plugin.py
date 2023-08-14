@@ -18,7 +18,8 @@ def _get_openapi_url(plugin_id: int) -> str:
     )
     if not plugin or not plugin.environment:
         raise NotImplementedError(f"Plugin with id {plugin_id} doesn't exist, how?")
-    url = f"https://{plugin.slug}-{plugin.environment.subdomain}.develop-k8s.polyapi.io/plugins/{plugin.slug}/openapi"
+    domain = os.environ.get("HOST_URL", "https://na1.polyapi.io").strip("https://")
+    url = f"https://{plugin.slug}-{plugin.environment.subdomain}.{domain}/plugins/{plugin.slug}/openapi"
     return url
 
 
