@@ -51,6 +51,9 @@ def openapi_to_openai_functions(openapi: Dict) -> List[Dict]:
         schema_name = _get_body_schema_name(post)
         if schema_name:
             func["parameters"] = openapi["components"]["schemas"][schema_name]
+        else:
+            # TODO maybe this is a non-schema one?
+            func['parameters'] = {"type": "object", "properties": {}}
         rv.append(func)
 
     return rv

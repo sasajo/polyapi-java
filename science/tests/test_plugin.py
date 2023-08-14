@@ -216,6 +216,7 @@ class T(DbTestCase):
             func["description"],
             "This API call allows sends SMS messages through Twilio",
         )
+        # print(func['parameters'])
         self.assertTrue(func["parameters"])
 
     def test_get_openapi_url(self):
