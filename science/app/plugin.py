@@ -53,7 +53,7 @@ def openapi_to_openai_functions(openapi: Dict) -> List[Dict]:
             func["parameters"] = openapi["components"]["schemas"][schema_name]
         else:
             # TODO maybe this is a non-schema one?
-            func['parameters'] = {}
+            func['parameters'] = {"type": "object", "properties": {}}
         rv.append(func)
 
     return rv
