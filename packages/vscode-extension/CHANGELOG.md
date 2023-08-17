@@ -1,3 +1,9 @@
+
+### 0.1.50
+* Fix: Escape questions on render
+* Fix: Redis string format when saving.
+* Fix: Store message before sending it to science server.
+
 ### 0.1.47
 * Fix for sending questions with escaped characters.
 
