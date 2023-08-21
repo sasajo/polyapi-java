@@ -37,21 +37,22 @@ def func_path(func: SpecificationDto) -> str:
     return "poly." + path
 
 
-def _process_schema_property(property: Dict):
-    if property["type"] == "string":
+def _process_schema_property(property: Dict) -> str:
+    property_type = property.get("type", "")
+    if property_type == "string":
         return "string"
-    elif property["type"] == "number":
+    elif property_type == "number":
         return "number"
-    elif property["type"] == "integer":
+    elif property_type == "integer":
         return "integer"
-    elif property["type"] == "boolean":
+    elif property_type == "boolean":
         return "boolean"
-    elif property["type"] == "null":
+    elif property_type == "null":
         return "null"
-    elif property["type"] == "array":
+    elif property_type == "array":
         child = _process_schema_property(property['items'])
         return f"[{child}]"
-    elif property["type"] == "object":
+    elif property_type == "object":
         sub_props = []
         for key, val in property["properties"].items():
             sub_props.append(f"{key}: {_process_schema_property(val)}")
