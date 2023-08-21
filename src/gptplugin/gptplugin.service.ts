@@ -243,8 +243,15 @@ const validateName = (name: string): string => {
 };
 
 const _validateDesc = (desc: string): string => {
-  if (desc.length > 120) {
-    throw new BadRequestException('Desc too long. Max desc length is 120 characters!');
+  if (desc && desc.length > 120) {
+    throw new BadRequestException('Description for marketplace too long. Max desc length is 120 characters!');
+  }
+  return desc;
+};
+
+const _validateDescForModel = (desc: string): string => {
+  if (desc && desc.length > 7900) {
+    throw new BadRequestException('Description for model too long. Max desc length is 8000 characters!');
   }
   return desc;
 };
@@ -256,7 +263,7 @@ const SIMPLE_PLUGIN_FIELDS: { [key: string]: null | CallableFunction } = {
   legalUrl: null,
   name: validateName,
   descriptionForMarketplace: _validateDesc,
-  descriptionForModel: _validateDesc,
+  descriptionForModel: _validateDescForModel,
   iconUrl: null,
   authType: null,
   authToken: null,
