@@ -21,8 +21,13 @@ export class AiService {
     private readonly prisma: PrismaService,
   ) {}
 
-  getFunctionCompletion(environmentId: string, userId: string, uuid: string) {
-    return new EventSource(`${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question_uuid=${uuid}`);
+  getFunctionCompletion(environmentId: string, userId: string, uuid: string, workspaceFolder = '') {
+    let scienceUrl = `${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question_uuid=${uuid}`;
+    if (workspaceFolder) {
+      scienceUrl += `&workspace_folder=${workspaceFolder}`;
+    }
+
+    return new EventSource(scienceUrl);
   }
 
   async pluginChat(apiKey: string, pluginId: number, message: string): Promise<unknown> {

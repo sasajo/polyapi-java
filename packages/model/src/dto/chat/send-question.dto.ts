@@ -8,4 +8,8 @@ export class SendQuestionDto {
   @IsString()
   @IsOptional()
   message_uuid: string;
+
+  @IsOptional()
+  @IsString()
+  workspaceFolder: string = '';
 }

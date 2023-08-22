@@ -63,14 +63,15 @@ def function_completion() -> Response:
             }
         )
 
-    prev_msgs = previous_message_referenced(user_id, question)
+    workspace_folder: str = data.get("workspace_folder", "")
+    prev_msgs = previous_message_referenced(user_id, question, workspace_folder)
     stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
 
     route, question = split_route_and_question(question)
     stats["route"] = route
 
     resp: Union[Generator, str] = ""  # either str or streaming completion type
-    conversation = create_new_conversation(user_id)
+    conversation = create_new_conversation(user_id, workspace_folder)
     if route == "function":
         resp = get_completion_answer(
             user_id, conversation.id, environment_id, question, prev_msgs
@@ -78,9 +79,9 @@ def function_completion() -> Response:
         # TODO fixme?
         # stats.update(completion_stats)
     elif route == "general":
-        resp = general_question(user_id, conversation.id, question, prev_msgs)
+        resp = general_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "help":
-        resp = help_question(user_id, conversation.id, question, prev_msgs)
+        resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "documentation":
         resp = documentation_question(user_id, conversation.id, question, prev_msgs)
         # TODO fixme?

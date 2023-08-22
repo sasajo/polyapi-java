@@ -12,7 +12,6 @@ import {
   Header,
   Query,
   MessageEvent,
-  ValidationPipe,
   BadRequestException,
 } from '@nestjs/common';
 import { map, Observable } from 'rxjs';
@@ -35,7 +34,6 @@ import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { AuthService } from 'auth/auth.service';
 import { MessageDto } from '@poly/model';
-import { MergeRequestData } from 'common/decorators';
 
 @ApiSecurity('PolyApiKey')
 @Controller('chat')
@@ -83,15 +81,13 @@ export class ChatController {
       throw new BadRequestException('At least one of `message` or `uuid` must be provided.');
     }
 
-    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid);
+    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '');
 
-    return observable
-      .pipe(
-        map(data => ({
-          data,
-        }),
-        ),
-      );
+    return observable.pipe(
+      map((data) => ({
+        data,
+      })),
+    );
   }
 
   @UseGuards(PolyAuthGuard)
@@ -128,8 +124,8 @@ export class ChatController {
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Get('/conversations')
-  public async conversationsList(@Req() req: AuthRequest, @Query('userId') userId: string) {
-    const conversationIds = await this.service.getConversationIds(userId);
+  public async conversationsList(@Req() req: AuthRequest, @Query() query) {
+    const conversationIds = await this.service.getConversationIds(query.userId, query.workspaceFolder || '');
     return { conversationIds };
   }
 
@@ -149,15 +145,12 @@ export class ChatController {
   @Get('/history')
   public async chatHistory(
     @Req() req: AuthRequest,
-    @MergeRequestData(['query'], new ValidationPipe({ validateCustomDecorators: true, transform: true })) pagination: Pagination,
+    @Query() pagination: Pagination,
   ): Promise<MessageDto[]> {
-    const {
-      perPage = '10',
-      firstMessageDate = null,
-    } = pagination;
+    const { perPage = '10', firstMessageDate = null, workspaceFolder = '' } = pagination;
 
     // returns the conversation history for this specific user
-    const history = await this.service.getHistory(req.user.user?.id, Number(perPage), firstMessageDate);
+    const history = await this.service.getHistory(req.user.user?.id, Number(perPage), firstMessageDate, workspaceFolder);
 
     return history;
   }

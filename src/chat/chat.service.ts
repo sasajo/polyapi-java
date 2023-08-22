@@ -26,7 +26,7 @@ export class ChatService {
     };
   }
 
-  public async sendQuestion(environmentId: string, userId: string, message: string | null, uuid: string | null): Promise<Observable<string>> {
+  public async sendQuestion(environmentId: string, userId: string, message: string | null, uuid: string | null, workspaceFolder = ''): Promise<Observable<string>> {
     let eventSource: any;
 
     if (uuid) {
@@ -40,14 +40,14 @@ export class ChatService {
 
       this.logger.debug(`Sending question to science server with key ${messageKey}`);
 
-      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey);
+      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder);
     } else if (message) {
       const { uuid } = await this.storeMessage(message);
       const messageKey = this.getMessageKey(uuid);
 
       this.logger.debug(`Sending question to science server with uuid ${messageKey}`);
 
-      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey);
+      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder);
     } else {
       throw new Error('At least one of `message` or `uuid` must be provided.');
     }
@@ -99,9 +99,9 @@ export class ChatService {
     }
   }
 
-  async getConversationIds(userId: string): Promise<string[]> {
+  async getConversationIds(userId: string, workspaceFolder: string): Promise<string[]> {
     const conversations = await this.prisma.conversation.findMany({
-      where: { userId },
+      where: { userId, workspaceFolder },
       orderBy: { createdAt: 'desc' },
       take: 100, // limit to 100 results for now
     });
@@ -130,13 +130,20 @@ export class ChatService {
     return parts.join('\n\n');
   }
 
-  async getHistory(userId: string | undefined, perPage = 10, firstMessageDate: Date | null = null) {
+  async getHistory(userId: string | undefined, perPage = 10, firstMessageDate: Date | null = null, workspaceFolder: string) {
     if (!userId) {
       return [];
     }
 
     const messages = await this.prisma.conversationMessage.findMany({
-      where: { userId, type: 2, role: { in: ['user', 'assistant'] } },
+      where: {
+        userId,
+        type: 2,
+        role: { in: ['user', 'assistant'] },
+        conversation: {
+          workspaceFolder,
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: perPage,
       cursor: firstMessageDate ? { createdAt: firstMessageDate } : undefined,
