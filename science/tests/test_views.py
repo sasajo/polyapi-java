@@ -43,7 +43,7 @@ class T(DbTestCase):
     def test_function_completion_question_uuid(self, get_answer: Mock, route_question, redis_get: Mock) -> None:
         # setup
         user = test_user_get_or_create()
-        redis_get.return_value = json.dumps(json.dumps({"message": "first three numbers"}))
+        redis_get.return_value = json.dumps({"message": "first three numbers"})
         route_question.return_value = "function", "hi world"
 
         question_uuid = str(uuid.uuid4())
