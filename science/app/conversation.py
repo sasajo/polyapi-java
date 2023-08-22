@@ -17,7 +17,7 @@ def insert_prev_msgs(
 
     # reverse the list then insert each msg at the beginning to maintain order
     for msg in reversed(prev_msgs):
-        messages.insert(0, MessageDict(role=msg.role, content=msg.content, type=MessageType.internal.value))
+        messages.insert(0, MessageDict(role=msg.role, content=msg.content))
 
 
 PREVIOUS_INFO_PROMPT = """Answer "1" if the question seems incomplete suggesting the user is referencing information from the preceding conversation.
