@@ -320,7 +320,7 @@ export class FunctionService implements OnModuleInit {
 
           this.logger.debug(`Setting argument descriptions to arguments metadata from AI: ${JSON.stringify(aiArguments)}...`);
 
-          aiArguments
+          (aiArguments || [])
             .filter((aiArgument) => !argumentsMetadata[aiArgument.name].description)
             .forEach((aiArgument) => {
               argumentsMetadata[aiArgument.name].description = aiArgument.description;
@@ -1712,7 +1712,7 @@ export class FunctionService implements OnModuleInit {
 
     return {
       description: aiDescription,
-      arguments: aiArguments,
+      arguments: aiArguments || [],
     };
   }
 
