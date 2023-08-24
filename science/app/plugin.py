@@ -74,13 +74,13 @@ def get_plugin_chat(
     prev_msgs = previous_messages_referenced(user_id, message, message_type=MessageType.plugin)
     openapi = _get_openapi_spec(plugin_id)
     functions = openapi_to_openai_functions(openapi)
-    messages = [
-        MessageDict(role="user", content=message)
+    messages = msgs_to_msg_dicts(prev_msgs) + [
+        MessageDict(role="user", content=message, type=MessageType.plugin.value)
     ]
 
     resp = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
-        messages=msgs_to_msg_dicts(prev_msgs) + messages,
+        messages=messages,
         functions=functions,
         temperature=0.2,
     )
@@ -101,13 +101,12 @@ def get_plugin_chat(
             temperature=0.2,
         )
         answer_msg = dict(resp2["choices"][0]["message"])
+        answer_msg['type'] = MessageType.plugin.value
         messages.append(answer_msg)  # type: ignore
 
         if user_id:
             # if this convo is being done by a user, let's log it!
             conversation = create_new_conversation(user_id)
-            for msg in messages:
-                msg['type'] = MessageType.plugin.value
             store_messages(user_id, conversation.id, messages)
 
         return messages
