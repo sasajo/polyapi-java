@@ -213,13 +213,16 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         response=data.get("response", "None"),
         code="",  # no code for webhooks
         call_type="Event handler",
-        description_length_limit=DESCRIPTION_LENGTH_LIMIT,
         format=FUNCTION_DESCRIPTION_RETURN_FORMAT,
         # contexts="\n".join(contexts),
     )
+    limitations = {
+        "role": "user",
+        "content": f"The description must be {DESCRIPTION_LENGTH_LIMIT} characters or less.",
+    }
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg, limitations]
     )
     completion = resp["choices"][0]["message"]["content"].strip()
     try:
