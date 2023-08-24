@@ -148,7 +148,7 @@ def store_messages(
         store_message(
             user_id,
             conversation_id,
-            message,
+            message
         )
 
 
@@ -163,12 +163,24 @@ def store_message(
         "userId": user_id,
         "conversationId": conversation_id,
         "role": data["role"],
-        "content": data["content"],
-        "type": data.get("type", 1),
+        "content": _get_content(data),
+        "type": data.get("type", MessageType.user.value),
     }
 
     rv = db.conversationmessage.create(data=create_input)  # type: ignore
     return rv
+
+
+def _get_content(data: MessageDict):
+    content = ""
+    function_call = data.get('function_call')
+    if function_call:
+        content += f"function_call: {json.dumps(function_call)}\n"
+    functions = data.get('functions')
+    if functions:
+        content += f"function: {json.dumps(functions)}\n"
+    content += data.get("content") or ""
+    return content
 
 
 def get_conversations_for_user(user_id: str) -> List[Conversation]:
@@ -412,7 +424,8 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
     return {"data": return_type}
 
 
-def msgs_to_msg_dicts(msgs: Optional[List[Union[ConversationMessage, MessageDict]]]) -> List[MessageDict]:
+# HACK technically there might be MessageDict in the List, buy mypy does poorly with that
+def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[MessageDict]:
     if msgs:
         rv = []
         for msg in msgs:
