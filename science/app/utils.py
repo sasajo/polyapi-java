@@ -335,10 +335,7 @@ def camel_case(text: str) -> str:
     return s[0] + "".join(i.capitalize() for i in s[1:])
 
 
-def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0, stream=False
-) -> Union[Generator, str]:
-    """send the messages to OpenAI and get a response"""
+def strip_type_and_info(messages: List[MessageDict]) -> List[MessageDict]:
     stripped = copy.deepcopy(messages)
     stripped = [
         m for m in stripped if m["role"] != "info"
@@ -346,9 +343,17 @@ def get_chat_completion(
     for s in stripped:
         # remove our internal-use-only fields
         s.pop("type", None)
+    return stripped
+
+
+def get_chat_completion(
+    messages: List[MessageDict], *, temperature=1.0, stream=False
+) -> Union[Generator, str]:
+    """send the messages to OpenAI and get a response"""
+    messages = strip_type_and_info(messages)
     resp = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
-        messages=stripped,
+        messages=messages,
         temperature=temperature,
         stream=stream,
     )
