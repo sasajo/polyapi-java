@@ -8,7 +8,7 @@ from prisma.models import ConversationMessage
 
 HELP_ANSWER = """Poly conversation special commands
 
-* /functions or /f or no slash command: search functions and variables and use them to answer question
+* /functions or /f or no slash command: search functions and variables and use them to answer questions
 * /help or /h: list out available commands
 * /poly or /p or /docs or /d: searches poly documentation
 * /general or /g: ask general question straight to ChatGPT

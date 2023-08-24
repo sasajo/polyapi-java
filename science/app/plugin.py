@@ -11,7 +11,7 @@ from prisma import get_client
 
 from app.constants import CHAT_GPT_MODEL, MessageType
 from app.typedefs import ChatGptChoice, MessageDict
-from app.utils import create_new_conversation, log, msgs_to_msg_dicts, store_messages
+from app.utils import create_new_conversation, get_chat_completion, log, msgs_to_msg_dicts, store_messages
 
 
 def _get_openapi_url(plugin_id: int) -> str:
@@ -94,14 +94,8 @@ def get_plugin_chat(
         function_call_msg = choice["message"]
         function_msg = execute_function(api_key, openapi, function_call)
         messages.extend([function_call_msg, function_msg])
-        resp2 = openai.ChatCompletion.create(
-            model=CHAT_GPT_MODEL,
-            messages=messages,
-            functions=functions,
-            temperature=0.2,
-        )
-        answer_msg = dict(resp2["choices"][0]["message"])
-        answer_msg['type'] = MessageType.plugin.value
+        answer_content = get_chat_completion(messages, temperature=0.2)
+        answer_msg = {"role": "assistant", "content": answer_content, "type": MessageType.plugin.value}
         messages.append(answer_msg)  # type: ignore
 
         if user_id:
