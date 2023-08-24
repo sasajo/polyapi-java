@@ -2,7 +2,7 @@ import type { PropertySpecification, PropertyType } from '@poly/model';
 
 export const isPlainObjectPredicate = (value: unknown): value is object => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+};
 
 export const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
   const wrapInPromiseIfNeeded = (code: string) => (synchronous ? code : `Promise<${code}>`);
@@ -43,4 +43,16 @@ export const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
       )}`;
     }
   }
+};
+
+export const getStartOfDay = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+export const getEndOfDay = () => {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
 };
