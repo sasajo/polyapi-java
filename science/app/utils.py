@@ -7,7 +7,7 @@ import requests
 import redis
 import numpy as np
 from requests import Response
-from flask import current_app
+from flask import current_app, abort
 import jsonref
 from typing import Any, Dict, Generator, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
@@ -467,3 +467,10 @@ def redis_get(key: str) -> str:
         return val.decode()
     else:
         return ""
+
+
+def verify_required_fields(data: Dict, required: List[str]) -> None:
+    missing_fields = [field for field in required if field not in data]
+    if missing_fields:
+        msg = {"message": "Required fields missing: {}".format(", ".join(missing_fields))}
+        abort(400, msg)
