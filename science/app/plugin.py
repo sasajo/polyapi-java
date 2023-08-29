@@ -1,5 +1,6 @@
 import os
 import json
+from flask import abort
 import requests
 
 assert requests
@@ -79,6 +80,9 @@ def get_plugin_chat(
 
     conversation = db.conversation.find_first(where={"id": conversation_id})
     if conversation:
+        if conversation.userId != user_id:
+            abort(401, {"message": "Not authorized. User id and conversation user id mismatch."})
+
         prev_msgs = db.conversationmessage.find_many(
             where={"conversationId": conversation_id, "type": MessageType.plugin.value},
             order={"createdAt": "asc"},

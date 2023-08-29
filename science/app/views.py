@@ -201,5 +201,10 @@ def handle_open_ai_error(e):
 
 
 @bp.errorhandler(400)
-def handle_bad_request(e):
+def handle_400(e):
     return e.description, 400
+
+
+@bp.errorhandler(401)
+def handle_401(e):
+    return e.description, 401
