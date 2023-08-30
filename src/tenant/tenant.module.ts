@@ -12,6 +12,7 @@ import { LimitModule } from 'limit/limit.module';
 import { EmailModule } from 'email/email.module';
 import { TosModule } from 'tos/tos.module';
 import { CommonModule } from 'common/common.module';
+import { SecretModule } from 'secret/secret.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CommonModule } from 'common/common.module';
     EmailModule,
     TosModule,
     CommonModule,
+    SecretModule,
   ],
   providers: [TenantService],
   controllers: [TenantController],

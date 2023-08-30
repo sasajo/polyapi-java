@@ -12,6 +12,7 @@ import { AuthService } from 'auth/auth.service';
 import { getEndOfDay } from '@poly/common/utils';
 import { EmailService } from 'email/email.service';
 import { CommonService } from 'common/common.service';
+import { SecretService } from 'secret/secret.service';
 
 type CreateTenantOptions = {
   environmentName?: string;
@@ -36,6 +37,7 @@ export class TenantService implements OnModuleInit {
     private readonly userService: UserService,
     private readonly emailService: EmailService,
     private readonly commonService: CommonService,
+    private readonly secretService: SecretService,
   ) {
   }
 
@@ -206,6 +208,8 @@ export class TenantService implements OnModuleInit {
         },
       },
     });
+
+    await this.secretService.initForEnvironment(tenant.environments[0]);
 
     return {
       tenant,
