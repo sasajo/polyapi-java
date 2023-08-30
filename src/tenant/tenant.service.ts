@@ -38,7 +38,7 @@ export class TenantService implements OnModuleInit {
   private async checkPolyTenant() {
     const tenant = await this.findByName(this.config.polyTenantName);
     if (!tenant) {
-      await this.create(this.config.polyTenantName, true, null, {
+      await this.create(this.config.polyTenantName, true, null, null, {
         teamName: this.config.polyAdminsTeamName,
         userName: this.config.polyAdminUserName,
         userRole: Role.SuperAdmin,
@@ -52,6 +52,7 @@ export class TenantService implements OnModuleInit {
       id: tenant.id,
       name: tenant.name,
       publicVisibilityAllowed: tenant.publicVisibilityAllowed,
+      publicNamespace: tenant.publicNamespace,
       tierId: tenant.limitTierId,
     };
   }
@@ -100,6 +101,7 @@ export class TenantService implements OnModuleInit {
       id: fullTenant.id,
       name: fullTenant.name,
       publicVisibilityAllowed: fullTenant.publicVisibilityAllowed,
+      publicNamespace: tenant.publicNamespace,
       tierId: fullTenant.limitTierId,
       users: fullTenant.users.map(user => this.userService.toUserDto(user)),
       environments: fullTenant.environments.map(toEnvironmentFullDto),
@@ -120,7 +122,13 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async create(name: string, publicVisibilityAllowed = false, limitTierId: string | null = null, options: CreateTenantOptions = {}): Promise<Tenant> {
+  async create(
+    name: string,
+    publicVisibilityAllowed = false,
+    publicNamespace: string | null = null,
+    limitTierId: string | null = null,
+    options: CreateTenantOptions = {},
+  ): Promise<Tenant> {
     const { environmentName, teamName, userName, userRole, userApiKey } = options;
 
     return this.prisma.$transaction(async tx => {
@@ -128,6 +136,7 @@ export class TenantService implements OnModuleInit {
         data: {
           name,
           publicVisibilityAllowed,
+          publicNamespace,
           limitTierId,
           users: {
             create: [
@@ -198,7 +207,13 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async update(tenant: Tenant, name: string | undefined, publicVisibilityAllowed: boolean | undefined, limitTierId: string | null | undefined) {
+  async update(
+    tenant: Tenant,
+    name: string | undefined,
+    publicVisibilityAllowed: boolean | undefined,
+    publicNamespace: string | null | undefined,
+    limitTierId: string | null | undefined,
+  ) {
     return this.prisma.tenant.update({
       where: {
         id: tenant.id,
@@ -206,6 +221,7 @@ export class TenantService implements OnModuleInit {
       data: {
         name,
         publicVisibilityAllowed,
+        publicNamespace,
         limitTierId,
       },
     });
@@ -217,6 +233,21 @@ export class TenantService implements OnModuleInit {
     return this.prisma.tenant.delete({
       where: {
         id: tenantId,
+      },
+    });
+  }
+
+  async isPublicNamespaceAvailable(publicNamespace: string | null | undefined, excludedTenantIds?: string[]) {
+    if (!publicNamespace) {
+      return true;
+    }
+
+    return !await this.prisma.tenant.findFirst({
+      where: {
+        publicNamespace,
+        id: {
+          notIn: excludedTenantIds,
+        },
       },
     });
   }

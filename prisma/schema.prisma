@@ -23,6 +23,7 @@ model Tenant {
   environments            Environment[]
   applications            Application[]
   publicVisibilityAllowed Boolean          @default(false) @map("public_visibility_allowed")
+  publicNamespace         String?          @map("public_namespace")
   configVariables         ConfigVariable[]
   limitTier               LimitTier?       @relation(fields: [limitTierId], references: [id])
   limitTierId             String?          @map("limit_tier_id")
