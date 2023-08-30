@@ -60,7 +60,7 @@ export class VariableService {
     return {
       ...await this.toDto(variable),
       context: this.commonService.getPublicContext(variable),
-      tenant: variable.environment.tenant.name,
+      tenant: variable.environment.tenant.name || '',
       hidden: variable.hidden,
     };
   }

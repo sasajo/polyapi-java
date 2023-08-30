@@ -220,7 +220,7 @@ export class FunctionService implements OnModuleInit {
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
       context: this.commonService.getPublicContext(apiFunction),
-      tenant: apiFunction.environment.tenant.name,
+      tenant: apiFunction.environment.tenant.name || '',
       hidden: apiFunction.hidden,
     };
   }
@@ -229,7 +229,7 @@ export class FunctionService implements OnModuleInit {
     return {
       ...this.apiFunctionToDetailsDto(apiFunction),
       context: this.commonService.getPublicContext(apiFunction),
-      tenant: apiFunction.environment.tenant.name,
+      tenant: apiFunction.environment.tenant.name || '',
       hidden: apiFunction.hidden,
     };
   }
@@ -807,7 +807,7 @@ export class FunctionService implements OnModuleInit {
     return {
       ...this.customFunctionToBasicDto(customFunction),
       context: this.commonService.getPublicContext(customFunction),
-      tenant: tenant.name,
+      tenant: tenant.name || '',
       hidden: customFunction.hidden,
     };
   }
@@ -816,7 +816,7 @@ export class FunctionService implements OnModuleInit {
     return {
       ...this.customFunctionToDetailsDto(customFunction),
       context: this.commonService.getPublicContext(customFunction),
-      tenant: customFunction.environment.tenant.name,
+      tenant: customFunction.environment.tenant.name || '',
       hidden: customFunction.hidden,
     };
   }

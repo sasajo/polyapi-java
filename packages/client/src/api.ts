@@ -3,7 +3,8 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import https from 'https';
 import dotenv from 'dotenv';
-import { FunctionDetailsDto, Specification } from '@poly/model';
+import { FunctionDetailsDto, SignUpDto, SignUpVerificationResultDto, Specification, TosDto } from '@poly/model';
+import { getInstanceUrl } from '@poly/common/utils';
 
 dotenv.config();
 
@@ -88,4 +89,37 @@ export const createClientFunction = async (
       },
     )
   ).data;
+};
+
+export const createTenantSignUp = async (instance: string, email: string, tenantName: string | null = null) => {
+  return (
+    await axios.post<any, AxiosResponse<SignUpDto>>(`${getInstanceUrl(instance)}/tenants/sign-up`, {
+      email,
+      tenantName,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+  ).data;
+};
+
+export const verifyTenantSignUp = async (instance: string, id: string, code: string) => {
+  return (
+    await axios.post<any, AxiosResponse<SignUpVerificationResultDto>>(`${getInstanceUrl(instance)}/tenants/sign-up/${id}/verify`, {
+      code,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+  ).data;
+};
+
+export const resendVerificationCode = (instance: string, id: string) => {
+  return axios.post<any, AxiosResponse<SignUpDto>>(`${getInstanceUrl(instance)}/tenants/sign-up/${id}/resend-verification-code`);
+};
+
+export const getLastTos = async (instance: string) => {
+  return (await axios.get<any, AxiosResponse<TosDto>>(`${getInstanceUrl(instance)}/tos`)).data;
 };

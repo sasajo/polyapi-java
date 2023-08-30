@@ -5,7 +5,7 @@ import { UserDto } from '../user';
 
 export class TenantDto {
   id: string;
-  name: string;
+  name: string | null;
   publicVisibilityAllowed: boolean;
   tierId: string | null;
   publicNamespace: string | null;

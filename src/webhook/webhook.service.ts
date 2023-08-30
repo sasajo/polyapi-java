@@ -291,7 +291,7 @@ export class WebhookService {
     return {
       ...this.toDto(webhookHandle),
       context: this.commonService.getPublicContext(webhookHandle),
-      tenant: webhookHandle.environment.tenant.name,
+      tenant: webhookHandle.environment.tenant.name || '',
       hidden: webhookHandle.hidden,
     };
   }
