@@ -126,7 +126,7 @@ export const create = async (instance: string, loadedTenantSignUp: SignUpDto | n
       try {
         shell.echo('\n\nResending your verification code...\n');
 
-        await resendVerificationCode(instance, tenantSignUp.id);
+        await resendVerificationCode(instance, tenantSignUp.email);
       } catch (error) {
         shell.echo(chalk.red('ERROR\n'));
         shell.echo('Error sending verification code to', `${chalk.bold(tenantSignUp.email)}.`, '\n');
@@ -139,9 +139,9 @@ export const create = async (instance: string, loadedTenantSignUp: SignUpDto | n
     shell.echo('-n', chalk.rgb(255, 255, 255)('Verifying your code...\n\n'));
 
     try {
-      const response = await verifyTenantSignUp(instance, tenantSignUp.id, code);
+      const response = await verifyTenantSignUp(instance, tenantSignUp.email, code);
 
-      shell.echo(chalk.green('Tenant created sucesfully, details:\n'));
+      shell.echo(chalk.green('Tenant created successfully, details:\n'));
       shell.echo(chalk.bold('Instance url:'), response.apiBaseUrl, '\n');
       shell.echo(chalk.bold('Admin polyApiKey:'), response.apiKey, '\n');
 

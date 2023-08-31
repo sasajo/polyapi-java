@@ -44,6 +44,7 @@ import {
   SignUpVerificationDto,
   CreateTenantAgreement,
   TenantAgreementDto,
+  ResendVerificationCodeDto,
 } from '@poly/model';
 import { EnvironmentService } from 'environment/environment.service';
 import { TeamService } from 'team/team.service';
@@ -782,19 +783,19 @@ export class TenantController {
     },
     description: 'When tos sent does not exist in database.',
   })
-  @Post('/sign-up/:id/verify')
+
+  @Post('/sign-up/verify')
   async signUpVerify(
-    @Param('id') id: string,
     @Body() data: SignUpVerificationDto,
   ) {
-    return this.tenantService.signUpVerify(id, data.code);
+    return this.tenantService.signUpVerify(data.email, data.code);
   }
 
-  @Post('/sign-up/:id/resend-verification-code')
+  @Post('/sign-up/resend-verification-code')
   async signUpResendVerificationCode(
-    @Param('id') id: string,
+    @Body() data: ResendVerificationCodeDto,
   ) {
-    await this.tenantService.resendVerificationCode(id);
+    await this.tenantService.resendVerificationCode(data.email);
   }
 
   @UseGuards(PolyAuthGuard)

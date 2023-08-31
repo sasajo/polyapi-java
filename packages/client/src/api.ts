@@ -104,10 +104,11 @@ export const createTenantSignUp = async (instance: string, email: string, tenant
   ).data;
 };
 
-export const verifyTenantSignUp = async (instance: string, id: string, code: string) => {
+export const verifyTenantSignUp = async (instance: string, email: string, code: string) => {
   return (
-    await axios.post<any, AxiosResponse<SignUpVerificationResultDto>>(`${getInstanceUrl(instance)}/tenants/sign-up/${id}/verify`, {
+    await axios.post<any, AxiosResponse<SignUpVerificationResultDto>>(`${getInstanceUrl(instance)}/tenants/sign-up/verify`, {
       code,
+      email,
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -116,8 +117,10 @@ export const verifyTenantSignUp = async (instance: string, id: string, code: str
   ).data;
 };
 
-export const resendVerificationCode = (instance: string, id: string) => {
-  return axios.post<any, AxiosResponse<SignUpDto>>(`${getInstanceUrl(instance)}/tenants/sign-up/${id}/resend-verification-code`);
+export const resendVerificationCode = (instance: string, email: string) => {
+  return axios.post<any, AxiosResponse<SignUpDto>>(`${getInstanceUrl(instance)}/tenants/sign-up/resend-verification-code`, {
+    email,
+  });
 };
 
 export const getLastTos = async (instance: string) => {

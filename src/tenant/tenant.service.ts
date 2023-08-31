@@ -320,12 +320,12 @@ export class TenantService implements OnModuleInit {
 
     if (tenantSignUp) {
       if (tenantSignUp.expiresAt < new Date()) {
-        return this.updateAndResendVerificationCode(tenantSignUp.id, tenantName);
+        return this.updateAndResendVerificationCode(tenantSignUp.email, tenantName);
       }
 
       return this.prisma.tenantSignUp.update({
         where: {
-          id: tenantSignUp.id,
+          email,
         },
         data: {
           name: tenantName || undefined,
@@ -336,11 +336,11 @@ export class TenantService implements OnModuleInit {
     return this.createSignUpRecord(email, tenantName);
   }
 
-  async signUpVerify(id: string, code: string): Promise<SignUpVerificationResultDto> {
+  async signUpVerify(email: string, code: string): Promise<SignUpVerificationResultDto> {
     const [tenantSignUp, tier] = await Promise.all([
       this.prisma.tenantSignUp.findFirst({
         where: {
-          id,
+          email,
           verificationCode: code.toLowerCase(),
         },
       }),
@@ -356,7 +356,7 @@ export class TenantService implements OnModuleInit {
     }
 
     if (tenantSignUp.expiresAt < new Date()) {
-      await this.updateAndResendVerificationCode(id);
+      await this.updateAndResendVerificationCode(email);
       throw new ConflictException({ code: 'EXPIRED_VERIFICATION_CODE' });
     }
 
@@ -388,7 +388,7 @@ export class TenantService implements OnModuleInit {
 
       await tx.tenantSignUp.delete({
         where: {
-          id,
+          email,
         },
       });
 
@@ -402,8 +402,8 @@ export class TenantService implements OnModuleInit {
     });
   }
 
-  async resendVerificationCode(id: string) {
-    return this.updateAndResendVerificationCode(id);
+  async resendVerificationCode(email: string) {
+    return this.updateAndResendVerificationCode(email);
   }
 
   async getTenantAgreements(tenantId: string) {
@@ -476,13 +476,20 @@ export class TenantService implements OnModuleInit {
       }
     }
     if (tenantName) {
-      const tenant = await this.prisma.tenant.findFirst({
-        where: {
-          name: tenantName,
-        },
-      });
+      const [tenant, tenantSignUp] = await Promise.all([
+        this.prisma.tenant.findFirst({
+          where: {
+            name: tenantName,
+          },
+        }),
+        this.prisma.tenantSignUp.findFirst({
+          where: {
+            name: tenantName,
+          },
+        }),
+      ]);
 
-      if (tenant) {
+      if (tenant || tenantSignUp) {
         throw new ConflictException({
           code: 'TENANT_ALREADY_EXISTS',
         });
@@ -490,11 +497,11 @@ export class TenantService implements OnModuleInit {
     }
   }
 
-  private async updateAndResendVerificationCode(id: string, name: string | null = null): Promise<TenantSignUp> {
+  private async updateAndResendVerificationCode(email: string, name: string | null = null): Promise<TenantSignUp> {
     const result = await this.prisma.$transaction(async tx => {
       const tenantSignUp = await tx.tenantSignUp.findFirst({
         where: {
-          id,
+          email,
         },
       });
 
@@ -507,7 +514,7 @@ export class TenantService implements OnModuleInit {
       try {
         const tenantSignUp = await tx.tenantSignUp.update({
           where: {
-            id,
+            email,
           },
           data: {
             verificationCode,
@@ -529,7 +536,7 @@ export class TenantService implements OnModuleInit {
     });
 
     if (!result) {
-      return this.updateAndResendVerificationCode(id);
+      return this.updateAndResendVerificationCode(email);
     }
 
     return result;

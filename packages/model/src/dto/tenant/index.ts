@@ -8,3 +8,4 @@ export * from './sign-up.dto';
 export * from './sign-up-verification-result.dto';
 export * from './create-tenant-agreement.dto';
 export * from './tenant-agreement.dto';
+export * from './resend-verification-code.dto';
