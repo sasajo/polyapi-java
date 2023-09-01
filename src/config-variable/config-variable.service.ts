@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigVariable } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { ConfigVariableDto, ConfigVariableName, PublicVisibilityValue, TrainingDataGeneration } from '@poly/model';
-import { ConfigVariableStrategy, DefaultConfigVariableStrategy, TrainingDataGenerationStrategy, PublicVisibilityStrategy } from './strategy';
+import { ConfigVariableDto, ConfigVariableName, DefaultTierValue, PublicVisibilityValue, TrainingDataGeneration } from '@poly/model';
+import {
+  ConfigVariableStrategy,
+  DefaultConfigVariableStrategy,
+  TrainingDataGenerationStrategy,
+  PublicVisibilityStrategy,
+  DefaultTierStrategy,
+} from './strategy';
 import { CommonService } from 'common/common.service';
 
 @Injectable()
@@ -13,6 +19,7 @@ export class ConfigVariableService {
   private readonly defaultConfigVariableStrategy: ConfigVariableStrategy<unknown>;
   private readonly trainingDataStrategy: ConfigVariableStrategy<TrainingDataGeneration>;
   private readonly publicVisibilityStrategy: ConfigVariableStrategy<PublicVisibilityValue>;
+  private readonly defaultTierVisibilityStrategy: ConfigVariableStrategy<DefaultTierValue>;
 
   constructor(prisma: PrismaService, commonService: CommonService) {
     this.prisma = prisma;
@@ -20,6 +27,7 @@ export class ConfigVariableService {
     this.defaultConfigVariableStrategy = new DefaultConfigVariableStrategy(prisma, commonService);
     this.trainingDataStrategy = new TrainingDataGenerationStrategy(prisma, commonService);
     this.publicVisibilityStrategy = new PublicVisibilityStrategy(prisma, commonService);
+    this.defaultTierVisibilityStrategy = new DefaultTierStrategy(prisma, commonService);
   }
 
   toDto(data: ConfigVariable): ConfigVariableDto {
@@ -55,6 +63,8 @@ export class ConfigVariableService {
         return this.trainingDataStrategy as ConfigVariableStrategy<T>;
       case ConfigVariableName.PublicVisibility:
         return this.publicVisibilityStrategy as ConfigVariableStrategy<T>;
+      case ConfigVariableName.DefaultTier:
+        return this.defaultTierVisibilityStrategy as ConfigVariableStrategy<T>;
       default:
         return this.defaultConfigVariableStrategy as ConfigVariableStrategy<T>;
     }

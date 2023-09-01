@@ -1,11 +1,11 @@
 import { ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService, PrismaTransaction } from 'prisma/prisma.service';
-import { ApiKey, Tenant, TenantAgreement, TenantSignUp, Tos } from '@prisma/client';
+import { ApiKey, LimitTier, Tenant, TenantAgreement, TenantSignUp, Tos } from '@prisma/client';
 import { ConfigService } from 'config/config.service';
 import { EnvironmentService } from 'environment/environment.service';
 import { TeamService } from 'team/team.service';
 import { UserService } from 'user/user.service';
-import { Role, SignUpDto, SignUpVerificationResultDto, TenantAgreementDto, TenantDto, TenantFullDto } from '@poly/model';
+import { ConfigVariableName, DefaultTierValue, Role, SignUpDto, SignUpVerificationResultDto, TenantAgreementDto, TenantDto, TenantFullDto } from '@poly/model';
 import crypto from 'crypto';
 import { ApplicationService } from 'application/application.service';
 import { AuthService } from 'auth/auth.service';
@@ -13,6 +13,7 @@ import { getEndOfDay } from '@poly/common/utils';
 import { EmailService } from 'email/email.service';
 import { CommonService } from 'common/common.service';
 import { SecretService } from 'secret/secret.service';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
 
 type CreateTenantOptions = {
   environmentName?: string;
@@ -38,6 +39,7 @@ export class TenantService implements OnModuleInit {
     private readonly emailService: EmailService,
     private readonly commonService: CommonService,
     private readonly secretService: SecretService,
+    private readonly configVariableService: ConfigVariableService,
   ) {
   }
 
@@ -344,11 +346,7 @@ export class TenantService implements OnModuleInit {
           verificationCode: code.toLowerCase(),
         },
       }),
-      this.prisma.limitTier.findFirst({
-        where: {
-          name: 'free',
-        },
-      }),
+      this.getDefaultLimitTier(),
     ]);
 
     if (!tenantSignUp) {
@@ -495,6 +493,19 @@ export class TenantService implements OnModuleInit {
         });
       }
     }
+  }
+
+  async getDefaultLimitTier(): Promise<LimitTier | null> {
+    const defaultTier = await this.configVariableService.getEffectiveValue<DefaultTierValue>(ConfigVariableName.DefaultTier, null, null);
+    if (!defaultTier?.tierId) {
+      return null;
+    }
+
+    return this.prisma.limitTier.findFirst({
+      where: {
+        id: defaultTier.tierId,
+      },
+    });
   }
 
   private async updateAndResendVerificationCode(email: string, name: string | null = null): Promise<TenantSignUp> {

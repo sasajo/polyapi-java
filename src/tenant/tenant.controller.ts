@@ -57,6 +57,7 @@ import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { MergeRequestData } from 'common/decorators';
 import { LimitService } from 'limit/limit.service';
 import { TosService } from 'tos/tos.service';
+import { LimitTier } from '@prisma/client';
 
 @ApiSecurity('PolyApiKey')
 @Controller('tenants')
@@ -89,18 +90,21 @@ export class TenantController {
       tierId = null,
     } = data;
 
+    let limitTier: LimitTier | null = null;
     if (tierId) {
-      const limitTier = await this.limitService.findById(tierId);
+      limitTier = await this.limitService.findById(tierId);
       if (!limitTier) {
         throw new BadRequestException('Limit tier with given id does not exist.');
       }
+    } else {
+      limitTier = await this.tenantService.getDefaultLimitTier();
     }
 
     if (!await this.tenantService.isPublicNamespaceAvailable(publicNamespace)) {
       throw new BadRequestException(`Public namespace '${publicNamespace}' is not available.`);
     }
 
-    return this.tenantService.toDto(await this.tenantService.create(name, publicVisibilityAllowed, publicNamespace, tierId));
+    return this.tenantService.toDto(await this.tenantService.create(name, publicVisibilityAllowed, publicNamespace, limitTier?.id));
   }
 
   @UseGuards(PolyAuthGuard)

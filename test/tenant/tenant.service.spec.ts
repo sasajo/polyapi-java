@@ -6,10 +6,10 @@ import {
   applicationServiceMock,
   authServiceMock,
   commonServiceMock,
-  configServiceMock,
+  configServiceMock, configVariableServiceMock,
   emailServiceMock,
   environmentServiceMock,
-  prismaServiceMock, teamServiceMock, userServiceMock,
+  prismaServiceMock, secretServiceMock, teamServiceMock, userServiceMock,
 } from '../mocks';
 import { resetMocks } from '../mocks/utils';
 import { ConfigService } from 'config/config.service';
@@ -20,6 +20,8 @@ import { TeamService } from 'team/team.service';
 import { UserService } from 'user/user.service';
 import { EmailService } from 'email/email.service';
 import { CommonService } from 'common/common.service';
+import { SecretService } from 'secret/secret.service';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
 
 describe('TenantService', () => {
   const testTenant: Tenant = {
@@ -72,6 +74,14 @@ describe('TenantService', () => {
         {
           provide: CommonService,
           useValue: commonServiceMock,
+        },
+        {
+          provide: SecretService,
+          useValue: secretServiceMock,
+        },
+        {
+          provide: ConfigVariableService,
+          useValue: configVariableServiceMock,
         },
       ],
     }).compile();

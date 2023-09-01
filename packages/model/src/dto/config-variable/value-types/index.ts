@@ -14,6 +14,7 @@ export enum ConfigVariableName {
   OpenAIPluginConversationLookback = 'OpenAIPluginConversationLookback',
   TrainingDataGeneration = 'TrainingDataGeneration',
   PublicVisibility = 'PublicVisibility',
+  DefaultTier = 'DefaultTier',
 }
 
 export class TrainingDataGeneration {
