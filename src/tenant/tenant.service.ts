@@ -9,7 +9,7 @@ import { Role, SignUpDto, SignUpVerificationResultDto, TenantAgreementDto, Tenan
 import crypto from 'crypto';
 import { ApplicationService } from 'application/application.service';
 import { AuthService } from 'auth/auth.service';
-import { getEndOfDay } from '@poly/common/utils';
+import { getOneDayLaterDate } from '@poly/common/utils';
 import { EmailService } from 'email/email.service';
 import { CommonService } from 'common/common.service';
 import { SecretService } from 'secret/secret.service';
@@ -276,13 +276,8 @@ export class TenantService implements OnModuleInit {
   }
 
   async signUp(email: string, tenantName: string | null) {
-    const [user, tenantSignUp, foundTenantSignUpByName, tenant] = await Promise.all([
+    const [user, tenantSignUp, verifiedTenant] = await Promise.all([
       this.prisma.user.findFirst({
-        where: {
-          email,
-        },
-      }),
-      this.prisma.tenantSignUp.findFirst({
         where: {
           email,
         },
@@ -290,10 +285,7 @@ export class TenantService implements OnModuleInit {
       tenantName
         ? this.prisma.tenantSignUp.findFirst({
           where: {
-            name: tenantName,
-            email: {
-              not: email,
-            },
+            email,
           },
         })
         : null,
@@ -306,7 +298,7 @@ export class TenantService implements OnModuleInit {
         : null,
     ]);
 
-    if (foundTenantSignUpByName || tenant) {
+    if (verifiedTenant) {
       throw new ConflictException({
         code: 'TENANT_ALREADY_EXISTS',
       });
@@ -319,18 +311,7 @@ export class TenantService implements OnModuleInit {
     }
 
     if (tenantSignUp) {
-      if (tenantSignUp.expiresAt < new Date()) {
-        return this.updateAndResendVerificationCode(tenantSignUp.email, tenantName);
-      }
-
-      return this.prisma.tenantSignUp.update({
-        where: {
-          email,
-        },
-        data: {
-          name: tenantName || undefined,
-        },
-      });
+      return this.updateAndResendVerificationCode(tenantSignUp.email, tenantName);
     }
 
     return this.createSignUpRecord(email, tenantName);
@@ -456,40 +437,26 @@ export class TenantService implements OnModuleInit {
 
   async verifyAvailability(email: string, tenantName: string) {
     if (email) {
-      const [user, tenantSignUp] = await Promise.all([
-        this.prisma.user.findFirst({
-          where: {
-            email,
-          },
-        }),
-        this.prisma.tenantSignUp.findFirst({
-          where: {
-            email,
-          },
-        }),
-      ]);
+      const user = await this.prisma.user.findFirst({
+        where: {
+          email,
+        },
+      });
 
-      if (user || tenantSignUp) {
+      if (user) {
         throw new ConflictException({
           code: 'EMAIL_ALREADY_EXISTS',
         });
       }
     }
     if (tenantName) {
-      const [tenant, tenantSignUp] = await Promise.all([
-        this.prisma.tenant.findFirst({
-          where: {
-            name: tenantName,
-          },
-        }),
-        this.prisma.tenantSignUp.findFirst({
-          where: {
-            name: tenantName,
-          },
-        }),
-      ]);
+      const tenant = await this.prisma.tenant.findFirst({
+        where: {
+          name: tenantName,
+        },
+      });
 
-      if (tenant || tenantSignUp) {
+      if (tenant) {
         throw new ConflictException({
           code: 'TENANT_ALREADY_EXISTS',
         });
@@ -518,7 +485,7 @@ export class TenantService implements OnModuleInit {
           },
           data: {
             verificationCode,
-            expiresAt: getEndOfDay(),
+            expiresAt: getOneDayLaterDate(),
             name: name || undefined,
           },
         });
@@ -560,7 +527,7 @@ export class TenantService implements OnModuleInit {
             email,
             verificationCode,
             name,
-            expiresAt: getEndOfDay(),
+            expiresAt: getOneDayLaterDate(),
           },
         });
 
