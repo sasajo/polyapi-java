@@ -340,10 +340,23 @@ export class TenantService implements OnModuleInit {
     }
 
     return this.prisma.$transaction(async tx => {
-      const {
-        apiKey,
-        tenant,
-      } = await this.createTenantRecord(tx, tenantSignUp.name, false, tier?.id, null, { email: tenantSignUp.email });
+      let apiKey: ApiKey | null = null;
+      let tenant: Tenant | null = null;
+
+      try {
+        const result = await this.createTenantRecord(tx, tenantSignUp.name, false, tier?.id, null, { email: tenantSignUp.email });
+
+        apiKey = result.apiKey;
+        tenant = result.tenant;
+      } catch (error) {
+        if (this.commonService.isPrismaUniqueConstraintFailedError(error, 'name')) {
+          throw new ConflictException({
+            code: 'TENANT_ALREADY_EXISTS',
+          });
+        }
+
+        throw error;
+      }
 
       const lastTos = await tx.tos.findFirst({
         orderBy: [

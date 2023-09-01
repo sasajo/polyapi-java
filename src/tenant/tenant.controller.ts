@@ -769,7 +769,7 @@ export class TenantController {
       properties: {
         code: {
           type: 'string',
-          enum: ['INVALID_VERIFICATION_CODE', 'EXPIRED_VERIFICATION_CODE'],
+          enum: ['INVALID_VERIFICATION_CODE', 'EXPIRED_VERIFICATION_CODE', 'TENANT_ALREADY_EXISTS'],
 
         },
       },
@@ -787,7 +787,6 @@ export class TenantController {
     },
     description: 'When tos sent does not exist in database.',
   })
-
   @Post('/sign-up/verify')
   async signUpVerify(
     @Body() data: SignUpVerificationDto,
