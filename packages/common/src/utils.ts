@@ -74,3 +74,11 @@ export const getEndOfDay = () => {
   date.setHours(23, 59, 59, 999);
   return date;
 };
+
+export const getOneDayLaterDate = () => {
+    const date = new Date();
+
+    date.setHours(date.getHours() + 24);
+
+    return date;
+}
