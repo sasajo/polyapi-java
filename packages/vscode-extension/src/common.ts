@@ -21,7 +21,7 @@ export const saveCredentialsInExtension = (apiBaseUrl: unknown, apiKey: unknown)
 };
 
 export const getWorkspacePath = () => {
-  return vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.path : '';
+  return vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : '';
 };
 
 export const getPackageManager = (): 'yarn' | 'npm' => {
@@ -54,9 +54,23 @@ export const saveCredentialsOnClientLibrary = (apiBaseUrl: unknown, apiKey: unkn
 
   const polyFolder = path.join(getWorkspacePath(), 'node_modules/.poly');
 
-  fs.mkdirSync(polyFolder, { recursive: true });
-  fs.writeFileSync(
-    path.join(polyFolder, '.config.env'),
-        `POLY_API_BASE_URL=${apiBaseUrl}\nPOLY_API_KEY=${apiKey}\n`,
-  );
+  try {
+    fs.mkdirSync(polyFolder, { recursive: true });
+    fs.writeFileSync(
+      path.join(polyFolder, '.config.env'),
+          `POLY_API_BASE_URL=${apiBaseUrl}\nPOLY_API_KEY=${apiKey}\n`,
+    );
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+export const isPolyLibraryInstalled = () => {
+  return vscode.workspace.workspaceFolders?.some((folder) => {
+    if (fs.existsSync(`${folder.uri.fsPath}/node_modules/polyapi/package.json`)) {
+      return true;
+    }
+
+    return false;
+  });
 };

@@ -2,11 +2,12 @@ import vscode from 'vscode';
 import fs, { Stats } from 'fs';
 
 import { polySpecsChanged } from './events';
-import { getCredentialsFromExtension, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
+import { getCredentialsFromExtension, isPolyLibraryInstalled, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
 
 const CHECK_INTERVAL = 5000;
 
 let libraryInstalledCheckerTimeoutID: NodeJS.Timeout;
+let prevPolyLibraryInstalledState = false;
 
 type Info = {
   timeoutID: NodeJS.Timeout;
@@ -18,32 +19,30 @@ const watchedWorkspaceInfos = new Map<vscode.WorkspaceFolder, Info>();
 const watchedFileInfos = new Map<string, Stats>();
 
 const checkForLibraryInstalled = () => {
-  let installed = false;
-  vscode.workspace.workspaceFolders?.forEach((folder) => {
-    if (fs.existsSync(`${folder.uri.fsPath}/node_modules/polyapi/package.json`)) {
-      installed = true;
+  const installed = isPolyLibraryInstalled();
+
+  if (installed && !prevPolyLibraryInstalledState) {
+    const extensionCredentials = getCredentialsFromExtension();
+    if (extensionCredentials.apiBaseUrl && extensionCredentials.apiKey) {
+      saveCredentialsOnClientLibrary(extensionCredentials.apiBaseUrl, extensionCredentials.apiKey);
     } else {
-      installed = false;
+      vscode.commands.executeCommand('setContext', 'missingCredentials', false);
     }
-  });
+  }
+
+  prevPolyLibraryInstalledState = installed;
+
   libraryInstalledCheckerTimeoutID = setTimeout(() => checkForLibraryInstalled(), CHECK_INTERVAL);
   vscode.commands.executeCommand('setContext', 'polyLibraryInstalled', installed);
 };
 
-const checkCredentials = () => {
-  const initCredentials = getCredentialsFromExtension();
-  if (initCredentials.apiBaseUrl && initCredentials.apiKey) {
-    saveCredentialsOnClientLibrary(initCredentials.apiBaseUrl, initCredentials.apiKey);
-  } else {
-    vscode.commands.executeCommand('setContext', 'missingCredentials', false);
-  }
-
-  vscode.workspace.onDidChangeConfiguration(event => {
+const watchCredentials = () => {
+  return vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration('poly.apiBaseUrl') || event.affectsConfiguration('poly.apiKey')) {
       const credentials = getCredentialsFromExtension();
       if (!credentials.apiBaseUrl || !credentials.apiKey) {
         vscode.commands.executeCommand('setContext', 'missingCredentials', true);
-      } else {
+      } else if (isPolyLibraryInstalled()) {
         saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
         vscode.commands.executeCommand('setContext', 'missingCredentials', false);
       }
@@ -62,13 +61,15 @@ export const start = () => {
 
   checkForLibraryInstalled();
 
-  checkCredentials();
+  const credentialsWatcherDisposable = watchCredentials();
 
   return () => {
     watchedWorkspaceInfos.forEach((_, folder) => unwatchWorkspace(folder));
     if (libraryInstalledCheckerTimeoutID) {
       clearTimeout(libraryInstalledCheckerTimeoutID);
     }
+    prevPolyLibraryInstalledState = false;
+    credentialsWatcherDisposable.dispose();
   };
 };
 
@@ -81,9 +82,9 @@ const getPolySpecs = (folder: vscode.WorkspaceFolder) => {
   return JSON.parse(fs.readFileSync(polyDataPath, 'utf8'));
 };
 
-const getLibraryCredentialsPathFromWorspace = (folder: vscode.WorkspaceFolder) => `${folder.uri.fsPath}/node_modules/.poly/.config.env`;
+const getLibraryCredentialsPathFromWorkspace = (folder: vscode.WorkspaceFolder) => `${folder.uri.fsPath}/node_modules/.poly/.config.env`;
 const getLibraryCredentialsFromWorkspace = (folder: vscode.WorkspaceFolder) => {
-  const libCredentialsPath = getLibraryCredentialsPathFromWorspace(folder);
+  const libCredentialsPath = getLibraryCredentialsPathFromWorkspace(folder);
   if (!fs.existsSync(libCredentialsPath)) {
     return {};
   }
@@ -120,7 +121,7 @@ const watchWorkspace = (folder: vscode.WorkspaceFolder) => {
     polySpecsChanged({});
   }
 
-  const credentialsFilePath = getLibraryCredentialsPathFromWorspace(folder);
+  const credentialsFilePath = getLibraryCredentialsPathFromWorkspace(folder);
 
   if (fs.existsSync(credentialsFilePath)) {
     credentialsFileStats = fs.statSync(credentialsFilePath);
