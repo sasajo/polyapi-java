@@ -161,6 +161,12 @@ export const create = async (instance: string, loadedTenantSignUp: SignUpDto | n
           return verifyTenant();
         }
 
+        if (error.response?.data?.code === 'TENANT_ALREADY_EXISTS') {
+          shell.echo('Tenant already in use.\n');
+          await signUp('tenant');
+          return verifyTenant();
+        }
+
         return verifyTenant();
       }
 
@@ -184,7 +190,7 @@ export const create = async (instance: string, loadedTenantSignUp: SignUpDto | n
     {
       type: 'confirm',
       name: 'generate',
-      message: 'Would you like to generate the poly client library?',
+      message: 'Would you like to generate the poly client library using the new tenant key?',
     },
   ]);
 
