@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
 import jsonpath from 'jsonpath';
+import { validator } from '@exodus/schemasafe';
+import axios from 'axios';
 import { PathError } from './path-error';
 
 import {
@@ -16,9 +18,10 @@ import {
   VisibilityQuery,
 } from '@poly/model';
 import { toPascalCase } from '@guanghechen/helper-string';
-import { ConfigVariable, Tenant, Prisma } from '@prisma/client';
+import { ConfigVariable, Prisma, Tenant } from '@prisma/client';
 
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
+const JSON_META_SCHEMA_CACHE = {};
 
 @Injectable()
 export class CommonService {
@@ -305,5 +308,26 @@ export class CommonService {
     }
     const publicContext = `${this.getPublicContext(entity)}.`;
     return visibleContexts.some(visibleContext => publicContext.startsWith(`${visibleContext}.`));
+  }
+
+  async validateJsonMetaSchema(schema: Record<string, any>): Promise<boolean> {
+    try {
+      const getMetaSchema = async () => {
+        const metaSchemaUrl = schema.$schema || 'http://json-schema.org/draft-06/schema#';
+        if (JSON_META_SCHEMA_CACHE[metaSchemaUrl]) {
+          return JSON_META_SCHEMA_CACHE[metaSchemaUrl];
+        }
+        const response = await axios.get(metaSchemaUrl);
+        JSON_META_SCHEMA_CACHE[metaSchemaUrl] = response.data;
+        return response.data;
+      };
+
+      const metaSchema = await getMetaSchema();
+      const validate = validator(metaSchema);
+      return validate(schema);
+    } catch (e) {
+      this.logger.debug(`Failed to validate JSON meta schema: ${e.message}`);
+      return false;
+    }
   }
 }

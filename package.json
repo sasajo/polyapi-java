@@ -24,6 +24,7 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@exodus/schemasafe": "^1.3.0",
     "@guanghechen/helper-string": "^4.2.0",
     "@kubernetes/client-node": "^0.18.1",
     "@mailchimp/mailchimp_transactional": "^1.0.50",

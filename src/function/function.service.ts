@@ -523,7 +523,7 @@ export class FunctionService implements OnModuleInit {
 
     if (argumentsMetadata != null) {
       await this.checkArgumentsMetadata(apiFunction, argumentsMetadata);
-      argumentsMetadata = await this.resolveArgumentsTypeDeclarations(apiFunction, argumentsMetadata);
+      argumentsMetadata = await this.resolveArgumentsTypeSchema(apiFunction, argumentsMetadata);
     }
 
     argumentsMetadata = this.mergeArgumentsMetadata(apiFunction.argumentsMetadata, argumentsMetadata);
@@ -1812,7 +1812,7 @@ export class FunctionService implements OnModuleInit {
     return this.commonService.resolveType('Argument', value);
   }
 
-  private async resolveArgumentsTypeDeclarations(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
+  private async resolveArgumentsTypeSchema(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
     for (const argKey of Object.keys(argumentsMetadata)) {
       const argMetadata = argumentsMetadata[argKey];
       if (argMetadata.type === 'object') {
@@ -1828,6 +1828,16 @@ export class FunctionService implements OnModuleInit {
         const [type, typeSchema] = await this.resolveArgumentType(JSON.stringify(argMetadata.typeObject));
         argMetadata.type = type;
         argMetadata.typeSchema = typeSchema;
+      } else if (argMetadata.typeSchema) {
+        let typeSchema: Record<string, any>;
+        try {
+          typeSchema = typeof argMetadata.typeSchema === 'object' ? argMetadata.typeSchema : JSON.parse(argMetadata.typeSchema);
+        } catch (e) {
+          throw new BadRequestException(`Argument '${argKey}' with typeSchema='${argMetadata.typeSchema}' is invalid`);
+        }
+        if (!await this.commonService.validateJsonMetaSchema(typeSchema)) {
+          throw new BadRequestException(`Argument '${argKey}' with typeSchema='${argMetadata.typeSchema}' is not valid JSON schema`);
+        }
       }
     }
 
