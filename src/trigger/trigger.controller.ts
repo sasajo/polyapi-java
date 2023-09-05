@@ -30,11 +30,11 @@ export class TriggerController {
   @UseGuards(new PolyAuthGuard([Role.Admin]))
   @Post()
   async createTrigger(@Req() req: AuthRequest, @Body() data: CreateTriggerDto) {
-    const { source, destination } = data;
+    const { name = null, source, destination } = data;
     await this.checkTriggerSource(req, source);
     await this.checkTriggerDestination(req, destination);
 
-    return await this.triggerService.createTrigger(req.user.environment.id, source, destination);
+    return await this.triggerService.createTrigger(req.user.environment.id, name, source, destination);
   }
 
   @UseGuards(new PolyAuthGuard([Role.Admin]))

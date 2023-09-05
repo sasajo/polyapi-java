@@ -32,9 +32,9 @@ export class TriggerService implements OnModuleInit {
     return await this.triggerProvider.getTriggers(environmentId);
   }
 
-  async createTrigger(environmentId: string, source: TriggerSource, destination: TriggerDestination) {
+  async createTrigger(environmentId: string, name: string | null, source: TriggerSource, destination: TriggerDestination) {
     try {
-      return await this.triggerProvider.createTrigger(environmentId, source, destination);
+      return await this.triggerProvider.createTrigger(environmentId, name, source, destination);
     } catch (e) {
       if (e.message.includes('already exists')) {
         throw new ConflictException('Trigger with given source and destination already exists');

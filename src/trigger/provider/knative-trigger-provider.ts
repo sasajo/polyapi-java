@@ -23,6 +23,7 @@ interface KNativeTriggerDef {
   metadata: {
     name: string;
     labels: {
+      name: string | null;
       environment: string;
     },
     uid: string;
@@ -105,7 +106,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
 
     return {
       id: triggerDef.metadata.uid,
-      name: triggerDef.metadata.name,
+      name: triggerDef.metadata.labels.name || triggerDef.metadata.name,
       source: getSource(),
       destination: getDestination(),
     };
@@ -147,7 +148,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  async createTrigger(environmentId: string, source: TriggerSource, destination: TriggerDestination): Promise<TriggerDto> {
+  async createTrigger(environmentId: string, name: string | null, source: TriggerSource, destination: TriggerDestination): Promise<TriggerDto> {
     const getSubscriberConfig = (): SubscriberConfig => {
       if (destination.serverFunctionId) {
         return {
@@ -176,6 +177,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
           metadata: {
             name: triggerName,
             labels: {
+              name,
               environment: environmentId,
             },
           },
@@ -200,7 +202,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
       if (e.body?.code === 409) {
         throw new Error(`Trigger ${triggerName} already exists`);
       }
-      this.logger.error('Error creating trigger:', e);
+      this.logger.error('Error creating trigger:', e.body?.message || e);
       throw e;
     }
 
