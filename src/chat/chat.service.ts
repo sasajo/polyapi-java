@@ -52,6 +52,17 @@ export class ChatService {
       throw new Error('At least one of `message` or `uuid` must be provided.');
     }
 
+    const removeMessageFromRedis = () => {
+      if (uuid) {
+        const messageKey = this.getMessageKey(uuid);
+        this.cacheManager.del(messageKey).then(() => {
+          this.logger.debug(`Message key ${messageKey} removed from cache manager after science server message is fully received.`);
+        }).catch(err => {
+          this.logger.error(`Couldn't delete message key ${messageKey} from cache manager after science server message is fully received`, err);
+        });
+      }
+    };
+
     return new Observable<string>(subscriber => {
       eventSource.onmessage = (event) => {
         try {
@@ -65,6 +76,15 @@ export class ChatService {
           eventSource.close();
         }
       };
+
+      eventSource.addEventListener('close', () => {
+        this.logger.debug(`Received 'close' event from science server for message with uuid ${uuid}`);
+        subscriber.next(undefined);
+        subscriber.complete();
+        eventSource.close();
+        removeMessageFromRedis();
+      });
+
       eventSource.onerror = (error) => {
         if (error.message) {
           this.logger.debug(`Error from Science server for function completion: ${error.message}`);
@@ -72,15 +92,7 @@ export class ChatService {
         }
         subscriber.complete();
         eventSource.close();
-
-        if (uuid) {
-          const messageKey = this.getMessageKey(uuid);
-          this.cacheManager.del(messageKey).then(() => {
-            this.logger.debug(`Message key ${messageKey} removed from cache manager after science server message is fully received.`);
-          }).catch(err => {
-            this.logger.error(`Couldn't delete message key ${messageKey} from cache manager after science server message is fully received`, err);
-          });
-        }
+        removeMessageFromRedis();
       };
     });
   }

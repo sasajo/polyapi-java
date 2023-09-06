@@ -91,6 +91,7 @@ const COMMANDS = [
 
         // Create copy to clipboard button
         const copyButton = document.createElement('button');
+        copyButton.setAttribute('data-section', 'code');
         copyButton.title = 'Copy to clipboard';
         copyButton.innerHTML = copySvg;
 
@@ -111,9 +112,14 @@ const COMMANDS = [
 
       const messageId = id ? `id='${id}'` : '';
       return `
-        <div class='p-4 self-end' ${getCreatedAtAttribute(createdAt)}>
-          <h2 class='font-bold mb-3 flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
-          <div class='prose prose-headings:font-normal prose-th:font-bold' ${messageId}>
+        <div class='p-4 self-end answer-container' ${getCreatedAtAttribute(createdAt)}>
+          <div class="flex justify-between items-center mb-3">
+            <h2 class='font-bold flex'>${polySvg}<span class='ml-1.5'>Poly</span></h2>
+            <button title="Copy to clipboard" class="code-copy-button p-1 flex items-center rounded-lg" type="button" data-section="answer">
+              ${copySvg}
+            </button>
+          </div>
+          <div class='prose prose-headings:font-normal prose-th:font-bold answer-content' ${messageId}>
             ${content}            
           </div>
         </div>
@@ -299,8 +305,6 @@ const COMMANDS = [
         } else {
           conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
         }
-
-        scrollToLastMessage();
         break;
       }
       case 'finishMessage': {
@@ -310,11 +314,11 @@ const COMMANDS = [
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
           messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
-          scrollToLastMessage();
           enableTextarea();
           focusMessageInput();
         }
 
+        scrollToLastMessage();
         observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
 
         break;
@@ -470,17 +474,30 @@ const COMMANDS = [
     if (targetButton.id === 'cancel-request-button') {
       postCancelRequestMessage();
     } else if (targetButton.classList?.contains('code-copy-button')) {
-      const preElement = targetButton.closest('pre');
-      const code = preElement.querySelector('code').innerText;
+      const section = targetButton.getAttribute('data-section');
 
-      navigator.clipboard.writeText(code)
-        .then(() => {
-          targetButton.innerHTML = copyCheckSvg;
+      let content = '';
 
-          setTimeout(() => {
-            targetButton.innerHTML = copySvg;
-          }, 2000);
-        });
+      if(section === 'answer') {
+        const answerWrapper = targetButton.closest('.answer-container');
+        const answerContent = answerWrapper.querySelector('.answer-content');
+        content = answerContent.innerText;
+      } else if (section === 'code') {
+        const preElement = targetButton.closest('pre');
+        content = preElement.querySelector('code').innerText;
+      }
+
+      if (content) {
+        navigator.clipboard.writeText(content)
+          .then(() => {
+            targetButton.innerHTML = copyCheckSvg;
+  
+            setTimeout(() => {
+              targetButton.innerHTML = copySvg;
+            }, 2000);
+          });
+      }
+
     } else if (targetButton.classList?.contains('load-conversation-messages')) {
       const firstMessageOnChat = document.querySelector('#conversation-list > div[data-created-at]');
 

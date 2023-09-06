@@ -5,7 +5,6 @@ import path from 'path';
 export const HOST_LIBRARY_VERSION_MAP = {
   'na1.polyapi.io': 'latest',
   'develop-k8s.polyapi.io': 'develop',
-  'staging.polyapi.io': 'staging',
 };
 
 export const getCredentialsFromExtension = () => {

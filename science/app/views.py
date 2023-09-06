@@ -129,6 +129,7 @@ def function_completion() -> Response:
                             )
                         ],
                     )
+                    yield "event:close\ndata:\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
 
