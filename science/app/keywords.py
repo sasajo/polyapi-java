@@ -83,7 +83,7 @@ def extract_keywords(
     # store conversation
     messages.append(MessageDict(role="assistant", content=content))
     insert_internal_step_info(messages, "STEP 1: GET KEYWORDS")
-    store_messages(user_id, conversation_id, messages)
+    store_messages(conversation_id, messages)
 
     # continue
     try:

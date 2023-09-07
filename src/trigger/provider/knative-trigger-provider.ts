@@ -273,6 +273,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
       if (e.body?.code === 404) {
         return null;
       }
+      this.logger.error('Error getting trigger:', e);
       if (process.env.SKIP_KNATIVE) {
         return null;
       } else {

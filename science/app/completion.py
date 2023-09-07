@@ -210,7 +210,7 @@ def get_best_functions(
     # store conversation
     insert_internal_step_info(messages, "STEP 2: GET BEST FUNCTIONS")
     messages.append(MessageDict(role="assistant", content=answer_msg))
-    store_messages(user_id, conversation_id, messages)
+    store_messages(conversation_id, messages)
 
     # continue
     public_ids = _extract_ids_from_completion(answer_msg)
@@ -327,7 +327,7 @@ def get_best_function_example(
 
     # store conversation
     insert_internal_step_info(messages, "STEP 3: GET FUNCTION EXAMPLE")
-    store_messages(user_id, conversation_id, messages)
+    store_messages(conversation_id, messages)
 
     return resp
 
@@ -377,5 +377,5 @@ def general_question(
     ]
 
     resp = get_chat_completion(messages, stream=True)
-    store_messages(user_id, conversation_id, messages)
+    store_messages(conversation_id, messages)
     return resp
