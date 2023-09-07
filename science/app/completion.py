@@ -1,6 +1,7 @@
 import re
 import json
 from typing import Generator, List, Optional, Tuple, Union, Dict
+from openai.error import InvalidRequestError
 from prisma import get_client
 from prisma.models import SystemPrompt, ConversationMessage
 from app.constants import QUESTION_TEMPLATE, MessageType
@@ -323,7 +324,17 @@ def get_best_function_example(
     insert_prev_msgs(messages, prev_msgs)
     insert_system_prompt(messages, environment_id)
 
-    resp = get_chat_completion(messages, temperature=0.5, stream=True)
+    try:
+        resp = get_chat_completion(messages, temperature=0.5, stream=True)
+    except InvalidRequestError as e:
+        if "maximum content length" in str(e) and prev_msgs:
+            log(f"InvalidRequestError due to maximum content length: {e}\ntrying again without prev_msgs")
+            messages = messages[len(prev_msgs) + 1:]  # let's trim off prev messages and system prompt
+            insert_system_prompt(messages, environment_id)  # let's reinsert system prompt
+            resp = get_chat_completion(messages, temperature=0.5, stream=True)  # try again!
+        else:
+            # cant recover from this error, just move on!
+            raise
 
     # store conversation
     insert_internal_step_info(messages, "STEP 3: GET FUNCTION EXAMPLE")
