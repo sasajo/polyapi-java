@@ -1,8 +1,9 @@
 import { Body, Controller, Delete, Get, Logger, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiSecurity } from '@nestjs/swagger';
+import { ApiOperation, ApiSecurity } from '@nestjs/swagger';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { CreateTierDto, Role, TierDto, UpdateTierDto } from '@poly/model';
 import { LimitService } from 'limit/limit.service';
+import { API_TAG_INTERNAL } from 'common/constants';
 
 @ApiSecurity('PolyApiKey')
 @Controller('tiers')
@@ -14,6 +15,7 @@ export class TierController {
   ) {
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Get()
   async getTiers(): Promise<TierDto[]> {
@@ -21,6 +23,7 @@ export class TierController {
     return limitTiers.map(limitTier => this.service.toTierDto(limitTier));
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post()
   async createTier(@Body() data: CreateTierDto): Promise<TierDto> {
@@ -41,6 +44,7 @@ export class TierController {
     );
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Get('/:id')
   async getTier(@Param('id') id: string): Promise<TierDto> {
@@ -49,6 +53,7 @@ export class TierController {
     );
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Patch('/:id')
   async updateTier(@Param('id') id: string, @Body() data: UpdateTierDto): Promise<TierDto> {
@@ -65,6 +70,7 @@ export class TierController {
     );
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Delete('/:id')
   async deleteTier(@Param('id') id: string): Promise<void> {
