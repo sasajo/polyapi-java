@@ -87,7 +87,8 @@ export class TenantController {
   @Post()
   async createTenant(@Body() data: CreateTenantDto): Promise<TenantDto> {
     const {
-      name,
+      name = null,
+      email,
       publicVisibilityAllowed,
       publicNamespace = null,
       tierId = null,
@@ -107,7 +108,7 @@ export class TenantController {
       throw new BadRequestException(`Public namespace '${publicNamespace}' is not available.`);
     }
 
-    return this.tenantService.toDto(await this.tenantService.create(name, publicVisibilityAllowed, publicNamespace, limitTier?.id));
+    return this.tenantService.toDto(await this.tenantService.create(name, email, publicVisibilityAllowed, publicNamespace, limitTier?.id));
   }
 
   @UseGuards(PolyAuthGuard)
