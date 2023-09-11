@@ -7,7 +7,7 @@ import requests
 import redis
 import numpy as np
 from requests import Response
-from flask import current_app
+from flask import current_app, abort
 import jsonref
 from typing import Any, Dict, Generator, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
@@ -143,33 +143,37 @@ def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
 
 
 def store_messages(
-    user_id: str, conversation_id: str, messages: List[MessageDict]
+    conversation_id: str, messages: List[MessageDict]
 ) -> None:
     for message in messages:
-        store_message(
-            user_id,
-            conversation_id,
-            message,
-        )
+        store_message(conversation_id, message)
 
 
 def store_message(
-    user_id: str, conversation_id: str, data: MessageDict
+    conversation_id: str, data: MessageDict
 ) -> Optional[ConversationMessage]:
-    if not user_id:
-        return None
-
     db = get_client()
     create_input = {
-        "userId": user_id,
         "conversationId": conversation_id,
         "role": data["role"],
-        "content": data["content"],
-        "type": data.get("type", 1),
+        "content": _get_content(data),
+        "type": data.get("type", MessageType.gpt.value),
     }
 
     rv = db.conversationmessage.create(data=create_input)  # type: ignore
     return rv
+
+
+def _get_content(data: MessageDict):
+    content = ""
+    function_call = data.get('function_call')
+    if function_call:
+        content += f"function_call: {json.dumps(function_call)}\n"
+    functions = data.get('functions')
+    if functions:
+        content += f"function: {json.dumps(functions)}\n"
+    content += data.get("content") or ""
+    return content
 
 
 def get_conversations_for_user(user_id: str) -> List[Conversation]:
@@ -179,22 +183,24 @@ def get_conversations_for_user(user_id: str) -> List[Conversation]:
     )
 
 
-def get_last_conversations(user_id: str, limit: int) -> List[Conversation]:
+def get_last_conversation(user_id: Optional[str] = None, application_id: Optional[str] = None, workspace_folder: str = "") -> Optional[Conversation]:
+    assert user_id or application_id
     db = get_client()
-    return db.conversation.find_many(
-        where={"userId": user_id}, order={"createdAt": "desc"}, take=limit
+    return db.conversation.find_first(
+        where={"userId": user_id, "applicationId": application_id, "workspaceFolder": workspace_folder}, order={"createdAt": "desc"}
     )
 
 
-def create_new_conversation(user_id: str) -> Conversation:
+def create_new_conversation(user_id: Optional[str], workspace_folder: str = "") -> Conversation:
     assert user_id
     db = get_client()
-    return db.conversation.create(data={"userId": user_id})
+    return db.conversation.create(data={"userId": user_id, "workspaceFolder": workspace_folder})
 
 
 def clear_conversations(user_id: str) -> None:
+    assert user_id
     db = get_client()
-    db.conversationmessage.delete_many(where={"userId": user_id})
+    db.conversation.delete_many(where={"userId": user_id})
 
 
 def get_config_variable(varname: VarName) -> Optional[ConfigVariable]:
@@ -324,10 +330,7 @@ def camel_case(text: str) -> str:
     return s[0] + "".join(i.capitalize() for i in s[1:])
 
 
-def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0, stream=False
-) -> Union[Generator, str]:
-    """send the messages to OpenAI and get a response"""
+def strip_type_and_info(messages: List[MessageDict]) -> List[MessageDict]:
     stripped = copy.deepcopy(messages)
     stripped = [
         m for m in stripped if m["role"] != "info"
@@ -335,9 +338,17 @@ def get_chat_completion(
     for s in stripped:
         # remove our internal-use-only fields
         s.pop("type", None)
+    return stripped
+
+
+def get_chat_completion(
+    messages: List[MessageDict], *, temperature=1.0, stream=False
+) -> Union[Generator, str]:
+    """send the messages to OpenAI and get a response"""
+    messages = strip_type_and_info(messages)
     resp = openai.ChatCompletion.create(
         model=CHAT_GPT_MODEL,
-        messages=stripped,
+        messages=messages,
         temperature=temperature,
         stream=stream,
     )
@@ -413,7 +424,8 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
     return {"data": return_type}
 
 
-def msgs_to_msg_dicts(msgs: Optional[List[Union[ConversationMessage, MessageDict]]]) -> List[MessageDict]:
+# HACK technically there might be MessageDict in the List, buy mypy does poorly with that
+def msgs_to_msg_dicts(msgs: Optional[List[ConversationMessage]]) -> List[MessageDict]:
     if msgs:
         rv = []
         for msg in msgs:
@@ -449,3 +461,10 @@ def redis_get(key: str) -> str:
         return val.decode()
     else:
         return ""
+
+
+def verify_required_fields(data: Dict, required: List[str]) -> None:
+    missing_fields = [field for field in required if field not in data]
+    if missing_fields:
+        msg = {"message": "Required fields missing: {}".format(", ".join(missing_fields))}
+        abort(400, msg)

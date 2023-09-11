@@ -5,7 +5,7 @@ from flask import Blueprint, Response, request, jsonify
 from openai.error import OpenAIError, RateLimitError
 from app.completion import general_question, get_completion_answer
 from app.constants import MessageType
-from app.conversation import previous_message_referenced
+from app.conversation import get_chat_conversation_lookback, get_recent_messages
 from app.description import (
     get_function_description,
     get_variable_description,
@@ -18,10 +18,12 @@ from app.typedefs import DescInputDto, MessageDict, VarDescInputDto
 from app.utils import (
     clear_conversations,
     create_new_conversation,
+    get_last_conversation,
     get_user,
     log,
     redis_get,
     store_messages,
+    verify_required_fields,
 )
 from app.router import split_route_and_question
 
@@ -44,7 +46,7 @@ def function_completion() -> Response:
         message_uuid = data.get("question_uuid", "").strip()
         question = redis_get(message_uuid)
         if question:
-            parsedQuestion = json.loads(json.loads(question))
+            parsedQuestion = json.loads(question)
             question = parsedQuestion["message"]
 
     if not question:
@@ -63,14 +65,25 @@ def function_completion() -> Response:
             }
         )
 
-    prev_msgs = previous_message_referenced(user_id, question)
+    workspace_folder: str = data.get("workspace_folder", "")
+    conversation = get_last_conversation(
+        user_id=user_id, workspace_folder=workspace_folder
+    )
+    if conversation:
+        prev_msgs = get_recent_messages(
+            conversation_id=conversation.id,
+            message_type=MessageType.user.value,
+            lookback=get_chat_conversation_lookback(),
+        )
+    else:
+        conversation = create_new_conversation(user_id, workspace_folder)
+        prev_msgs = []
     stats: Dict[str, Any] = {"prev_msg_ids": [prev_msg.id for prev_msg in prev_msgs]}
 
     route, question = split_route_and_question(question)
     stats["route"] = route
 
     resp: Union[Generator, str] = ""  # either str or streaming completion type
-    conversation = create_new_conversation(user_id)
     if route == "function":
         resp = get_completion_answer(
             user_id, conversation.id, environment_id, question, prev_msgs
@@ -78,9 +91,9 @@ def function_completion() -> Response:
         # TODO fixme?
         # stats.update(completion_stats)
     elif route == "general":
-        resp = general_question(user_id, conversation.id, question, prev_msgs)
+        resp = general_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "help":
-        resp = help_question(user_id, conversation.id, question, prev_msgs)
+        resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "documentation":
         resp = documentation_question(user_id, conversation.id, question, prev_msgs)
         # TODO fixme?
@@ -96,7 +109,6 @@ def function_completion() -> Response:
             yield "data: {}\n\n".format(json.dumps({"chunk": resp}))
             # store the final message before exiting
             store_messages(
-                user_id,
                 conversation.id,
                 [
                     MessageDict(
@@ -117,7 +129,6 @@ def function_completion() -> Response:
                 else:
                     # store the final message before exiting
                     store_messages(
-                        user_id,
                         conversation.id,
                         [
                             MessageDict(
@@ -154,7 +165,10 @@ def variable_description() -> Response:
 @bp.route("/plugin-chat", methods=["POST"])
 def plugin_chat() -> Response:
     data = request.get_json(force=True)
-    resp = get_plugin_chat(data['apiKey'], data['pluginId'], data['message'])
+    verify_required_fields(data, ["apiKey", "pluginId", "conversationId", "message"])
+    resp = get_plugin_chat(
+        data["apiKey"], data["pluginId"], data["conversationId"], data["message"]
+    )
     return jsonify(resp)
 
 
@@ -187,7 +201,10 @@ def error_rate_limit():
 def handle_open_ai_error(e):
     # now you're handling non-HTTP exceptions only
     from flask import current_app
-    if isinstance(e, RateLimitError) and str(e).startswith("That model is currently overloaded"):
+
+    if isinstance(e, RateLimitError) and str(e).startswith(
+        "That model is currently overloaded"
+    ):
         # special message for when OpenAI is overloaded
         msg = "OpenAI is overloaded with other requests at the moment. Please wait a few seconds and try your request again!"
     else:
@@ -195,3 +212,13 @@ def handle_open_ai_error(e):
         msg = "OpenAI Error: {}".format(str(e))
     current_app.log_exception(msg)
     return msg, 500
+
+
+@bp.errorhandler(400)
+def handle_400(e):
+    return e.description, 400
+
+
+@bp.errorhandler(401)
+def handle_401(e):
+    return e.description, 401

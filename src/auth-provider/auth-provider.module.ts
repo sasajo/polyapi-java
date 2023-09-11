@@ -8,6 +8,9 @@ import { SpecsModule } from 'specs/specs.module';
 import { AuthModule } from 'auth/auth.module';
 import { CommonModule } from 'common/common.module';
 import { VariableModule } from 'variable/variable.module';
+import { LimitModule } from 'limit/limit.module';
+import { StatisticsModule } from 'statistics/statistics.module';
+import { ConfigVariableModule } from 'config-variable/config-variable.module';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { VariableModule } from 'variable/variable.module';
     forwardRef(() => SpecsModule),
     CommonModule,
     VariableModule,
+    LimitModule,
+    StatisticsModule,
+    ConfigVariableModule,
   ],
   controllers: [AuthProviderController],
   providers: [AuthProviderService],

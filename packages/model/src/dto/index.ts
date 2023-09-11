@@ -17,3 +17,5 @@ export * from './application';
 export * from './config-variable';
 export * from './variable';
 export * from './trigger';
+export * from './tier';
+export * from './tos';

@@ -3,14 +3,16 @@ import { CloudEvent, emitterFor, EmitterFunction, httpTransport } from 'cloudeve
 import { Logger } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import crypto from 'crypto';
+import { makeCustomObjectsApiClient } from 'kubernetes/client';
 import { ConfigService } from 'config/config.service';
 import { TriggerProvider } from 'trigger/provider/trigger-provider';
 import { TriggerDestination, TriggerDto, TriggerSource } from '@poly/model';
-import { makeCustomObjectsApiClient } from 'kubernetes/client';
+import { NAME_CONFLICT, CommonError } from 'common/common-error';
 
 const TRIGGERS_GROUP = 'eventing.knative.dev';
 const TRIGGERS_VERSION = 'v1';
 const TRIGGERS_NAME = 'triggers';
+const RESPONSE_TRIGGER_NAME = 'response-trigger';
 
 type SubscriberConfig = {
   apiVersion: 'serving.knative.dev/v1';
@@ -22,7 +24,9 @@ interface KNativeTriggerDef {
   metadata: {
     name: string;
     labels: {
+      name: string | null;
       environment: string;
+      waitForResponse?: string;
     },
     uid: string;
   };
@@ -68,6 +72,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
     this.logger.debug('Initializing Kubernetes API client...');
 
     this.k8sApi = makeCustomObjectsApiClient();
+    await this.createResponseTrigger();
   }
 
   toDto(triggerDef: KNativeTriggerDef): TriggerDto {
@@ -78,27 +83,35 @@ export class KNativeTriggerProvider implements TriggerProvider {
         return {
           webhookHandleId: attributes.type.replace('webhookHandle:', ''),
         };
+      } else if (attributes.type === 'trigger.response') {
+        return {};
       } else {
         throw new Error(`Unsupported trigger type ${attributes.type}`);
       }
     };
 
     const getDestination = (): TriggerDestination => {
-      const subscriber = triggerDef.spec.subscriber.ref;
-      if (subscriber.kind === 'Service' && subscriber.name.startsWith('function-')) {
+      const subscriberRef = triggerDef.spec.subscriber.ref;
+      if (!subscriberRef) {
+        return {};
+      }
+
+      if (subscriberRef.kind === 'Service' && subscriberRef.name.startsWith('function-')) {
         return {
-          serverFunctionId: subscriber.name.replace('function-', ''),
+          serverFunctionId: subscriberRef.name.replace('function-', ''),
         };
       } else {
-        throw new Error(`Unsupported subscriber: ${subscriber.kind}, ${subscriber.name}`);
+        throw new Error(`Unsupported subscriber: ${subscriberRef.kind}, ${subscriberRef.name}`);
       }
     };
 
     return {
       id: triggerDef.metadata.uid,
-      name: triggerDef.metadata.name,
+      name: triggerDef.metadata.labels.name || triggerDef.metadata.name,
+      environmentId: triggerDef.metadata.labels.environment,
       source: getSource(),
       destination: getDestination(),
+      waitForResponse: triggerDef.metadata.labels.waitForResponse === 'true',
     };
   }
 
@@ -118,7 +131,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
     return trigger;
   }
 
-  async getTriggers(environmentId: string): Promise<TriggerDto[]> {
+  async getTriggers(environmentId?: string): Promise<TriggerDto[]> {
     this.logger.debug(`Getting triggers for environment ${environmentId}`);
 
     try {
@@ -130,7 +143,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
       );
       const triggers = (response.body as any).items as KNativeTriggerDef[];
       return triggers
-        .filter(triggerDef => triggerDef.metadata.labels?.environment === environmentId)
+        .filter(triggerDef => !environmentId || triggerDef.metadata.labels?.environment === environmentId)
         .map(triggerDef => this.toDto(triggerDef));
     } catch (err) {
       this.logger.error(`Failed to get triggers for environment ${environmentId}: ${err}`);
@@ -138,7 +151,17 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  async createTrigger(environmentId: string, source: TriggerSource, destination: TriggerDestination): Promise<TriggerDto> {
+  async createTrigger(
+    environmentId: string,
+    name: string | null,
+    source: TriggerSource,
+    destination: TriggerDestination,
+    waitForResponse: boolean,
+  ): Promise<TriggerDto> {
+    if (name) {
+      await this.checkTriggerName(environmentId, name);
+    }
+
     const getSubscriberConfig = (): SubscriberConfig => {
       if (destination.serverFunctionId) {
         return {
@@ -167,7 +190,9 @@ export class KNativeTriggerProvider implements TriggerProvider {
           metadata: {
             name: triggerName,
             labels: {
+              name,
               environment: environmentId,
+              waitForResponse: waitForResponse ? 'true' : 'false',
             },
           },
           spec: {
@@ -191,15 +216,16 @@ export class KNativeTriggerProvider implements TriggerProvider {
       if (e.body?.code === 409) {
         throw new Error(`Trigger ${triggerName} already exists`);
       }
-      this.logger.error('Error creating trigger:', e);
+      this.logger.error('Error creating trigger:', e.body?.message || e);
       throw e;
     }
 
-    const trigger = await this.findTriggerByName(triggerName);
-    if (!trigger) {
+    const triggerDef = await this.findTriggerDefByName(triggerName);
+    if (!triggerDef) {
       throw new Error(`Trigger ${triggerName} could not be created`);
     }
 
+    const trigger = this.toDto(triggerDef);
     await this.cacheManager.set(this.getCacheKey(environmentId, trigger.id), trigger);
 
     return trigger;
@@ -214,7 +240,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
         TRIGGERS_VERSION,
         this.config.knativeTriggerNamespace,
         TRIGGERS_NAME,
-        trigger.name,
+        this.getTriggerName(environmentId, trigger.source, trigger.destination),
       );
     } catch (e) {
       if (e.body?.code === 404) {
@@ -225,17 +251,17 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  async triggerEvent(source: TriggerSource, data: any): Promise<void> {
-    const sourceId = crypto.randomBytes(16).toString('hex');
-    this.logger.debug(`Triggering event ${sourceId} (source: ${JSON.stringify(source)})`);
+  async triggerEvent(executionId: string, source: TriggerSource, data: any): Promise<void> {
+    this.logger.debug(`Triggering event ${executionId} (source: ${JSON.stringify(source)})`);
     const cloudEvent = new CloudEvent({
       type: this.getType(source),
-      source: sourceId,
+      source: executionId,
+      executionid: executionId,
       data,
     });
 
     const event = await this.emitCloudEvent(cloudEvent);
-    this.logger.debug(`Event ${sourceId} triggered`, event);
+    this.logger.debug(`Event ${executionId} triggered`, event);
   }
 
   private getType(source: TriggerSource) {
@@ -246,7 +272,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  private async findTriggerByName(name: string): Promise<TriggerDto | null> {
+  private async findTriggerDefByName(name: string): Promise<KNativeTriggerDef | null> {
     try {
       const response = await this.k8sApi.getNamespacedCustomObject(
         TRIGGERS_GROUP,
@@ -255,14 +281,17 @@ export class KNativeTriggerProvider implements TriggerProvider {
         TRIGGERS_NAME,
         name,
       );
-      const trigger = response.body as KNativeTriggerDef;
-      return this.toDto(trigger);
+      return response.body as KNativeTriggerDef;
     } catch (e) {
       if (e.body?.code === 404) {
         return null;
       }
       this.logger.error('Error getting trigger:', e);
-      throw e;
+      if (process.env.SKIP_KNATIVE) {
+        return null;
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -290,5 +319,54 @@ export class KNativeTriggerProvider implements TriggerProvider {
 
   private getCacheKey(environmentId: string, id: string) {
     return `trigger:${environmentId}:${id}`;
+  }
+
+  private async createResponseTrigger() {
+    const responseTrigger = await this.findTriggerDefByName(RESPONSE_TRIGGER_NAME);
+    if (responseTrigger) {
+      this.logger.debug('Response trigger already exists. Skipping creation.');
+      return;
+    }
+
+    this.logger.debug('Creating response trigger...');
+    try {
+      await this.k8sApi.createNamespacedCustomObject(
+        TRIGGERS_GROUP,
+        TRIGGERS_VERSION,
+        this.config.knativeTriggerNamespace,
+        TRIGGERS_NAME,
+        {
+          apiVersion: 'eventing.knative.dev/v1',
+          kind: 'Trigger',
+          metadata: {
+            name: RESPONSE_TRIGGER_NAME,
+          },
+          spec: {
+            broker: this.config.knativeBrokerName,
+            filter: {
+              attributes: {
+                type: 'trigger.response',
+              },
+            },
+            subscriber: {
+              uri: this.config.knativeTriggerResponseUrl,
+            },
+            delivery: {
+              retry: 0,
+            },
+          },
+        },
+      );
+    } catch (e) {
+      this.logger.error('Error creating response trigger:', e);
+    }
+  }
+
+  private async checkTriggerName(environmentId: string, name: string) {
+    const existingTrigger = (await this.getTriggers(environmentId))
+      .some(trigger => trigger.name === name);
+    if (existingTrigger) {
+      throw new CommonError(NAME_CONFLICT, `Trigger with name '${name}' already exists.`);
+    }
   }
 }

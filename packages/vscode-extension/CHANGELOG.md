@@ -1,10 +1,23 @@
+### 0.3.2
+* Avoid create config.env file if polyapi's library is not installed.
+* Fix polyapi's library credentials path on Windows.
 
+### 0.3.1
+* Updated 'Too many requests' error message.
 
+### 0.3.0
+* Adjusted 'Too many requests' error message.
+
+### 0.2.50
+* Conversation history based on workspace folder.
 
 ### 0.1.50
 * Fix: Escape questions on render
 * Fix: Redis string format when saving.
 * Fix: Store message before sending it to science server.
+
+### 0.1.48
+* Remember tree state.
 
 ### 0.1.47
 * Fix for sending questions with escaped characters.

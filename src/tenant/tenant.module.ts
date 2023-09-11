@@ -8,6 +8,10 @@ import { TeamModule } from 'team/team.module';
 import { AuthModule } from 'auth/auth.module';
 import { ApplicationModule } from 'application/application.module';
 import { ConfigVariableModule } from 'config-variable/config-variable.module';
+import { LimitModule } from 'limit/limit.module';
+import { EmailModule } from 'email/email.module';
+import { TosModule } from 'tos/tos.module';
+import { CommonModule } from 'common/common.module';
 import { SecretModule } from 'secret/secret.module';
 
 @Module({
@@ -19,6 +23,10 @@ import { SecretModule } from 'secret/secret.module';
     UserModule,
     forwardRef(() => AuthModule),
     ConfigVariableModule,
+    LimitModule,
+    EmailModule,
+    TosModule,
+    CommonModule,
     SecretModule,
   ],
   providers: [TenantService],

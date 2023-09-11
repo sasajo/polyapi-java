@@ -5,9 +5,11 @@ import { EnvironmentService } from 'environment/environment.service';
 import {
   applicationServiceMock,
   authServiceMock,
-  configServiceMock,
+  commonServiceMock,
+  configServiceMock, configVariableServiceMock,
+  emailServiceMock,
   environmentServiceMock,
-  prismaServiceMock, teamServiceMock, userServiceMock,
+  prismaServiceMock, secretServiceMock, teamServiceMock, userServiceMock,
 } from '../mocks';
 import { resetMocks } from '../mocks/utils';
 import { ConfigService } from 'config/config.service';
@@ -16,13 +18,20 @@ import { AuthService } from 'auth/auth.service';
 import { ApplicationService } from 'application/application.service';
 import { TeamService } from 'team/team.service';
 import { UserService } from 'user/user.service';
+import { EmailService } from 'email/email.service';
+import { CommonService } from 'common/common.service';
+import { SecretService } from 'secret/secret.service';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
 
 describe('TenantService', () => {
   const testTenant: Tenant = {
     id: 'id12345',
     name: 'name12345',
+    email: 'email12345',
     createdAt: new Date(),
     publicVisibilityAllowed: true,
+    limitTierId: 'a34b1b9e-0b0a-4b0a-9b0a-0b0a0b0a0b0a',
+    publicNamespace: 'public',
   };
 
   let service: TenantService;
@@ -59,6 +68,22 @@ describe('TenantService', () => {
           provide: ConfigService,
           useValue: configServiceMock,
         },
+        {
+          provide: EmailService,
+          useValue: emailServiceMock,
+        },
+        {
+          provide: CommonService,
+          useValue: commonServiceMock,
+        },
+        {
+          provide: SecretService,
+          useValue: secretServiceMock,
+        },
+        {
+          provide: ConfigVariableService,
+          useValue: configVariableServiceMock,
+        },
       ],
     }).compile();
 
@@ -79,7 +104,10 @@ describe('TenantService', () => {
       expect(result).toEqual({
         id: testTenant.id,
         name: testTenant.name,
+        email: testTenant.email,
+        publicNamespace: 'public',
         publicVisibilityAllowed: testTenant.publicVisibilityAllowed,
+        tierId: testTenant.limitTierId,
       });
     });
   });

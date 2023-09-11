@@ -15,7 +15,7 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, from, lastValueFrom, map } from 'rxjs';
 import mustache from 'mustache';
 import { stripComments } from 'jsonc-parser';
-import { ApiFunction, CustomFunction, Environment } from '@prisma/client';
+import { ApiFunction, CustomFunction, Environment, Tenant } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
   ApiFunctionResponseDto,
@@ -27,17 +27,20 @@ import {
   CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
-  FunctionDetailsDto,
+  FunctionDetailsDto, FunctionPublicBasicDto, FunctionPublicDetailsDto,
   GraphQLBody,
   Header,
   Method,
   PostmanVariableEntry,
   PropertySpecification,
-  PropertyType, Role,
+  PropertyType,
+  PublicVisibilityValue,
+  Role,
   ServerFunctionSpecification,
   TrainingDataGeneration,
   Variables,
-  Visibility, VisibilityQuery,
+  Visibility,
+  VisibilityQuery,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -51,13 +54,14 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { uniqBy, mergeWith, omit, isPlainObject, cloneDeep } from 'lodash';
+import { cloneDeep, isPlainObject, mergeWith, omit, uniqBy } from 'lodash';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { VariableService } from 'variable/variable.service';
 import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
 import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospectionQuery, resolveGraphqlArgumentType } from './graphql/utils';
 import { AuthService } from 'auth/auth.service';
 import crypto from 'crypto';
+import { WithTenant } from 'common/types';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -135,13 +139,72 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
+  async getPublicApiFunctions(tenant: Tenant, environment: Environment, includeHidden = false) {
+    const apiFunctions = await this.prisma.apiFunction.findMany({
+      where: {
+        visibility: Visibility.Public,
+        environment: {
+          tenant: {
+            NOT: {
+              id: tenant.id,
+            },
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+
+    return (
+      await Promise.all(
+        apiFunctions
+          .map(apiFunction => this.resolveVisibility(tenant, environment, apiFunction)),
+      )
+    ).filter(apiFunction => includeHidden || !apiFunction.hidden);
+  }
+
+  async findPublicApiFunction(tenant: Tenant, environment: Environment, id: string) {
+    const apiFunction = await this.prisma.apiFunction.findFirst({
+      where: {
+        id,
+        visibility: Visibility.Public,
+        environment: {
+          tenant: {
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+    });
+
+    if (!apiFunction) {
+      return null;
+    }
+
+    return await this.resolveVisibility(tenant, environment, apiFunction);
+  }
+
   apiFunctionToBasicDto(apiFunction: ApiFunction): FunctionBasicDto {
+    const visibility = apiFunction.visibility as Visibility;
     return {
       id: apiFunction.id,
       name: apiFunction.name,
       context: apiFunction.context,
       description: apiFunction.description,
-      visibility: apiFunction.visibility as Visibility,
+      visibility,
     };
   }
 
@@ -150,6 +213,24 @@ export class FunctionService implements OnModuleInit {
       ...this.apiFunctionToBasicDto(apiFunction),
       arguments: this.getFunctionArguments(apiFunction)
         .map(arg => omit(arg, 'location')),
+    };
+  }
+
+  apiFunctionToPublicBasicDto(apiFunction: WithTenant<ApiFunction> & { hidden: boolean }): FunctionPublicBasicDto {
+    return {
+      ...this.apiFunctionToBasicDto(apiFunction),
+      context: this.commonService.getPublicContext(apiFunction),
+      tenant: apiFunction.environment.tenant.name || '',
+      hidden: apiFunction.hidden,
+    };
+  }
+
+  apiFunctionToPublicDetailsDto(apiFunction: WithTenant<ApiFunction> & { hidden: boolean }): FunctionPublicDetailsDto {
+    return {
+      ...this.apiFunctionToDetailsDto(apiFunction),
+      context: this.commonService.getPublicContext(apiFunction),
+      tenant: apiFunction.environment.tenant.name || '',
+      hidden: apiFunction.hidden,
     };
   }
 
@@ -172,6 +253,7 @@ export class FunctionService implements OnModuleInit {
     templateBody: Body,
     introspectionResponse: IntrospectionQuery | null,
     templateAuth?: Auth,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<ApiFunction> {
     if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.AMBIGUOUS)) {
       throw new BadRequestException(
@@ -261,7 +343,11 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug(`Explicitly retraining function with id ${id}.`);
     }
 
-    const willRetrain = (id === null || id !== 'new') && apiFunction !== null;
+    const updating = (id === null || id !== 'new') && apiFunction !== null;
+    if (!updating) {
+      await checkBeforeCreate();
+    }
+
     const argumentsMetadata = await this.resolveArgumentsMetadata(
       {
         argumentsMetadata: null,
@@ -281,7 +367,7 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug('Creating a new poly function...');
     }
 
-    if (id === null && willRetrain && apiFunction) {
+    if (id === null && updating && apiFunction) {
       this.logger.debug(`Found existing function ${apiFunction.id} for retraining. Updating...`);
     }
 
@@ -289,7 +375,7 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug('Creating new poly function...');
     }
 
-    if ((!name || !context || !description) && !willRetrain) {
+    if ((!name || !context || !description) && !updating) {
       if (await this.isApiFunctionAITrainingEnabled(environment)) {
         try {
           const {
@@ -320,7 +406,7 @@ export class FunctionService implements OnModuleInit {
 
           this.logger.debug(`Setting argument descriptions to arguments metadata from AI: ${JSON.stringify(aiArguments)}...`);
 
-          aiArguments
+          (aiArguments || [])
             .filter((aiArgument) => !argumentsMetadata[aiArgument.name].description)
             .forEach((aiArgument) => {
               argumentsMetadata[aiArgument.name].description = aiArgument.description;
@@ -387,7 +473,7 @@ export class FunctionService implements OnModuleInit {
       graphqlIntrospectionResponse,
     };
 
-    if (apiFunction && willRetrain) {
+    if (apiFunction && updating) {
       return this.prisma.apiFunction.update({
         where: {
           id: apiFunction.id,
@@ -437,7 +523,7 @@ export class FunctionService implements OnModuleInit {
 
     if (argumentsMetadata != null) {
       await this.checkArgumentsMetadata(apiFunction, argumentsMetadata);
-      argumentsMetadata = await this.resolveArgumentsTypeDeclarations(apiFunction, argumentsMetadata);
+      argumentsMetadata = await this.resolveArgumentsTypeSchema(apiFunction, argumentsMetadata);
     }
 
     argumentsMetadata = this.mergeArgumentsMetadata(apiFunction.argumentsMetadata, argumentsMetadata);
@@ -716,7 +802,26 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async createCustomFunction(
+  customFunctionToPublicBasicDto(customFunction: WithTenant<CustomFunction> & { hidden: boolean }): FunctionPublicBasicDto {
+    const tenant = customFunction.environment.tenant;
+    return {
+      ...this.customFunctionToBasicDto(customFunction),
+      context: this.commonService.getPublicContext(customFunction),
+      tenant: tenant.name || '',
+      hidden: customFunction.hidden,
+    };
+  }
+
+  customFunctionToPublicDetailsDto(customFunction: WithTenant<CustomFunction> & { hidden: boolean }): FunctionPublicDetailsDto {
+    return {
+      ...this.customFunctionToDetailsDto(customFunction),
+      context: this.commonService.getPublicContext(customFunction),
+      tenant: customFunction.environment.tenant.name || '',
+      hidden: customFunction.hidden,
+    };
+  }
+
+  async createOrUpdateCustomFunction(
     environment: Environment,
     context: string,
     name: string,
@@ -724,6 +829,7 @@ export class FunctionService implements OnModuleInit {
     customCode: string,
     serverFunction: boolean,
     apiKey: string,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<CustomFunction> {
     const {
       code,
@@ -792,6 +898,8 @@ export class FunctionService implements OnModuleInit {
         await this.faasService.deleteFunction(customFunction.id, environment.tenantId, environment.id);
       }
     } else {
+      await checkBeforeCreate();
+
       this.logger.debug(`Creating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
 
       customFunction = await this.prisma.customFunction.create({
@@ -854,7 +962,7 @@ export class FunctionService implements OnModuleInit {
     return customFunction;
   }
 
-  async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null) {
+  async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null, enabled?: boolean) {
     const { id, name: currentName, context: currentContext } = customFunction;
 
     if (context != null || name != null) {
@@ -875,6 +983,7 @@ export class FunctionService implements OnModuleInit {
         context: (context == null ? customFunction.context : context).trim(),
         description: description == null ? customFunction.description : description,
         visibility: visibility == null ? customFunction.visibility : visibility,
+        enabled,
       },
     });
   }
@@ -923,6 +1032,64 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
+  async getPublicClientFunctions(tenant: Tenant, environment: Environment, includeHidden = false) {
+    const clientFunctions = await this.prisma.customFunction.findMany({
+      where: {
+        visibility: Visibility.Public,
+        serverSide: false,
+        environment: {
+          tenant: {
+            NOT: {
+              id: tenant.id,
+            },
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+
+    return (
+      await Promise.all(
+        clientFunctions.map(clientFunction => this.resolveVisibility(tenant, environment, clientFunction)),
+      )
+    ).filter(clientFunction => includeHidden || !clientFunction.hidden);
+  }
+
+  async findPublicClientFunction(tenant: Tenant, environment: Environment, id: string) {
+    const clientFunction = await this.prisma.customFunction.findFirst({
+      where: {
+        id,
+        serverSide: false,
+        visibility: Visibility.Public,
+        environment: {
+          tenant: {
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+    });
+    if (!clientFunction) {
+      return null;
+    }
+
+    return this.resolveVisibility(tenant, environment, clientFunction);
+  }
+
   async getServerFunctions(environmentId: string, contexts?: string[], names?: string[], ids?: string[]) {
     return this.prisma.customFunction.findMany({
       where: {
@@ -953,6 +1120,64 @@ export class FunctionService implements OnModuleInit {
         environment: includeEnvironment,
       },
     });
+  }
+
+  async getPublicServerFunctions(tenant: Tenant, environment: Environment, includeHidden = false) {
+    const serverFunctions = await this.prisma.customFunction.findMany({
+      where: {
+        visibility: Visibility.Public,
+        serverSide: true,
+        environment: {
+          tenant: {
+            NOT: {
+              id: tenant.id,
+            },
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+
+    return (
+      await Promise.all(
+        serverFunctions.map(clientFunction => this.resolveVisibility(tenant, environment, clientFunction)),
+      )
+    ).filter(clientFunction => includeHidden || !clientFunction.hidden);
+  }
+
+  async findPublicServerFunction(tenant: Tenant, environment: Environment, id: string) {
+    const serverFunction = await this.prisma.customFunction.findFirst({
+      where: {
+        id,
+        serverSide: true,
+        visibility: Visibility.Public,
+        environment: {
+          tenant: {
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+    });
+    if (!serverFunction) {
+      return null;
+    }
+
+    return this.resolveVisibility(tenant, environment, serverFunction);
   }
 
   async executeServerFunction(
@@ -1150,7 +1375,10 @@ export class FunctionService implements OnModuleInit {
     if (this.isGraphQLBody(parsedBody)) {
       const graphqlVariables = getGraphqlVariables(parsedBody.graphql.query);
 
-      const graphqlFunctionArguments = graphqlVariables.map<FunctionArgument>(graphqlVariableDefinition => ({ ...toArgument(graphqlVariableDefinition.variable.name.value), location: 'body' }));
+      const graphqlFunctionArguments = graphqlVariables.map<FunctionArgument>(graphqlVariableDefinition => ({
+        ...toArgument(graphqlVariableDefinition.variable.name.value),
+        location: 'body',
+      }));
 
       if (apiFunction.graphqlIntrospectionResponse) {
         args.push(...graphqlFunctionArguments);
@@ -1585,7 +1813,7 @@ export class FunctionService implements OnModuleInit {
     return this.commonService.resolveType('Argument', value);
   }
 
-  private async resolveArgumentsTypeDeclarations(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
+  private async resolveArgumentsTypeSchema(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata) {
     for (const argKey of Object.keys(argumentsMetadata)) {
       const argMetadata = argumentsMetadata[argKey];
       if (argMetadata.type === 'object') {
@@ -1601,6 +1829,16 @@ export class FunctionService implements OnModuleInit {
         const [type, typeSchema] = await this.resolveArgumentType(JSON.stringify(argMetadata.typeObject));
         argMetadata.type = type;
         argMetadata.typeSchema = typeSchema;
+      } else if (argMetadata.typeSchema) {
+        let typeSchema: Record<string, any>;
+        try {
+          typeSchema = typeof argMetadata.typeSchema === 'object' ? argMetadata.typeSchema : JSON.parse(argMetadata.typeSchema);
+        } catch (e) {
+          throw new BadRequestException(`Argument '${argKey}' with typeSchema='${argMetadata.typeSchema}' is invalid`);
+        }
+        if (!await this.commonService.validateJsonMetaSchema(typeSchema)) {
+          throw new BadRequestException(`Argument '${argKey}' with typeSchema='${argMetadata.typeSchema}' is not valid JSON schema`);
+        }
       }
     }
 
@@ -1636,6 +1874,9 @@ export class FunctionService implements OnModuleInit {
           ...srcValue,
           typeObject: srcValue.typeObject,
         };
+      }
+      if (Array.isArray(objValue) && Array.isArray(srcValue) && srcValue.length === 0) {
+        return srcValue;
       }
     });
   }
@@ -1712,7 +1953,7 @@ export class FunctionService implements OnModuleInit {
 
     return {
       description: aiDescription,
-      arguments: aiArguments,
+      arguments: aiArguments || [],
     };
   }
 
@@ -1807,9 +2048,9 @@ export class FunctionService implements OnModuleInit {
     };
 
     const foundArgs: {
-        quoted: boolean,
-        name: string,
-      }[] = [];
+      quoted: boolean,
+      name: string,
+    }[] = [];
 
     const pushFoundArg = (arg: string, quoted: boolean) => {
       foundArgs.push({
@@ -1871,5 +2112,25 @@ export class FunctionService implements OnModuleInit {
     }
 
     return JSON.parse(mustache.render(apiFunction.body || '{}', argumentValueMap));
+  }
+
+  private async resolveVisibility<T extends { environment: Environment & { tenant: Tenant }, context: string | null }>(
+    tenant: Tenant,
+    environment: Environment,
+    entity: T,
+  ): Promise<T & { hidden: boolean }> {
+    const {
+      defaultHidden = false,
+      visibleContexts = null,
+    } = await this.configVariableService.getEffectiveValue<PublicVisibilityValue>(
+      ConfigVariableName.PublicVisibility,
+      tenant.id,
+      environment.id,
+    ) || {};
+
+    return {
+      ...entity,
+      hidden: !this.commonService.isPublicVisibilityAllowed(entity, defaultHidden, visibleContexts),
+    };
   }
 }

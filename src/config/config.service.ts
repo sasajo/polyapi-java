@@ -174,4 +174,32 @@ export class ConfigService {
   get knativeTriggerNamespace(): string {
     return this.get('KNATIVE_TRIGGER_NAMESPACE', 'default');
   }
+
+  get knativeTriggerResponseUrl(): string {
+    return this.get('KNATIVE_TRIGGER_RESPONSE_URL', `${this.hostUrl}/triggers/response`);
+  }
+
+  get knativeTriggerResponseTimeoutSeconds(): number {
+    return Number(this.get('KNATIVE_TRIGGER_RESPONSE_TIMEOUT_SECONDS', 30));
+  }
+
+  get statisticsFunctionCallsRetentionDays(): number {
+    return Number(this.get('STATISTICS_FUNCTION_CALLS_RETENTION_DAYS', 7));
+  }
+
+  get mailchimpApikey(): string {
+    return this.get('MAILCHIMP_API_KEY', '');
+  }
+
+  get signUpEmail(): string {
+    return this.get('SIGN_UP_EMAIL', 'signup@polyapi.io');
+  }
+
+  get signUpTenantInformationTemplateName(): string {
+    return this.get('SIGN_UP_TENANT_INFORMATION_TEMPLATE_NAME', 'sign-up-new-tenant-info');
+  }
+
+  get sendSignUpVerificationCodeTemplateName(): string {
+    return this.get('SIGN_UP_VERIFICATION_CODE_TEMPLATE_NAME', 'sign-up-verification-code');
+  }
 }

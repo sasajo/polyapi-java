@@ -1,19 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
 import jsonpath from 'jsonpath';
+import { validator } from '@exodus/schemasafe';
+import axios from 'axios';
 import { PathError } from './path-error';
 
 import {
-  NAME_ALLOWED_CHARACTERS_PATTERN,
+  ArgumentType,
   CONTEXT_ALLOWED_CHARACTERS_PATTERN,
   DOTS_AT_BEGINNING_PATTERN,
   DOTS_AT_END_PATTERN,
-  NUMBERS_AT_BEGINNING_PATTERN, Visibility, ArgumentType, PropertyType, ParsedConfigVariable, VisibilityQuery,
+  NAME_ALLOWED_CHARACTERS_PATTERN,
+  NUMBERS_AT_BEGINNING_PATTERN,
+  ParsedConfigVariable,
+  PropertyType,
+  Visibility,
+  VisibilityQuery,
 } from '@poly/model';
 import { toPascalCase } from '@guanghechen/helper-string';
-import { ConfigVariable } from '@prisma/client';
+import { ConfigVariable, Prisma, Tenant } from '@prisma/client';
 
 const ARGUMENT_TYPE_SUFFIX = '.Argument';
+const JSON_META_SCHEMA_CACHE = {};
 
 @Injectable()
 export class CommonService {
@@ -276,5 +284,50 @@ export class CommonService {
     return {
       OR,
     };
+  }
+
+  isPrismaUniqueConstraintFailedError(error: unknown, field?: string) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return error.code === 'P2002' && Array.isArray(error.meta?.target) && field && (error.meta?.target || '').includes(field);
+    }
+    return false;
+  }
+
+  getPublicContext(entity: { context: string | null, environment: { tenant: Tenant }}) {
+    const { context, environment: { tenant } } = entity;
+    return `${tenant.publicNamespace ? `${tenant.publicNamespace}${context ? '.' : ''}` : ''}${context || ''}`;
+  }
+
+  isPublicVisibilityAllowed(
+    entity: { context: string | null, environment: { tenant: Tenant }},
+    defaultHidden: boolean,
+    visibleContexts: string[] | null,
+  ): boolean {
+    if (!defaultHidden || !visibleContexts) {
+      return true;
+    }
+    const publicContext = `${this.getPublicContext(entity)}.`;
+    return visibleContexts.some(visibleContext => publicContext.startsWith(`${visibleContext}.`));
+  }
+
+  async validateJsonMetaSchema(schema: Record<string, any>): Promise<boolean> {
+    try {
+      const getMetaSchema = async () => {
+        const metaSchemaUrl = schema.$schema || 'http://json-schema.org/draft-06/schema#';
+        if (JSON_META_SCHEMA_CACHE[metaSchemaUrl]) {
+          return JSON_META_SCHEMA_CACHE[metaSchemaUrl];
+        }
+        const response = await axios.get(metaSchemaUrl);
+        JSON_META_SCHEMA_CACHE[metaSchemaUrl] = response.data;
+        return response.data;
+      };
+
+      const metaSchema = await getMetaSchema();
+      const validate = validator(metaSchema);
+      return validate(schema);
+    } catch (e) {
+      this.logger.debug(`Failed to validate JSON meta schema: ${e.message}`);
+      return false;
+    }
   }
 }

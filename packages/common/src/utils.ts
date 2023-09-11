@@ -1,8 +1,31 @@
 import type { PropertySpecification, PropertyType } from '@poly/model';
 
+export const INSTANCE_URL_MAP = {
+  develop: 'develop-k8s.polyapi.io',
+  na1: 'na1.polyapi.io',
+  local: 'localhost:8000',
+};
+
+export const getInstanceUrl = (instance = 'local') => {
+
+  if (typeof INSTANCE_URL_MAP[instance] === 'undefined') {
+    return instance;
+  }
+
+  let protocol = instance === 'local' ? 'http://' : 'https://';
+  let instanceUrl = INSTANCE_URL_MAP[instance];
+
+  if (typeof INSTANCE_URL_MAP[instance] === 'undefined') {
+    protocol = 'http://';
+    instanceUrl = INSTANCE_URL_MAP.local;
+  }
+
+  return `${protocol}${instanceUrl}`;
+};
+
 export const isPlainObjectPredicate = (value: unknown): value is object => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+};
 
 export const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
   const wrapInPromiseIfNeeded = (code: string) => (synchronous ? code : `Promise<${code}>`);
@@ -44,3 +67,25 @@ export const toTypeDeclaration = (type: PropertyType, synchronous = true) => {
     }
   }
 };
+
+export const getStartOfDay = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+export const getEndOfDay = () => {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
+};
+
+export const getOneDayLaterDate = () => {
+  const date = new Date();
+
+  date.setHours(date.getHours() + 24);
+
+  return date;
+};
+
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

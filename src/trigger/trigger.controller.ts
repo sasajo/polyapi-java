@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AuthData, AuthRequest } from 'common/types';
 import { TriggerService } from 'trigger/trigger.service';
-import { CreateTriggerDto, Role, TriggerDestination, TriggerSource } from '@poly/model';
+import { CreateTriggerDto, Permission, TriggerDestination, TriggerDto, TriggerResponseDto, TriggerSource, Visibility } from '@poly/model';
 import { WebhookService } from 'webhook/webhook.service';
 import { FunctionService } from 'function/function.service';
 import { AuthService } from 'auth/auth.service';
@@ -11,6 +11,8 @@ import { AuthService } from 'auth/auth.service';
 @ApiSecurity('PolyApiKey')
 @Controller('triggers')
 export class TriggerController {
+  private readonly logger = new Logger(TriggerController.name);
+
   constructor(
     private readonly triggerService: TriggerService,
     private readonly webhookService: WebhookService,
@@ -19,33 +21,52 @@ export class TriggerController {
   ) {
   }
 
-  @UseGuards(new PolyAuthGuard([Role.Admin]))
+  @UseGuards(PolyAuthGuard)
   @Get()
   async getTriggers(@Req() req: AuthRequest) {
+    await this.authService.checkPermissions(req.user, Permission.ManageTriggers);
+
     return await this.triggerService.getTriggers(req.user.environment.id);
   }
 
-  @UseGuards(new PolyAuthGuard([Role.Admin]))
+  @UseGuards(PolyAuthGuard)
   @Post()
   async createTrigger(@Req() req: AuthRequest, @Body() data: CreateTriggerDto) {
-    const { source, destination } = data;
+    const { name = null, source, destination, waitForResponse = false } = data;
+
+    await this.authService.checkPermissions(req.user, Permission.ManageTriggers);
     await this.checkTriggerSource(req, source);
     await this.checkTriggerDestination(req, destination);
 
-    return await this.triggerService.createTrigger(req.user.environment.id, source, destination);
+    return await this.triggerService.createTrigger(req.user.environment.id, name, source, destination, waitForResponse);
   }
 
-  @UseGuards(new PolyAuthGuard([Role.Admin]))
+  @UseGuards(PolyAuthGuard)
   @Get(':id')
   async getTrigger(@Req() req: AuthRequest, @Param('id') id: string) {
-    return await this.findTrigger(req.user, id);
+    const trigger = await this.findTrigger(req.user, id);
+
+    await this.checkTriggerAccess(req.user, trigger);
+
+    return trigger;
   }
 
-  @UseGuards(new PolyAuthGuard([Role.Admin]))
+  @UseGuards(PolyAuthGuard)
   @Delete(':id')
   async deleteTrigger(@Req() req: AuthRequest, @Param('id') id: string) {
     const trigger = await this.findTrigger(req.user, id);
+
+    await this.checkTriggerAccess(req.user, trigger);
+
     return await this.triggerService.deleteTrigger(req.user.environment.id, trigger);
+  }
+
+  @Post('/response')
+  async postTriggerResponse(@Body() response: TriggerResponseDto) {
+    const { executionId, data } = response;
+    this.logger.debug(`Received trigger response ${executionId} with data ${JSON.stringify(data)}`);
+
+    await this.triggerService.processTriggerResponse(executionId, data);
   }
 
   private async findTrigger(authData: AuthData, id: string) {
@@ -82,5 +103,12 @@ export class TriggerController {
     if (!serverFunction || !await this.authService.hasEnvironmentEntityAccess(serverFunction, req.user, true)) {
       throw new NotFoundException(`Server function ${functionId} not found`);
     }
+  }
+
+  private async checkTriggerAccess(authData: AuthData, trigger: TriggerDto) {
+    await this.authService.checkEnvironmentEntityAccess({
+      ...trigger,
+      visibility: Visibility.Environment,
+    }, authData, false, Permission.ManageTriggers);
   }
 }

@@ -6,11 +6,17 @@ import { ConfigVariable } from '@prisma/client';
 export type ParsedConfigVariable<T = string> = Omit<ConfigVariable, 'value'> & { value: T };
 
 export enum ConfigVariableName {
-    OpenAIKeywordSimilarityThreshold = 'OpenAIKeywordSimilarityThreshold',
-    OpenAIVariableKeywordSimilarityThreshold = 'OpenAIVariableKeywordSimilarityThreshold',
-    OpenAIFunctionMatchLimit = 'OpenAIFunctionMatchLimit',
-    OpenAIExtractKeywordsTemperature = 'OpenAIExtractKeywordsTemperature',
-    TrainingDataGeneration = 'TrainingDataGeneration'
+  OpenAIKeywordSimilarityThreshold = 'OpenAIKeywordSimilarityThreshold',
+  OpenAIVariableKeywordSimilarityThreshold = 'OpenAIVariableKeywordSimilarityThreshold',
+  OpenAIFunctionMatchLimit = 'OpenAIFunctionMatchLimit',
+  OpenAIVariableMatchLimit = 'OpenAIVariableMatchLimit',
+  OpenAIExtractKeywordsTemperature = 'OpenAIExtractKeywordsTemperature',
+  OpenAIChatConversationLookback = 'OpenAIChatConversationLookback',
+  OpenAIPluginConversationLookback = 'OpenAIPluginConversationLookback',
+  TrainingDataGeneration = 'TrainingDataGeneration',
+  PublicVisibility = 'PublicVisibility',
+  DefaultTier = 'DefaultTier',
+  DefaultTos = 'DefaultTos',
 }
 
 export class TrainingDataGeneration {

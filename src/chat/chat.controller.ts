@@ -12,7 +12,6 @@ import {
   Header,
   Query,
   MessageEvent,
-  ValidationPipe,
   BadRequestException,
 } from '@nestjs/common';
 import { map, Observable } from 'rxjs';
@@ -27,7 +26,7 @@ import {
   StoreMessageDto,
   MessageUUIDDto,
 } from '@poly/model';
-import { ApiSecurity } from '@nestjs/swagger';
+import { ApiOperation, ApiSecurity } from '@nestjs/swagger';
 import { ChatService } from 'chat/chat.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AiService } from 'ai/ai.service';
@@ -35,7 +34,9 @@ import { AuthRequest } from 'common/types';
 import { UserService } from 'user/user.service';
 import { AuthService } from 'auth/auth.service';
 import { MessageDto } from '@poly/model';
-import { MergeRequestData } from 'common/decorators';
+import { ChatQuestionsLimitGuard } from 'limit/chat-questions-limit-guard';
+import { StatisticsService } from 'statistics/statistics.service';
+import { API_TAG_INTERNAL } from 'common/constants';
 
 @ApiSecurity('PolyApiKey')
 @Controller('chat')
@@ -47,6 +48,7 @@ export class ChatController {
     private readonly aiService: AiService,
     private readonly userService: UserService,
     private readonly authService: AuthService,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   @UseGuards(PolyAuthGuard)
@@ -64,9 +66,9 @@ export class ChatController {
     return this.service.storeMessage(data.message);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(PolyAuthGuard, ChatQuestionsLimitGuard)
   @Sse('/question')
-  public async sendQuestion(@Req() req, @Query() data: SendQuestionDto): Promise<Observable<MessageEvent>> {
+  public async sendQuestion(@Req() req: AuthRequest, @Query() data: SendQuestionDto): Promise<Observable<MessageEvent>> {
     const environmentId = req.user.environment.id;
     const userId = req.user.user?.id || (await this.userService.findAdminUserByEnvironmentId(environmentId))?.id;
 
@@ -83,15 +85,15 @@ export class ChatController {
       throw new BadRequestException('At least one of `message` or `uuid` must be provided.');
     }
 
-    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid);
+    await this.statisticsService.trackChatQuestion(req.user);
 
-    return observable
-      .pipe(
-        map(data => ({
-          data,
-        }),
-        ),
-      );
+    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '');
+
+    return observable.pipe(
+      map((data) => ({
+        data,
+      })),
+    );
   }
 
   @UseGuards(PolyAuthGuard)
@@ -126,13 +128,15 @@ export class ChatController {
     return { response: 'New system prompt set!' };
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Get('/conversations')
-  public async conversationsList(@Req() req: AuthRequest, @Query('userId') userId: string) {
-    const conversationIds = await this.service.getConversationIds(userId);
+  public async conversationsList(@Req() req: AuthRequest, @Query() query) {
+    const conversationIds = await this.service.getConversationIds(query.userId, query.workspaceFolder);
     return { conversationIds };
   }
 
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Header('content-type', 'text/plain')
   @Get('/conversations/:conversationId')
@@ -141,23 +145,19 @@ export class ChatController {
     @Query('userId') userId: string,
     @Param('conversationId') conversationId: string,
   ) {
-    const conversation = await this.service.getConversationDetail(userId, conversationId);
-    return conversation;
+    return this.service.getConversationDetail(userId, conversationId);
   }
 
   @UseGuards(new PolyAuthGuard())
   @Get('/history')
   public async chatHistory(
     @Req() req: AuthRequest,
-    @MergeRequestData(['query'], new ValidationPipe({ validateCustomDecorators: true, transform: true })) pagination: Pagination,
+    @Query() pagination: Pagination,
   ): Promise<MessageDto[]> {
-    const {
-      perPage = '10',
-      firstMessageDate = null,
-    } = pagination;
+    const { perPage = '10', firstMessageDate = null, workspaceFolder = '' } = pagination;
 
     // returns the conversation history for this specific user
-    const history = await this.service.getHistory(req.user.user?.id, Number(perPage), firstMessageDate);
+    const history = await this.service.getHistory(req.user.user?.id, Number(perPage), firstMessageDate, workspaceFolder);
 
     return history;
   }

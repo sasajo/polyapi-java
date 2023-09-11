@@ -1,17 +1,18 @@
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
-import { Environment, WebhookHandle } from '@prisma/client';
-import { HttpService } from '@nestjs/axios';
+import { Environment, Tenant, WebhookHandle } from '@prisma/client';
 import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
-import { UserService } from 'user/user.service';
 import { AiService } from 'ai/ai.service';
 import {
   ConfigVariableName,
   PropertySpecification,
+  PublicVisibilityValue,
   TrainingDataGeneration,
-  Visibility, VisibilityQuery,
+  Visibility,
+  VisibilityQuery,
   WebhookHandleDto,
+  WebhookHandlePublicDto,
   WebhookHandleSpecification,
 } from '@poly/model';
 import { ConfigService } from 'config/config.service';
@@ -19,6 +20,7 @@ import { SpecsService } from 'specs/specs.service';
 import { toCamelCase } from '@guanghechen/helper-string';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { TriggerService } from 'trigger/trigger.service';
+import { WithTenant } from 'common/types';
 
 @Injectable()
 export class WebhookService {
@@ -28,10 +30,8 @@ export class WebhookService {
     private readonly commonService: CommonService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly httpService: HttpService,
     private readonly eventService: EventService,
     private readonly aiService: AiService,
-    private readonly userService: UserService,
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
     private readonly configVariableService: ConfigVariableService,
@@ -80,6 +80,65 @@ export class WebhookService {
     });
   }
 
+  public async getPublicWebhookHandles(tenant: Tenant, environment: Environment, includeHidden = false) {
+    const handles = await this.prisma.webhookHandle.findMany({
+      where: {
+        visibility: Visibility.Public,
+        environment: {
+          tenant: {
+            NOT: {
+              id: tenant.id,
+            },
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return (
+      await Promise.all(
+        handles.map(handle => this.resolveVisibility(tenant, environment, handle)),
+      )
+    ).filter(handle => includeHidden || !handle.hidden);
+  }
+
+  async findPublicWebhookHandle(tenant: Tenant, environment: Environment, id: string) {
+    const handle = await this.prisma.webhookHandle.findFirst({
+      where: {
+        id,
+        visibility: Visibility.Public,
+        environment: {
+          tenant: {
+            publicVisibilityAllowed: true,
+          },
+        },
+      },
+      include: {
+        environment: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+    });
+
+    if (!handle) {
+      return null;
+    }
+
+    return await this.resolveVisibility(tenant, environment, handle);
+  }
+
   private async getAIWebhookData(webhookHandle: WebhookHandle, description: string, eventPayload: any) {
     const {
       name: aiName,
@@ -104,6 +163,7 @@ export class WebhookService {
     name: string,
     eventPayload: any,
     description: string,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<WebhookHandle> {
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
     this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
@@ -161,6 +221,8 @@ export class WebhookService {
         },
       });
     } else {
+      await checkBeforeCreate();
+
       this.logger.debug(`Creating new webhook handle in environment ${environment.id} for ${context}/${name}...`);
 
       return this.prisma.$transaction(
@@ -211,7 +273,7 @@ export class WebhookService {
   async triggerWebhookHandle(webhookHandle: WebhookHandle, eventPayload: any) {
     this.logger.debug(`Triggering webhook for ${webhookHandle.id}...`);
     this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
-    await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload);
+    return await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload);
   }
 
   toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
@@ -222,6 +284,15 @@ export class WebhookService {
       description: webhookHandle.description,
       url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
       visibility: webhookHandle.visibility as Visibility,
+    };
+  }
+
+  toPublicDto(webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean }): WebhookHandlePublicDto {
+    return {
+      ...this.toDto(webhookHandle),
+      context: this.commonService.getPublicContext(webhookHandle),
+      tenant: webhookHandle.environment.tenant.name || '',
+      hidden: webhookHandle.hidden,
     };
   }
 
@@ -365,6 +436,26 @@ export class WebhookService {
       visibilityMetadata: {
         visibility: webhookHandle.visibility as Visibility,
       },
+    };
+  }
+
+  private async resolveVisibility(
+    tenant: Tenant,
+    environment: Environment,
+    webhookHandle: WithTenant<WebhookHandle>,
+  ): Promise<WithTenant<WebhookHandle> & { hidden: boolean }> {
+    const {
+      defaultHidden = false,
+      visibleContexts = null,
+    } = await this.configVariableService.getEffectiveValue<PublicVisibilityValue>(
+      ConfigVariableName.PublicVisibility,
+      tenant.id,
+      environment.id,
+    ) || {};
+
+    return {
+      ...webhookHandle,
+      hidden: !this.commonService.isPublicVisibilityAllowed(webhookHandle, defaultHidden, visibleContexts),
     };
   }
 }

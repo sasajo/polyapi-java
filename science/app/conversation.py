@@ -1,10 +1,10 @@
 from typing import List, Optional
 from prisma import get_client
 from prisma.models import ConversationMessage
-from app.constants import MessageType
+from app.constants import VarName
 from app.typedefs import MessageDict
 from app.utils import (
-    get_last_conversations,
+    get_config_variable,
 )
 
 
@@ -30,32 +30,26 @@ Here is the question:
 """
 
 
-def previous_message_referenced(
-    user_id: str, question: str
+def get_plugin_conversation_lookback() -> int:
+    var = get_config_variable(VarName.plugin_conversation_lookback)
+    return int(var.value) if var else 3
+
+
+def get_chat_conversation_lookback() -> int:
+    var = get_config_variable(VarName.chat_conversation_lookback)
+    return int(var.value) if var else 3
+
+
+def get_recent_messages(
+    conversation_id: str, message_type: int, lookback=3
 ) -> List[ConversationMessage]:
-    """ get any previous messages referenced in the incoming question
-    """
-    conversations = get_last_conversations(user_id, 3)
-    conversationIds = [conversation.id for conversation in conversations]
-    if not conversationIds:
-        return []
+    db = get_client()
+    messages = db.conversationmessage.find_many(
+        where={"conversationId": conversation_id, "type": message_type},
+        order={"createdAt": "desc"},
+        # lookback represents pairs of messages (user+assistant) so we multiply by 2
+        take=lookback * 2,
+    )
 
-    # choice = simple_chatgpt_question(question)
-    # try:
-    #     answer = int(remove_punctuation(choice["message"]["content"]))
-    # except (ValueError, TypeError):
-    #     answer = 0
-
-    # HACK for now this just always says YES include the previous conversations
-    # TODO in future this will be wicked smaht and find only the relevant messages
-    # from prior in the conversation
-    answer = 1
-    if answer == 1:
-        db = get_client()
-        cmsgs = db.conversationmessage.find_many(
-            where={"conversationId": {"in": conversationIds}, "type": MessageType.user},
-            order={"createdAt": "asc"},
-        )
-        return cmsgs
-    else:
-        return []
+    # flip the sort order to go from start to end
+    return sorted(messages, key=lambda m: m.createdAt)
