@@ -7,6 +7,7 @@ import { TriggerProvider } from 'trigger/provider/trigger-provider';
 import { KNativeTriggerProvider } from 'trigger/provider/knative-trigger-provider';
 import { TriggerDestination, TriggerDto, TriggerSource } from '@poly/model';
 import { delay } from '@poly/common/utils';
+import { CommonError, NAME_CONFLICT } from 'common/common-error';
 
 @Injectable()
 export class TriggerService implements OnModuleInit {
@@ -36,11 +37,13 @@ export class TriggerService implements OnModuleInit {
     try {
       return await this.triggerProvider.createTrigger(environmentId, name, source, destination, waitForResponse);
     } catch (e) {
+      if (e instanceof CommonError && e.code === NAME_CONFLICT) {
+        throw new ConflictException('Trigger with given name already exists');
+      }
       if (e.message.includes('already exists')) {
         throw new ConflictException('Trigger with given source and destination already exists');
-      } else {
-        throw e;
       }
+      throw e;
     }
   }
 
