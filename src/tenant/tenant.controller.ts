@@ -765,7 +765,7 @@ export class TenantController {
   async signUp(
     @Body() data: CreateSignUpDto,
   ) {
-    return this.tenantService.toSignUpDto(await this.tenantService.signUp(data.email, data.tenantName || null));
+    return this.tenantService.toSignUpDto(await this.tenantService.signUp(data.email, (data.tenantName || '').trim() || null));
   }
 
   @ApiConflictResponse({
