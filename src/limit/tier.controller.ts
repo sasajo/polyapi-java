@@ -27,7 +27,13 @@ export class TierController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post()
   async createTier(@Body() data: CreateTierDto): Promise<TierDto> {
-    const { name, maxFunctions, functionCallsPerDay, chatQuestionsPerDay } = data;
+    const {
+      name,
+      maxFunctions,
+      functionCallsPerDay,
+      chatQuestionsPerDay,
+      variableCallsPerDay,
+    } = data;
 
     this.logger.log('Creating limit tier...');
     this.logger.log(
@@ -40,6 +46,7 @@ export class TierController {
         maxFunctions,
         chatQuestionsPerDay,
         functionCallsPerDay,
+        variableCallsPerDay,
       ),
     );
   }
@@ -57,7 +64,13 @@ export class TierController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Patch('/:id')
   async updateTier(@Param('id') id: string, @Body() data: UpdateTierDto): Promise<TierDto> {
-    const { name, maxFunctions, chatQuestionsPerDay, functionCallsPerDay } = data;
+    const {
+      name,
+      maxFunctions,
+      chatQuestionsPerDay,
+      functionCallsPerDay,
+      variableCallsPerDay,
+    } = data;
     const tier = await this.findLimitTier(id);
 
     this.logger.log(`Updating limit tier ${id}...`);
@@ -66,7 +79,7 @@ export class TierController {
     );
 
     return this.service.toTierDto(
-      await this.service.updateLimitTier(tier, name, maxFunctions, chatQuestionsPerDay, functionCallsPerDay),
+      await this.service.updateLimitTier(tier, name, maxFunctions, chatQuestionsPerDay, functionCallsPerDay, variableCallsPerDay),
     );
   }
 

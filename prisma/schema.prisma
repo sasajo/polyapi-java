@@ -329,6 +329,7 @@ model LimitTier {
   maxFunctions        Int?     @map("max_functions")
   chatQuestionsPerDay Int?     @map("chat_questions_per_day")
   functionCallsPerDay Int?     @map("function_calls_per_day")
+  variableCallsPerDay Int?     @map("variable_calls_per_day")
   tenants             Tenant[]
 
   @@map("limit_tier")
