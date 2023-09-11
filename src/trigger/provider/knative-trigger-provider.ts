@@ -25,6 +25,7 @@ interface KNativeTriggerDef {
     labels: {
       name: string | null;
       environment: string;
+      waitForResponse?: string;
     },
     uid: string;
   };
@@ -110,6 +111,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
       environmentId: triggerDef.metadata.labels.environment,
       source: getSource(),
       destination: getDestination(),
+      waitForResponse: triggerDef.metadata.labels.waitForResponse === 'true',
     };
   }
 
@@ -149,7 +151,13 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  async createTrigger(environmentId: string, name: string | null, source: TriggerSource, destination: TriggerDestination): Promise<TriggerDto> {
+  async createTrigger(
+    environmentId: string,
+    name: string | null,
+    source: TriggerSource,
+    destination: TriggerDestination,
+    waitForResponse: boolean,
+  ): Promise<TriggerDto> {
     const getSubscriberConfig = (): SubscriberConfig => {
       if (destination.serverFunctionId) {
         return {
@@ -180,6 +188,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
             labels: {
               name,
               environment: environmentId,
+              waitForResponse: waitForResponse ? 'true' : 'false',
             },
           },
           spec: {
@@ -227,7 +236,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
         TRIGGERS_VERSION,
         this.config.knativeTriggerNamespace,
         TRIGGERS_NAME,
-        trigger.name,
+        this.getTriggerName(environmentId, trigger.source, trigger.destination),
       );
     } catch (e) {
       if (e.body?.code === 404) {
