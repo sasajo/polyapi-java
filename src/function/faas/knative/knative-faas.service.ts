@@ -126,8 +126,8 @@ export class KNativeFaasService implements FaasService {
     const functionUrl = await this.getFunctionUrl(id);
 
     if (!functionUrl) {
-      this.logger.error(`Function ${id} is does not exists.`);
-      throw new Error(`Function ${id} is does not exists.`);
+      this.logger.error(`Function ${id} does not exists.`);
+      throw new Error(`Function ${id} does not exists. Please, redeploy it again.`);
     }
 
     this.logger.debug(`Executing server function '${id}'...`);
