@@ -308,11 +308,11 @@ const COMMANDS = [
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
           messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
+          scrollToLastMessage();
           enableTextarea();
           focusMessageInput();
         }
 
-        scrollToLastMessage();
         observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
 
         break;
@@ -479,7 +479,6 @@ const COMMANDS = [
             targetButton.innerHTML = copySvg;
           }, 2000);
         });
-
     } else if (targetButton.classList?.contains('load-conversation-messages')) {
       const firstMessageOnChat = document.querySelector('#conversation-list > div[data-created-at]');
 

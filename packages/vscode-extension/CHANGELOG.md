@@ -1,4 +1,4 @@
-### 0.4.3
+### 0.3.3
 * Remove staging instance from default values.
 * Avoid scrolling down when printing messages on chat, just until fully message is received
 
