@@ -962,7 +962,7 @@ export class FunctionService implements OnModuleInit {
     return customFunction;
   }
 
-  async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null) {
+  async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null, enabled?: boolean) {
     const { id, name: currentName, context: currentContext } = customFunction;
 
     if (context != null || name != null) {
@@ -983,6 +983,7 @@ export class FunctionService implements OnModuleInit {
         context: (context == null ? customFunction.context : context).trim(),
         description: description == null ? customFunction.description : description,
         visibility: visibility == null ? customFunction.visibility : visibility,
+        enabled,
       },
     });
   }

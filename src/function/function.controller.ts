@@ -391,16 +391,22 @@ export class FunctionController {
       context = null,
       description = null,
       visibility = null,
+      enabled,
     } = data;
     const serverFunction = await this.service.findServerFunction(id);
     if (!serverFunction) {
       throw new NotFoundException('Function not found');
     }
 
+    if (enabled !== undefined) {
+      if (req.user.user?.role !== Role.SuperAdmin) {
+        throw new BadRequestException('You do not have permission to enable/disable functions.');
+      }
+    }
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(serverFunction, name, context, description, visibility),
+      await this.service.updateCustomFunction(serverFunction, name, context, description, visibility, enabled),
     );
   }
 
@@ -434,6 +440,9 @@ export class FunctionController {
     }
     if (!customFunction.serverSide) {
       throw new BadRequestException(`Function with id ${id} is not server function.`);
+    }
+    if (!customFunction.enabled) {
+      throw new BadRequestException(`Function with id ${id} has been disabled by System Administrator and cannot be used.`);
     }
 
     await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
