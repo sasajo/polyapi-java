@@ -62,6 +62,7 @@ import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospecti
 import { AuthService } from 'auth/auth.service';
 import crypto from 'crypto';
 import { WithTenant } from 'common/types';
+import { LimitService } from 'limit/limit.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -90,6 +91,7 @@ export class FunctionService implements OnModuleInit {
     private readonly configVariableService: ConfigVariableService,
     private readonly variableService: VariableService,
     private readonly authService: AuthService,
+    private readonly limitService: LimitService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
   }
@@ -947,6 +949,7 @@ export class FunctionService implements OnModuleInit {
           code,
           requirements,
           apiKey,
+          await this.limitService.getTenantServerFunctionLimits(environment.tenantId),
         );
 
         return customFunction;
@@ -1254,6 +1257,7 @@ export class FunctionService implements OnModuleInit {
         serverFunction.code,
         JSON.parse(serverFunction.requirements || '[]'),
         apiKey,
+        await this.limitService.getTenantServerFunctionLimits(serverFunction.environment.tenantId),
       );
     }
   }

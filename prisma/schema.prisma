@@ -327,13 +327,16 @@ model DocSection {
 }
 
 model LimitTier {
-  id                  String   @id @default(uuid())
-  name                String   @default("")
-  maxFunctions        Int?     @map("max_functions")
-  chatQuestionsPerDay Int?     @map("chat_questions_per_day")
-  functionCallsPerDay Int?     @map("function_calls_per_day")
-  variableCallsPerDay Int?     @map("variable_calls_per_day")
-  tenants             Tenant[]
+  id                        String   @id @default(uuid())
+  name                      String   @default("")
+  maxFunctions              Int?     @map("max_functions")
+  chatQuestionsPerDay       Int?     @map("chat_questions_per_day")
+  functionCallsPerDay       Int?     @map("function_calls_per_day")
+  variableCallsPerDay       Int?     @map("variable_calls_per_day")
+  serverFunctionLimitCpu    Int?     @map("server_function_limit_cpu")
+  serverFunctionLimitMemory Int?     @map("server_function_limit_memory")
+  serverFunctionLimitTime   Int?     @map("server_function_limit_time")
+  tenants                   Tenant[]
 
   @@map("limit_tier")
 }
