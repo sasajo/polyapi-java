@@ -41,6 +41,7 @@ import { FunctionCallsLimitGuard } from 'limit/function-calls-limit-guard';
 import { Tenant } from '@prisma/client';
 import { StatisticsService } from 'statistics/statistics.service';
 import { FUNCTIONS_LIMIT_REACHED } from '@poly/common/messages';
+import { CommonService } from 'common/common.service';
 import { API_TAG_INTERNAL } from 'common/constants';
 
 @ApiSecurity('PolyApiKey')
@@ -54,6 +55,7 @@ export class FunctionController {
     private readonly variableService: VariableService,
     private readonly limitService: LimitService,
     private readonly statisticsService: StatisticsService,
+    private readonly commonService: CommonService,
   ) {
   }
 
@@ -176,6 +178,8 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
+
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
 
     return this.service.apiFunctionToDetailsDto(
@@ -295,6 +299,8 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
+
     await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
@@ -397,6 +403,8 @@ export class FunctionController {
     if (!serverFunction) {
       throw new NotFoundException('Function not found');
     }
+
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
 
     if (enabled !== undefined) {
       if (req.user.user?.role !== Role.SuperAdmin) {
