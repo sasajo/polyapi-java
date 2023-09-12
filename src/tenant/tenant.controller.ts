@@ -147,6 +147,10 @@ export class TenantController {
       }
     }
 
+    if (tenant.name === null && !name && publicVisibilityAllowed) {
+      throw new BadRequestException('Cannot set publicVisibilityAllowed on tenants with no name.');
+    }
+
     if (tierId) {
       const limitTier = await this.limitService.findById(tierId);
       if (!limitTier) {
@@ -923,7 +927,7 @@ export class TenantController {
   }
 
   private async findTos(id: string) {
-    const tosRecord = await this.tosService.findOne(id);
+    const tosRecord = await this.tosService.findTosVersion(id);
 
     if (!tosRecord) {
       throw new NotFoundException('Tos record not found.');

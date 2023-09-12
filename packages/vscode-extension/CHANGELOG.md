@@ -1,6 +1,9 @@
-### 0.3.3
+### 0.3.4
 * Remove staging instance from default values.
 * Avoid scrolling down when printing messages on chat, just until fully message is received
+
+### 0.3.3
+* Updated meta info.
 
 ### 0.3.2
 * Avoid create config.env file if polyapi's library is not installed.
