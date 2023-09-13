@@ -1,5 +1,24 @@
-import { Body, Controller, Delete, Get, Logger, NotFoundException, Param, Patch, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  All,
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Logger,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import { WebhookHandle } from '@prisma/client';
 import { WebhookService } from 'webhook/webhook.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { CreateWebhookHandleDto, Permission, Role, UpdateWebhookHandleDto, WebhookHandlePublicDto } from '@poly/model';
@@ -12,7 +31,12 @@ import { CommonService } from 'common/common.service';
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
-  public constructor(private readonly webhookService: WebhookService, private readonly authService: AuthService, private readonly commonService: CommonService) {}
+  public constructor(
+    private readonly webhookService: WebhookService,
+    private readonly authService: AuthService,
+    private readonly commonService: CommonService,
+  ) {
+  }
 
   @UseGuards(PolyAuthGuard)
   @Get()
@@ -44,11 +68,7 @@ export class WebhookController {
   @UseGuards(PolyAuthGuard)
   @Get(':id')
   public async getWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
-    const webhookHandle = await this.webhookService.findWebhookHandle(id);
-
-    if (!webhookHandle) {
-      throw new NotFoundException();
-    }
+    const webhookHandle = await this.findWebhookHandle(id);
 
     await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
@@ -58,9 +78,25 @@ export class WebhookController {
   @UseGuards(PolyAuthGuard)
   @Post()
   public async createWebhookHandle(@Req() req: AuthRequest, @Body() createWebhookHandle: CreateWebhookHandleDto) {
-    const { context = '', name, eventPayload, description = '' } = createWebhookHandle;
+    const {
+      context = '',
+      name,
+      eventPayload,
+      description = '',
+      visibility,
+      responsePayload,
+      responseHeaders,
+      responseStatus,
+      subpath,
+      method,
+      securityFunctionIds = [],
+    } = createWebhookHandle;
 
     await this.authService.checkPermissions(req.user, Permission.Teach);
+
+    if (method && !subpath) {
+      throw new BadRequestException('subpath is required if method is set');
+    }
 
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
       req.user.environment,
@@ -68,6 +104,13 @@ export class WebhookController {
       name,
       eventPayload,
       description,
+      visibility,
+      responsePayload,
+      responseHeaders,
+      responseStatus,
+      subpath,
+      method,
+      securityFunctionIds,
     );
     return this.webhookService.toDto(webhookHandle);
   }
@@ -84,41 +127,78 @@ export class WebhookController {
       name = null,
       description = null,
       visibility = null,
+      responsePayload,
+      responseHeaders,
+      responseStatus,
+      subpath,
+      method,
+      securityFunctionIds = null,
     } = updateWebhookHandleDto;
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
 
-    const webhookHandle = await this.webhookService.findWebhookHandle(id);
-    if (!webhookHandle) {
-      throw new NotFoundException();
+    const webhookHandle = await this.findWebhookHandle(id);
+
+    if ((method && !subpath && !webhookHandle.subpath) || (subpath === null && method !== null && webhookHandle.method)) {
+      throw new BadRequestException('subpath is required if method is set');
     }
 
     await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
     return this.webhookService.toDto(
-      await this.webhookService.updateWebhookHandle(webhookHandle, context, name, description, visibility),
+      await this.webhookService.updateWebhookHandle(
+        webhookHandle,
+        context,
+        name,
+        description,
+        visibility,
+        responsePayload,
+        responseHeaders,
+        responseStatus,
+        subpath,
+        method,
+        securityFunctionIds,
+      ),
     );
   }
 
   @Post(':id')
-  public async triggerWebhookHandle(@Param('id') id: string, @Body() payload: any) {
-    const webhookHandle = await this.webhookService.findWebhookHandle(id);
+  public async triggerWebhookHandle(@Res() res: Response, @Param('id') id: string, @Body() payload: any, @Headers() headers: Record<string, any>) {
+    const webhookHandle = await this.findWebhookHandle(id);
+    const response = await this.webhookService.triggerWebhookHandle(webhookHandle, payload, headers);
 
-    if (!webhookHandle) {
-      this.logger.debug(`Webhook handle not found for ${id} - skipping trigger...`);
-      return;
+    this.sendWebhookResponse(res, webhookHandle, response);
+  }
+
+  @All(':id/:subpath*')
+  public async triggerWebhookHandleWithSubpath(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() payload: any, @Headers() headers: Record<string, any>) {
+    const webhookHandle = await this.findWebhookHandle(id);
+    if ((!webhookHandle.method && req.method !== 'POST') || (webhookHandle.method && webhookHandle.method !== req.method)) {
+      throw new NotFoundException();
     }
 
-    return await this.webhookService.triggerWebhookHandle(webhookHandle, payload);
+    const subpath = req.url.split('/').slice(3).join('/');
+    const response = await this.webhookService.triggerWebhookHandle(webhookHandle, payload, headers, subpath);
+
+    this.sendWebhookResponse(res, webhookHandle, response);
+  }
+
+  private sendWebhookResponse(res: Response, webhookHandle: WebhookHandle, webhookResponse: any) {
+    if (webhookHandle.responseHeaders) {
+      const headers = JSON.parse(webhookHandle.responseHeaders);
+      Object.keys(headers).forEach(key => {
+        res.setHeader(key, headers[key]);
+      });
+    }
+
+    res.status(webhookHandle.responseStatus || 200)
+      .send(webhookResponse || (webhookHandle.responsePayload ? JSON.parse(webhookHandle.responsePayload) : undefined));
   }
 
   @Delete(':id')
   @UseGuards(PolyAuthGuard)
   public async deleteWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
-    const webhookHandle = await this.webhookService.findWebhookHandle(id);
-    if (!webhookHandle) {
-      throw new NotFoundException();
-    }
+    const webhookHandle = await this.findWebhookHandle(id);
 
     await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
@@ -150,7 +230,22 @@ export class WebhookController {
   public async registerWebhookFunction(@Req() req: AuthRequest, @Param('name') name: string, @Body() payload: any) {
     await this.authService.checkPermissions(req.user, Permission.Teach);
 
-    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(req.user.environment, '', name, payload, '');
+    const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
+      req.user.environment,
+      '',
+      name,
+      payload,
+      '',
+    );
     return this.webhookService.toDto(webhookHandle);
+  }
+
+  private async findWebhookHandle(id: string) {
+    const webhookHandle = await this.webhookService.findWebhookHandle(id);
+    if (!webhookHandle) {
+      throw new NotFoundException();
+    }
+
+    return webhookHandle;
   }
 }

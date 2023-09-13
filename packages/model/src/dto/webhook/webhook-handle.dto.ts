@@ -7,6 +7,12 @@ export interface WebhookHandleDto {
   description: string;
   url: string;
   visibility: Visibility;
+  responsePayload?: any;
+  responseHeaders?: any;
+  responseStatus: number | null;
+  subpath: string | null;
+  method: string | null;
+  securityFunctionIds: string[];
 }
 
 export interface WebhookHandlePublicDto extends WebhookHandleDto {

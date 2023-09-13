@@ -176,14 +176,20 @@ export class EventService {
       .filter(socket => socket.id !== client.id);
   }
 
-  sendWebhookEvent(webhookHandleID: string, eventPayload: any) {
+  sendWebhookEvent(webhookHandleID: string, eventPayload: any, eventHeaders: Record<string, any>, subpathParams: Record<string, string>) {
     this.logger.debug(`Sending webhook event: '${webhookHandleID}'`, eventPayload);
 
     Object.values(this.webhookEventHandlers).forEach(clientHandlers => {
       if (!clientHandlers[webhookHandleID]) {
         return;
       }
-      clientHandlers[webhookHandleID].forEach(socket => socket.emit(`handleWebhookEvent:${webhookHandleID}`, eventPayload));
+      clientHandlers[webhookHandleID].forEach(
+        socket => socket.emit(`handleWebhookEvent:${webhookHandleID}`, {
+          body: eventPayload,
+          headers: eventHeaders,
+          params: subpathParams,
+        }),
+      );
     });
   }
 
