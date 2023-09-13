@@ -1,3 +1,6 @@
+### 0.3.4
+* Docs updates.
+
 ### 0.3.3
 * Updated meta info.
 
