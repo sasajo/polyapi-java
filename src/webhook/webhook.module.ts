@@ -12,6 +12,7 @@ import { AuthModule } from 'auth/auth.module';
 import { ConfigVariableModule } from 'config-variable/config-variable.module';
 import { TriggerModule } from 'trigger/trigger.module';
 import { LimitModule } from 'limit/limit.module';
+import { FunctionModule } from 'function/function.module';
 
 @Module({
   providers: [WebhookService],
@@ -28,6 +29,7 @@ import { LimitModule } from 'limit/limit.module';
     ConfigVariableModule,
     forwardRef(() => TriggerModule),
     LimitModule,
+    forwardRef(() => FunctionModule),
   ],
   exports: [WebhookService],
 })

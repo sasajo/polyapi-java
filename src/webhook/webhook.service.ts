@@ -1,4 +1,4 @@
-import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, ForbiddenException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Environment, Tenant, WebhookHandle } from '@prisma/client';
 import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
@@ -21,6 +21,7 @@ import { toCamelCase } from '@guanghechen/helper-string';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { TriggerService } from 'trigger/trigger.service';
 import { WithTenant } from 'common/types';
+import { FunctionService } from 'function/function.service';
 
 @Injectable()
 export class WebhookService {
@@ -36,6 +37,8 @@ export class WebhookService {
     private readonly specsService: SpecsService,
     private readonly configVariableService: ConfigVariableService,
     private readonly triggerService: TriggerService,
+    @Inject(forwardRef(() => FunctionService))
+    private readonly functionService: FunctionService,
   ) {
   }
 
@@ -163,6 +166,13 @@ export class WebhookService {
     name: string,
     eventPayload: any,
     description: string,
+    visibility?: Visibility,
+    responsePayload?: any,
+    responseHeaders?: any,
+    responseStatus?: number,
+    subpath?: string,
+    method?: string,
+    securityFunctionIds: string[] = [],
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<WebhookHandle> {
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
@@ -173,11 +183,14 @@ export class WebhookService {
         name,
         context,
         environmentId: environment.id,
+        securityFunctionIds: JSON.stringify(securityFunctionIds),
       },
     });
 
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
+    responsePayload = this.normalizeResponsePayload(responsePayload, webhookHandle);
+    responseHeaders = this.normalizeResponseHeaders(responseHeaders, webhookHandle);
 
     if (!(await this.checkContextAndNameDuplicates(
       environment.id,
@@ -204,6 +217,12 @@ export class WebhookService {
               context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
               description: description || aiResponse.description,
               name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
+              visibility,
+              responsePayload,
+              responseHeaders,
+              responseStatus,
+              subpath,
+              method,
             },
           });
         }
@@ -218,6 +237,12 @@ export class WebhookService {
           name,
           context,
           description: description || webhookHandle.description,
+          visibility,
+          responsePayload,
+          responseHeaders,
+          responseStatus,
+          subpath,
+          method,
         },
       });
     } else {
@@ -238,6 +263,9 @@ export class WebhookService {
               context: context || '',
               eventPayload: JSON.stringify(eventPayload),
               description,
+              visibility,
+              responsePayload,
+              responseHeaders,
             },
           });
 
@@ -270,10 +298,44 @@ export class WebhookService {
     }
   }
 
-  async triggerWebhookHandle(webhookHandle: WebhookHandle, eventPayload: any) {
-    this.logger.debug(`Triggering webhook for ${webhookHandle.id}...`);
-    this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload);
+  async triggerWebhookHandle(webhookHandle: WebhookHandle, eventPayload: any, eventHeaders: Record<string, any>, subpath?: string) {
+    this.logger.debug(`Triggering webhook for ${webhookHandle.id} (subpath=${subpath})...`);
+
+    const subpathParams = subpath && webhookHandle.subpath
+      ? await this.resolveSubpathParams(subpath, webhookHandle.subpath)
+      : {};
+
+    if (webhookHandle.securityFunctionIds) {
+      await this.executeSecurityFunctions(webhookHandle, eventPayload, eventHeaders, subpathParams);
+    }
+
+    this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload, eventHeaders, subpathParams);
     return await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload);
+  }
+
+  private async executeSecurityFunctions(webhookHandle: WebhookHandle, eventPayload: any, eventHeaders: Record<string, any>, params: Record<string, any>) {
+    const securityFunctionIds = webhookHandle.securityFunctionIds ? JSON.parse(webhookHandle.securityFunctionIds) : [];
+    if (securityFunctionIds.length === 0) {
+      return;
+    }
+
+    this.logger.debug(`Found ${securityFunctionIds.length} security function(s) - executing for security check...`);
+    for (const securityFunctionId of securityFunctionIds) {
+      const securityFunction = await this.functionService.findServerFunction(securityFunctionId, true);
+      if (!securityFunction) {
+        this.logger.debug(`Security function ${securityFunctionId} not found - skipping...`);
+        continue;
+      }
+
+      const response = await this.functionService.executeServerFunction(securityFunction, [
+        eventPayload,
+        eventHeaders,
+        params,
+      ]);
+      if (response !== true) {
+        throw new ForbiddenException(`Security function ${securityFunction.id} check failed - access denied.`);
+      }
+    }
   }
 
   toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
@@ -284,6 +346,12 @@ export class WebhookService {
       description: webhookHandle.description,
       url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
       visibility: webhookHandle.visibility as Visibility,
+      responsePayload: webhookHandle.responsePayload ? JSON.parse(webhookHandle.responsePayload) : undefined,
+      responseHeaders: webhookHandle.responseHeaders ? JSON.parse(webhookHandle.responseHeaders) : undefined,
+      responseStatus: webhookHandle.responseStatus,
+      subpath: webhookHandle.subpath,
+      method: webhookHandle.method,
+      securityFunctionIds: webhookHandle.securityFunctionIds ? JSON.parse(webhookHandle.securityFunctionIds) : [],
     };
   }
 
@@ -302,11 +370,19 @@ export class WebhookService {
     name: string | null,
     description: string | null,
     visibility: Visibility | null,
+    responsePayload: any | null | undefined,
+    responseHeaders: any | null | undefined,
+    responseStatus: number | null | undefined,
+    subpath: string | null | undefined,
+    method: string | null | undefined,
+    securityFunctionIds: string[] | null = null,
   ) {
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
     description = this.normalizeDescription(description, webhookHandle);
     visibility = this.normalizeVisibility(visibility, webhookHandle);
+    responsePayload = this.normalizeResponsePayload(responsePayload, webhookHandle);
+    responseHeaders = this.normalizeResponseHeaders(responseHeaders, webhookHandle);
 
     if (!(await this.checkContextAndNameDuplicates(webhookHandle.environmentId, context, name, [webhookHandle.id]))) {
       throw new ConflictException(`Function with name ${context}/${name} already exists.`);
@@ -325,6 +401,12 @@ export class WebhookService {
         name,
         description,
         visibility,
+        responsePayload,
+        responseHeaders,
+        responseStatus,
+        subpath,
+        method,
+        securityFunctionIds: securityFunctionIds ? JSON.stringify(securityFunctionIds) : undefined,
       },
     });
   }
@@ -367,6 +449,22 @@ export class WebhookService {
     }
 
     return visibility;
+  }
+
+  private normalizeResponsePayload(responsePayload: any, webhookHandle: WebhookHandle | null): string | null | undefined {
+    return responsePayload
+      ? JSON.stringify(responsePayload)
+      : responsePayload === null
+        ? null
+        : webhookHandle?.responsePayload;
+  }
+
+  private normalizeResponseHeaders(responseHeaders: any, webhookHandle: WebhookHandle | null): string | null | undefined {
+    return responseHeaders
+      ? JSON.stringify(responseHeaders)
+      : responseHeaders === null
+        ? null
+        : webhookHandle?.responseHeaders;
   }
 
   private async isWebhookAITrainingEnabled(environment: Environment) {
@@ -413,7 +511,25 @@ export class WebhookService {
             type: {
               kind: 'function',
               spec: {
-                arguments: [await getEventArgument()],
+                arguments: [
+                  await getEventArgument(),
+                  {
+                    name: 'headers',
+                    required: false,
+                    type: {
+                      kind: 'object',
+                      typeName: 'Record<string, any>',
+                    },
+                  },
+                  {
+                    name: 'params',
+                    required: false,
+                    type: {
+                      kind: 'object',
+                      typeName: 'Record<string, any>',
+                    },
+                  },
+                ],
                 returnType: {
                   kind: 'void',
                 },
@@ -457,5 +573,68 @@ export class WebhookService {
       ...webhookHandle,
       hidden: !this.commonService.isPublicVisibilityAllowed(webhookHandle, defaultHidden, visibleContexts),
     };
+  }
+
+  private async resolveSubpathParams(subpath: string, subpathTemplate: string) {
+    const pathTemplate = subpathTemplate.split('?')[0] || '';
+    const queryTemplate = subpathTemplate.split('?')[1] || '';
+    const path = subpath.split('?')[0] || '';
+    const query = subpath.split('?')[1] || '';
+
+    const pathParams = this.extractPathParams(pathTemplate, path);
+    const queryParams = this.extractQueryParams(queryTemplate, query);
+
+    return {
+      ...pathParams,
+      ...queryParams,
+    };
+  }
+
+  private extractPathParams(template: string, path: string): Record<string, string> {
+    const params: Record<string, string> = {};
+
+    if (!template || !path) {
+      return params;
+    }
+
+    if (template.startsWith('/')) {
+      template = template.slice(1);
+    }
+    if (path.startsWith('/')) {
+      path = path.slice(1);
+    }
+
+    const templateSegments = template.split('/');
+    const pathSegments = path.split('/');
+
+    for (let i = 0; i < templateSegments.length; i++) {
+      if (templateSegments[i].startsWith('{') && templateSegments[i].endsWith('}')) {
+        const paramName = templateSegments[i].slice(1, -1);
+        params[paramName] = pathSegments[i];
+      }
+    }
+
+    return params;
+  }
+
+  private extractQueryParams(template: string, query: string): Record<string, string> {
+    const params: Record<string, string> = {};
+
+    if (!template || !query) {
+      return params;
+    }
+
+    const templateParams = template.split('&');
+    const queryParams = new URLSearchParams(query);
+
+    for (const templateParam of templateParams) {
+      const [key, value] = templateParam.split('=');
+      const paramName = value.slice(1, -1);
+      if (queryParams.has(key)) {
+        params[paramName] = queryParams.get(key)!;
+      }
+    }
+
+    return params;
   }
 }

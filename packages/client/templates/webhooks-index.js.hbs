@@ -17,8 +17,16 @@ const registerWebhookEventListener = (clientID, getSocket, webhookHandleID, call
     clientID,
     webhookHandleID,
     apiKey: '{{apiKey}}'
+  }, registered => {
+    if (registered) {
+      socket.on(
+        `handleWebhookEvent:${webhookHandleID}`,
+        ({ body, headers, params }) => callback(body, headers, params)
+      );
+    } else {
+      console.log(`Could not register webhook event handler for ${webhookHandleID}`);
+    }
   });
-  socket.on(`handleWebhookEvent:${webhookHandleID}`, callback);
 
   return () => {
     socket.emit('unregisterWebhookEventHandler', {
