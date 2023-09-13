@@ -1,6 +1,7 @@
-import { IsEnum, IsOptional, IsString, Validate } from 'class-validator';
+import { IsArray, IsEnum, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, Min, Validate } from 'class-validator';
 import { Visibility } from '../../specs';
 import { ContextIdentifier, NameIdentifier } from '../validators';
+import { Optional } from '@nestjs/common';
 
 export class UpdateWebhookHandleDto {
   @IsOptional()
@@ -20,4 +21,31 @@ export class UpdateWebhookHandleDto {
   @IsString()
   @IsEnum(Visibility)
   visibility?: Visibility;
+
+  @IsOptional()
+  @IsObject()
+  responsePayload?: any;
+
+  @IsOptional()
+  @IsObject()
+  responseHeaders?: any;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(200)
+  @Max(299)
+  responseStatus?: number;
+
+  @IsOptional()
+  @IsString()
+  subpath?: string;
+
+  @IsOptional()
+  @IsIn(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+  method?: string;
+
+  @Optional()
+  @IsString({ each: true })
+  @IsArray()
+  securityFunctionIds?: string[];
 }
