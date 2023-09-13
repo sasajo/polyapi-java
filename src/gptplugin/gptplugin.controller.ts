@@ -17,13 +17,19 @@ import { GptPluginService, getSlugSubdomain } from 'gptplugin/gptplugin.service'
 import { AuthRequest } from 'common/types';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { ChatService } from 'chat/chat.service';
+import { ChatQuestionsLimitGuard } from 'limit/chat-questions-limit-guard';
+import { StatisticsService } from 'statistics/statistics.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller()
 export class GptPluginController {
   private readonly logger = new Logger(GptPluginController.name);
 
-  constructor(private readonly service: GptPluginService, private readonly chatService: ChatService) {}
+  constructor(
+    private readonly service: GptPluginService,
+    private readonly chatService: ChatService,
+    private readonly statisticsService: StatisticsService,
+  ) {}
 
   @Get('.well-known/ai-plugin.json')
   public async aiPluginJson(@Req() req: Request): Promise<unknown> {
@@ -61,7 +67,7 @@ export class GptPluginController {
     return this.chatService.getConversationDetail('', conversationId);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(PolyAuthGuard, ChatQuestionsLimitGuard)
   @Post('api/conversations/:id')
   public async apiConversationPost(@Req() req: AuthRequest, @Param('id') conversationId: string, @Body() body): Promise<unknown> {
     const slug = getSlugSubdomain(req.hostname)[0];
@@ -71,6 +77,9 @@ export class GptPluginController {
       throw new BadRequestException('Slug not found! Please use your plugin subdomain like "foo-1234.na1.polyapi.io".');
     }
     const resp = await this.service.chat(req.user, slug, conversationId, body.message);
+
+    await this.statisticsService.trackChatQuestion(req.user);
+
     return resp;
   }
 
