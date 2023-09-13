@@ -1,6 +1,6 @@
 ### 0.3.4
 * Remove staging instance from default values.
-* Avoid scrolling down when printing messages on chat, just until fully message is received
+* Emulated open ai scroll.
 
 ### 0.3.3
 * Updated meta info.

@@ -68,12 +68,12 @@ const COMMANDS = [
     messageInput.style.height = '38px';
   };
 
-  const isScrollAtBottom = element => {
+  const isScrollBarAtBottom = element => {
     return element.scrollHeight - element.scrollTop - element.clientHeight < 20;
   };
 
   setInitialMessageInputHeight();
-  let scrollAtBottom = false;
+  let scrollBarAtBottom = null;
 
   const removeConversationLoadError = () => {
     const conversationLoadError = document.getElementById('conversation-load-error');
@@ -306,7 +306,15 @@ const COMMANDS = [
           conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
         }
 
-        if(scrollAtBottom) {
+        /*
+          If box is not high enough to scroll yet, we should set first `scrollAtBottom` value here,
+          first time conversationList.scrollHeight !== conversationList.clientHeight.
+        */
+        if(conversationList.scrollHeight !== conversationList.clientHeight && scrollBarAtBottom === null) {
+          scrollBarAtBottom = isScrollBarAtBottom(conversationList);
+        }
+
+        if(scrollBarAtBottom) {
           keepScrollInBottom();
         }
         break;
@@ -509,7 +517,7 @@ const COMMANDS = [
   });
 
   conversationList.addEventListener('scroll', (event) => {
-    scrollAtBottom = isScrollAtBottom(event.currentTarget);
+    scrollBarAtBottom = isScrollBarAtBottom(event.currentTarget);
   });
 
 })();
