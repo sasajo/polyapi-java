@@ -1,3 +1,7 @@
+### 0.3.5
+* Remove staging instance from default values.
+* Emulated open ai scroll.
+
 ### 0.3.4
 * Docs updates.
 

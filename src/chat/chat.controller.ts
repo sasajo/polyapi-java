@@ -89,9 +89,16 @@ export class ChatController {
 
     const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '');
 
-    return observable.pipe(
+    return observable.pipe<MessageEvent>(
       map((data) => ({
-        data,
+        /*
+          We have to send a non-falsy value here, if not, client code executes `onerror` event instead of `close` event.
+          There is a different behavior when we receive events from science server (see method `this.service.sendQuestion`) in which we are able to receive an empty string as data on `close`
+          event. May be nest implementation does not send message properly when passing falsy value like an empty string, sending an string with an empty
+          space inside allows client (vscode extension in this case) to handle this data inside `close` event.
+        */
+        data: data === undefined ? ' ' : data,
+        type: data === undefined ? 'close' : 'message',
       })),
     );
   }

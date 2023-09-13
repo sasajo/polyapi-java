@@ -68,7 +68,12 @@ const COMMANDS = [
     messageInput.style.height = '38px';
   };
 
+  const isScrollBarAtBottom = element => {
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 20;
+  };
+
   setInitialMessageInputHeight();
+  let scrollBarAtBottom = null;
 
   const removeConversationLoadError = () => {
     const conversationLoadError = document.getElementById('conversation-load-error');
@@ -156,7 +161,6 @@ const COMMANDS = [
         case 'js':
           return marked.parse(`\`\`\`\n${data.value}\n\`\`\``);
         case 'markdown':
-          // return getHtmlWithCodeCopy(marked.parse(data.value));
           return marked.parse(data.value);
         default:
           return '';
@@ -169,6 +173,10 @@ const COMMANDS = [
         behavior: 'smooth',
       });
     };
+
+    const keepScrollInBottom = () => {
+      conversationList.scrollTop = conversationList.scrollHeight - conversationList.clientHeight;
+    }
 
     const disableTextarea = () => {
       sendMessageButton.setAttribute('disabled', 'disabled');
@@ -199,8 +207,6 @@ const COMMANDS = [
     let currentObserver = null;
 
     const observeFirstMessage = (firstChatElement) => {
-
-      console.log('observeFirstMessage: ', firstChatElement);
 
       if (!firstChatElement) {
         return;
@@ -300,7 +306,17 @@ const COMMANDS = [
           conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
         }
 
-        scrollToLastMessage();
+        /*
+          If box is not high enough to scroll yet, we should set first `scrollAtBottom` value here,
+          first time conversationList.scrollHeight !== conversationList.clientHeight.
+        */
+        if(conversationList.scrollHeight !== conversationList.clientHeight && scrollBarAtBottom === null) {
+          scrollBarAtBottom = isScrollBarAtBottom(conversationList);
+        }
+
+        if(scrollBarAtBottom) {
+          keepScrollInBottom();
+        }
         break;
       }
       case 'finishMessage': {
@@ -310,7 +326,6 @@ const COMMANDS = [
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
           messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
-          scrollToLastMessage();
           enableTextarea();
           focusMessageInput();
         }
@@ -499,6 +514,10 @@ const COMMANDS = [
 
   window.addEventListener('blur', () => {
     chatFocussed = false;
+  });
+
+  conversationList.addEventListener('scroll', (event) => {
+    scrollBarAtBottom = isScrollBarAtBottom(event.currentTarget);
   });
 
 })();

@@ -210,6 +210,13 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         messageID,
       });
     };
+    es.addEventListener('close', () => {
+      es.close();
+      this.webView?.webview.postMessage({
+        type: 'finishMessage',
+        messageID,
+      });
+    });
 
     es.onerror = (error) => {
       removeLoading();
@@ -233,12 +240,6 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
             value: error.message,
             error,
           },
-        });
-      } else {
-        console.log('%c ERROR HAPPENED', 'background: yellow; color: black');
-        this.webView?.webview.postMessage({
-          type: 'finishMessage',
-          messageID,
         });
       }
       es.close();
