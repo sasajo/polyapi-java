@@ -576,10 +576,10 @@ export class WebhookService {
   }
 
   private async resolveSubpathParams(subpath: string, subpathTemplate: string) {
-    const pathTemplate = subpathTemplate.split('?')[0];
-    const queryTemplate = subpathTemplate.split('?')[1];
-    const path = subpath.split('?')[0];
-    const query = subpath.split('?')[1];
+    const pathTemplate = subpathTemplate.split('?')[0] || '';
+    const queryTemplate = subpathTemplate.split('?')[1] || '';
+    const path = subpath.split('?')[0] || '';
+    const query = subpath.split('?')[1] || '';
 
     const pathParams = this.extractPathParams(pathTemplate, path);
     const queryParams = this.extractQueryParams(queryTemplate, query);
@@ -591,6 +591,12 @@ export class WebhookService {
   }
 
   private extractPathParams(template: string, path: string): Record<string, string> {
+    const params: Record<string, string> = {};
+
+    if (!template || !path) {
+      return params;
+    }
+
     if (template.startsWith('/')) {
       template = template.slice(1);
     }
@@ -600,8 +606,6 @@ export class WebhookService {
 
     const templateSegments = template.split('/');
     const pathSegments = path.split('/');
-
-    const params: Record<string, string> = {};
 
     for (let i = 0; i < templateSegments.length; i++) {
       if (templateSegments[i].startsWith('{') && templateSegments[i].endsWith('}')) {
@@ -615,6 +619,10 @@ export class WebhookService {
 
   private extractQueryParams(template: string, query: string): Record<string, string> {
     const params: Record<string, string> = {};
+
+    if (!template || !query) {
+      return params;
+    }
 
     const templateParams = template.split('&');
     const queryParams = new URLSearchParams(query);

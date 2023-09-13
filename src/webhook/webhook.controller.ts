@@ -165,6 +165,10 @@ export class WebhookController {
   @Post(':id')
   public async triggerWebhookHandle(@Res() res: Response, @Param('id') id: string, @Body() payload: any, @Headers() headers: Record<string, any>) {
     const webhookHandle = await this.findWebhookHandle(id);
+    if (webhookHandle.subpath) {
+      throw new NotFoundException();
+    }
+
     const response = await this.webhookService.triggerWebhookHandle(webhookHandle, payload, headers);
 
     this.sendWebhookResponse(res, webhookHandle, response);
