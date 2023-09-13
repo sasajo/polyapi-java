@@ -242,6 +242,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
         TRIGGERS_NAME,
         this.getTriggerName(environmentId, trigger.source, trigger.destination),
       );
+      await this.cacheManager.del(this.getCacheKey(environmentId, trigger.id));
     } catch (e) {
       if (e.body?.code === 404) {
         return;

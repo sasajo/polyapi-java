@@ -452,16 +452,34 @@ describe('EventService', () => {
       service.registerWebhookEventHandler(socket2, 'client2', 'webhook1');
 
       // send event
-      service.sendWebhookEvent('webhook1', { payload: 'data' });
+      service.sendWebhookEvent(
+        'webhook1',
+        { payload: 'data' },
+        { header1: 'value1' },
+        { param: 'value2' },
+      );
 
       // check socket emits called
-      expect(socket1.emit).toBeCalledWith('handleWebhookEvent:webhook1', { payload: 'data' });
-      expect(socket2.emit).toBeCalledWith('handleWebhookEvent:webhook1', { payload: 'data' });
+      expect(socket1.emit).toBeCalledWith('handleWebhookEvent:webhook1', {
+        body: { payload: 'data' },
+        headers: { header1: 'value1' },
+        params: { param: 'value2' },
+      });
+      expect(socket2.emit).toBeCalledWith('handleWebhookEvent:webhook1', {
+        body: { payload: 'data' },
+        headers: { header1: 'value1' },
+        params: { param: 'value2' },
+      });
     });
 
     it('does not send event if no matching handlers', () => {
       // send event
-      service.sendWebhookEvent('webhook1', { payload: 'data' });
+      service.sendWebhookEvent(
+        'webhook1',
+        { payload: 'data' },
+        { header1: 'value1' },
+        { param: 'value2' },
+      );
 
       // check nothing emitted
       expect(socket1.emit).not.toBeCalled();

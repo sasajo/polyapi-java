@@ -215,7 +215,12 @@ export class SpecsService {
         tenant: Tenant
       }
     }): Specification {
-    if (!tenantId || specification.visibilityMetadata.visibility !== Visibility.Public || !tenantEntity.environment.tenant.publicNamespace) {
+    if (
+      !tenantId ||
+      specification.visibilityMetadata.visibility !== Visibility.Public ||
+      !tenantEntity.environment.tenant.publicNamespace ||
+      tenantEntity.environment.tenantId === tenantId
+    ) {
       return specification;
     }
 

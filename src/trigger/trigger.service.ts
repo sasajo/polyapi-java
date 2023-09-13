@@ -55,7 +55,7 @@ export class TriggerService implements OnModuleInit {
     const executionId = this.generateExecutionId();
     const triggers = await this.getTriggersByWebhookHandleId(webhookHandleId);
     if (triggers.length === 0) {
-      return;
+      return null;
     }
 
     this.logger.debug(`Triggering ${triggers.length} triggers for webhook handle ${webhookHandleId}`);
@@ -81,6 +81,8 @@ export class TriggerService implements OnModuleInit {
 
       await delay(100);
     }
+
+    return null;
   }
 
   private generateExecutionId() {

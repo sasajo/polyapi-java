@@ -3,7 +3,7 @@
   "displayName": "Poly Assistant",
   "description": "Poly AI assistant for VS Code",
   "icon": "resources/poly-logo.png",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "publisher": "PolyAPICorp",
   "engines": {
     "vscode": "^1.75.0"
@@ -15,11 +15,17 @@
     "Education"
   ],
   "keywords": [
-    "API",
+    "API Management",
+    "JSON",
+    "Nodejs",
+    "Typescript",
     "OpenAI",
     "ChatGPT",
+    "AI",
     "AI Tools",
-    "Assistant"
+    "Assistant",
+    "API",
+    "REST"
   ],
   "activationEvents": [
     "onStartupFinished"
