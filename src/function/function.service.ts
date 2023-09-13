@@ -1182,15 +1182,15 @@ export class FunctionService implements OnModuleInit {
 
   async executeServerFunction(
     customFunction: CustomFunction & { environment: Environment },
-    args: Record<string, any>,
-    headers: Record<string, any>,
+    args: Record<string, any> | any[],
+    headers: Record<string, any> = {},
     userId: string | null = null,
     applicationId: string | null = null,
   ) {
     this.logger.debug(`Executing server function ${customFunction.id}...`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
-    const argumentsList = functionArguments.map((arg: FunctionArgument) => args[arg.key]);
+    const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
       const result = await this.faasService.executeFunction(customFunction.id, customFunction.environment.tenantId, customFunction.environment.id, argumentsList, headers);

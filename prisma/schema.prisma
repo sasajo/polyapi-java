@@ -187,15 +187,21 @@ model AuthProvider {
 }
 
 model WebhookHandle {
-  id            String      @id @default(uuid())
-  createdAt     DateTime    @default(now()) @map("created_at")
-  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
-  environmentId String      @map("environment_id")
-  context       String
-  name          String
-  eventPayload  String      @map("event_payload")
-  description   String      @default("")
-  visibility    String      @default("ENVIRONMENT")
+  id                  String      @id @default(uuid())
+  createdAt           DateTime    @default(now()) @map("created_at")
+  environment         Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  environmentId       String      @map("environment_id")
+  context             String
+  name                String
+  eventPayload        String      @map("event_payload")
+  description         String      @default("")
+  visibility          String      @default("ENVIRONMENT")
+  responsePayload     String?     @map("response_payload")
+  responseHeaders     String?     @map("response_headers")
+  responseStatus      Int?        @map("response_status")
+  subpath             String?     @map("subpath")
+  method              String?
+  securityFunctionIds String?     @map("security_function_ids")
 
   @@map("webhook_handle")
 }
