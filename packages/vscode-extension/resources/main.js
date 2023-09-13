@@ -68,7 +68,12 @@ const COMMANDS = [
     messageInput.style.height = '38px';
   };
 
+  const isScrollAtBottom = element => {
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 20;
+  };
+
   setInitialMessageInputHeight();
+  let scrollAtBottom = false;
 
   const removeConversationLoadError = () => {
     const conversationLoadError = document.getElementById('conversation-load-error');
@@ -156,7 +161,6 @@ const COMMANDS = [
         case 'js':
           return marked.parse(`\`\`\`\n${data.value}\n\`\`\``);
         case 'markdown':
-          // return getHtmlWithCodeCopy(marked.parse(data.value));
           return marked.parse(data.value);
         default:
           return '';
@@ -169,6 +173,10 @@ const COMMANDS = [
         behavior: 'smooth',
       });
     };
+
+    const keepScrollInBottom = () => {
+      conversationList.scrollTop = conversationList.scrollHeight - conversationList.clientHeight;
+    }
 
     const disableTextarea = () => {
       sendMessageButton.setAttribute('disabled', 'disabled');
@@ -199,8 +207,6 @@ const COMMANDS = [
     let currentObserver = null;
 
     const observeFirstMessage = (firstChatElement) => {
-
-      console.log('observeFirstMessage: ', firstChatElement);
 
       if (!firstChatElement) {
         return;
@@ -299,6 +305,10 @@ const COMMANDS = [
         } else {
           conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
         }
+
+        if(scrollAtBottom) {
+          keepScrollInBottom();
+        }
         break;
       }
       case 'finishMessage': {
@@ -308,7 +318,6 @@ const COMMANDS = [
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
           messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
-          scrollToLastMessage();
           enableTextarea();
           focusMessageInput();
         }
@@ -497,6 +506,10 @@ const COMMANDS = [
 
   window.addEventListener('blur', () => {
     chatFocussed = false;
+  });
+
+  conversationList.addEventListener('scroll', (event) => {
+    scrollAtBottom = isScrollAtBottom(event.currentTarget);
   });
 
 })();
