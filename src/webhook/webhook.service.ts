@@ -201,6 +201,17 @@ export class WebhookService {
       throw new ConflictException(`Function with ${context}/${name} is already registered.`);
     }
 
+    const webhookData = {
+      eventPayload: JSON.stringify(eventPayload),
+      visibility,
+      responsePayload,
+      responseHeaders,
+      responseStatus,
+      subpath,
+      method,
+      securityFunctionIds: securityFunctionIds ? JSON.stringify(securityFunctionIds) : undefined,
+    };
+
     if (webhookHandle) {
       this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
 
@@ -213,16 +224,10 @@ export class WebhookService {
               id: webhookHandle.id,
             },
             data: {
-              eventPayload: JSON.stringify(eventPayload),
+              ...webhookData,
               context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
               description: description || aiResponse.description,
               name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
-              visibility,
-              responsePayload,
-              responseHeaders,
-              responseStatus,
-              subpath,
-              method,
             },
           });
         }
@@ -233,16 +238,10 @@ export class WebhookService {
           id: webhookHandle.id,
         },
         data: {
-          eventPayload: JSON.stringify(eventPayload),
+          ...webhookData,
           name,
           context,
           description: description || webhookHandle.description,
-          visibility,
-          responsePayload,
-          responseHeaders,
-          responseStatus,
-          subpath,
-          method,
         },
       });
     } else {
@@ -259,13 +258,10 @@ export class WebhookService {
                   id: environment.id,
                 },
               },
+              ...webhookData,
               name,
               context: context || '',
-              eventPayload: JSON.stringify(eventPayload),
               description,
-              visibility,
-              responsePayload,
-              responseHeaders,
             },
           });
 
@@ -375,7 +371,7 @@ export class WebhookService {
     responseStatus: number | null | undefined,
     subpath: string | null | undefined,
     method: string | null | undefined,
-    securityFunctionIds: string[] | null = null,
+    securityFunctionIds: string[] | undefined,
   ) {
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
