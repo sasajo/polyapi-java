@@ -306,7 +306,7 @@ export class WebhookService {
     }
 
     this.eventService.sendWebhookEvent(webhookHandle.id, eventPayload, eventHeaders, subpathParams);
-    return await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload);
+    return await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload, eventHeaders, subpathParams);
   }
 
   private async executeSecurityFunctions(webhookHandle: WebhookHandle, eventPayload: any, eventHeaders: Record<string, any>, params: Record<string, any>) {
