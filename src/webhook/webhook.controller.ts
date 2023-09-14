@@ -130,7 +130,7 @@ export class WebhookController {
       responseStatus,
       subpath,
       method,
-      securityFunctionIds = null,
+      securityFunctionIds,
     } = updateWebhookHandleDto;
 
     const webhookHandle = await this.findWebhookHandle(id);
