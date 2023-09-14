@@ -132,7 +132,7 @@ export class WebhookController {
       responseStatus,
       subpath,
       method,
-      securityFunctionIds = null,
+      securityFunctionIds,
     } = updateWebhookHandleDto;
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
