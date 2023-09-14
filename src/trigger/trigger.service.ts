@@ -51,7 +51,7 @@ export class TriggerService implements OnModuleInit {
     return await this.triggerProvider.deleteTrigger(environmentId, trigger);
   }
 
-  async triggerWebhookEvent(webhookHandleId: string, eventPayload: any) {
+  async triggerWebhookEvent(webhookHandleId: string, eventPayload: any, eventHeaders: Record<string, any>, params: Record<string, any>) {
     const executionId = this.generateExecutionId();
     const triggers = await this.getTriggersByWebhookHandleId(webhookHandleId);
     if (triggers.length === 0) {
@@ -61,7 +61,7 @@ export class TriggerService implements OnModuleInit {
     this.logger.debug(`Triggering ${triggers.length} triggers for webhook handle ${webhookHandleId}`);
     await this.triggerProvider.triggerEvent(executionId, {
       webhookHandleId,
-    }, eventPayload);
+    }, [eventPayload, eventHeaders, params]);
 
     if (triggers.some(trigger => trigger.waitForResponse)) {
       this.logger.debug(`Waiting for trigger response for execution ${executionId}`);

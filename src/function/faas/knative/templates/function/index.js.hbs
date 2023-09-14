@@ -3,7 +3,7 @@ const { CloudEvent } = require('cloudevents');
 
 const handle = async (context, body) => {
   const POLY_USER_SESSION_ID = context.headers['openai-conversation-id'];
-  const args = context.cloudevent ? [body.data] : body.args;
+  const args = context.cloudevent ? (Array.isArray(body.data) ? body.data : [body.data]) : body.args;
 
   if (context.cloudevent) {
     context.log.info(`Received cloudevent: id=${context.cloudevent.id}, time=${context.cloudevent.time}, type=${context.cloudevent.type}, source=${context.cloudevent.source}`);
