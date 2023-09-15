@@ -121,6 +121,33 @@ const COMMANDS = [
       return html.documentElement.innerHTML;
     };
 
+    const addCopyButton = (container) => {
+      const codeElements = container.querySelectorAll('pre > code');
+
+      codeElements.forEach((codeElement) => {
+
+          const existentButton = codeElement.queryS
+
+          const preCode = codeElement.parentElement;
+
+          if(!preCode.querySelector('.code-actions-wrapper')) {
+            const buttonWrapper = document.createElement('div');
+            buttonWrapper.classList.add('code-actions-wrapper', 'flex', 'gap-4', 'flex-wrap', 'items-center', 'right-2', 'top-1', 'absolute');
+  
+            // Create copy to clipboard button
+            const copyButton = document.createElement('button');
+            copyButton.title = 'Copy to clipboard';
+            copyButton.innerHTML = copySvg;
+  
+            copyButton.classList.add('code-copy-button', 'p-1', 'flex', 'items-center', 'rounded-lg');
+            buttonWrapper.append(copyButton);
+  
+            preCode.prepend(buttonWrapper);
+          }
+
+      });
+    }
+
     const getCreatedAtAttribute = (createdAt) => {
       return createdAt ? `data-created-at="${createdAt}"` : '';
     };
@@ -348,25 +375,7 @@ const COMMANDS = [
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
 
-
-          const codeElements = messageElement.querySelectorAll('pre > code');
-
-          codeElements.forEach((codeElement) => {
-              const preCode = codeElement.parentElement;
-
-              const buttonWrapper = document.createElement('div');
-              buttonWrapper.classList.add('code-actions-wrapper', 'flex', 'gap-4', 'flex-wrap', 'items-center', 'right-2', 'top-1', 'absolute');
-
-              // Create copy to clipboard button
-              const copyButton = document.createElement('button');
-              copyButton.title = 'Copy to clipboard';
-              copyButton.innerHTML = copySvg;
-
-              copyButton.classList.add('code-copy-button', 'p-1', 'flex', 'items-center', 'rounded-lg');
-              buttonWrapper.append(copyButton);
-
-              preCode.prepend(buttonWrapper);
-          });
+          addCopyButton(messageElement);
 
           enableTextarea();
           if(document.getSelection().isCollapsed) {
@@ -450,6 +459,8 @@ const COMMANDS = [
         }
 
         enableTextarea();
+
+        addCopyButton(conversationList)
 
         break;
       default:
