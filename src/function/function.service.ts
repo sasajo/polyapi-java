@@ -618,6 +618,7 @@ export class FunctionService implements OnModuleInit {
           headers,
           params,
           data: executionData,
+          maxRedirects: 0,
         })
         .pipe(
           map((response) => {
