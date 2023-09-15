@@ -1,13 +1,13 @@
 import { ArgumentType, Visibility } from '../..';
 
-export interface FunctionArgument {
+export interface FunctionArgument<T extends string | Record<string, any> = string> {
   key: string;
   name: string;
   description?: string;
   required?: boolean;
   secure?: boolean;
   type: ArgumentType;
-  typeSchema?: string;
+  typeSchema?: T;
   typeObject?: object;
   payload?: boolean;
   variable?: string;
@@ -23,7 +23,7 @@ export interface FunctionBasicDto {
 }
 
 export interface FunctionDetailsDto extends FunctionBasicDto {
-  arguments: Omit<FunctionArgument, 'location'>[];
+  arguments: Omit<FunctionArgument<Record<string, any>>, 'location'>[];
 }
 
 export interface FunctionPublicBasicDto extends FunctionBasicDto {
