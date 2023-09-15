@@ -299,6 +299,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     const highlightJs = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'highlight.min.js'));
     const highlightCss = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'highlight.min.css'));
     const htmlEscaper = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'html-escaper.min.js'));
+    const snabbdom = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'resources', 'snabbdom.min.js'));
 
     return (
       `<!DOCTYPE html>
@@ -313,6 +314,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         <script src='${markedJs}'></script>
         <script src='${highlightJs}'></script>
         <script src='${htmlEscaper}'></script>
+        <script src='${snabbdom}'></script>
         <link href='${highlightCss}' rel='stylesheet'>
       </head>
       <body class='overflow-hidden'>

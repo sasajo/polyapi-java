@@ -1,3 +1,6 @@
+### 0.3.6
+* Keep user's selection while adding chunks of data in answers like open ai.
+
 ### 0.3.5
 * Remove staging instance from default values.
 * Emulated open ai scroll.
