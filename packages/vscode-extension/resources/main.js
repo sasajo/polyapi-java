@@ -369,7 +369,9 @@ const COMMANDS = [
           });
 
           enableTextarea();
-          // focusMessageInput();
+          if(document.getSelection().isCollapsed) {
+            focusMessageInput();
+          }
         }
 
         observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
