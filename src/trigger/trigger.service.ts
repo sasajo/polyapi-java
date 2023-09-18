@@ -47,6 +47,15 @@ export class TriggerService implements OnModuleInit {
     }
   }
 
+  async updateTrigger(
+    environmentId: string,
+    trigger: TriggerDto,
+    name: string | null | undefined,
+    waitForResponse: boolean | undefined,
+  ) {
+    return await this.triggerProvider.updateTrigger(environmentId, trigger, name, waitForResponse);
+  }
+
   async deleteTrigger(environmentId: string, trigger: TriggerDto) {
     return await this.triggerProvider.deleteTrigger(environmentId, trigger);
   }
