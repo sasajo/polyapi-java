@@ -257,7 +257,7 @@ export class FunctionService implements OnModuleInit {
     templateAuth?: Auth,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<ApiFunction> {
-    if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.AMBIGUOUS)) {
+    if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.BAD_REQUEST)) {
       throw new BadRequestException(
         `Api response status code should be between ${HttpStatus.OK} and ${HttpStatus.AMBIGUOUS}.`,
       );
