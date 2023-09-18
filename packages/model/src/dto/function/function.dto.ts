@@ -20,6 +20,7 @@ export interface FunctionBasicDto {
   name: string;
   description: string;
   visibility: Visibility;
+  enabled?: boolean;
 }
 
 export interface FunctionDetailsDto extends FunctionBasicDto {

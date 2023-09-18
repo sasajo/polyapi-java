@@ -791,6 +791,7 @@ export class FunctionService implements OnModuleInit {
       description: customFunction.description,
       context: customFunction.context,
       visibility: customFunction.visibility as Visibility,
+      enabled: customFunction.enabled ? undefined : false,
     };
   }
 
