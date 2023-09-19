@@ -406,5 +406,7 @@ model PerfLog {
   applicationId String?      @map("application_id")
   user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String?      @map("user_id")
+
+  @@map("perf_log")
 }
 
