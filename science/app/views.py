@@ -205,16 +205,17 @@ def plugin_chat() -> Response:
         data["apiKey"], data["pluginId"], data["conversationId"], data["message"]
     )
 
+    json_resp = jsonify(resp)
     perf.set_data(
         apiKey=data['apiKey'],
         snippet=data['message'],
         input_length=len(data['message']),
-        output_length=len(resp),
+        output_length=len(json_resp.data),
         type=PerfLogType.science_api_execute.value,
     )
     perf.stop_and_save()
 
-    return jsonify(resp)
+    return json_resp
 
 
 @bp.route("/docs/update-vector", methods=["POST"])
