@@ -174,7 +174,7 @@ def function_description() -> Response:
     perf.set_data(
         snippet=data['url'],
         input_length=len(request.data),
-        output_length=len(resp.data),
+        output_length=int(resp.headers['Content-Length']),
         type=PerfLogType.science_generate_description.value,
         # TODO pass in userId so we can track that?
     )
@@ -201,21 +201,21 @@ def plugin_chat() -> Response:
     data = request.get_json(force=True)
 
     verify_required_fields(data, ["apiKey", "pluginId", "conversationId", "message"])
-    resp = get_plugin_chat(
+    messages = get_plugin_chat(
         data["apiKey"], data["pluginId"], data["conversationId"], data["message"]
     )
 
-    json_resp = jsonify(resp)
+    resp = jsonify(messages)
     perf.set_data(
         apiKey=data['apiKey'],
         snippet=data['message'],
         input_length=len(data['message']),
-        output_length=len(json_resp.data),
+        output_length=int(resp.headers['Content-Length']),
         type=PerfLogType.science_api_execute.value,
     )
     perf.stop_and_save()
 
-    return json_resp
+    return resp
 
 
 @bp.route("/docs/update-vector", methods=["POST"])
