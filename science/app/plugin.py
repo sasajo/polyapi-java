@@ -166,7 +166,7 @@ def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> Messag
     # TODO figure out how to switch domains
     # domain = "https://megatronical.pagekite.me"
     domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
-    headers = {"Authorization": f"Bearer {api_key}"}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     resp = requests.post(
         domain + path, data=json.loads(function_call["arguments"]), headers=headers
     )
