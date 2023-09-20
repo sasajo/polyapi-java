@@ -169,6 +169,6 @@ def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> Messag
     headers = {"Authorization": f"Bearer {api_key}"}
     print("right before we send to execute", function_call)
     resp = requests.post(
-        domain + path, data=json.loads(function_call["arguments"]), headers=headers
+        domain + path, json=json.loads(function_call["arguments"]), headers=headers
     )
     return MessageDict(role="function", name=func_name, content=resp.text)
