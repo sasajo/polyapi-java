@@ -447,7 +447,7 @@ export class FunctionController {
 
     await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
 
-    console.log('Data before unwrap', data);
+    console.log('Data before unwrap', JSON.stringify(data));
     data = await this.variableService.unwrapVariables(req.user, data);
     console.log('Data after unwrap', data);
 
