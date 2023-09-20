@@ -57,7 +57,7 @@ import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { MergeRequestData } from 'common/decorators';
 import { LimitService } from 'limit/limit.service';
 import { TosService } from 'tos/tos.service';
-import { LimitTier } from '@prisma/client';
+import { LimitTier, User } from '@prisma/client';
 import { API_TAG_INTERNAL } from 'common/constants';
 
 @ApiSecurity('PolyApiKey')
@@ -142,9 +142,12 @@ export class TenantController {
       publicVisibilityAllowed,
       publicNamespace,
       tierId,
+      email,
       enabled,
     } = data;
     const tenant = await this.findTenant(id);
+
+    const userId = (req.user.user as User).id;
 
     if (req.user.user?.role !== Role.SuperAdmin) {
       if (tenant.id !== req.user.tenant.id) {
@@ -179,7 +182,7 @@ export class TenantController {
     }
 
     return this.tenantService.toDto(
-      await this.tenantService.update(tenant, name, publicVisibilityAllowed, publicNamespace, tierId, enabled),
+      await this.tenantService.update(tenant, name, email, publicVisibilityAllowed, publicNamespace, tierId, userId, enabled),
     );
   }
 
