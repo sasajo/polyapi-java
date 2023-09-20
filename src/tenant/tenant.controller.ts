@@ -92,6 +92,7 @@ export class TenantController {
       publicVisibilityAllowed,
       publicNamespace = null,
       tierId = null,
+      enabled = true,
     } = data;
 
     let limitTier: LimitTier | null = null;
@@ -108,7 +109,14 @@ export class TenantController {
       throw new BadRequestException(`Public namespace '${publicNamespace}' is not available.`);
     }
 
-    return this.tenantService.toDto(await this.tenantService.create(name, email, publicVisibilityAllowed, publicNamespace, limitTier?.id));
+    return this.tenantService.toDto(await this.tenantService.create(
+      name,
+      email,
+      publicVisibilityAllowed,
+      publicNamespace,
+      limitTier?.id,
+      enabled,
+    ));
   }
 
   @UseGuards(PolyAuthGuard)
@@ -129,7 +137,13 @@ export class TenantController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id')
   async updateTenant(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateTenantDto): Promise<TenantDto> {
-    const { name, publicVisibilityAllowed, publicNamespace, tierId } = data;
+    const {
+      name,
+      publicVisibilityAllowed,
+      publicNamespace,
+      tierId,
+      enabled,
+    } = data;
     const tenant = await this.findTenant(id);
 
     if (req.user.user?.role !== Role.SuperAdmin) {
@@ -144,6 +158,9 @@ export class TenantController {
       }
       if (tierId != null) {
         throw new BadRequestException('You are not allowed to update the limit tier of this tenant.');
+      }
+      if (enabled != null) {
+        throw new BadRequestException('You are not allowed to update the enabled status of this tenant.');
       }
     }
 
@@ -162,7 +179,7 @@ export class TenantController {
     }
 
     return this.tenantService.toDto(
-      await this.tenantService.update(tenant, name, publicVisibilityAllowed, publicNamespace, tierId),
+      await this.tenantService.update(tenant, name, publicVisibilityAllowed, publicNamespace, tierId, enabled),
     );
   }
 

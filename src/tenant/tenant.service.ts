@@ -49,7 +49,7 @@ export class TenantService implements OnModuleInit {
   private async checkPolyTenant() {
     const tenant = await this.findByName(this.config.polyTenantName);
     if (!tenant) {
-      await this.create(this.config.polyTenantName, null, true, null, null, {
+      await this.create(this.config.polyTenantName, null, true, null, null, true, {
         teamName: this.config.polyAdminsTeamName,
         userName: this.config.polyAdminUserName,
         userRole: Role.SuperAdmin,
@@ -66,6 +66,7 @@ export class TenantService implements OnModuleInit {
       publicVisibilityAllowed: tenant.publicVisibilityAllowed,
       publicNamespace: tenant.publicNamespace,
       tierId: tenant.limitTierId,
+      enabled: tenant.enabled,
     };
   }
 
@@ -116,6 +117,7 @@ export class TenantService implements OnModuleInit {
       publicVisibilityAllowed: fullTenant.publicVisibilityAllowed,
       publicNamespace: tenant.publicNamespace,
       tierId: fullTenant.limitTierId,
+      enabled: fullTenant.enabled,
       users: fullTenant.users.map(user => this.userService.toUserDto(user)),
       environments: fullTenant.environments.map(toEnvironmentFullDto),
       applications: fullTenant.applications.map(application => this.applicationService.toApplicationDto(application)),
@@ -142,11 +144,9 @@ export class TenantService implements OnModuleInit {
     publicVisibilityAllowed = false,
     publicNamespace: string | null = null,
     limitTierId: string | null = null,
+    enabled = true,
     options: CreateTenantOptions = {},
-  ): Promise<{
-    tenant: Tenant,
-    apiKey: ApiKey
-  }> {
+  ): Promise<{ tenant: Tenant; apiKey: ApiKey }> {
     const {
       environmentName,
       teamName,
@@ -161,6 +161,7 @@ export class TenantService implements OnModuleInit {
         publicVisibilityAllowed,
         publicNamespace,
         limitTierId,
+        enabled,
         users: {
           create: [
             {
@@ -241,11 +242,12 @@ export class TenantService implements OnModuleInit {
     publicVisibilityAllowed = false,
     publicNamespace: string | null = null,
     limitTierId: string | null = null,
+    enabled = true,
     options: CreateTenantOptions = {},
   ) {
     return this.prisma.$transaction(async tx => {
       try {
-        return (await this.createTenantRecord(tx, name, email, publicVisibilityAllowed, publicNamespace, limitTierId, options)).tenant;
+        return (await this.createTenantRecord(tx, name, email, publicVisibilityAllowed, publicNamespace, limitTierId, enabled, options)).tenant;
       } catch (error) {
         if (this.commonService.isPrismaUniqueConstraintFailedError(error, 'name')) {
           throw new ConflictException('Tenant with this name already exists');
@@ -264,6 +266,7 @@ export class TenantService implements OnModuleInit {
     publicVisibilityAllowed: boolean | undefined,
     publicNamespace: string | null | undefined,
     limitTierId: string | null | undefined,
+    enabled: boolean | undefined,
   ) {
     return this.prisma.tenant.update({
       where: {
@@ -274,6 +277,7 @@ export class TenantService implements OnModuleInit {
         publicVisibilityAllowed,
         publicNamespace,
         limitTierId,
+        enabled,
       },
     });
   }
