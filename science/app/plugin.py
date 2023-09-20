@@ -159,8 +159,10 @@ def _get_name_path_map(openapi: Dict) -> Dict:
 
 
 def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> MessageDict:
+    func_name = function_call["name"]
+    assert func_name
     name_path_map = _get_name_path_map(openapi)
-    path = name_path_map[function_call["name"]]
+    path = name_path_map[func_name]
     # TODO figure out how to switch domains
     # domain = "https://megatronical.pagekite.me"
     domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
@@ -168,4 +170,4 @@ def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> Messag
     resp = requests.post(
         domain + path, data=json.loads(function_call["arguments"]), headers=headers
     )
-    return MessageDict(role="function", name=function_call["name"], content=resp.text)
+    return MessageDict(role="function", name=func_name, content=resp.text)
