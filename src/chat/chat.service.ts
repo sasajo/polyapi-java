@@ -228,8 +228,17 @@ export class ChatService {
 
   async checkConversationDetailPermissions(auth: AuthData, conversation: Conversation) {
     // return null if user has permission, otherwise throw an exception
+    if (auth.application) {
+      if (auth.application.id === conversation.applicationId) {
+        // application can access its own conversations
+        return null;
+      } else {
+        throw new BadRequestException('Access Denied For This Application');
+      }
+    }
+
     if (!auth.user) {
-      throw new BadRequestException('must be user not application to access conversations');
+      throw new BadRequestException('must be user or application to access conversations');
     }
 
     if (auth.user.role === Role.SuperAdmin) {
