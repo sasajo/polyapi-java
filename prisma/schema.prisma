@@ -45,6 +45,7 @@ model User {
   conversations        Conversation[]
   apiKeys              ApiKey[]
   teamMembers          TeamMember[]
+  perfLogs             PerfLog[]
 
   @@map("users")
 }
@@ -100,6 +101,7 @@ model Application {
   apiKeys     ApiKey[]
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversations Conversation[]
+  perfLogs    PerfLog[]
 
   @@map("application")
 }
@@ -387,4 +389,22 @@ model TenantAgreement {
   tos       Tos      @relation(fields: [tosId], references: [id], onDelete: Cascade)
 
   @@map("tenant_agreement")
+}
+
+
+model PerfLog {
+  // log performance of specific requests (and other things) in our app
+  id            String @id @default(uuid())
+  start         DateTime
+  duration      Float  // in seconds
+  snippet       String   // human readable snippet about this logline
+  input_length  Int  // how long was the input in characters?
+  output_length Int   // how long was output in characters?
+  type          Int   // see PerfLogType
+  data          String @default("")  // more granular JSON data like how did each stage perform?
+  load          Int @default(0)  // what is the load on the system? always 0 for now
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String?      @map("application_id")
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String?      @map("user_id")
 }

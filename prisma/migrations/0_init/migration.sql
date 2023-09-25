@@ -346,6 +346,23 @@ CREATE TABLE "tenant_agreement" (
     CONSTRAINT "idx_25997_sqlite_autoindex_tenant_agreement_1" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "PerfLog" (
+    "id" TEXT NOT NULL,
+    "start" TIMESTAMP(3) NOT NULL,
+    "duration" DOUBLE PRECISION NOT NULL,
+    "snippet" TEXT NOT NULL,
+    "input_length" INTEGER NOT NULL,
+    "output_length" INTEGER NOT NULL,
+    "type" INTEGER NOT NULL,
+    "data" TEXT NOT NULL DEFAULT '',
+    "load" INTEGER NOT NULL DEFAULT 0,
+    "application_id" TEXT,
+    "user_id" TEXT,
+
+    CONSTRAINT "PerfLog_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "idx_25978_tenant_name_key" ON "tenant"("name");
 
@@ -450,4 +467,10 @@ ALTER TABLE "tenant_agreement" ADD CONSTRAINT "tenant_agreement_tenant_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "tenant_agreement" ADD CONSTRAINT "tenant_agreement_tos_id_fkey" FOREIGN KEY ("tos_id") REFERENCES "tos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PerfLog" ADD CONSTRAINT "PerfLog_application_id_fkey" FOREIGN KEY ("application_id") REFERENCES "application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PerfLog" ADD CONSTRAINT "PerfLog_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
