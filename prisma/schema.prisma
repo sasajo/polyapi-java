@@ -29,6 +29,7 @@ model Tenant {
   limitTier               LimitTier?        @relation(fields: [limitTierId], references: [id])
   agreements              TenantAgreement[]
   users                   User[]
+  enabled                 Boolean           @default(true)
 
   @@map("tenant")
 }
@@ -83,7 +84,7 @@ model Environment {
   authProviders   AuthProvider[]
   configVariables ConfigVariable[]
   customFunctions CustomFunction[]
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
   gptPlugins      GptPlugin[]
   systemPrompts   SystemPrompt[]
   variables       Variable[]
@@ -160,10 +161,10 @@ model CustomFunction {
   requirements  String?      @map("requirements")
   trained       Boolean     @default(false)
   serverSide    Boolean     @default(false) @map("server_side")
-  visibility    String     @default("ENVIRONMENT")
-  apiKey        String?      @map("api_key")
-  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  apiKey        String?     @map("api_key")
+  visibility    String      @default("ENVIRONMENT")
   enabled       Boolean     @default(true)
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
 
   @@map("custom_function")
 }
@@ -197,14 +198,14 @@ model WebhookHandle {
   eventPayload        String      @map("event_payload")
   description         String      @default("")
   visibility          String      @default("ENVIRONMENT")
-  responsePayload     String?     @map("response_payload")
   responseHeaders     String?     @map("response_headers")
+  responsePayload     String?     @map("response_payload")
   responseStatus      Int?        @map("response_status")
   subpath             String?     @map("subpath")
   method              String?
-  environment         Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   securityFunctionIds String?     @map("security_function_ids")
-
+  enabled             Boolean     @default(true)
+  environment         Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   @@map("webhook_handle")
 }
 
@@ -237,7 +238,7 @@ model ConversationMessage {
 
 model SystemPrompt {
   id            String      @id(map: "idx_25877_sqlite_autoindex_system_prompt_1") @default(uuid())
-  createdAt     DateTime    @default(now()) @db.Timestamptz(6) @map("createdat")
+  createdAt     DateTime    @default(now()) @map("createdat") @db.Timestamptz(6)
   environmentId String      @map("environment_id")
   content       String
   environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
@@ -407,4 +408,6 @@ model PerfLog {
   applicationId String?      @map("application_id")
   user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String?      @map("user_id")
+
+  @@map("perf_log")
 }
