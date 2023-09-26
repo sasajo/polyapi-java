@@ -210,4 +210,8 @@ export class ConfigService {
   get swaggerStatsPassword(): string {
     return this.get('SWAGGER_STATS_PASSWORD', 'PolyIsAwesome');
   }
+
+  get apiKeyHashPepper(): string {
+    return this.get('API_KEY_HASH_PEPPER', '');
+  }
 }
