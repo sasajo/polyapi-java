@@ -1204,7 +1204,8 @@ export class FunctionService implements OnModuleInit {
   }
 
   async executeServerFunction(
-    customFunction: CustomFunction & { environment: Environment },
+    customFunction: CustomFunction,
+    executionEnvironment: Environment,
     args: Record<string, any> | any[],
     headers: Record<string, any> = {},
     userId: string | null = null,
@@ -1216,7 +1217,7 @@ export class FunctionService implements OnModuleInit {
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, customFunction.environment.tenantId, customFunction.environment.id, argumentsList, headers);
+      const result = await this.faasService.executeFunction(customFunction.id, executionEnvironment.tenantId, executionEnvironment.id, argumentsList, headers);
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );
@@ -1226,8 +1227,8 @@ export class FunctionService implements OnModuleInit {
       const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
       if (await this.eventService.sendErrorEvent(
         customFunction.id,
-        customFunction.environmentId,
-        customFunction.environment.tenantId,
+        executionEnvironment.id,
+        executionEnvironment.tenantId,
         customFunction.visibility as Visibility,
         applicationId,
         userId,

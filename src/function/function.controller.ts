@@ -31,19 +31,20 @@ import {
   Permission,
   Role,
   UpdateApiFunctionDto,
-  UpdateCustomFunctionDto,
+  UpdateCustomFunctionDto, Visibility,
 } from '@poly/model';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 import { VariableService } from 'variable/variable.service';
 import { LimitService } from 'limit/limit.service';
 import { FunctionCallsLimitGuard } from 'limit/function-calls-limit-guard';
-import { Tenant } from '@prisma/client';
+import { CustomFunction, Environment, Tenant } from '@prisma/client';
 import { StatisticsService } from 'statistics/statistics.service';
 import { FUNCTIONS_LIMIT_REACHED } from '@poly/common/messages';
 import { CommonService } from 'common/common.service';
 import { API_TAG_INTERNAL } from 'common/constants';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { EnvironmentService } from 'environment/environment.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller('functions')
@@ -57,6 +58,7 @@ export class FunctionController {
     private readonly limitService: LimitService,
     private readonly statisticsService: StatisticsService,
     private readonly commonService: CommonService,
+    private readonly environmentService: EnvironmentService,
   ) {
   }
 
@@ -467,7 +469,9 @@ export class FunctionController {
 
     await this.statisticsService.trackFunctionCall(req.user, customFunction.id, 'server');
 
-    const { body, statusCode = 200 } = await this.service.executeServerFunction(customFunction, data, headers, clientId) || {};
+    const executionEnvironment = await this.resolveExecutionEnvironment(customFunction, req);
+    const { body, statusCode = 200 } = await this.service.executeServerFunction(customFunction, executionEnvironment, data, headers, clientId) || {};
+
     return res.status(statusCode).send(body);
   }
 
@@ -498,5 +502,19 @@ export class FunctionController {
         }
       }
     }
+  }
+
+  private async resolveExecutionEnvironment(customFunction: CustomFunction & {environment: Environment}, req: Request) {
+    let executionEnvironment: Environment | null = null;
+
+    if (customFunction.visibility !== Visibility.Environment) {
+      executionEnvironment = await this.environmentService.findByHost(req.hostname);
+    }
+
+    if (!executionEnvironment) {
+      executionEnvironment = customFunction.environment;
+    }
+
+    return executionEnvironment;
   }
 }
