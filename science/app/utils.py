@@ -53,7 +53,7 @@ def _process_schema_property(property: Dict) -> str:
         rv = f"[{child}],"
     elif property_type == "object":
         sub_props = []
-        for key, val in property["properties"].items():
+        for key, val in property.get("properties", {}).items():
             sub_props.append(f"{key}: {_process_schema_property(val)}")
         rv = "{\n%s\n}," % "\n".join(sub_props)
     else:
@@ -71,7 +71,8 @@ def _process_property_spec(arg: PropertySpecification) -> str:
     elif kind == "primitive":
         rv = f"{arg['name']}: {arg['type']['type']}"
     elif kind == "array":
-        item_type = arg["type"]["items"]["type"]
+        # assume to be object if no explicit type provided
+        item_type = arg["type"]["items"].get("type", "object")
         rv = "{name}: [{item_type}, {item_type}, ...]".format(
             name=arg["name"], item_type=item_type
         )
