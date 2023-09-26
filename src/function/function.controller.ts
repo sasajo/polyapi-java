@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Headers,
   HttpException,
   HttpStatus,
@@ -342,6 +343,14 @@ export class FunctionController {
     const customFunctions = await this.service.getServerFunctions(req.user.environment.id);
     return customFunctions
       .map((serverFunction) => this.service.customFunctionToBasicDto(serverFunction));
+  }
+
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Post('/server/prebuilt-base-image')
+  @Header('Content-Type', 'text/plain')
+  async createOrUpdatePrebuiltBaseImage(@Req() req: AuthRequest) {
+    return this.service.createOrUpdatePrebuiltBaseImage(req.user);
   }
 
   @UseGuards(PolyAuthGuard)

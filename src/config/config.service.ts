@@ -203,6 +203,10 @@ export class ConfigService {
     return this.get('SIGN_UP_VERIFICATION_CODE_TEMPLATE_NAME', 'sign-up-verification-code');
   }
 
+  get prebuiltBaseImageName(): string {
+    return this.get('PREBUILT_BASE_IMAGE_NAME', 'prebuiltBaseImage');
+  }
+
   get swaggerStatsUsername(): string {
     return this.get('SWAGGER_STATS_USERNAME', 'poly');
   }
