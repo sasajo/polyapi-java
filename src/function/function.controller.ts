@@ -34,7 +34,9 @@ import {
   Permission,
   Role,
   UpdateApiFunctionDto,
-  UpdateCustomFunctionDto, Visibility,
+  UpdateCustomFunctionDto,
+  UpdateSourceFunctionDto,
+  Visibility,
 } from '@poly/model';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
@@ -182,8 +184,10 @@ export class FunctionController {
       response,
       payload,
       visibility = null,
+      source,
       enableRedirect,
     } = data;
+
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException('Function not found');
@@ -193,12 +197,14 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
+    this.checkSourceUpdateAuth(source);
+
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
 
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, enableRedirect),
+      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect),
     );
   }
 
@@ -531,6 +537,34 @@ export class FunctionController {
         if (argumentProperty !== 'description') {
           throw new BadRequestException(`Only description can be updated for argument ${key}`);
         }
+      }
+    }
+  }
+
+  private checkSourceUpdateAuth(source?: UpdateSourceFunctionDto): void {
+    if (!source) {
+      return;
+    }
+
+    if (source?.auth?.type === 'apikey') {
+      const inKey = source.auth.apikey.find((entry) => entry.key === 'in');
+      const keyName = source.auth.apikey.find((entry) => entry.key === 'key');
+      const keyValue = source.auth.apikey.find((entry) => entry.key === 'value');
+
+      if (!inKey) {
+        throw new BadRequestException('You must provide a key "in" in your apiKey auth type.');
+      }
+
+      if (!keyName) {
+        throw new BadRequestException('You must provide a key "key" in your apiKey auth type.');
+      }
+
+      if (!keyValue) {
+        throw new BadRequestException('You must provide a key "value" in your apiKey auth type.');
+      }
+
+      if (!['header', 'query'].includes(inKey.value)) {
+        throw new BadRequestException('"in" key value should be "query" | "header".');
       }
     }
   }

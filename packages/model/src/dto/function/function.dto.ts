@@ -1,4 +1,27 @@
-import { ArgumentType, Visibility } from '../..';
+import { Auth } from '../../auth';
+import { ArgumentType, FormDataBody, GraphQLBody, UrlencodedBody } from '../../function';
+import { Visibility } from '../../specs';
+
+export type ApiFunctionSource = {
+  url: string;
+  headers: {
+      key: string;
+      value: string;
+  }[];
+  method: string;
+  body: {
+    mode: 'empty';
+  } | {
+      urlencoded: UrlencodedBody['urlencoded']
+  } | {
+      formdata: FormDataBody['formdata']
+  } | {
+      raw: string
+  } | {
+    graphql: Omit<GraphQLBody['graphql'], 'variables'>
+  };
+  auth: Auth;
+}
 
 export interface FunctionArgument<T extends string | Record<string, any> = string> {
   key: string;
@@ -25,6 +48,7 @@ export interface FunctionBasicDto {
 
 export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: Omit<FunctionArgument<Record<string, any>>, 'location'>[];
+  source?: ApiFunctionSource
 }
 
 export interface ApiFunctionDetailsDto extends FunctionDetailsDto {
