@@ -294,7 +294,7 @@ def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
     if not user:
         raise Exception(f"Bad user_id {user_id} pased!")
 
-    admin_key = os.environ["ADMIN_API_KEY"]
+    admin_key = os.environ["POLY_SUPER_ADMIN_USER_KEY"]
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {admin_key}",
