@@ -62,9 +62,11 @@
     "mustache": "^4.2.0",
     "passport": "^0.6.0",
     "passport-http-bearer": "^1.0.1",
+    "prom-client": "^14.2.0",
     "quicktype-core": "^23.0.7",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
+    "swagger-stats": "^0.99.7",
     "typescript-json-schema": "^0.58.1"
   },
   "devDependencies": {

@@ -15,6 +15,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -34,9 +35,14 @@ import { AuthService } from 'auth/auth.service';
 import { CommonService } from 'common/common.service';
 import { TriggerResponse } from 'trigger/trigger.service';
 import { EnvironmentService } from 'environment/environment.service';
+import { PerfLogInfoProvider } from 'statistics/perf-log-info-provider';
+import { PerfLogInterceptor } from 'statistics/perf-log-interceptor';
+import { PerfLogType } from 'statistics/perf-log-type';
+import { PerfLog } from 'statistics/perf-log.decorator';
 
 @ApiSecurity('PolyApiKey')
 @Controller('webhooks')
+@UseInterceptors(PerfLogInterceptor)
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
@@ -45,6 +51,7 @@ export class WebhookController {
     private readonly authService: AuthService,
     private readonly commonService: CommonService,
     private readonly environmentService: EnvironmentService,
+    private readonly perfLogInfoProvider: PerfLogInfoProvider,
   ) {
   }
 
@@ -181,6 +188,7 @@ export class WebhookController {
     );
   }
 
+  @PerfLog(PerfLogType.WebhookTrigger)
   @Post(':id')
   public async triggerWebhookHandle(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() payload: any, @Headers() headers: Record<string, any>) {
     const webhookHandle = await this.findWebhookHandle(id);
@@ -194,9 +202,14 @@ export class WebhookController {
     const executionEnvironment = await this.resolveExecutionEnvironment(webhookHandle, req);
     const response = await this.webhookService.triggerWebhookHandle(webhookHandle, executionEnvironment, payload, headers);
 
+    this.perfLogInfoProvider.data = {
+      id: webhookHandle.id,
+    };
+
     this.sendWebhookResponse(res, webhookHandle, response);
   }
 
+  @PerfLog(PerfLogType.WebhookTrigger)
   @All(':id/:subpath*')
   public async triggerWebhookHandleWithSubpath(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() payload: any, @Headers() headers: Record<string, any>) {
     const webhookHandle = await this.findWebhookHandle(id);
@@ -210,6 +223,10 @@ export class WebhookController {
     const subpath = req.url.split('/').slice(3).join('/');
     const executionEnvironment = await this.resolveExecutionEnvironment(webhookHandle, req);
     const response = await this.webhookService.triggerWebhookHandle(webhookHandle, executionEnvironment, payload, headers, subpath);
+
+    this.perfLogInfoProvider.data = {
+      id: webhookHandle.id,
+    };
 
     this.sendWebhookResponse(res, webhookHandle, response);
   }
