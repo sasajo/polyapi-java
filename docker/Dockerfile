@@ -30,6 +30,7 @@ RUN groupadd -r poly && \
     useradd -r -g poly -d /poly poly && \
     chown -R poly:poly /poly
 USER poly
+RUN chmod +x /poly/app/readiness.sh
 ENV PATH="/poly/funcs/bin:${PATH}"
 ENTRYPOINT [ "sh","./docker/scripts/entrypoint.sh" ]
 EXPOSE 8000 5000 80
