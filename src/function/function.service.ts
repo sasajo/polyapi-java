@@ -2382,8 +2382,8 @@ export class FunctionService implements OnModuleInit {
       });
     };
 
-    const unquotedArgsRegexp = /(?<!\\")\{\{.+?\}\}(?!\\")/ig;
-    const quotedArgsRegexp = /(?<=\\")\{\{.+?\}\}(?=\\")/ig;
+    const unquotedArgsRegexp = /(?<!")\{\{.+?\}\}(?!")/ig;
+    const quotedArgsRegexp = /(?<=")\{\{.+?\}\}(?=")/ig;
     const bodyString = body.raw || '';
 
     const unquotedArgsMatchResult = bodyString.match(unquotedArgsRegexp) || [];
