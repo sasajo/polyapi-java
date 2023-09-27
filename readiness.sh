@@ -1,6 +1,6 @@
 #!/bin/bash
 
-response=$(curl --location "$HOST_URL/health" \
+response=$(curl --location "http://localhost:8000/health" \
 --header 'Authorization:Bearer $POLY_SUPER_ADMIN_USER_KEY')
 
 status=$(echo "$response" | jq -r .status)
