@@ -5,7 +5,7 @@ response=$(curl --location "$HOST_URL/health" \
 
 status=$(echo "$response" | jq -r .status)
 
-# echo $status
+echo $status
 
 if [[ "$status" == "ok" ]]; then
    exit 0 # Success, pod is ready
