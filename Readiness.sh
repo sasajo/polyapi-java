@@ -1,9 +1,7 @@
 #!/bin/bash
 
-response=$(curl --location https://develop-k8s.polyapi.io/health \
---header 'Authorization:Bearer ptab4f62d3421bca3674hfd627')
-
-#expected_status='"status":"ok"'
+response=$(curl --location "$HOST_URL/health" \
+--header 'Authorization:Bearer $POLY_SUPER_ADMIN_USER_KEY')
 
 status=$(echo "$response" | jq -r .status)
 
