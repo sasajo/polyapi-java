@@ -112,13 +112,13 @@ def _has_double_data(return_props: Dict) -> bool:
         return False
 
 
-def spec_prompt(spec: SpecificationDto, *, include_return_type=False) -> str:
+def spec_prompt(spec: SpecificationDto, *, include_argument_schema=True, include_return_type=False) -> str:
     desc = spec.get("description", "")
     if spec["type"] == "serverVariable":
         path = f"// secret: {spec['variable']['secret']}\n"  # type: ignore
         path += f"vari.{spec['context']}.{spec['name']}"
     else:
-        path = func_path_with_args(spec)
+        path = func_path_with_args(spec, include_argument_schema=include_argument_schema)
 
     parts = [
         f"// id: {spec['id']}",
