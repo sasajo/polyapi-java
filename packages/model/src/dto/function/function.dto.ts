@@ -35,6 +35,7 @@ export interface FunctionArgument<T extends string | Record<string, any> = strin
   payload?: boolean;
   variable?: string;
   location?: 'url' | 'body' | 'headers' | 'auth';
+  removeIfNotPresentOnExecute?: boolean;
 }
 
 export interface FunctionBasicDto {
