@@ -64,11 +64,11 @@ def get_function_options_prompt(
     variable_parts: List[str] = []
     for match in top_matches:
         if match["type"] == "webhookHandle":
-            webhook_parts.append(spec_prompt(match))
+            webhook_parts.append(spec_prompt(match, include_argument_schema=False))
         elif match["type"] == "serverVariable":
-            variable_parts.append(spec_prompt(match))
+            variable_parts.append(spec_prompt(match, include_argument_schema=False))
         else:
-            function_parts.append(spec_prompt(match))
+            function_parts.append(spec_prompt(match, include_argument_schema=False))
 
     content = _join_content(function_parts, webhook_parts, variable_parts)
 
