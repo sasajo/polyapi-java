@@ -14,8 +14,11 @@ export class CreateWebhookHandleDto {
   @Validate(ContextIdentifier)
   context?: string;
 
-  @IsObject()
-  eventPayload: any;
+  @IsOptional()
+  eventPayload?: any;
+
+  @IsOptional()
+  eventPayloadTypeSchema?: Record<string, any>;
 
   description: string;
 

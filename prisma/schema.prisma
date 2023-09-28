@@ -196,7 +196,8 @@ model WebhookHandle {
   environmentId       String      @map("environment_id")
   context             String
   name                String
-  eventPayload        String      @map("event_payload")
+  eventPayload        String?     @map("event_payload")
+  eventPayloadType    String      @default("") @map("event_payload_type")
   description         String      @default("")
   visibility          String      @default("ENVIRONMENT")
   responseHeaders     String?     @map("response_headers")

@@ -7,6 +7,8 @@ export interface WebhookHandleDto {
   description: string;
   url: string;
   visibility: Visibility;
+  eventPayloadType: string;
+  eventPayloadTypeSchema?: Record<string, any>;
   responsePayload?: any;
   responseHeaders?: any;
   responseStatus: number | null;

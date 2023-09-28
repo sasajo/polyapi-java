@@ -98,7 +98,8 @@ export class WebhookController {
     const {
       context = '',
       name,
-      eventPayload,
+      eventPayload = null,
+      eventPayloadTypeSchema = null,
       description = '',
       visibility,
       responsePayload,
@@ -115,11 +116,16 @@ export class WebhookController {
       throw new BadRequestException('subpath is required if method is set');
     }
 
+    if (!eventPayload && !eventPayloadTypeSchema) {
+      throw new BadRequestException('eventPayload or eventPayloadTypeSchema is required');
+    }
+
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
       req.user.environment,
       context,
       name,
       eventPayload,
+      eventPayloadTypeSchema,
       description,
       visibility,
       responsePayload,
@@ -145,6 +151,8 @@ export class WebhookController {
       description = null,
       visibility = null,
       eventPayload,
+      eventPayloadType,
+      eventPayloadTypeSchema,
       responsePayload,
       responseHeaders,
       responseStatus,
@@ -166,6 +174,18 @@ export class WebhookController {
         throw new BadRequestException('You do not have permission to enable/disable webhooks.');
       }
     }
+    if (eventPayloadType === 'object' && !eventPayloadTypeSchema) {
+      throw new BadRequestException('eventPayloadTypeSchema is required if eventPayloadType is object');
+    }
+    if (eventPayloadTypeSchema && (eventPayloadType && eventPayloadType !== 'object')) {
+      throw new BadRequestException('eventPayloadTypeSchema is only allowed if eventPayloadType is object');
+    }
+    if (eventPayload && eventPayloadType) {
+      throw new BadRequestException('eventPayload and eventPayloadType cannot be set at the same time');
+    }
+    if (eventPayload && eventPayloadTypeSchema) {
+      throw new BadRequestException('eventPayload and eventPayloadTypeSchema cannot be set at the same time');
+    }
 
     await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
@@ -177,6 +197,8 @@ export class WebhookController {
         description,
         visibility,
         eventPayload,
+        eventPayloadType,
+        eventPayloadTypeSchema,
         responsePayload,
         responseHeaders,
         responseStatus,
@@ -268,6 +290,7 @@ export class WebhookController {
       context,
       name,
       payload,
+      null,
       '',
     );
     return this.webhookService.toDto(webhookHandle);
@@ -283,6 +306,7 @@ export class WebhookController {
       '',
       name,
       payload,
+      null,
       '',
     );
     return this.webhookService.toDto(webhookHandle);
