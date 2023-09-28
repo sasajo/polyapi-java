@@ -74,7 +74,8 @@ def function_completion() -> Response:
     if conversation:
         prev_msgs = get_recent_messages(
             conversation_id=conversation.id,
-            message_type=MessageType.user.value,
+            # lets send all conversation messages for now!
+            # message_type=MessageType.user.value,
             lookback=get_chat_conversation_lookback(),
         )
     else:
