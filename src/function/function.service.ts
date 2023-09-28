@@ -2208,7 +2208,7 @@ export class FunctionService implements OnModuleInit {
     }
   }
 
-  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
+  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null): ArgumentsMetadata {
     return mergeWith(JSON.parse(argumentsMetadata || '{}') as ArgumentsMetadata, updatedArgumentsMetadata || {}, (objValue, srcValue) => {
       if (objValue?.typeObject && srcValue?.typeObject) {
         return {

@@ -2098,7 +2098,7 @@ chalk@5.2.0:
   resolved "https://registry.npmjs.org/chalk/-/chalk-5.2.0.tgz"
   integrity sha512-ree3Gqw/nazQAPuJJEy+avdl7QfZMcUvmHIKgEZkGL+xOBzRvup5Hxo6LHuMceSxOabuJLJm5Yp/92R9eMmMvA==
 
-chalk@^2.0.0:
+chalk@^2.0.0, chalk@^2.4.1:
   version "2.4.2"
   resolved "https://registry.npmjs.org/chalk/-/chalk-2.4.2.tgz"
   integrity sha512-Mti+f9lpJNcwF4tWV8/OrTTtF1gZi+f8FqlyAdouralcFWFQWF2+NgCHShjkCb+IFBLq9buZwE1xckQU4peSuQ==
@@ -4181,6 +4181,13 @@ jest-snapshot@^29.4.3:
     natural-compare "^1.4.0"
     pretty-format "^29.4.3"
     semver "^7.3.5"
+
+jest-summary-reporter@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/jest-summary-reporter/-/jest-summary-reporter-0.0.2.tgz#53b9997b56f343a0dd9af24199c68d371e01f534"
+  integrity sha512-rZ3ThO57l+ZJCxF74cXIGQU3cV9I7bSBe1ElBp0taE3x2JghgD69bNCKt0LvpVQX5azTRHG7LmcjIpwriVnTng==
+  dependencies:
+    chalk "^2.4.1"
 
 jest-util@^29.0.0, jest-util@^29.4.3:
   version "29.4.3"

@@ -63,7 +63,7 @@ def _process_schema_property(property: Dict) -> str:
     return rv
 
 
-def _process_property_spec(arg: PropertySpecification) -> str:
+def _process_property_spec(arg: PropertySpecification, *, include_argument_schema=True) -> str:
     kind = arg["type"]["kind"]
     if kind == "void":
         # seems weird to have a void argument...
@@ -78,7 +78,9 @@ def _process_property_spec(arg: PropertySpecification) -> str:
         )
     elif kind == "object":
         arg_type = arg["type"]
-        if arg_type.get("properties"):
+        if not include_argument_schema:
+            rv = "{name}: object".format(name=arg["name"])
+        elif arg_type.get("properties"):
             properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
             sub_props = "\n".join(properties)
             sub_props = "{\n" + sub_props + "\n}"
@@ -105,18 +107,18 @@ def _process_property_spec(arg: PropertySpecification) -> str:
     return rv
 
 
-def func_args(spec: SpecificationDto) -> List[str]:
+def func_args(spec: SpecificationDto, *, include_argument_schema=True) -> List[str]:
     """get the args for a function from the headers and url"""
     arg_strings = []
     func = spec.get("function")
     if func:
         for arg in func["arguments"]:
-            arg_strings.append(_process_property_spec(arg))
+            arg_strings.append(_process_property_spec(arg, include_argument_schema=include_argument_schema))
     return arg_strings
 
 
-def func_path_with_args(func: SpecificationDto) -> str:
-    args = func_args(func)
+def func_path_with_args(func: SpecificationDto, *, include_argument_schema=True) -> str:
+    args = func_args(func, include_argument_schema=include_argument_schema)
     sep = "\n"
     return f"{func_path(func)}(\n{sep.join(args)}\n)"
 

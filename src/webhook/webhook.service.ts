@@ -6,7 +6,7 @@ import { EventService } from 'event/event.service';
 import { AiService } from 'ai/ai.service';
 import {
   ConfigVariableName,
-  PropertySpecification,
+  PropertySpecification, PropertyType,
   PublicVisibilityValue,
   TrainingDataGeneration,
   Visibility,
@@ -164,7 +164,8 @@ export class WebhookService {
     environment: Environment,
     context: string,
     name: string,
-    eventPayload: any,
+    eventPayload: any | null,
+    eventPayloadTypeSchema: Record<string, any> | null,
     description: string,
     visibility?: Visibility,
     responsePayload?: any,
@@ -176,7 +177,12 @@ export class WebhookService {
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<WebhookHandle> {
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
-    this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
+    if (eventPayload) {
+      this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
+    }
+    if (eventPayloadTypeSchema) {
+      this.logger.debug(`Event payload schema: ${JSON.stringify(eventPayloadTypeSchema)}`);
+    }
 
     const webhookHandle = await this.prisma.webhookHandle.findFirst({
       where: {
@@ -202,7 +208,9 @@ export class WebhookService {
     }
 
     const webhookData = {
-      eventPayload: JSON.stringify(eventPayload),
+      eventPayloadType: eventPayloadTypeSchema
+        ? JSON.stringify(eventPayloadTypeSchema)
+        : await this.getEventPayloadType(eventPayload),
       visibility,
       responsePayload,
       responseHeaders,
@@ -217,7 +225,7 @@ export class WebhookService {
 
       if (!name || !context || !description) {
         if (await this.isWebhookAITrainingEnabled(environment)) {
-          const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
+          const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload || eventPayloadTypeSchema);
 
           return this.prisma.webhookHandle.update({
             where: {
@@ -269,14 +277,16 @@ export class WebhookService {
             const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
 
             if (trainingDataCfgVariable?.value.webhooks) {
-              const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload);
+              const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload || eventPayloadTypeSchema);
 
               webhookHandle = await tx.webhookHandle.update({
                 where: {
                   id: webhookHandle.id,
                 },
                 data: {
-                  eventPayload: JSON.stringify(eventPayload),
+                  eventPayloadType: eventPayloadTypeSchema
+                    ? JSON.stringify(eventPayloadTypeSchema)
+                    : await this.getEventPayloadType(eventPayload),
                   context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
                   description: description || aiResponse.description,
                   name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
@@ -345,6 +355,8 @@ export class WebhookService {
   }
 
   toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
+    const eventPayloadType = JSON.parse(webhookHandle.eventPayloadType);
+
     return {
       id: webhookHandle.id,
       name: webhookHandle.name,
@@ -352,6 +364,8 @@ export class WebhookService {
       description: webhookHandle.description,
       url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
       visibility: webhookHandle.visibility as Visibility,
+      eventPayloadType: typeof eventPayloadType === 'object' ? 'object' : eventPayloadType,
+      eventPayloadTypeSchema: typeof eventPayloadType === 'object' ? eventPayloadType : undefined,
       responsePayload: webhookHandle.responsePayload ? JSON.parse(webhookHandle.responsePayload) : undefined,
       responseHeaders: webhookHandle.responseHeaders ? JSON.parse(webhookHandle.responseHeaders) : undefined,
       responseStatus: webhookHandle.responseStatus,
@@ -378,6 +392,8 @@ export class WebhookService {
     description: string | null,
     visibility: Visibility | null,
     eventPayload: any | undefined,
+    eventPayloadType: string | undefined,
+    eventPayloadTypeSchema: Record<string, any> | undefined,
     responsePayload: any | null | undefined,
     responseHeaders: any | null | undefined,
     responseStatus: number | null | undefined,
@@ -410,7 +426,13 @@ export class WebhookService {
         name,
         description,
         visibility,
-        eventPayload: eventPayload ? JSON.stringify(eventPayload) : undefined,
+        eventPayloadType: eventPayload
+          ? await this.getEventPayloadType(eventPayload)
+          : eventPayloadTypeSchema
+            ? JSON.stringify(eventPayloadTypeSchema)
+            : eventPayloadType
+              ? JSON.stringify(eventPayloadType)
+              : undefined,
         responsePayload,
         responseHeaders,
         responseStatus,
@@ -495,16 +517,21 @@ export class WebhookService {
 
   async toWebhookHandleSpecification(webhookHandle: WebhookHandle): Promise<WebhookHandleSpecification> {
     const getEventArgument = async (): Promise<PropertySpecification> => {
-      const schema =
-        (await this.commonService.getJsonSchema('WebhookEventType', webhookHandle.eventPayload)) || undefined;
+      const eventPayloadType = JSON.parse(webhookHandle.eventPayloadType);
+      const type: PropertyType = typeof eventPayloadType === 'object'
+        ? {
+            kind: 'object',
+            schema: eventPayloadType,
+          }
+        : {
+            kind: 'primitive',
+            type: eventPayloadType,
+          };
 
       return {
         name: 'event',
         required: false,
-        type: {
-          kind: 'object',
-          schema,
-        },
+        type,
       };
     };
 
@@ -647,5 +674,13 @@ export class WebhookService {
     }
 
     return params;
+  }
+
+  private async getEventPayloadType(eventPayload: any): Promise<string> {
+    const [type, typeSchema] = eventPayload
+      ? await this.commonService.resolveType('WebhookEventType', JSON.stringify(eventPayload))
+      : ['string'];
+
+    return type === 'object' ? JSON.stringify(typeSchema) : JSON.stringify(type);
   }
 }
