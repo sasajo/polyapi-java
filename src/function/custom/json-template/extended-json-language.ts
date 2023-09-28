@@ -1,6 +1,5 @@
 import hlsLib from 'highlight.js';
 
-
 export const LANGUAGE_NAME = 'extended-json';
 
 const ARGUMENT_CLASS = 'argument';
