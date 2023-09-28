@@ -63,10 +63,6 @@ def _process_schema_property(property: Dict) -> str:
     return rv
 
 
-def _build_func_schema(arg: PropertySpecification) -> str:
-    return {"type": "function"}
-
-
 def _process_property_spec(arg: PropertySpecification, *, include_argument_schema=True) -> str:
     kind = arg["type"]["kind"]
     if kind == "void":
