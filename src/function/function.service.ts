@@ -825,6 +825,10 @@ export class FunctionService implements OnModuleInit {
       const filterOptionalArgs = (entry: PostmanVariableEntry) => {
         const argName = entry.value.replace('{{', '').replace('}}', '');
 
+        if (typeof argumentsMetadata[argName] === 'undefined') {
+          return true;
+        }
+
         if (argumentsMetadata[argName].required === false &&
           argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
           typeof argumentValueMap[argName] === 'undefined') {
@@ -847,14 +851,14 @@ export class FunctionService implements OnModuleInit {
     } else if (parsedBody.mode === 'raw') {
       const jsonTemplateObject = getMetadataTemplateObject(parsedBody.raw);
 
-      const filteredData = this.filterRawData(jsonTemplateObject, argumentsMetadata, argumentValueMap);
+      const filteredTemplateData = this.filterRawData(jsonTemplateObject, argumentsMetadata, args);
 
       body = {
         mode: 'raw',
-        raw: mustache.render(JSON.stringify(mergeArgumentsInTemplateObject(filteredData, argumentValueMap)), argumentValueMap),
+        raw: JSON.stringify(mergeArgumentsInTemplateObject(filteredTemplateData, args)),
       };
     } else {
-      body = JSON.parse(apiFunction.argumentsMetadata || '{}') as Body;
+      body = JSON.parse(mustache.render(apiFunction.body || '', argumentsMetadata)) as Body;
     }
 
     const params = {
@@ -2403,10 +2407,14 @@ export class FunctionService implements OnModuleInit {
         if (
           typeof argName !== 'undefined'
         ) {
-          if (
-            argumentsMetadata[argName].required === false &&
-            argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
-            typeof argumentValueMap[argName] === 'undefined') {
+          const argValue = typeof argumentValueMap[argName];
+          const arg = typeof argumentsMetadata[argName] as ArgumentsMetadata[string];
+
+          if (typeof arg === 'undefined') {
+            return value;
+          }
+
+          if (arg.required === false && arg.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined') {
             return undefined;
           }
 

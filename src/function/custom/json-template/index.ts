@@ -40,21 +40,21 @@ export type ArgMetadata = {
     /**
      * Argument name
      */
-    $polyArgName: string;
+    [POLY_ARG_NAME_KEY]: string;
     /**
      * If argument is surrounded by double quotes or not in template's string.
      */
     quoted: boolean;
 }
 
-export const mergeArgumentsInTemplateObject = (rawObject: Record<string, unknown> | Record<string, unknown>[], argumentValueMap: Record<string, any>): typeof rawObject => {
-  const clonedRawObject = cloneDeep(rawObject);
+export const mergeArgumentsInTemplateObject = (templateObject: Record<string, unknown> | Record<string, unknown>[], args: Record<string, any>): typeof templateObject => {
+  const clonedRawObject = cloneDeep(templateObject);
 
   const isTemplateArg = (value): value is ArgMetadata => typeof value[POLY_ARG_NAME_KEY] !== 'undefined';
 
   const assignArgValues = (value: Record<string, any>) => {
     if (isTemplateArg(value)) {
-      const argValue = argumentValueMap[value.$polyArgName];
+      const argValue = args[value.$polyArgName];
 
       if (!value.quoted) {
         return argValue;
