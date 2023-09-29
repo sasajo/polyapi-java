@@ -94,7 +94,11 @@ def _process_property_spec(arg: PropertySpecification, *, include_argument_schem
             log(f"WARNING: object with no properties in args - {arg}")
             rv = "{name}: object".format(name=arg["name"])
     elif kind == "function":
-        rv = f"{arg['name']}: {kind}"
+        if include_argument_schema:
+            function_spec = json.dumps(arg.get("type", {}).get("spec", "function"))
+            rv = f"{arg['name']}: {function_spec}"
+        else:
+            rv = f"{arg['name']}: {kind}"
     elif kind == "plain":
         rv = f"{arg['name']}: {arg['type']['value']}"
     else:
@@ -112,8 +116,14 @@ def func_args(spec: SpecificationDto, *, include_argument_schema=True) -> List[s
     arg_strings = []
     func = spec.get("function")
     if func:
-        for arg in func["arguments"]:
-            arg_strings.append(_process_property_spec(arg, include_argument_schema=include_argument_schema))
+        for idx, arg in enumerate(func["arguments"]):
+            arg_string = _process_property_spec(arg, include_argument_schema=include_argument_schema)
+            # if idx == 0 and spec['type'] == "webhookHandle":
+            #     # the first argument to webhookHandle callback functions is the eventPayload
+            #     # let's add a comment explaining to chatGPT that's what this is!
+            #     arg_string += " // This is the event payload that will be received by the webhook"
+            arg_strings.append(arg_string)
+
     return arg_strings
 
 

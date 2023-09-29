@@ -15,7 +15,6 @@ import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, from, lastValueFrom, map } from 'rxjs';
 import mustache from 'mustache';
-import { stripComments } from 'jsonc-parser';
 import { ApiFunction, CustomFunction, Environment, Tenant } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
@@ -1671,7 +1670,7 @@ export class FunctionService implements OnModuleInit {
         if (body.options?.raw?.language === 'json') {
           return {
             ...body,
-            raw: this.filterJSONComments(body.raw),
+            raw: this.commonService.filterJSONComments(body.raw),
           };
         }
         return body;
@@ -2324,10 +2323,6 @@ export class FunctionService implements OnModuleInit {
       : ['void'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : type;
-  }
-
-  private filterJSONComments(jsonString: string) {
-    return stripComments(jsonString);
   }
 
   private async resolveVisibility<T extends { environment: Environment & { tenant: Tenant }, context: string | null }>(

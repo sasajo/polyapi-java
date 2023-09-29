@@ -312,11 +312,11 @@ def get_best_function_example(
             spec_prompt(spec, include_return_type=True) for spec in specs
         )
     )
-    messages = [MessageDict(role="user", content=best_functions_prompt)]
+    messages = [MessageDict(role="user", content=best_functions_prompt, type=MessageType.context.value)]
 
     if variables:
         best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE % "\n\n".join(spec_prompt(v) for v in variables)
-        messages.append(MessageDict(role="user", content=best_variables_prompt))
+        messages.append(MessageDict(role="user", content=best_variables_prompt, type=MessageType.context.value))
 
     question_msg = MessageDict(
         role="user", content=QUESTION_TEMPLATE.format(question), type=MessageType.user

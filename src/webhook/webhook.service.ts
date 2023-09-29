@@ -13,7 +13,7 @@ import {
   VisibilityQuery,
   WebhookHandleDto,
   WebhookHandlePublicDto,
-  WebhookHandleSpecification,
+  WebhookHandleSpecification, WebhookSecurityFunction,
 } from '@poly/model';
 import { ConfigService } from 'config/config.service';
 import { SpecsService } from 'specs/specs.service';
@@ -173,7 +173,7 @@ export class WebhookService {
     responseStatus?: number,
     subpath?: string,
     method?: string,
-    securityFunctionIds: string[] = [],
+    securityFunctions: WebhookSecurityFunction[] = [],
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<WebhookHandle> {
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
@@ -189,7 +189,7 @@ export class WebhookService {
         name,
         context,
         environmentId: environment.id,
-        securityFunctionIds: JSON.stringify(securityFunctionIds),
+        securityFunctions: JSON.stringify(securityFunctions),
       },
     });
 
@@ -217,7 +217,7 @@ export class WebhookService {
       responseStatus,
       subpath,
       method,
-      securityFunctionIds: securityFunctionIds ? JSON.stringify(securityFunctionIds) : undefined,
+      securityFunctions: securityFunctions ? JSON.stringify(securityFunctions) : undefined,
     };
 
     if (webhookHandle) {
@@ -311,7 +311,7 @@ export class WebhookService {
       ? await this.resolveSubpathParams(subpath, webhookHandle.subpath)
       : {};
 
-    if (webhookHandle.securityFunctionIds) {
+    if (webhookHandle.securityFunctions) {
       await this.executeSecurityFunctions(webhookHandle, executionEnvironment, eventPayload, eventHeaders, subpathParams);
     }
 
@@ -326,22 +326,22 @@ export class WebhookService {
     eventHeaders: Record<string, any>,
     params: Record<string, any>,
   ) {
-    const securityFunctionIds = webhookHandle.securityFunctionIds ? JSON.parse(webhookHandle.securityFunctionIds) : [];
-    if (securityFunctionIds.length === 0) {
+    const securityFunctions = webhookHandle.securityFunctions ? JSON.parse(webhookHandle.securityFunctions) : [];
+    if (securityFunctions.length === 0) {
       return;
     }
 
-    this.logger.debug(`Found ${securityFunctionIds.length} security function(s) - executing for security check...`);
-    for (const securityFunctionId of securityFunctionIds) {
-      const securityFunction = await this.functionService.findServerFunction(securityFunctionId, true);
-      if (!securityFunction) {
-        this.logger.debug(`Security function ${securityFunctionId} not found - skipping...`);
+    this.logger.debug(`Found ${securityFunctions.length} security function(s) - executing for security check...`);
+    for (const securityFunction of securityFunctions) {
+      const serverFunction = await this.functionService.findServerFunction(securityFunction.id, true);
+      if (!serverFunction) {
+        this.logger.debug(`Security function ${securityFunction.id} not found - skipping...`);
         continue;
       }
 
       const response = await this.functionService.executeServerFunction(
-        securityFunction,
-        executionEnvironment || securityFunction.environment,
+        serverFunction,
+        executionEnvironment || serverFunction.environment,
         [
           eventPayload,
           eventHeaders,
@@ -349,12 +349,12 @@ export class WebhookService {
         ],
       );
       if (response?.body !== true) {
-        throw new ForbiddenException(`Security function ${securityFunction.id} check failed - access denied.`);
+        throw new ForbiddenException(securityFunction.message);
       }
     }
   }
 
-  toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
+  toDto(webhookHandle: WebhookHandle, forEnvironment: Environment): WebhookHandleDto {
     const eventPayloadType = JSON.parse(webhookHandle.eventPayloadType);
 
     return {
@@ -362,7 +362,9 @@ export class WebhookService {
       name: webhookHandle.name,
       context: webhookHandle.context,
       description: webhookHandle.description,
-      url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
+      url: webhookHandle.visibility !== Visibility.Environment
+        ? `${this.commonService.getHostUrlWithSubdomain(forEnvironment)}/webhooks/${webhookHandle.id}`
+        : `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
       visibility: webhookHandle.visibility as Visibility,
       eventPayloadType: typeof eventPayloadType === 'object' ? 'object' : eventPayloadType,
       eventPayloadTypeSchema: typeof eventPayloadType === 'object' ? eventPayloadType : undefined,
@@ -371,14 +373,14 @@ export class WebhookService {
       responseStatus: webhookHandle.responseStatus,
       subpath: webhookHandle.subpath,
       method: webhookHandle.method,
-      securityFunctionIds: webhookHandle.securityFunctionIds ? JSON.parse(webhookHandle.securityFunctionIds) : [],
+      securityFunctions: webhookHandle.securityFunctions ? JSON.parse(webhookHandle.securityFunctions) : [],
       enabled: !webhookHandle.enabled ? false : undefined,
     };
   }
 
-  toPublicDto(webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean }): WebhookHandlePublicDto {
+  toPublicDto(webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean }, forEnvironment: Environment): WebhookHandlePublicDto {
     return {
-      ...this.toDto(webhookHandle),
+      ...this.toDto(webhookHandle, forEnvironment),
       context: this.commonService.getPublicContext(webhookHandle),
       tenant: webhookHandle.environment.tenant.name || '',
       hidden: webhookHandle.hidden,
@@ -399,7 +401,7 @@ export class WebhookService {
     responseStatus: number | null | undefined,
     subpath: string | null | undefined,
     method: string | null | undefined,
-    securityFunctionIds: string[] | undefined,
+    securityFunctions: WebhookSecurityFunction[] | undefined,
     enabled: boolean | undefined,
   ) {
     name = this.normalizeName(name, webhookHandle);
@@ -438,7 +440,7 @@ export class WebhookService {
         responseStatus,
         subpath,
         method,
-        securityFunctionIds: securityFunctionIds ? JSON.stringify(securityFunctionIds) : undefined,
+        securityFunctions: securityFunctions ? JSON.stringify(securityFunctions) : undefined,
         enabled,
       },
     });
