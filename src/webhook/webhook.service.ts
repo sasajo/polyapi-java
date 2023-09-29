@@ -354,7 +354,7 @@ export class WebhookService {
     }
   }
 
-  toDto(webhookHandle: WebhookHandle): WebhookHandleDto {
+  toDto(webhookHandle: WebhookHandle, forEnvironment: Environment): WebhookHandleDto {
     const eventPayloadType = JSON.parse(webhookHandle.eventPayloadType);
 
     return {
@@ -362,7 +362,9 @@ export class WebhookService {
       name: webhookHandle.name,
       context: webhookHandle.context,
       description: webhookHandle.description,
-      url: `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
+      url: webhookHandle.visibility !== Visibility.Environment
+        ? `${this.commonService.getHostUrlWithSubdomain(forEnvironment)}/webhooks/${webhookHandle.id}`
+        : `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
       visibility: webhookHandle.visibility as Visibility,
       eventPayloadType: typeof eventPayloadType === 'object' ? 'object' : eventPayloadType,
       eventPayloadTypeSchema: typeof eventPayloadType === 'object' ? eventPayloadType : undefined,
@@ -376,9 +378,9 @@ export class WebhookService {
     };
   }
 
-  toPublicDto(webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean }): WebhookHandlePublicDto {
+  toPublicDto(webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean }, forEnvironment: Environment): WebhookHandlePublicDto {
     return {
-      ...this.toDto(webhookHandle),
+      ...this.toDto(webhookHandle, forEnvironment),
       context: this.commonService.getPublicContext(webhookHandle),
       tenant: webhookHandle.environment.tenant.name || '',
       hidden: webhookHandle.hidden,

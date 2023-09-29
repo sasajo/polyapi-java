@@ -1,12 +1,25 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import _ from 'lodash';
 import { CommonService } from 'common/common.service';
+import { Test } from '@nestjs/testing';
+import { configServiceMock } from '../mocks';
+import { ConfigService } from 'config/config.service';
 
 describe('CommonService', () => {
   let commonService: CommonService;
 
-  beforeEach(() => {
-    commonService = new CommonService();
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        CommonService,
+        {
+          provide: ConfigService,
+          useValue: configServiceMock,
+        },
+      ],
+    }).compile();
+
+    commonService = moduleRef.get<CommonService>(CommonService);
   });
 
   describe('trimDownObject', () => {

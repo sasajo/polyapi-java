@@ -58,8 +58,9 @@ export class WebhookController {
   @UseGuards(PolyAuthGuard)
   @Get()
   public async getWebhookHandles(@Req() req: AuthRequest) {
-    const webhookHandles = await this.webhookService.getWebhookHandles(req.user.environment.id);
-    return webhookHandles.map((handle) => this.webhookService.toDto(handle));
+    const environment = req.user.environment;
+    const webhookHandles = await this.webhookService.getWebhookHandles(environment.id);
+    return webhookHandles.map((handle) => this.webhookService.toDto(handle, environment));
   }
 
   @UseGuards(PolyAuthGuard)
@@ -67,7 +68,7 @@ export class WebhookController {
   public async getPublicWebhookHandles(@Req() req: AuthRequest): Promise<WebhookHandlePublicDto[]> {
     const { tenant, environment, user } = req.user;
     const webhookHandles = await this.webhookService.getPublicWebhookHandles(tenant, environment, user?.role === Role.Admin);
-    return webhookHandles.map((handle) => this.webhookService.toPublicDto(handle));
+    return webhookHandles.map((handle) => this.webhookService.toPublicDto(handle, environment));
   }
 
   @UseGuards(PolyAuthGuard)
@@ -79,7 +80,7 @@ export class WebhookController {
       throw new NotFoundException(`Public webhook handle with ID ${id} not found.`);
     }
 
-    return this.webhookService.toPublicDto(webhookHandle);
+    return this.webhookService.toPublicDto(webhookHandle, environment);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -89,7 +90,7 @@ export class WebhookController {
 
     await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
 
-    return this.webhookService.toDto(webhookHandle);
+    return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -135,7 +136,7 @@ export class WebhookController {
       method,
       securityFunctions,
     );
-    return this.webhookService.toDto(webhookHandle);
+    return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
 
   @Patch(':id')
@@ -207,6 +208,7 @@ export class WebhookController {
         securityFunctions,
         enabled,
       ),
+      req.user.environment,
     );
   }
 
@@ -293,7 +295,7 @@ export class WebhookController {
       null,
       '',
     );
-    return this.webhookService.toDto(webhookHandle);
+    return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -309,7 +311,7 @@ export class WebhookController {
       null,
       '',
     );
-    return this.webhookService.toDto(webhookHandle);
+    return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
 
   private async findWebhookHandle(id: string) {

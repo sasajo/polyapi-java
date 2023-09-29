@@ -5,8 +5,9 @@ import { validator } from '@exodus/schemasafe';
 import axios from 'axios';
 import _ from 'lodash';
 import { toPascalCase } from '@guanghechen/helper-string';
-import { ConfigVariable, Prisma, Tenant } from '@prisma/client';
+import { ConfigVariable, Environment, Prisma, Tenant } from '@prisma/client';
 import { CommentToken, parse, stringify } from 'comment-json';
+import { ConfigService } from 'config/config.service';
 import { PathError } from './path-error';
 import {
   ArgumentType,
@@ -27,6 +28,11 @@ const JSON_META_SCHEMA_CACHE = {};
 @Injectable()
 export class CommonService {
   private readonly logger = new Logger(CommonService.name);
+
+  constructor(
+    private readonly config: ConfigService,
+  ) {
+  }
 
   async getJsonSchema(typeName: string, content: any): Promise<Record<string, any> | null> {
     if (!content) {
@@ -420,5 +426,11 @@ export class CommonService {
     processObject(parsed);
 
     return propComments;
+  }
+
+  getHostUrlWithSubdomain(environment: Environment) {
+    const hostUrl = this.config.hostUrl;
+    const urlParts = hostUrl.split('://');
+    return `${urlParts[0]}://${environment.subdomain}.${urlParts[1]}`;
   }
 }
