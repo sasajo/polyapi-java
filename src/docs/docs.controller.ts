@@ -20,6 +20,7 @@ export class DocsController {
     const rv = docs.map((doc) => {
       return {
         id: doc.id,
+        context: doc.context,
         title: doc.title,
         text: doc.text,
         tenantId: doc.tenantId,
@@ -35,6 +36,7 @@ export class DocsController {
     const doc = await this.service.createOrUpdateDoc(data);
     return {
       id: doc.id,
+      context: doc.context,
       title: doc.title,
       text: doc.text,
       tenantId: doc.tenantId,

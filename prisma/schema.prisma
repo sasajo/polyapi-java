@@ -324,6 +324,7 @@ model Migration {
 
 model DocSection {
   id        String    @id(map: "idx_25958_sqlite_autoindex_docsection_1") @default(uuid())
+  context   String    @default("")
   title     String    @default("")
   text      String    @default("")
   vector    String    @default("")

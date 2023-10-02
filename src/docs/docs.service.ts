@@ -5,6 +5,7 @@ import { PrismaService } from 'prisma/prisma.service';
 
 export type DocUpdateT = {
   id?: string;
+  context?: string;
   title?: string;
   text?: string;
   tenantId?: string;
@@ -30,6 +31,9 @@ export class DocsService {
       if (body.text) {
         updateData.text = body.text;
       }
+      if (body.context) {
+        updateData.context = body.context;
+      }
       doc = await this.prisma.docSection.update({
         where: { id: body.id },
         data: updateData,
@@ -37,7 +41,7 @@ export class DocsService {
       return doc;
     } else {
       doc = await this.prisma.docSection.create({
-        data: { title: body.title, text: body.text, tenantId: body.tenantId },
+        data: { context: body.context, title: body.title, text: body.text, tenantId: body.tenantId },
       });
     }
 
