@@ -1,31 +1,21 @@
-name: Docker Image & NPM publish CI/CD
+name: Update pre-built base image of node
 on:
   push:
+    paths:
+      - "packages/client"
     branches:
       - develop
       - main
 
 jobs:
   develop:
-    name: Development Docker / NPM build and push.
+    name: Development Pre-built image
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/develop' }}
-
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-      IMAGE: ghcr.io/polyapi/polyapi-dev
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
+    environment: dev
       
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Build the Docker image
-      run: |
-        echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }} -f docker/Dockerfile .
-        docker push ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }}
 
     - uses: dorny/paths-filter@v2
       id: changes
@@ -35,46 +25,36 @@ jobs:
             - 'packages/client/package.json'
 
     - if: steps.changes.outputs.client == 'true'
-      name: Setup Node
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18'
-        registry-url: 'https://registry.npmjs.org'
-
-    - if: steps.changes.outputs.client == 'true'
-      name: Publish package
+      name: Hit endpoint and build from schatch pre-built image
       run: |
-        VERSION=$(node -p "require('./packages/client/package.json').version")
-        echo $VERSION
-        REMOTEVERSION=$(npm view polyapi --json | jq -r '.["dist-tags"].develop')
-        echo $REMOTEVERSION
-
-        if [[ "$VERSION" == "$REMOTEVERSION" ]]; then
-          echo "Local NPM version is the same as remote"
-        else
-          yarn install
-          npx prisma@4.11.0 generate --generator js
-          cd packages/client 
-          npm install --include=dev
-          npm publish --tag develop
-        fi
+        curl -X POST \
+        https://develop-k8s.polyapi.io/functions/server/prebuilt-base-image \
+        -H "Authorization: Bearer ${{ secrets.POLY_SUPER_ADMIN_USER_KEY }}" \
+        -H "Content-Type: application/json" \
+        -d '{}'
         
 
   main:
-    name: Main Docker build and push.
+    name: Main Pre-built image
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
-
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-      IMAGE: ghcr.io/polyapi/polyapi-main
+    environment: main
       
     steps:
     - uses: actions/checkout@v3
 
-    - name: Build the Docker image
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          client:
+            - 'packages/client/package.json'
+
+    - if: steps.changes.outputs.client == 'true'
+      name: Hit endpoint and build from schatch pre-built image
       run: |
-        echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
-        docker build -t ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }} -f docker/Dockerfile .
-        docker push ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }}
+        curl -X POST \
+        https://na1.polyapi.io/functions/server/prebuilt-base-image \
+        -H "Authorization: Bearer ${{ secrets.POLY_SUPER_ADMIN_USER_KEY }}" \
+        -H "Content-Type: application/json" \
+        -d '{}'
