@@ -1,3 +1,6 @@
+### 0.3.9
+* Add `async` to webhook handlers clipboard.
+
 ### 0.3.8
 * Fix links on chat answers while printing new chunks of data.
 

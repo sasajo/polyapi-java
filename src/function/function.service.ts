@@ -2170,7 +2170,7 @@ export class FunctionService implements OnModuleInit {
             }
           }
         } else {
-          const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
+          const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(this.unpackArgsAndGetValue(value, variables));
 
           assignNewMetadata(arg, type, typeSchema);
         }
@@ -2430,48 +2430,23 @@ export class FunctionService implements OnModuleInit {
     }, []);
   }
 
-  private filterRawData(object: Record<string, any> | Record<string, any>[], argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): Record<string, any> | Record<string, any>[] {
-    const removeUndefinedValues = (value: any) => {
-      if (Array.isArray(value)) {
-        for (let i = 0; i < value.length; i++) {
-          value[i] = removeUndefinedValues(value[i]);
-        }
-      }
+  /**
+   * Process and unpack nested args for value.
+   */
+  private unpackArgsAndGetValue(value: string, variables: Variables) {
+    const result = mustache.render(value, variables, {}, {
+      escape(text) {
+        return text;
+      },
+    });
 
-      if (!(isPlainObject as (value: unknown) => value is Record<string, any>)(value)) {
-        return value;
-      }
+    // Get args list.
+    const args = mustache.parse(result).filter((row) => row[0] === 'name');
 
-      if (isPlainObject(value)) {
-        const argName = value['$polyArgName'];
+    if (args.length) {
+      return this.unpackArgsAndGetValue(result, variables);
+    }
 
-        if (
-          typeof argName !== 'undefined'
-        ) {
-          const argValue = typeof argumentValueMap[argName];
-          const arg = typeof argumentsMetadata[argName] as ArgumentsMetadata[string];
-
-          if (typeof arg === 'undefined') {
-            return value;
-          }
-
-          if (arg.required === false && arg.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined') {
-            return undefined;
-          }
-
-          return value;
-        }
-      }
-
-      for (const key of Object.keys(value)) {
-        value[key] = removeUndefinedValues(value[key]);
-        if (typeof value[key] === 'undefined') {
-          delete value[key];
-        }
-      }
-      return value;
-    };
-
-    return removeUndefinedValues(object);
+    return result;
   }
 }
