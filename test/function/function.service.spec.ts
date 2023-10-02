@@ -24,7 +24,7 @@ import { SpecsService } from 'specs/specs.service';
 import { EventService } from 'event/event.service';
 import { AiService } from 'ai/ai.service';
 import { VariableService } from 'variable/variable.service';
-import { FormDataBody, UrlencodedBody, Visibility } from '@poly/model';
+import { FormDataBody, RawBody, UrlencodedBody, Visibility } from '@poly/model';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { AuthService } from 'auth/auth.service';
 import { LimitService } from 'limit/limit.service';
@@ -728,6 +728,122 @@ describe('FunctionService', () => {
       });
     });
 
+    it('Should send hardcoded urlencoded values.', async() => {
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'urlencoded',
+          urlencoded: [{ key: "name", value: "foo" }, { key: "lastName", value: "bar"}]
+        } as UrlencodedBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          title: {
+            type: 'string'
+          },
+          userId: {
+            type: 'number',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          name: 'foo',
+          lastName: 'bar'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+    it('Should send hardcoded formdata values.', async() => {
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'formdata',
+          formdata: [{ key: "name", value: "foo", type: "text" }, { key: "lastName", value: "bar", type: "text"}]
+        } as FormDataBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          title: {
+            type: 'string'
+          },
+          userId: {
+            type: 'number',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          name: 'foo',
+          lastName: 'bar'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+    it('Should send hardcoded raw values as json.', async() => {
+
+      const hardcodedBodyObject = {
+        name: 'foo',
+        lastName: 'bar',
+        data: {
+          age: 27,
+          list: [1, false, "", { a: 'b'}]
+        },
+        foo: null
+      }
+
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'raw',
+          raw: JSON.stringify(hardcodedBodyObject)
+        } as RawBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: '{}',
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: hardcodedBodyObject
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    })
+
     it('Should remove optional arguments that has not been provided for urlencoded body.', async () => {
       const apiFunction = {
         url: 'https://jsonplaceholder.typicode.com/posts',
@@ -765,7 +881,7 @@ describe('FunctionService', () => {
         headers: {},
       });
     });
-
+    
     it('Should remove optional arguments that has not been provided for formdata body.', async () => {
       const apiFunction = {
         url: 'https://jsonplaceholder.typicode.com/posts',
@@ -803,6 +919,9 @@ describe('FunctionService', () => {
         headers: {},
       });
     });
+
+
+    
 
     it('should return error when error in request occurs', async () => {
       jest.spyOn(functionService as any, 'getBodyData')

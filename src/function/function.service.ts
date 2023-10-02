@@ -48,6 +48,7 @@ import {
   UpdateSourceFunctionDto,
   UpdateSourceNullableEntry,
   FormDataEntry,
+  RawBody,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -803,6 +804,55 @@ export class FunctionService implements OnModuleInit {
     return sourceData;
   }
 
+  private processRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, args: Record<string, any>) {
+    const jsonTemplateObject = getMetadataTemplateObject(body.raw);
+
+    const removeUndefinedValuesFromOptionalArgs = (value: any) => {
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          value[i] = removeUndefinedValuesFromOptionalArgs(value[i]);
+        }
+      }
+
+      if (!(isPlainObject as (value: unknown) => value is Record<string, any>)(value)) {
+        return value;
+      }
+
+      if (isPlainObject(value)) {
+        const argName = value['$polyArgName'];
+
+        if (
+          typeof argName !== 'undefined'
+        ) {
+          const argValue = typeof args[argName];
+          const arg = typeof argumentsMetadata[argName] as ArgumentsMetadata[string];
+
+          if (typeof arg === 'undefined') {
+            return value;
+          }
+
+          if (arg.required === false && arg.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined') {
+            return undefined;
+          }
+
+          return value;
+        }
+      }
+
+      for (const key of Object.keys(value)) {
+        value[key] = removeUndefinedValuesFromOptionalArgs(value[key]);
+        if (typeof value[key] === 'undefined') {
+          delete value[key];
+        }
+      }
+      return value;
+    };
+
+    const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
+
+    return JSON.stringify(mergeArgumentsInTemplateObject(filteredJsonTemplate, args));
+  }
+
   async executeApiFunction(
     apiFunction: ApiFunction & { environment: Environment },
     args: Record<string, any>,
@@ -822,11 +872,11 @@ export class FunctionService implements OnModuleInit {
 
     if (parsedBody.mode === 'urlencoded' || parsedBody.mode === 'formdata') {
       const filterOptionalArgs = (entry: PostmanVariableEntry) => {
-        const argName = entry.value.replace('{{', '').replace('}}', '');
-
-        if (typeof argumentsMetadata[argName] === 'undefined') {
+        if (!entry.value.match(ARGUMENT_PATTERN)) {
           return true;
         }
+
+        const argName = entry.value.replace('{{', '').replace('}}', '');
 
         if (argumentsMetadata[argName].required === false &&
           argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
@@ -848,13 +898,9 @@ export class FunctionService implements OnModuleInit {
 
       body = JSON.parse(mustache.render(JSON.stringify(filteredBody), argumentValueMap)) as Body;
     } else if (parsedBody.mode === 'raw') {
-      const jsonTemplateObject = getMetadataTemplateObject(parsedBody.raw);
-
-      const filteredTemplateData = this.filterRawData(jsonTemplateObject, argumentsMetadata, args);
-
       body = {
         mode: 'raw',
-        raw: JSON.stringify(mergeArgumentsInTemplateObject(filteredTemplateData, args)),
+        raw: this.processRawBody(parsedBody, argumentsMetadata, args),
       };
     } else {
       body = JSON.parse(mustache.render(apiFunction.body || '', argumentsMetadata)) as Body;

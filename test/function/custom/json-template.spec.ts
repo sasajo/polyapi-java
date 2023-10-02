@@ -198,5 +198,32 @@ describe('json-template', () => {
         keywords: [{ foo: 'bar' }],
       });
     });
+
+    it('Should respect all json data types', () => {
+      const templateObject = {
+        name: 'bar',
+        lastName: null,
+        boolean: false,
+        boolean2: true,
+        data: {
+          list: [1, false, null, 'lorem ipsum'],
+          innerData: {
+            name: 'bar',
+            lastName: null,
+          },
+        },
+        list: [1, false, null, 'lorem ipsum'],
+      };
+
+      const result = mergeArgumentsInTemplateObject(
+        templateObject,
+        {
+          name: { foo: 'bar' },
+          firstTag: { foo: 'bar' },
+        },
+      );
+
+      expect(result).toStrictEqual(templateObject);
+    });
   });
 });

@@ -53,30 +53,29 @@ export const mergeArgumentsInTemplateObject = (templateObject: Record<string, un
   const isTemplateArg = (value): value is ArgMetadata => typeof value[POLY_ARG_NAME_KEY] !== 'undefined';
 
   const assignArgValues = (value: Record<string, any>) => {
-    if (isTemplateArg(value)) {
-      const argValue = args[value.$polyArgName];
+    if (isPlainObject(value)) {
+      if (isTemplateArg(value)) {
+        const argValue = args[value.$polyArgName];
 
-      if (!value.quoted) {
+        if (!value.quoted) {
+          return argValue;
+        }
+
+        /*
+          Quoted arg, example: {"key": "{{myArg}}"}
+          In this particular case we can consider that user wanted
+          to send the arg value inside double quotes, so we respect that decision.
+        */
+        if (typeof argValue === 'boolean' || typeof argValue === 'number') {
+          return `${argValue}`;
+        }
+
+        /*
+          If user sends an object or an array (because it patched the argument after training)
+          we should return it here as native object/array
+        */
         return argValue;
       }
-
-      /*
-        Quoted arg, example: {"key": "{{myArg}}"}
-        In this particular case we can consider that user wanted
-        to send the arg value inside double quotes, so we respect that decision.
-      */
-      if (typeof argValue === 'boolean' || typeof argValue === 'number') {
-        return `${argValue}`;
-      }
-
-      /*
-        If user sends an object or an array (because it patched the argument after training)
-        we should return it here as native object/array
-      */
-      return argValue;
-    }
-
-    if (isPlainObject(value)) {
       for (const key of Object.keys(value)) {
         value[key] = assignArgValues(value[key]);
       }

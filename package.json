@@ -124,7 +124,7 @@
     "coveragePathIgnorePatterns": [
       "<rootDir>/node_modules",
       "<rootDir>/packages",
-      "<rootDir>/migration",
+      "<rootDir>/src/migration",
       "<rootDir>/src/.*\\.module\\.ts",
       "<rootDir>/test/mocks",
       "<rootDir>/test/utils"
