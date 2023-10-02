@@ -7,6 +7,7 @@ export type DocUpdateT = {
   id?: string;
   title?: string;
   text?: string;
+  tenantId?: string;
 };
 
 @Injectable()
@@ -36,7 +37,7 @@ export class DocsService {
       return doc;
     } else {
       doc = await this.prisma.docSection.create({
-        data: { title: body.title, text: body.text },
+        data: { title: body.title, text: body.text, tenantId: body.tenantId },
       });
     }
 

@@ -8,6 +8,7 @@ from typing import Dict, Generator, List, Optional, Union
 import openai
 from prisma import get_client
 from prisma.models import ConversationMessage, DocSection
+from prisma.types import DocSectionWhereInput
 from app.constants import QUESTION_TEMPLATE, MessageType
 from app.typedefs import MessageDict
 from app.utils import (
@@ -40,6 +41,8 @@ def documentation_question(
     conversation_id: str,
     question: str,
     prev_msgs: List[ConversationMessage],
+    *,
+    tenantId: Optional[str],
 ) -> Union[Generator, str]:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
@@ -47,7 +50,8 @@ def documentation_question(
     query_vector = query_embed["data"][0]["embedding"]
 
     db = get_client()
-    docs = db.docsection.find_many()
+    where: DocSectionWhereInput = {"tenantId": tenantId}
+    docs = db.docsection.find_many(where=where)
     most_similar_doc: Optional[DocSection] = None
     max_similarity = -2.0  # similarity is -1 to 1
     stats: Dict[str, Dict] = {"similarity": {}}

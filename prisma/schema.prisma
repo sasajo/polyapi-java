@@ -29,6 +29,7 @@ model Tenant {
   limitTier               LimitTier?        @relation(fields: [limitTierId], references: [id])
   agreements              TenantAgreement[]
   users                   User[]
+  docs                    DocSection[]
   enabled                 Boolean           @default(true)
 
   @@map("tenant")
@@ -322,10 +323,16 @@ model Migration {
 }
 
 model DocSection {
-  id     String  @id(map: "idx_25958_sqlite_autoindex_docsection_1") @default(uuid())
-  title  String  @default("")
-  text   String  @default("")
-  vector String  @default("")
+  id        String    @id(map: "idx_25958_sqlite_autoindex_docsection_1") @default(uuid())
+  title     String    @default("")
+  text      String    @default("")
+  vector    String    @default("")
+  tenantId  String?   @map("tenant_id")
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // TODO we will also have environmentId docs
+  // for Poly documentation, tenantId and environmentId will be None
+  // for Tenant docs, tenantId will match tenant and environmentId will be none
+  // for Environment docs, environmentId will match tenant and environmentId will be none
 
   @@map("docsection")
 }

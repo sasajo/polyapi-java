@@ -12,7 +12,7 @@ class T(DbTestCase):
     def test_split_route_and_question_d(self):
         original = "/d teach function"
         route, question = split_route_and_question(original)
-        self.assertEqual(route, "documentation")
+        self.assertEqual(route, "tenant_documentation")
         self.assertEqual(question, "teach function")
 
     def test_split_route_and_question_h(self):
