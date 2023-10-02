@@ -1,4 +1,4 @@
-name: Update pre-built base image of node
+name: Update pre-built node docker image
 on:
   push:
     paths:
