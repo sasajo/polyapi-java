@@ -14,7 +14,7 @@ import {
   Query,
   Req,
   Res,
-  UseGuards,
+  UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { AuthProviderService } from 'auth-provider/auth-provider.service';
@@ -36,7 +36,12 @@ import { LimitService } from 'limit/limit.service';
 import { FunctionCallsLimitGuard } from 'limit/function-calls-limit-guard';
 import { StatisticsService } from 'statistics/statistics.service';
 import { FUNCTIONS_LIMIT_REACHED } from '@poly/common/messages';
+import { CommonService } from 'common/common.service';
+import { PerfLog } from 'statistics/perf-log.decorator';
+import { PerfLogType } from 'statistics/perf-log-type';
+import { PerfLogInterceptor } from 'statistics/perf-log-interceptor';
 
+@UseInterceptors(PerfLogInterceptor)
 @ApiSecurity('PolyApiKey')
 @Controller('auth-providers')
 export class AuthProviderController {
@@ -48,6 +53,7 @@ export class AuthProviderController {
     private readonly variableService: VariableService,
     private readonly limitService: LimitService,
     private readonly statisticsService: StatisticsService,
+    private readonly commonService: CommonService,
   ) {
   }
 
@@ -137,6 +143,8 @@ export class AuthProviderController {
       throw new NotFoundException();
     }
 
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
+
     const currentFunctionCount = this.service.getFunctionCount(authProvider.introspectUrl, authProvider.revokeUrl, authProvider.refreshEnabled);
     const updatedFunctionCount = this.service.getFunctionCount(
       introspectUrl === null ? introspectUrl : authProvider.introspectUrl,
@@ -167,6 +175,7 @@ export class AuthProviderController {
     await this.service.deleteAuthProvider(authProvider);
   }
 
+  @PerfLog(PerfLogType.AuthFunctionExecution)
   @UseGuards(PolyAuthGuard, FunctionCallsLimitGuard)
   @Post('/:id/execute')
   async executeAuthProvider(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: ExecuteAuthProviderDto): Promise<ExecuteAuthProviderResponseDto> {

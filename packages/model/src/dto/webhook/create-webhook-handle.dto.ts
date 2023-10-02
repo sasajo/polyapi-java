@@ -1,6 +1,8 @@
 import { IsArray, IsEnum, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Validate } from 'class-validator';
 import { ContextIdentifier, NameIdentifier } from '../validators';
 import { Visibility } from '../../specs';
+import { HTTP_METHODS } from '../utils';
+import { WebhookSecurityFunction } from './webhook-security-function';
 
 export class CreateWebhookHandleDto {
   @IsNotEmpty()
@@ -13,8 +15,11 @@ export class CreateWebhookHandleDto {
   @Validate(ContextIdentifier)
   context?: string;
 
-  @IsObject()
-  eventPayload: any;
+  @IsOptional()
+  eventPayload?: any;
+
+  @IsOptional()
+  eventPayloadTypeSchema?: Record<string, any>;
 
   description: string;
 
@@ -40,11 +45,10 @@ export class CreateWebhookHandleDto {
   subpath?: string;
 
   @IsOptional()
-  @IsIn(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+  @IsIn(HTTP_METHODS)
   method?: string;
 
   @IsOptional()
-  @IsString({ each: true })
   @IsArray()
-  securityFunctionIds?: string[];
+  securityFunctions?: WebhookSecurityFunction[];
 }

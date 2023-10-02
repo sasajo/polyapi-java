@@ -19,6 +19,17 @@ class MessageType(IntEnum):
     user = 2  # what the user sees
     internal = 3  # totally internal messages for our own logging
     plugin = 4  # plugin api messages
+    context = 5  # context that the user can't see but that should be included as context in subsequent requests
+
+
+@unique
+class PerfLogType(IntEnum):
+    science_generate_description = 1
+    science_api_execute = 2
+    science_chat_code = 3
+    science_chat_general = 4
+    science_chat_help = 5
+    science_chat_documentation = 6
 
 
 CHAT_GPT_MODEL = "gpt-4-0613"

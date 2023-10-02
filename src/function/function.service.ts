@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   forwardRef,
+  HttpException,
   HttpStatus,
   Inject,
   Injectable,
@@ -14,10 +15,11 @@ import { toCamelCase } from '@guanghechen/helper-string';
 import { HttpService } from '@nestjs/axios';
 import { catchError, from, lastValueFrom, map } from 'rxjs';
 import mustache from 'mustache';
-import { stripComments } from 'jsonc-parser';
 import { ApiFunction, CustomFunction, Environment, Tenant } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import {
+  ApiFunctionDetailsDto,
+  ApiFunctionPublicDetailsDto,
   ApiFunctionResponseDto,
   ApiFunctionSpecification,
   ArgumentsMetadata,
@@ -27,7 +29,9 @@ import {
   CustomFunctionSpecification,
   FunctionArgument,
   FunctionBasicDto,
-  FunctionDetailsDto, FunctionPublicBasicDto, FunctionPublicDetailsDto,
+  FunctionDetailsDto,
+  FunctionPublicBasicDto,
+  FunctionPublicDetailsDto,
   GraphQLBody,
   Header,
   Method,
@@ -41,6 +45,10 @@ import {
   Variables,
   Visibility,
   VisibilityQuery,
+  UpdateSourceFunctionDto,
+  UpdateSourceNullableEntry,
+  FormDataEntry,
+  RawBody,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -54,14 +62,20 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { cloneDeep, isPlainObject, mergeWith, omit, uniqBy } from 'lodash';
+import { cloneDeep, isPlainObject, mergeWith, omit, uniqBy, mapValues } from 'lodash';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { VariableService } from 'variable/variable.service';
 import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
-import { getGraphqlIdentifier, getGraphqlVariables, getJsonSchemaFromIntrospectionQuery, resolveGraphqlArgumentType } from './graphql/utils';
+import {
+  getGraphqlIdentifier,
+  getGraphqlVariables,
+  getJsonSchemaFromIntrospectionQuery,
+  resolveGraphqlArgumentType,
+} from './graphql/utils';
 import { AuthService } from 'auth/auth.service';
 import crypto from 'crypto';
-import { WithTenant } from 'common/types';
+import { AuthData, WithTenant } from 'common/types';
+import { LimitService } from 'limit/limit.service';
 
 const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
 
@@ -90,6 +104,7 @@ export class FunctionService implements OnModuleInit {
     private readonly configVariableService: ConfigVariableService,
     private readonly variableService: VariableService,
     private readonly authService: AuthService,
+    private readonly limitService: LimitService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
   }
@@ -208,11 +223,40 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  apiFunctionToDetailsDto(apiFunction: ApiFunction): FunctionDetailsDto {
+  apiFunctionToDetailsDto(apiFunction: ApiFunction): ApiFunctionDetailsDto {
+    const argumentsList = this.getFunctionArguments(apiFunction)
+      .map<Omit<FunctionArgument<Record<string, any>>, 'location'>>(arg => ({
+        ...omit(arg, 'location'),
+        typeSchema: arg.typeSchema && JSON.parse(arg.typeSchema),
+      }));
+
+    const parsedBody = JSON.parse(apiFunction.body || '{}');
+
+    const headers: Header[] = JSON.parse(apiFunction.headers || '[]') as Header[];
+
+    const parsedAuth = JSON.parse(apiFunction.auth || '{}');
+
+    // const bodyContentType = this.getContentTypeHeaders(parsedBody);
+    const authHeaders = this.getAuthorizationHeaders((apiFunction.auth && JSON.parse(apiFunction.auth)) || null);
+
+    for (const [key, value] of Object.entries(authHeaders)) {
+      headers.push({
+        key,
+        value,
+      });
+    }
+
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
-      arguments: this.getFunctionArguments(apiFunction)
-        .map(arg => omit(arg, 'location')),
+      arguments: argumentsList,
+      source: {
+        url: apiFunction.url,
+        method: apiFunction.method,
+        headers,
+        body: this.getBodySource(parsedBody),
+        auth: parsedAuth,
+      },
+      enabledRedirect: apiFunction.enableRedirect,
     };
   }
 
@@ -225,7 +269,7 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  apiFunctionToPublicDetailsDto(apiFunction: WithTenant<ApiFunction> & { hidden: boolean }): FunctionPublicDetailsDto {
+  apiFunctionToPublicDetailsDto(apiFunction: WithTenant<ApiFunction> & { hidden: boolean }): ApiFunctionPublicDetailsDto {
     return {
       ...this.apiFunctionToDetailsDto(apiFunction),
       context: this.commonService.getPublicContext(apiFunction),
@@ -252,6 +296,7 @@ export class FunctionService implements OnModuleInit {
     templateUrl: string,
     templateBody: Body,
     introspectionResponse: IntrospectionQuery | null,
+    enableRedirect: boolean,
     templateAuth?: Auth,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<ApiFunction> {
@@ -471,6 +516,7 @@ export class FunctionService implements OnModuleInit {
       argumentsMetadata: JSON.stringify(argumentsMetadata),
       graphqlIdentifier,
       graphqlIntrospectionResponse,
+      enableRedirect,
     };
 
     if (apiFunction && updating) {
@@ -508,6 +554,8 @@ export class FunctionService implements OnModuleInit {
     response: any | undefined,
     payload: string | undefined,
     visibility: Visibility | null,
+    source: UpdateSourceFunctionDto | undefined,
+    enableRedirect: boolean | undefined,
   ) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, true) : null;
@@ -519,23 +567,6 @@ export class FunctionService implements OnModuleInit {
       ) {
         throw new ConflictException(`Function with name ${name} and context ${context} already exists.`);
       }
-    }
-
-    if (argumentsMetadata != null) {
-      await this.checkArgumentsMetadata(apiFunction, argumentsMetadata);
-      argumentsMetadata = await this.resolveArgumentsTypeSchema(apiFunction, argumentsMetadata);
-    }
-
-    argumentsMetadata = this.mergeArgumentsMetadata(apiFunction.argumentsMetadata, argumentsMetadata);
-
-    const duplicatedArgumentName = this.findDuplicatedArgumentName(
-      this.getFunctionArguments({
-        ...apiFunction,
-        argumentsMetadata: JSON.stringify(argumentsMetadata),
-      }),
-    );
-    if (duplicatedArgumentName) {
-      throw new ConflictException(`Function has duplicated arguments: ${duplicatedArgumentName}`);
     }
 
     this.logger.debug(
@@ -550,6 +581,88 @@ export class FunctionService implements OnModuleInit {
       responseType = await this.getResponseType(response, payload ?? apiFunction.payload);
     }
 
+    const newSourceData = this.processNewSourceData(apiFunction, source);
+
+    const patchSourceData = {
+      ...(newSourceData?.body ? { body: newSourceData.body } : null),
+      ...(newSourceData?.headers ? { headers: newSourceData.headers } : null),
+      ...(newSourceData?.url ? { url: newSourceData.url } : null),
+      ...(newSourceData?.method ? { method: newSourceData.method } : null),
+      ...(newSourceData?.auth ? { auth: newSourceData.auth } : null),
+    };
+
+    const patchedApiFunction = {
+      ...apiFunction,
+      ...patchSourceData,
+    };
+
+    if (argumentsMetadata != null) {
+      await this.checkArgumentsMetadata(patchedApiFunction, argumentsMetadata);
+
+      argumentsMetadata = await this.resolveArgumentsTypeSchema(patchedApiFunction, argumentsMetadata);
+    }
+
+    argumentsMetadata = this.mergeArgumentsMetadata(apiFunction.argumentsMetadata, argumentsMetadata);
+
+    const duplicatedArgumentName = this.findDuplicatedArgumentName(
+      this.getFunctionArguments({
+        ...patchedApiFunction,
+        argumentsMetadata: JSON.stringify(argumentsMetadata),
+      }),
+    );
+
+    if (duplicatedArgumentName) {
+      throw new ConflictException(`Function has duplicated arguments: ${duplicatedArgumentName}`);
+    }
+
+    if (patchSourceData.body || patchSourceData.url || patchSourceData.headers || patchSourceData.auth) {
+      const functionArguments = this.getFunctionArguments(patchedApiFunction);
+
+      // Delete unused arguments metadata if user has patched source data (could've remove some parts of body).
+      for (const [argumentName] of Object.entries((argumentsMetadata as ArgumentsMetadata))) {
+        if (!functionArguments.find(functionArgument => functionArgument.key === argumentName)) {
+          delete (argumentsMetadata as ArgumentsMetadata)[argumentName];
+        }
+      }
+
+      // Add new arguments if user did not provide them through "arguments key".
+      for (const funcArg of functionArguments) {
+        if (typeof argumentsMetadata[funcArg.name] === 'undefined') {
+          argumentsMetadata[funcArg.name] = {
+            name: funcArg.name,
+            type: funcArg.type,
+          };
+        }
+      }
+    }
+
+    if (source?.body?.mode === 'raw') {
+      const fakedData = mapValues(argumentsMetadata || {}, (arg) => {
+        switch (arg.type) {
+          case 'string':
+            return 'string';
+          case 'number':
+            return 0;
+          case 'boolean':
+            return true;
+          case 'object':
+            return JSON.stringify({});
+          default:
+            return 'string';
+        }
+      });
+
+      try {
+        this.getSanitizedRawBody(source.body, argumentsMetadata || {}, fakedData);
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          throw new BadRequestException('Invalid raw json.');
+        }
+
+        throw error;
+      }
+    }
+
     return this.prisma.apiFunction.update({
       where: {
         id: apiFunction.id,
@@ -562,8 +675,147 @@ export class FunctionService implements OnModuleInit {
         responseType,
         payload,
         visibility: visibility == null ? apiFunction.visibility : visibility,
+        enableRedirect,
+        ...patchSourceData,
       },
     });
+  }
+
+  private processNewSourceData(apiFunction: ApiFunction, source: UpdateSourceFunctionDto | undefined): {
+    headers?: string;
+    url?: string;
+    body?: string;
+    method?: string;
+    auth?: string;
+  } | null {
+    if (!source) {
+      return null;
+    }
+
+    const sourceData: {
+      headers?: string;
+      url?: string;
+      body?: string;
+      method?: string;
+      auth?: string;
+    } = {
+      headers: undefined,
+      url: source.url,
+      body: undefined,
+      method: source.method,
+      auth: undefined,
+    };
+
+    const entryRecordToList = (entryRecord: Record<string, string | null>): PostmanVariableEntry[] => {
+      return Object.entries(entryRecord).reduce<UpdateSourceNullableEntry[]>((acum, [key, value]) => {
+        return [...acum, { key, value }];
+      }, []).filter((entry): entry is PostmanVariableEntry => entry.value !== null);
+    };
+
+    const mergeEntries = (currentEntries: PostmanVariableEntry[], entryRecord: Record<string, string | null>): typeof currentEntries => {
+      let clonedEntries = [...currentEntries];
+
+      for (const [key, value] of Object.entries(entryRecord)) {
+        // Remove entry
+        if (value === null) {
+          clonedEntries = clonedEntries.filter(entry => entry.key !== key);
+          continue;
+        }
+
+        const foundEntry = clonedEntries.find(entry => entry.key === key);
+
+        // Override entry
+        if (foundEntry) {
+          clonedEntries = clonedEntries.map((entry) => {
+            if (entry.key === key) {
+              return {
+                ...entry,
+                value,
+              };
+            }
+
+            return entry;
+          });
+          continue;
+        }
+
+        // Add new entry
+        clonedEntries.push({
+          key,
+          value,
+        });
+      }
+
+      return clonedEntries;
+    };
+
+    if (typeof source.headers !== 'undefined') {
+      const currentHeaders = JSON.parse(apiFunction.headers || '[]') as Header[];
+
+      sourceData.headers = JSON.stringify(mergeEntries(currentHeaders, source.headers));
+    }
+
+    if (typeof source.body !== 'undefined') {
+      let currentBody = JSON.parse(apiFunction.body || '{}') as Body;
+
+      if (source.body.mode === 'empty') {
+        currentBody = {};
+      } else if (source.body.mode === 'raw') {
+        currentBody = {
+          mode: 'raw',
+          raw: source.body.raw,
+        };
+      } else {
+        if (source.body.mode === 'urlencoded') {
+          if (currentBody.mode !== 'urlencoded') {
+            currentBody = {
+              mode: source.body.mode,
+              urlencoded: entryRecordToList(source.body.urlencoded),
+            };
+          } else {
+            currentBody = {
+              mode: source.body.mode,
+              urlencoded: mergeEntries(currentBody.urlencoded, source.body.urlencoded),
+            };
+          }
+        }
+
+        if (source.body.mode === 'formdata') {
+          if (currentBody.mode !== 'formdata') {
+            currentBody = {
+              mode: source.body.mode,
+              formdata: entryRecordToList(source.body.formdata).map<FormDataEntry>(entry => ({ ...entry, type: 'string' })),
+            };
+          } else {
+            currentBody = {
+              mode: source.body.mode,
+              formdata: mergeEntries(currentBody.formdata, source.body.formdata)
+                .map<FormDataEntry>(entry => ({ ...entry, type: 'string' })),
+            };
+          }
+        }
+      }
+
+      sourceData.body = JSON.stringify(currentBody);
+    }
+
+    if (typeof source.auth !== 'undefined') {
+      if (source.auth.type === 'bearer') {
+        sourceData.auth = JSON.stringify({
+          type: 'bearer',
+          bearer: [{ key: 'token', type: 'any', value: source.auth.bearer }],
+        });
+      } else if (source.auth.type === 'noauth') {
+        sourceData.auth = JSON.stringify({
+          type: source.auth.type,
+          noauth: [],
+        });
+      } else {
+        sourceData.auth = JSON.stringify(source.auth);
+      }
+    }
+
+    return sourceData;
   }
 
   async executeApiFunction(
@@ -578,7 +830,16 @@ export class FunctionService implements OnModuleInit {
     const url = mustache.render(apiFunction.url, argumentValueMap);
     const method = apiFunction.method;
     const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
-    const body = this.getSanitizedRawBody(apiFunction, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentValueMap);
+    const parsedBody = JSON.parse(apiFunction.body || '{}') as Body;
+
+    let body: Body | null = null;
+
+    if (parsedBody.mode !== 'raw') {
+      body = JSON.parse(mustache.render(apiFunction.body || '{}', argumentValueMap)) as Body;
+    } else {
+      body = this.getSanitizedRawBody(parsedBody, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentValueMap);
+    }
+
     const params = {
       ...this.getAuthorizationQueryParams(auth),
     };
@@ -616,7 +877,7 @@ export class FunctionService implements OnModuleInit {
           headers,
           params,
           data: executionData,
-          maxRedirects: 0,
+          ...(!apiFunction.enableRedirect ? { maxRedirects: 0 } : null),
         })
         .pipe(
           map((response) => {
@@ -767,6 +1028,13 @@ export class FunctionService implements OnModuleInit {
           {
             OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
+          {
+            name: {
+              not: {
+                equals: this.config.prebuiltBaseImageName,
+              },
+            },
+          },
         ],
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -789,6 +1057,7 @@ export class FunctionService implements OnModuleInit {
       description: customFunction.description,
       context: customFunction.context,
       visibility: customFunction.visibility as Visibility,
+      enabled: customFunction.enabled ? undefined : false,
     };
   }
 
@@ -803,7 +1072,9 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  customFunctionToPublicBasicDto(customFunction: WithTenant<CustomFunction> & { hidden: boolean }): FunctionPublicBasicDto {
+  customFunctionToPublicBasicDto(customFunction: WithTenant<CustomFunction> & {
+    hidden: boolean
+  }): FunctionPublicBasicDto {
     const tenant = customFunction.environment.tenant;
     return {
       ...this.customFunctionToBasicDto(customFunction),
@@ -813,7 +1084,9 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  customFunctionToPublicDetailsDto(customFunction: WithTenant<CustomFunction> & { hidden: boolean }): FunctionPublicDetailsDto {
+  customFunctionToPublicDetailsDto(customFunction: WithTenant<CustomFunction> & {
+    hidden: boolean
+  }): FunctionPublicDetailsDto {
     return {
       ...this.customFunctionToDetailsDto(customFunction),
       context: this.commonService.getPublicContext(customFunction),
@@ -831,6 +1104,7 @@ export class FunctionService implements OnModuleInit {
     serverFunction: boolean,
     apiKey: string,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
+    createFromScratch = false,
   ): Promise<CustomFunction> {
     const {
       code,
@@ -948,6 +1222,8 @@ export class FunctionService implements OnModuleInit {
           code,
           requirements,
           apiKey,
+          await this.limitService.getTenantServerFunctionLimits(environment.tenantId),
+          createFromScratch,
         );
 
         return customFunction;
@@ -963,13 +1239,24 @@ export class FunctionService implements OnModuleInit {
     return customFunction;
   }
 
-  async updateCustomFunction(customFunction: CustomFunction, name: string | null, context: string | null, description: string | null, visibility: Visibility | null, enabled?: boolean) {
+  async updateCustomFunction(
+    customFunction: CustomFunction,
+    name: string | null,
+    context: string | null,
+    description: string | null,
+    visibility: Visibility | null,
+    argumentsMetadata?: ArgumentsMetadata,
+    enabled?: boolean,
+  ) {
     const { id, name: currentName, context: currentContext } = customFunction;
 
     if (context != null || name != null) {
       if (!(await this.checkContextAndNameDuplicates(customFunction.environmentId, context || currentContext, name || currentName, [id]))) {
         throw new ConflictException(`Function with name ${name} and context ${context} already exists.`);
       }
+    }
+    if (argumentsMetadata) {
+      argumentsMetadata = this.mergeCustomFunctionArgumentsMetadata(customFunction.arguments, argumentsMetadata);
     }
 
     this.logger.debug(
@@ -985,6 +1272,7 @@ export class FunctionService implements OnModuleInit {
         description: description == null ? customFunction.description : description,
         visibility: visibility == null ? customFunction.visibility : visibility,
         enabled,
+        arguments: argumentsMetadata ? JSON.stringify(argumentsMetadata) : undefined,
       },
     });
   }
@@ -1104,6 +1392,13 @@ export class FunctionService implements OnModuleInit {
           {
             OR: this.commonService.getContextsNamesIdsFilterConditions(contexts, names, ids),
           },
+          {
+            name: {
+              not: {
+                equals: this.config.prebuiltBaseImageName,
+              },
+            },
+          },
         ],
         serverSide: true,
       },
@@ -1182,7 +1477,8 @@ export class FunctionService implements OnModuleInit {
   }
 
   async executeServerFunction(
-    customFunction: CustomFunction & { environment: Environment },
+    customFunction: CustomFunction,
+    executionEnvironment: Environment,
     args: Record<string, any> | any[],
     headers: Record<string, any> = {},
     userId: string | null = null,
@@ -1194,7 +1490,7 @@ export class FunctionService implements OnModuleInit {
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, customFunction.environment.tenantId, customFunction.environment.id, argumentsList, headers);
+      const result = await this.faasService.executeFunction(customFunction.id, executionEnvironment.tenantId, executionEnvironment.id, argumentsList, headers);
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );
@@ -1204,8 +1500,8 @@ export class FunctionService implements OnModuleInit {
       const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
       if (await this.eventService.sendErrorEvent(
         customFunction.id,
-        customFunction.environmentId,
-        customFunction.environment.tenantId,
+        executionEnvironment.id,
+        executionEnvironment.tenantId,
         customFunction.visibility as Visibility,
         applicationId,
         userId,
@@ -1215,7 +1511,7 @@ export class FunctionService implements OnModuleInit {
         return;
       }
 
-      throw new InternalServerErrorException((error.response?.data as any)?.message || error.message);
+      throw new HttpException(error.response?.data || error.message, error.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -1255,6 +1551,7 @@ export class FunctionService implements OnModuleInit {
         serverFunction.code,
         JSON.parse(serverFunction.requirements || '[]'),
         apiKey,
+        await this.limitService.getTenantServerFunctionLimits(serverFunction.environment.tenantId),
       );
     }
   }
@@ -1321,6 +1618,28 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
+  async createOrUpdatePrebuiltBaseImage(user: AuthData) {
+    const functionName = this.config.prebuiltBaseImageName;
+
+    const code = `
+      function ${functionName}(): void {};
+    `;
+
+    const customFunction = await this.createOrUpdateCustomFunction(
+      user.environment,
+      '',
+      functionName,
+      '',
+      code,
+      true,
+      user.key,
+      () => Promise.resolve(),
+      true,
+    );
+
+    return this.faasService.getFunctionName(customFunction.id);
+  }
+
   private filterDisabledValues<T extends PostmanVariableEntry>(values: T[]) {
     return values.filter(({ disabled }) => !disabled);
   }
@@ -1331,7 +1650,7 @@ export class FunctionService implements OnModuleInit {
         if (body.options?.raw?.language === 'json') {
           return {
             ...body,
-            raw: this.filterJSONComments(body.raw),
+            raw: this.commonService.filterJSONComments(body.raw),
           };
         }
         return body;
@@ -1683,7 +2002,9 @@ export class FunctionService implements OnModuleInit {
   ) {
     const { graphqlIntrospectionResponse } = apiFunction;
 
-    const introspectionJSONSchema = graphqlIntrospectionResponse ? getJsonSchemaFromIntrospectionQuery(JSON.parse(graphqlIntrospectionResponse)) : null;
+    const introspectionJSONSchema = graphqlIntrospectionResponse
+      ? getJsonSchemaFromIntrospectionQuery(JSON.parse(graphqlIntrospectionResponse))
+      : null;
 
     const functionArgs = this.getFunctionArguments(apiFunction);
     const newMetadata: ArgumentsMetadata = {};
@@ -1782,7 +2103,7 @@ export class FunctionService implements OnModuleInit {
             }
           }
         } else {
-          const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(value);
+          const [type, typeSchema] = value == null ? ['string'] : await this.resolveArgumentType(this.unpackArgsAndGetValue(value, variables));
 
           assignNewMetadata(arg, type, typeSchema);
         }
@@ -1833,7 +2154,9 @@ export class FunctionService implements OnModuleInit {
       } else if (argMetadata.typeSchema) {
         let typeSchema: Record<string, any>;
         try {
-          typeSchema = typeof argMetadata.typeSchema === 'object' ? argMetadata.typeSchema : JSON.parse(argMetadata.typeSchema);
+          typeSchema = typeof argMetadata.typeSchema === 'object'
+            ? argMetadata.typeSchema
+            : JSON.parse(argMetadata.typeSchema);
         } catch (e) {
           throw new BadRequestException(`Argument '${argKey}' with typeSchema='${argMetadata.typeSchema}' is invalid`);
         }
@@ -1867,8 +2190,8 @@ export class FunctionService implements OnModuleInit {
     }
   }
 
-  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null) {
-    return mergeWith(JSON.parse(argumentsMetadata || '{}'), updatedArgumentsMetadata || {}, (objValue, srcValue) => {
+  private mergeArgumentsMetadata(argumentsMetadata: string | null, updatedArgumentsMetadata: ArgumentsMetadata | null): ArgumentsMetadata {
+    return mergeWith(JSON.parse(argumentsMetadata || '{}') as ArgumentsMetadata, updatedArgumentsMetadata || {}, (objValue, srcValue) => {
       if (objValue?.typeObject && srcValue?.typeObject) {
         return {
           ...objValue,
@@ -1876,7 +2199,7 @@ export class FunctionService implements OnModuleInit {
           typeObject: srcValue.typeObject,
         };
       }
-      if (Array.isArray(objValue) && Array.isArray(srcValue) && srcValue.length === 0) {
+      if (Array.isArray(objValue) && Array.isArray(srcValue)) {
         return srcValue;
       }
     });
@@ -1981,14 +2304,8 @@ export class FunctionService implements OnModuleInit {
     return type === 'object' ? JSON.stringify(typeSchema) : type;
   }
 
-  private filterJSONComments(jsonString: string) {
-    return stripComments(jsonString);
-  }
-
-  private getSanitizedRawBody(apiFunction: ApiFunction, argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): Body {
+  private getSanitizedRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): RawBody {
     const uuidRemovableKeyValue = crypto.randomUUID();
-
-    const body = JSON.parse(apiFunction.body || '{}') as Body;
 
     const parsedArgumentsMetadata = Object.entries(argumentsMetadata).reduce<Record<string, FunctionArgument>>((acum, [key]) => {
       return {
@@ -1999,7 +2316,7 @@ export class FunctionService implements OnModuleInit {
 
     const clonedArgumentValueMap = cloneDeep(argumentValueMap);
 
-    const sanitizeSringArgumentValue = (name: string, quoted: boolean) => {
+    const sanitizeStringArgumentValue = (name: string, quoted: boolean) => {
       const escapeRegularArgumentString = () => {
         // Escape string values, we should  only escape double quotes to avoid breaking json syntax on mustache template.
         const escapedString = (clonedArgumentValueMap[name] || uuidRemovableKeyValue).replace(/"/g, '\\"');
@@ -2060,59 +2377,55 @@ export class FunctionService implements OnModuleInit {
       });
     };
 
-    if (body.mode === 'raw') {
-      const unquotedArgsRegexp = /(?<!\\")\{\{.+?\}\}(?!\\")/ig;
-      const quotedArgsRegexp = /(?<=\\")\{\{.+?\}\}(?=\\")/ig;
-      const bodyString = apiFunction.body || '';
+    const unquotedArgsRegexp = /(?<!")\{\{.+?\}\}(?!")/ig;
+    const quotedArgsRegexp = /(?<=")\{\{.+?\}\}(?=")/ig;
+    const bodyString = body.raw || '';
 
-      const unquotedArgsMatchResult = bodyString.match(unquotedArgsRegexp) || [];
-      const quotedArgsMatchResult = bodyString.match(quotedArgsRegexp) || [];
-      this.logger.debug(`Api function body: ${JSON.stringify(body)}`);
-      this.logger.debug(`Arguments metadata for sanitization: ${JSON.stringify(argumentsMetadata)}`);
-      this.logger.debug(`Cloned arguments metadata for sanitization: ${JSON.stringify(parsedArgumentsMetadata)}`);
-      this.logger.debug(`Arguments value map for sanitization: ${JSON.stringify(argumentValueMap)}`);
-      this.logger.debug(`Sanitizing unquoted arguments: ${JSON.stringify(unquotedArgsMatchResult)}`);
-      this.logger.debug(`Sanitizing quoted arguments: ${JSON.stringify(quotedArgsMatchResult)}`);
+    const unquotedArgsMatchResult = bodyString.match(unquotedArgsRegexp) || [];
+    const quotedArgsMatchResult = bodyString.match(quotedArgsRegexp) || [];
+    this.logger.debug(`Api function body: ${JSON.stringify(body)}`);
+    this.logger.debug(`Arguments metadata for sanitization: ${JSON.stringify(argumentsMetadata)}`);
+    this.logger.debug(`Cloned arguments metadata for sanitization: ${JSON.stringify(parsedArgumentsMetadata)}`);
+    this.logger.debug(`Arguments value map for sanitization: ${JSON.stringify(argumentValueMap)}`);
+    this.logger.debug(`Sanitizing unquoted arguments: ${JSON.stringify(unquotedArgsMatchResult)}`);
+    this.logger.debug(`Sanitizing quoted arguments: ${JSON.stringify(quotedArgsMatchResult)}`);
 
-      for (const unquotedArg of unquotedArgsMatchResult) {
-        pushFoundArg(unquotedArg, false);
-      }
-
-      for (const quotedArg of quotedArgsMatchResult) {
-        pushFoundArg(quotedArg, true);
-      }
-
-      for (const arg of foundArgs) {
-        if (parsedArgumentsMetadata[arg.name]?.type === 'string') {
-          sanitizeSringArgumentValue(arg.name, arg.quoted);
-        } else {
-          sanitizeNonStringOptionalArgument(arg.name, arg.quoted);
-        }
-      }
-
-      const renderedContent = mustache.render(body.raw || '{}', clonedArgumentValueMap, {}, {
-        escape(text) {
-          return text;
-        },
-      });
-
-      this.logger.debug(`Rendered content after sanitization: ${renderedContent}`);
-
-      const parsedObjectFromRenderedContent = JSON.parse(renderedContent);
-
-      for (const [key, value] of Object.entries(parsedObjectFromRenderedContent)) {
-        if (value === uuidRemovableKeyValue) {
-          delete parsedObjectFromRenderedContent[key];
-        }
-      }
-
-      return {
-        ...body,
-        raw: JSON.stringify(parsedObjectFromRenderedContent),
-      };
+    for (const unquotedArg of unquotedArgsMatchResult) {
+      pushFoundArg(unquotedArg, false);
     }
 
-    return JSON.parse(mustache.render(apiFunction.body || '{}', argumentValueMap));
+    for (const quotedArg of quotedArgsMatchResult) {
+      pushFoundArg(quotedArg, true);
+    }
+
+    for (const arg of foundArgs) {
+      if (parsedArgumentsMetadata[arg.name]?.type === 'string') {
+        sanitizeStringArgumentValue(arg.name, arg.quoted);
+      } else {
+        sanitizeNonStringOptionalArgument(arg.name, arg.quoted);
+      }
+    }
+
+    const renderedContent = mustache.render(body.raw || '{}', clonedArgumentValueMap, {}, {
+      escape(text) {
+        return text;
+      },
+    });
+
+    this.logger.debug(`Rendered content after sanitization: ${renderedContent}`);
+
+    const parsedObjectFromRenderedContent = JSON.parse(renderedContent);
+
+    for (const [key, value] of Object.entries(parsedObjectFromRenderedContent)) {
+      if (value === uuidRemovableKeyValue) {
+        delete parsedObjectFromRenderedContent[key];
+      }
+    }
+
+    return {
+      ...body,
+      raw: JSON.stringify(parsedObjectFromRenderedContent),
+    };
   }
 
   private async resolveVisibility<T extends { environment: Environment & { tenant: Tenant }, context: string | null }>(
@@ -2133,5 +2446,64 @@ export class FunctionService implements OnModuleInit {
       ...entity,
       hidden: !this.commonService.isPublicVisibilityAllowed(entity, defaultHidden, visibleContexts),
     };
+  }
+
+  private getBodySource(body: Body) {
+    switch (body.mode) {
+      case 'raw':
+        return {
+          raw: body.raw,
+        };
+
+      case 'formdata':
+        return {
+          formdata: body.formdata,
+        };
+      case 'urlencoded':
+        return {
+          urlencoded: body.urlencoded,
+        };
+      case 'graphql':
+        return {
+          graphql: {
+            query: body.graphql.query,
+          },
+        };
+    }
+
+    return {
+      mode: ('empty' as const),
+    };
+  }
+
+  private mergeCustomFunctionArgumentsMetadata(argumentsMetadataString: string, updatedArgumentsMetadata: ArgumentsMetadata) {
+    const argumentsMetadata = JSON.parse(argumentsMetadataString || '[]');
+
+    return argumentsMetadata.reduce((acum, argument) => {
+      return acum.concat({
+        ...argument,
+        ...updatedArgumentsMetadata[argument.key],
+      });
+    }, []);
+  }
+
+  /**
+   * Process and unpack nested args for value.
+   */
+  private unpackArgsAndGetValue(value: string, variables: Variables) {
+    const result = mustache.render(value, variables, {}, {
+      escape(text) {
+        return text;
+      },
+    });
+
+    // Get args list.
+    const args = mustache.parse(result).filter((row) => row[0] === 'name');
+
+    if (args.length) {
+      return this.unpackArgsAndGetValue(result, variables);
+    }
+
+    return result;
   }
 }

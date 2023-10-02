@@ -7,8 +7,19 @@ const COMMANDS = [
 
   marked.setOptions({
     renderer: new marked.Renderer(),
-    highlight: function(code, _lang) {
-      return hljs.highlightAuto(code).value;
+    highlight: function(code, language) {
+
+      try{
+        if(language) {
+          return hljs.highlight(code, { language }).value;
+        }
+      }catch(err) {
+        // Err just in case hljs does not support language, we return plain code text without syntax hgihglighting 
+        return code;
+      }
+
+      return code;
+
     },
     langPrefix: 'hljs language-',
     pedantic: false,
@@ -63,9 +74,16 @@ const COMMANDS = [
   const sendMessageButton = document.getElementById('send-message-button');
   const conversationList = document.getElementById('conversation-list');
   let chatFocussed = true;
+  let scrollBarAtBottom = null;
+
+  const patch = snabbdom.init([snabbdom.attributesModule, snabbdom.styleModule]);
 
   const setInitialMessageInputHeight = () => {
     messageInput.style.height = '38px';
+  };
+
+  const isScrollBarAtBottom = element => {
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 20;
   };
 
   setInitialMessageInputHeight();
@@ -102,6 +120,33 @@ const COMMANDS = [
 
       return html.documentElement.innerHTML;
     };
+
+    const addCopyButton = (container) => {
+      const codeElements = container.querySelectorAll('pre > code');
+
+      codeElements.forEach((codeElement) => {
+
+          const existentButton = codeElement.queryS
+
+          const preCode = codeElement.parentElement;
+
+          if(!preCode.querySelector('.code-actions-wrapper')) {
+            const buttonWrapper = document.createElement('div');
+            buttonWrapper.classList.add('code-actions-wrapper', 'flex', 'gap-4', 'flex-wrap', 'items-center', 'right-2', 'top-1', 'absolute');
+  
+            // Create copy to clipboard button
+            const copyButton = document.createElement('button');
+            copyButton.title = 'Copy to clipboard';
+            copyButton.innerHTML = copySvg;
+  
+            copyButton.classList.add('code-copy-button', 'p-1', 'flex', 'items-center', 'rounded-lg');
+            buttonWrapper.append(copyButton);
+  
+            preCode.prepend(buttonWrapper);
+          }
+
+      });
+    }
 
     const getCreatedAtAttribute = (createdAt) => {
       return createdAt ? `data-created-at="${createdAt}"` : '';
@@ -156,7 +201,6 @@ const COMMANDS = [
         case 'js':
           return marked.parse(`\`\`\`\n${data.value}\n\`\`\``);
         case 'markdown':
-          // return getHtmlWithCodeCopy(marked.parse(data.value));
           return marked.parse(data.value);
         default:
           return '';
@@ -169,6 +213,10 @@ const COMMANDS = [
         behavior: 'smooth',
       });
     };
+
+    const keepScrollInBottom = () => {
+      conversationList.scrollTop = conversationList.scrollHeight - conversationList.clientHeight;
+    }
 
     const disableTextarea = () => {
       sendMessageButton.setAttribute('disabled', 'disabled');
@@ -199,8 +247,6 @@ const COMMANDS = [
     let currentObserver = null;
 
     const observeFirstMessage = (firstChatElement) => {
-
-      console.log('observeFirstMessage: ', firstChatElement);
 
       if (!firstChatElement) {
         return;
@@ -295,12 +341,31 @@ const COMMANDS = [
 
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
-          messageElement.innerHTML = convertToHtml(data);
+
+          const currentVNode = snabbdom.toVNode(messageElement);
+
+          const clonedMessageElement = messageElement.cloneNode();
+          clonedMessageElement.innerHTML = convertToHtml(data);
+
+          const newVNode = snabbdom.toVNode(clonedMessageElement);
+          
+          patch(currentVNode, newVNode);
+
         } else {
           conversationList.innerHTML += getResponseWrapper(convertToHtml(data), message.messageID);
         }
 
-        scrollToLastMessage();
+        /*
+          If box is not high enough to scroll yet, we should set first `scrollAtBottom` value here,
+          first time conversationList.scrollHeight !== conversationList.clientHeight.
+        */
+        if(conversationList.scrollHeight !== conversationList.clientHeight && scrollBarAtBottom === null) {
+          scrollBarAtBottom = isScrollBarAtBottom(conversationList);
+        }
+
+        if(scrollBarAtBottom) {
+          keepScrollInBottom();
+        }
         break;
       }
       case 'finishMessage': {
@@ -309,10 +374,13 @@ const COMMANDS = [
 
         const messageElement = document.getElementById(messageID);
         if (messageElement) {
-          messageElement.innerHTML = getHtmlWithCodeCopy(messageElement.innerHTML);
-          scrollToLastMessage();
+
+          addCopyButton(messageElement);
+
           enableTextarea();
-          focusMessageInput();
+          if(document.getSelection().isCollapsed) {
+            focusMessageInput();
+          }
         }
 
         observeFirstMessage(document.querySelector('#conversation-list > div[data-created-at]'));
@@ -391,6 +459,8 @@ const COMMANDS = [
         }
 
         enableTextarea();
+
+        addCopyButton(conversationList)
 
         break;
       default:
@@ -499,6 +569,10 @@ const COMMANDS = [
 
   window.addEventListener('blur', () => {
     chatFocussed = false;
+  });
+
+  conversationList.addEventListener('scroll', (event) => {
+    scrollBarAtBottom = isScrollBarAtBottom(event.currentTarget);
   });
 
 })();

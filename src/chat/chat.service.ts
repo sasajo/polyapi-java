@@ -1,15 +1,22 @@
-import { CACHE_MANAGER, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, CACHE_MANAGER, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { AiService } from 'ai/ai.service';
 import { Observable } from 'rxjs';
 import { Cache } from 'cache-manager';
 import crypto from 'crypto';
+import { Permission, Role } from '@poly/model';
+import { Conversation, User, Prisma } from '@prisma/client';
+import { AuthData } from 'common/types';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private readonly aiService: AiService, private readonly prisma: PrismaService, @Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  constructor(
+    private readonly aiService: AiService,
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   public async storeMessage(message: string) {
     const uuid = crypto.randomUUID();
@@ -26,7 +33,13 @@ export class ChatService {
     };
   }
 
-  public async sendQuestion(environmentId: string, userId: string, message: string | null, uuid: string | null, workspaceFolder = ''): Promise<Observable<string>> {
+  public async sendQuestion(
+    environmentId: string,
+    userId: string,
+    message: string | null,
+    uuid: string | null,
+    workspaceFolder = '',
+  ): Promise<Observable<string>> {
     let eventSource: any;
 
     if (uuid) {
@@ -52,7 +65,26 @@ export class ChatService {
       throw new Error('At least one of `message` or `uuid` must be provided.');
     }
 
-    return new Observable<string>(subscriber => {
+    const removeMessageFromRedis = () => {
+      if (uuid) {
+        const messageKey = this.getMessageKey(uuid);
+        this.cacheManager
+          .del(messageKey)
+          .then(() => {
+            this.logger.debug(
+              `Message key ${messageKey} removed from cache manager after science server message is fully received.`,
+            );
+          })
+          .catch((err) => {
+            this.logger.error(
+              `Couldn't delete message key ${messageKey} from cache manager after science server message is fully received`,
+              err,
+            );
+          });
+      }
+    };
+
+    return new Observable<string>((subscriber) => {
       eventSource.onmessage = (event) => {
         try {
           subscriber.next(JSON.parse(event.data).chunk);
@@ -65,6 +97,15 @@ export class ChatService {
           eventSource.close();
         }
       };
+
+      eventSource.addEventListener('close', () => {
+        this.logger.debug(`Received 'close' event from science server for message with uuid ${uuid}`);
+        subscriber.next(undefined);
+        subscriber.complete();
+        eventSource.close();
+        removeMessageFromRedis();
+      });
+
       eventSource.onerror = (error) => {
         if (error.message) {
           this.logger.debug(`Error from Science server for function completion: ${error.message}`);
@@ -72,15 +113,7 @@ export class ChatService {
         }
         subscriber.complete();
         eventSource.close();
-
-        if (uuid) {
-          const messageKey = this.getMessageKey(uuid);
-          this.cacheManager.del(messageKey).then(() => {
-            this.logger.debug(`Message key ${messageKey} removed from cache manager after science server message is fully received.`);
-          }).catch(err => {
-            this.logger.error(`Couldn't delete message key ${messageKey} from cache manager after science server message is fully received`, err);
-          });
-        }
+        removeMessageFromRedis();
       };
     });
   }
@@ -99,28 +132,91 @@ export class ChatService {
     }
   }
 
-  async getConversationIds(userId: string, workspaceFolder: string): Promise<string[]> {
+  async getConversationIdsForUser(requestor: User, userId: string, workspaceFolder: string): Promise<string[]> {
+    // let's filter down to what a user has access to
+    let where: Prisma.ConversationWhereInput = {};
+
+    if (requestor.role === Role.SuperAdmin) {
+      // a super admin can see everything!
+      where = { userId, workspaceFolder };
+    } else if (requestor.role === Role.Admin) {
+      // an admin can see everything in their own tenant
+      const tenantUserIds: string[] = (
+        await this.prisma.user.findMany({
+          where: { tenantId: requestor.tenantId },
+          select: { id: true },
+        })
+      ).map((d) => d.id);
+      const tenantApplicationIds: string[] = (
+        await this.prisma.application.findMany({
+          where: { tenantId: requestor.tenantId },
+          select: { id: true },
+        })
+      ).map((d) => d.id);
+
+      if (userId) {
+        // show just conversations for requested userId
+        if (!tenantUserIds.includes(userId)) {
+          throw new BadRequestException('userId not found in tenant');
+        }
+        where = { userId, workspaceFolder };
+      } else {
+        // show conversations for all userIds
+        where = {
+          OR: [{ userId: { in: tenantUserIds } }, { applicationId: { in: tenantApplicationIds } }],
+          workspaceFolder,
+        };
+      }
+    } else {
+      // a regular user can only see their own conversations
+      where = { userId: requestor.id, workspaceFolder };
+    }
     const conversations = await this.prisma.conversation.findMany({
-      where: { userId, workspaceFolder },
+      where,
       orderBy: { createdAt: 'desc' },
       take: 100, // limit to 100 results for now
     });
     return conversations.map((c) => c.id);
   }
 
-  async getConversationDetail(userId: string, conversationId: string): Promise<string> {
-    let conversation;
-    let where;
+  async getConversationIds(auth: AuthData, userId: string, workspaceFolder: string): Promise<string[]> {
+    // get all the conversationIds the auth'd user or app has access to
+    // limit to just `userId` conversations if a valid userId is passed
+
+    if (auth.application) {
+      // an application can only see its own conversations
+      // userId is ignored
+      const conversations = await this.prisma.conversation.findMany({
+        where: { applicationId: auth.application.id, workspaceFolder },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+      return conversations.map((c) => c.id);
+    }
+
+    if (!auth.user) {
+      throw new BadRequestException("Error, request must be auth'd with user or application");
+    }
+
+    return this.getConversationIdsForUser(auth.user, userId, workspaceFolder);
+  }
+
+  async getConversationDetail(auth: AuthData, userId: string, conversationId: string): Promise<string> {
+    // user is the user for permissions purposes whereas userId is which userId to see last convo for
+    let conversation: Conversation;
+    let where: Prisma.ConversationWhereInput;
     if (userId && conversationId === 'last') {
-      where = { where: { userId }, orderBy: { createdAt: 'desc' } };
+      where = { userId };
     } else {
-      where = { where: { id: conversationId } };
+      where = { id: conversationId };
     }
     try {
-      conversation = await this.prisma.conversation.findFirstOrThrow(where);
+      conversation = await this.prisma.conversation.findFirstOrThrow({ where, orderBy: { createdAt: 'desc' } });
     } catch {
       return new Promise((resolve) => resolve('Conversation not found.'));
     }
+
+    await this.checkConversationDetailPermissions(auth, conversation);
 
     const messages = await this.prisma.conversationMessage.findMany({
       where: { conversationId: conversation.id },
@@ -128,6 +224,56 @@ export class ChatService {
     });
     const parts = messages.map((m) => `${m.role.toUpperCase()}\n\n${m.content}`);
     return parts.join('\n\n');
+  }
+
+  async checkConversationDetailPermissions(auth: AuthData, conversation: Conversation) {
+    // return null if user has permission, otherwise throw an exception
+    if (auth.application) {
+      if (auth.application.id === conversation.applicationId) {
+        // application can access its own conversations
+        return null;
+      } else {
+        throw new BadRequestException('Access Denied For This Application');
+      }
+    }
+
+    if (!auth.user) {
+      throw new BadRequestException('must be user or application to access conversations');
+    }
+
+    if (auth.user.role === Role.SuperAdmin) {
+      // superadmin can access anything, go for it
+      return null;
+    }
+
+    if (auth.user.role === Role.Admin) {
+      const tenantId = await this.getConversationTenantId(conversation);
+      if (auth.user.tenantId === tenantId) {
+        // user is admin and is in the right tenant! this is fine
+        return null;
+      } else {
+        throw new BadRequestException('tenant mismatch');
+      }
+    }
+
+    if (auth.user.role === Role.User && auth.user.id === conversation.userId && auth.permissions[Permission.Use]) {
+      // user is user, is in the right environment and has use permission
+      return null;
+    }
+
+    throw new BadRequestException('permission denied');
+  }
+
+  async getConversationTenantId(conversation: Conversation): Promise<string> {
+    if (conversation.userId) {
+      const user = await this.prisma.user.findUniqueOrThrow({ where: { id: conversation.userId } });
+      return user.tenantId;
+    } else if (conversation.applicationId) {
+      const app = await this.prisma.user.findUniqueOrThrow({ where: { id: conversation.applicationId } });
+      return app.tenantId;
+    } else {
+      throw new BadRequestException('Conversation had no user or application? this should be impossible');
+    }
   }
 
   async deleteConversation(conversationId: string): Promise<string> {
@@ -140,7 +286,12 @@ export class ChatService {
     return new Promise((resolve) => resolve('Conversation deleted!'));
   }
 
-  async getHistory(userId: string | undefined, perPage = 10, firstMessageDate: Date | null = null, workspaceFolder = '') {
+  async getHistory(
+    userId: string | undefined,
+    perPage = 10,
+    firstMessageDate: Date | null = null,
+    workspaceFolder = '',
+  ) {
     if (!userId) {
       return [];
     }
@@ -171,7 +322,7 @@ export class ChatService {
   }
 
   private parseQuestionContent(content: string) {
-    if (content.match(/Question:/ig)) {
+    if (content.match(/Question:/gi)) {
       this.logger.debug(`Parsing special question ${content}`);
       return content.trim().split('Question:')[1].trim().replace(/^"/, '').replace(/"$/, '');
     }

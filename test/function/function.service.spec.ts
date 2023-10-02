@@ -16,7 +16,7 @@ import {
   prismaServiceMock,
   specsServiceMock,
   variableServiceMock,
-  configVariableServiceMock, authServiceMock,
+  configVariableServiceMock, authServiceMock, limitServiceMock,
 } from '../mocks';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from 'config/config.service';
@@ -27,6 +27,7 @@ import { VariableService } from 'variable/variable.service';
 import { Visibility } from '@poly/model';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { AuthService } from 'auth/auth.service';
+import { LimitService } from 'limit/limit.service';
 
 describe('FunctionService', () => {
   let functionService: FunctionService;
@@ -75,6 +76,10 @@ describe('FunctionService', () => {
         {
           provide: AuthService,
           useValue: authServiceMock,
+        },
+        {
+          provide: LimitService,
+          useValue: limitServiceMock,
         }
       ],
     }).compile();
@@ -681,6 +686,7 @@ describe('FunctionService', () => {
           header1: 'headerValue1',
         },
         params: {},
+        maxRedirects: 0,
         method,
         url,
       });
@@ -715,6 +721,7 @@ describe('FunctionService', () => {
         headers: { header1: 'test3' },
         params: {},
         method: 'GET',
+        maxRedirects: 0,
         url: 'https://jsonplaceholder.typicode.com/posts/test1',
       });
       expect(result).toEqual({
@@ -763,44 +770,6 @@ describe('FunctionService', () => {
         status: 500,
         headers: {},
       });
-    });
-  });
-
-  describe('filterJSONComments', () => {
-    it('should filter out // comments from JSON string', () => {
-      const jsonString = `{
-        "test": "test1", // comment
-        "test2": "test2", // comment
-        // comment1
-        // comment2
-        "test3": "test3"
-      }`;
-
-      // @ts-ignore
-      const result = functionService.filterJSONComments(jsonString);
-      expect(JSON.parse(result)).toEqual({
-        test: 'test1',
-        test2: 'test2',
-        test3: 'test3',
-      })
-    });
-
-    it('should filter out /* */ comments from JSON string', () => {
-      const jsonString = `{
-        "test": "test1", /* comment */
-        "test2": "test2", /* comment */
-        /* comment1 */
-        /* comment2 */
-        "test3": "test3"
-      }`;
-
-      // @ts-ignore
-      const result = functionService.filterJSONComments(jsonString);
-      expect(JSON.parse(result)).toEqual({
-        test: 'test1',
-        test2: 'test2',
-        test3: 'test3',
-      })
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Headers,
   HttpException,
   HttpStatus,
@@ -13,14 +14,16 @@ import {
   Patch,
   Post,
   Query,
-  Req,
-  UseGuards,
+  Req, Res,
+  UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import {
+  ApiFunctionDetailsDto,
   ApiFunctionResponseDto,
+  ArgumentsMetadata,
   CreateApiFunctionDto,
   CreateCustomFunctionDto,
   ExecuteApiFunctionDto,
@@ -32,19 +35,29 @@ import {
   Role,
   UpdateApiFunctionDto,
   UpdateCustomFunctionDto,
+  UpdateSourceFunctionDto,
+  Visibility,
 } from '@poly/model';
 import { AuthRequest } from 'common/types';
 import { AuthService } from 'auth/auth.service';
 import { VariableService } from 'variable/variable.service';
 import { LimitService } from 'limit/limit.service';
 import { FunctionCallsLimitGuard } from 'limit/function-calls-limit-guard';
-import { Tenant } from '@prisma/client';
+import { CustomFunction, Environment, Tenant } from '@prisma/client';
 import { StatisticsService } from 'statistics/statistics.service';
 import { FUNCTIONS_LIMIT_REACHED } from '@poly/common/messages';
+import { CommonService } from 'common/common.service';
 import { API_TAG_INTERNAL } from 'common/constants';
+import { Request, Response } from 'express';
+import { EnvironmentService } from 'environment/environment.service';
+import { PerfLog } from 'statistics/perf-log.decorator';
+import { PerfLogType } from 'statistics/perf-log-type';
+import { PerfLogInterceptor } from 'statistics/perf-log-interceptor';
+import { PerfLogInfoProvider } from 'statistics/perf-log-info-provider';
 
 @ApiSecurity('PolyApiKey')
 @Controller('functions')
+@UseInterceptors(PerfLogInterceptor)
 export class FunctionController {
   private logger: Logger = new Logger(FunctionController.name);
 
@@ -54,6 +67,9 @@ export class FunctionController {
     private readonly variableService: VariableService,
     private readonly limitService: LimitService,
     private readonly statisticsService: StatisticsService,
+    private readonly commonService: CommonService,
+    private readonly environmentService: EnvironmentService,
+    private readonly perfLogInfoProvider: PerfLogInfoProvider,
   ) {
   }
 
@@ -70,7 +86,7 @@ export class FunctionController {
     const {
       url,
       body,
-      requestName,
+      requestName = '',
       name = null,
       context = null,
       description = null,
@@ -85,6 +101,7 @@ export class FunctionController {
       templateBody,
       id = null,
       introspectionResponse = null,
+      enableRedirect = false,
     } = data;
     const environmentId = req.user.environment.id;
 
@@ -114,6 +131,7 @@ export class FunctionController {
         templateUrl,
         templateBody,
         introspectionResponse,
+        enableRedirect,
         templateAuth,
         () => this.checkFunctionsLimit(req.user.tenant, 'training function'),
       ),
@@ -144,7 +162,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Get('/api/:id')
-  async getApiFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<FunctionDetailsDto> {
+  async getApiFunction(@Req() req: AuthRequest, @Param('id') id: string): Promise<ApiFunctionDetailsDto> {
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException(`Function with ID ${id} not found.`);
@@ -166,7 +184,10 @@ export class FunctionController {
       response,
       payload,
       visibility = null,
+      source,
+      enableRedirect,
     } = data;
+
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
       throw new NotFoundException('Function not found');
@@ -176,13 +197,18 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
+    this.checkSourceUpdateAuth(source);
+
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
+
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility),
+      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect),
     );
   }
 
+  @PerfLog(PerfLogType.ApiFunctionExecution)
   @UseGuards(PolyAuthGuard, FunctionCallsLimitGuard)
   @Post('/api/:id/execute')
   async executeApiFunction(
@@ -199,6 +225,11 @@ export class FunctionController {
     data = await this.variableService.unwrapVariables(req.user, data);
 
     await this.statisticsService.trackFunctionCall(req.user, apiFunction.id, 'api');
+
+    this.perfLogInfoProvider.data = {
+      id: apiFunction.id,
+      url: apiFunction.url,
+    };
 
     return await this.service.executeApiFunction(apiFunction, data, req.user.user?.id, req.user.application?.id);
   }
@@ -295,6 +326,8 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
+
     await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
@@ -321,6 +354,14 @@ export class FunctionController {
     const customFunctions = await this.service.getServerFunctions(req.user.environment.id);
     return customFunctions
       .map((serverFunction) => this.service.customFunctionToBasicDto(serverFunction));
+  }
+
+  @ApiOperation({ tags: [API_TAG_INTERNAL] })
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
+  @Post('/server/prebuilt-base-image')
+  @Header('Content-Type', 'text/plain')
+  async createOrUpdatePrebuiltBaseImage(@Req() req: AuthRequest) {
+    return this.service.createOrUpdatePrebuiltBaseImage(req.user);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -392,21 +433,27 @@ export class FunctionController {
       description = null,
       visibility = null,
       enabled,
+      arguments: argumentsMetadata,
     } = data;
     const serverFunction = await this.service.findServerFunction(id);
     if (!serverFunction) {
       throw new NotFoundException('Function not found');
     }
 
+    this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
+
     if (enabled !== undefined) {
       if (req.user.user?.role !== Role.SuperAdmin) {
         throw new BadRequestException('You do not have permission to enable/disable functions.');
       }
     }
+    if (argumentsMetadata !== undefined) {
+      this.checkServerFunctionUpdateArguments(argumentsMetadata);
+    }
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(serverFunction, name, context, description, visibility, enabled),
+      await this.service.updateCustomFunction(serverFunction, name, context, description, visibility, argumentsMetadata, enabled),
     );
   }
 
@@ -423,10 +470,12 @@ export class FunctionController {
     await this.service.deleteCustomFunction(id, req.user.environment);
   }
 
+  @PerfLog(PerfLogType.ServerFunctionExecution)
   @UseGuards(PolyAuthGuard, FunctionCallsLimitGuard)
   @Post('/server/:id/execute')
   async executeServerFunction(
     @Req() req: AuthRequest,
+    @Res() res: Response,
     @Param('id') id: string,
     @Body() data: ExecuteCustomFunctionDto,
     @Headers() headers: Record<string, any>,
@@ -453,7 +502,14 @@ export class FunctionController {
 
     await this.statisticsService.trackFunctionCall(req.user, customFunction.id, 'server');
 
-    return await this.service.executeServerFunction(customFunction, data, headers, clientId);
+    const executionEnvironment = await this.resolveExecutionEnvironment(customFunction, req);
+
+    this.perfLogInfoProvider.data = {
+      id: customFunction.id,
+    };
+
+    const { body, statusCode = 200 } = await this.service.executeServerFunction(customFunction, executionEnvironment, data, headers, clientId) || {};
+    return res.status(statusCode).send(body);
   }
 
   @ApiOperation({ tags: [API_TAG_INTERNAL] })
@@ -472,5 +528,58 @@ export class FunctionController {
       this.logger.debug(`Tenant ${tenant.id} reached its limit of functions while ${debugMessage}.`);
       throw new HttpException(FUNCTIONS_LIMIT_REACHED, HttpStatus.TOO_MANY_REQUESTS);
     }
+  }
+
+  private checkServerFunctionUpdateArguments(argumentsMetadata: ArgumentsMetadata) {
+    for (const key in argumentsMetadata) {
+      const argument = argumentsMetadata[key];
+      for (const argumentProperty in argument) {
+        if (argumentProperty !== 'description') {
+          throw new BadRequestException(`Only description can be updated for argument ${key}`);
+        }
+      }
+    }
+  }
+
+  private checkSourceUpdateAuth(source?: UpdateSourceFunctionDto): void {
+    if (!source) {
+      return;
+    }
+
+    if (source?.auth?.type === 'apikey') {
+      const inKey = source.auth.apikey.find((entry) => entry.key === 'in');
+      const keyName = source.auth.apikey.find((entry) => entry.key === 'key');
+      const keyValue = source.auth.apikey.find((entry) => entry.key === 'value');
+
+      if (!inKey) {
+        throw new BadRequestException('You must provide a key "in" in your apiKey auth type.');
+      }
+
+      if (!keyName) {
+        throw new BadRequestException('You must provide a key "key" in your apiKey auth type.');
+      }
+
+      if (!keyValue) {
+        throw new BadRequestException('You must provide a key "value" in your apiKey auth type.');
+      }
+
+      if (!['header', 'query'].includes(inKey.value)) {
+        throw new BadRequestException('"in" key value should be "query" | "header".');
+      }
+    }
+  }
+
+  private async resolveExecutionEnvironment(customFunction: CustomFunction & {environment: Environment}, req: Request) {
+    let executionEnvironment: Environment | null = null;
+
+    if (customFunction.visibility !== Visibility.Environment) {
+      executionEnvironment = await this.environmentService.findByHost(req.hostname);
+    }
+
+    if (!executionEnvironment) {
+      executionEnvironment = customFunction.environment;
+    }
+
+    return executionEnvironment;
   }
 }

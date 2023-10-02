@@ -8,9 +8,19 @@ import { FunctionModule } from 'function/function.module';
 import { ChatService } from 'chat/chat.service';
 import { ChatModule } from 'chat/chat.module';
 import { AiModule } from 'ai/ai.module';
+import { StatisticsModule } from 'statistics/statistics.module';
+import { LimitModule } from 'limit/limit.module';
 
 @Module({
-  imports: [HttpModule, PrismaModule, FunctionModule, AiModule, ChatModule],
+  imports: [
+    HttpModule,
+    PrismaModule,
+    FunctionModule,
+    AiModule,
+    ChatModule,
+    StatisticsModule,
+    LimitModule,
+  ],
   providers: [GptPluginService, ChatService],
   controllers: [GptPluginController],
 })

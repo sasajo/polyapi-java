@@ -22,7 +22,6 @@ from prisma.models import (
     ConversationMessage,
     Conversation,
     ConfigVariable,
-    ApiKey,
     User,
 )
 
@@ -40,28 +39,31 @@ def func_path(func: SpecificationDto) -> str:
 def _process_schema_property(property: Dict) -> str:
     property_type = property.get("type", "")
     if property_type == "string":
-        return "string"
+        rv = "string,"
     elif property_type == "number":
-        return "number"
+        rv = "number,"
     elif property_type == "integer":
-        return "integer"
+        rv = "integer,"
     elif property_type == "boolean":
-        return "boolean"
+        rv = "boolean,"
     elif property_type == "null":
-        return "null"
+        rv = "null,"
     elif property_type == "array":
         child = _process_schema_property(property['items'])
-        return f"[{child}]"
+        rv = f"[{child}],"
     elif property_type == "object":
         sub_props = []
-        for key, val in property["properties"].items():
+        for key, val in property.get("properties", {}).items():
             sub_props.append(f"{key}: {_process_schema_property(val)}")
-        return "{\n%s\n}" % ",\n".join(sub_props)
+        rv = "{\n%s\n}," % "\n".join(sub_props)
     else:
-        return ""
+        rv = ""
+    if property.get("description"):
+        rv += f"  // {property['description']}\n"
+    return rv
 
 
-def _process_property_spec(arg: PropertySpecification) -> str:
+def _process_property_spec(arg: PropertySpecification, *, include_argument_schema=True) -> str:
     kind = arg["type"]["kind"]
     if kind == "void":
         # seems weird to have a void argument...
@@ -69,13 +71,16 @@ def _process_property_spec(arg: PropertySpecification) -> str:
     elif kind == "primitive":
         rv = f"{arg['name']}: {arg['type']['type']}"
     elif kind == "array":
-        item_type = arg["type"]["items"]["type"]
+        # assume to be object if no explicit type provided
+        item_type = arg["type"]["items"].get("type", "object")
         rv = "{name}: [{item_type}, {item_type}, ...]".format(
             name=arg["name"], item_type=item_type
         )
     elif kind == "object":
         arg_type = arg["type"]
-        if arg_type.get("properties"):
+        if not include_argument_schema:
+            rv = "{name}: object".format(name=arg["name"])
+        elif arg_type.get("properties"):
             properties = [_process_property_spec(p) for p in arg["type"]["properties"]]
             sub_props = "\n".join(properties)
             sub_props = "{\n" + sub_props + "\n}"
@@ -83,12 +88,17 @@ def _process_property_spec(arg: PropertySpecification) -> str:
         elif arg_type.get("schema"):
             schema = jsonref.loads(json.dumps(arg_type['schema']))
             sub_props = _process_schema_property(schema)
+            sub_props = sub_props.rstrip(",")
             rv = f"{arg['name']}: {sub_props}"
         else:
             log(f"WARNING: object with no properties in args - {arg}")
             rv = "{name}: object".format(name=arg["name"])
     elif kind == "function":
-        rv = f"{arg['name']}: {kind}"
+        if include_argument_schema:
+            function_spec = json.dumps(arg.get("type", {}).get("spec", "function"))
+            rv = f"{arg['name']}: {function_spec}"
+        else:
+            rv = f"{arg['name']}: {kind}"
     elif kind == "plain":
         rv = f"{arg['name']}: {arg['type']['value']}"
     else:
@@ -101,18 +111,24 @@ def _process_property_spec(arg: PropertySpecification) -> str:
     return rv
 
 
-def func_args(spec: SpecificationDto) -> List[str]:
+def func_args(spec: SpecificationDto, *, include_argument_schema=True) -> List[str]:
     """get the args for a function from the headers and url"""
     arg_strings = []
     func = spec.get("function")
     if func:
-        for arg in func["arguments"]:
-            arg_strings.append(_process_property_spec(arg))
+        for idx, arg in enumerate(func["arguments"]):
+            arg_string = _process_property_spec(arg, include_argument_schema=include_argument_schema)
+            # if idx == 0 and spec['type'] == "webhookHandle":
+            #     # the first argument to webhookHandle callback functions is the eventPayload
+            #     # let's add a comment explaining to chatGPT that's what this is!
+            #     arg_string += " // This is the event payload that will be received by the webhook"
+            arg_strings.append(arg_string)
+
     return arg_strings
 
 
-def func_path_with_args(func: SpecificationDto) -> str:
-    args = func_args(func)
+def func_path_with_args(func: SpecificationDto, *, include_argument_schema=True) -> str:
+    args = func_args(func, include_argument_schema=include_argument_schema)
     sep = "\n"
     return f"{func_path(func)}(\n{sep.join(args)}\n)"
 
@@ -285,27 +301,25 @@ def get_user(user_id: str) -> Optional[User]:
     return db.user.find_first(where={"id": user_id})
 
 
-def get_user_key(user_id: str, environment_id: str) -> Optional[ApiKey]:
-    db = get_client()
-    return db.apikey.find_first(
-        where={"userId": user_id, "environmentId": environment_id}
-    )
-
-
 def query_node_server(user_id: str, environment_id: str, path: str) -> Response:
-    user_key = get_user_key(user_id, environment_id)
-    if not user_key:
-        raise NotImplementedError(
-            f"No user key found for user {user_id} and environment {environment_id}"
-        )
+    db = get_client()
+    user = db.user.find_first(where={"id": user_id})
+    if not user:
+        raise Exception(f"Bad user_id {user_id} pased!")
 
+    admin_key = os.environ["POLY_SUPER_ADMIN_USER_KEY"]
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {user_key.key}",
+        "Authorization": f"Bearer {admin_key}",
         "Accept": "application/poly.function-definition+json",
     }
+
     base = current_app.config["NODE_API_URL"]
-    resp = requests.get(f"{base}/{path}", headers=headers)
+    resp = requests.get(
+        f"{base}/{path}",
+        headers=headers,
+        params={"tenantId": user.tenantId, "environmentId": environment_id},
+    )
     assert resp.status_code == 200, resp.content
     return resp
 

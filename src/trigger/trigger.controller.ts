@@ -1,9 +1,31 @@
-import { Body, Controller, Delete, Get, Logger, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Logger,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiSecurity } from '@nestjs/swagger';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import { AuthData, AuthRequest } from 'common/types';
 import { TriggerService } from 'trigger/trigger.service';
-import { CreateTriggerDto, Permission, TriggerDestination, TriggerDto, TriggerResponseDto, TriggerSource, Visibility } from '@poly/model';
+import {
+  CreateTriggerDto,
+  Permission,
+  TriggerDestination,
+  TriggerDto,
+  TriggerResponseDto,
+  TriggerSource,
+  UpdateTriggerDto,
+  Visibility,
+} from '@poly/model';
 import { WebhookService } from 'webhook/webhook.service';
 import { FunctionService } from 'function/function.service';
 import { AuthService } from 'auth/auth.service';
@@ -52,6 +74,24 @@ export class TriggerController {
   }
 
   @UseGuards(PolyAuthGuard)
+  @Patch(':id')
+  async updateTrigger(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateTriggerDto) {
+    const trigger = await this.findTrigger(req.user, id);
+    const { name, waitForResponse } = data;
+
+    await this.checkTriggerAccess(req.user, trigger);
+
+    if ('source' in data) {
+      throw new BadRequestException('Source cannot be updated. Please, delete and create a new trigger instead.');
+    }
+    if ('destination' in data) {
+      throw new BadRequestException('Destination cannot be updated. Please, delete and create a new trigger instead.');
+    }
+
+    return await this.triggerService.updateTrigger(req.user.environment.id, trigger, name, waitForResponse);
+  }
+
+  @UseGuards(PolyAuthGuard)
   @Delete(':id')
   async deleteTrigger(@Req() req: AuthRequest, @Param('id') id: string) {
     const trigger = await this.findTrigger(req.user, id);
@@ -63,10 +103,10 @@ export class TriggerController {
 
   @Post('/response')
   async postTriggerResponse(@Body() response: TriggerResponseDto) {
-    const { executionId, data } = response;
-    this.logger.debug(`Received trigger response ${executionId} with data ${JSON.stringify(data)}`);
+    const { executionId, data, statusCode } = response;
+    this.logger.debug(`Received trigger response ${executionId} with data ${JSON.stringify(data)} and status code ${statusCode}`);
 
-    await this.triggerService.processTriggerResponse(executionId, data);
+    await this.triggerService.processTriggerResponse(executionId, data, statusCode);
   }
 
   private async findTrigger(authData: AuthData, id: string) {

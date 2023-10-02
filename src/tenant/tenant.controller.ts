@@ -14,7 +14,14 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse, ApiOperation, ApiQuery, ApiSecurity } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiSecurity,
+} from '@nestjs/swagger';
 import { TenantService } from 'tenant/tenant.service';
 import {
   ApiKeyDto,
@@ -57,7 +64,7 @@ import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { MergeRequestData } from 'common/decorators';
 import { LimitService } from 'limit/limit.service';
 import { TosService } from 'tos/tos.service';
-import { LimitTier } from '@prisma/client';
+import { LimitTier, User } from '@prisma/client';
 import { API_TAG_INTERNAL } from 'common/constants';
 
 @ApiSecurity('PolyApiKey')
@@ -73,7 +80,8 @@ export class TenantController {
     private readonly configVariableService: ConfigVariableService,
     private readonly limitService: LimitService,
     private readonly tosService: TosService,
-  ) {}
+  ) {
+  }
 
   @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
@@ -85,13 +93,14 @@ export class TenantController {
   @ApiOperation({ tags: [API_TAG_INTERNAL] })
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post()
-  async createTenant(@Body() data: CreateTenantDto): Promise<TenantDto> {
+  async createTenant(@Body() data: CreateTenantDto): Promise<TenantDto & { adminApiKey: string }> {
     const {
       name = null,
       email,
       publicVisibilityAllowed,
       publicNamespace = null,
       tierId = null,
+      enabled = true,
     } = data;
 
     let limitTier: LimitTier | null = null;
@@ -108,7 +117,15 @@ export class TenantController {
       throw new BadRequestException(`Public namespace '${publicNamespace}' is not available.`);
     }
 
-    return this.tenantService.toDto(await this.tenantService.create(name, email, publicVisibilityAllowed, publicNamespace, limitTier?.id));
+    const { tenant, apiKey } = await this.tenantService.create(
+      name,
+      email,
+      publicVisibilityAllowed,
+      publicNamespace,
+      limitTier?.id,
+      enabled,
+    );
+    return this.tenantService.toDtoWithAdminApiKey(tenant, apiKey);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -129,8 +146,17 @@ export class TenantController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id')
   async updateTenant(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateTenantDto): Promise<TenantDto> {
-    const { name, publicVisibilityAllowed, publicNamespace, tierId } = data;
+    const {
+      name,
+      publicVisibilityAllowed,
+      publicNamespace,
+      tierId,
+      email,
+      enabled,
+    } = data;
     const tenant = await this.findTenant(id);
+
+    const userId = (req.user.user as User).id;
 
     if (req.user.user?.role !== Role.SuperAdmin) {
       if (tenant.id !== req.user.tenant.id) {
@@ -145,6 +171,13 @@ export class TenantController {
       if (tierId != null) {
         throw new BadRequestException('You are not allowed to update the limit tier of this tenant.');
       }
+      if (enabled != null) {
+        throw new BadRequestException('You are not allowed to update the enabled status of this tenant.');
+      }
+    }
+
+    if (tenant.name === null && !name && publicVisibilityAllowed) {
+      throw new BadRequestException('Cannot set publicVisibilityAllowed on tenants with no name.');
     }
 
     if (tierId) {
@@ -158,7 +191,7 @@ export class TenantController {
     }
 
     return this.tenantService.toDto(
-      await this.tenantService.update(tenant, name, publicVisibilityAllowed, publicNamespace, tierId),
+      await this.tenantService.update(tenant, name, email, publicVisibilityAllowed, publicNamespace, tierId, userId, enabled),
     );
   }
 
@@ -209,7 +242,10 @@ export class TenantController {
   @Patch('/:id/config-variables/:name')
   async setConfigVariableUnderTenant(
     @Req() req: AuthRequest,
-    @MergeRequestData(['body', 'params'], new ValidationPipe({ validateCustomDecorators: true })) data: SetConfigVariableDto,
+    @MergeRequestData([
+      'body',
+      'params',
+    ], new ValidationPipe({ validateCustomDecorators: true })) data: SetConfigVariableDto,
     @Param('id') tenantId: string,
   ) {
     await this.findTenant(tenantId);
@@ -268,7 +304,10 @@ export class TenantController {
   @Patch('/:id/environments/:environment/config-variables/:name')
   async setConfigVariableUnderEnvironment(
     @Req() req: AuthRequest,
-    @MergeRequestData(['body', 'params'], new ValidationPipe({ validateCustomDecorators: true })) data: SetConfigVariableDto,
+    @MergeRequestData([
+      'body',
+      'params',
+    ], new ValidationPipe({ validateCustomDecorators: true })) data: SetConfigVariableDto,
     @Param('id') tenantId: string,
     @Param('environment') environmentId: string,
   ) {

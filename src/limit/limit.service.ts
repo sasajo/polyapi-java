@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { LimitTier, Tenant } from '@prisma/client';
 import { StatisticsService } from 'statistics/statistics.service';
-import { TierDto } from '@poly/model';
+import { ServerFunctionLimits, TierDto } from '@poly/model';
 import { getEndOfDay, getStartOfDay } from '@poly/common/utils';
 
 @Injectable()
@@ -21,6 +21,9 @@ export class LimitService {
       chatQuestionsPerDay: limitTier.chatQuestionsPerDay,
       functionCallsPerDay: limitTier.functionCallsPerDay,
       variableCallsPerDay: limitTier.variableCallsPerDay,
+      serverFunctionLimitCpu: limitTier.serverFunctionLimitCpu,
+      serverFunctionLimitMemory: limitTier.serverFunctionLimitMemory,
+      serverFunctionLimitTime: limitTier.serverFunctionLimitTime,
     };
   }
 
@@ -42,6 +45,9 @@ export class LimitService {
     chatQuestionsPerDay: number | null,
     functionCallsPerDay: number | null,
     variableCallsPerDay: number | null,
+    serverFunctionLimitCpu: number | null,
+    serverFunctionLimitMemory: number | null,
+    serverFunctionLimitTime: number | null,
   ) {
     return this.prismaService.limitTier.create({
       data: {
@@ -50,6 +56,9 @@ export class LimitService {
         chatQuestionsPerDay,
         functionCallsPerDay,
         variableCallsPerDay,
+        serverFunctionLimitCpu,
+        serverFunctionLimitMemory,
+        serverFunctionLimitTime,
       },
     });
   }
@@ -61,6 +70,9 @@ export class LimitService {
     chatQuestionsPerDay?: number | null,
     functionCallsPerDay?: number | null,
     variableCallsPerDay?: number | null,
+    serverFunctionLimitCpu?: number | null,
+    serverFunctionLimitMemory?: number | null,
+    serverFunctionLimitTime?: number | null,
   ) {
     return this.prismaService.limitTier.update({
       where: {
@@ -72,6 +84,9 @@ export class LimitService {
         chatQuestionsPerDay,
         functionCallsPerDay,
         variableCallsPerDay,
+        serverFunctionLimitCpu,
+        serverFunctionLimitMemory,
+        serverFunctionLimitTime,
       },
     });
   }
@@ -85,6 +100,10 @@ export class LimitService {
   }
 
   async checkTenantFunctionsLimit(tenant: Tenant, addedCount = 1): Promise<boolean> {
+    if (!tenant.enabled) {
+      return false;
+    }
+
     const limitTier = tenant.limitTierId
       ? await this.findById(tenant.limitTierId)
       : null;
@@ -145,6 +164,10 @@ export class LimitService {
   }
 
   async checkTenantFunctionCallsLimit(tenant: Tenant): Promise<boolean> {
+    if (!tenant.enabled) {
+      return false;
+    }
+
     const limitTier = tenant.limitTierId
       ? await this.findById(tenant.limitTierId)
       : null;
@@ -171,6 +194,10 @@ export class LimitService {
   }
 
   async checkTenantChatQuestionsLimit(tenant: Tenant): Promise<boolean> {
+    if (!tenant.enabled) {
+      return false;
+    }
+
     const limitTier = tenant.limitTierId
       ? await this.findById(tenant.limitTierId)
       : null;
@@ -197,6 +224,10 @@ export class LimitService {
   }
 
   async checkTenantVariableCallsLimit(tenant: Tenant): Promise<boolean> {
+    if (!tenant.enabled) {
+      return false;
+    }
+
     const limitTier = tenant.limitTierId
       ? await this.findById(tenant.limitTierId)
       : null;
@@ -220,5 +251,26 @@ export class LimitService {
       getEndOfDay(),
     );
     return variableCalls.length;
+  }
+
+  async getTenantServerFunctionLimits(tenantId: string): Promise<ServerFunctionLimits> {
+    const tenant = await this.prismaService.tenant.findFirst({
+      where: {
+        id: tenantId,
+      },
+      include: {
+        limitTier: true,
+      },
+    });
+
+    if (!tenant?.limitTier) {
+      return {};
+    }
+
+    return {
+      cpu: tenant.limitTier.serverFunctionLimitCpu ?? undefined,
+      memory: tenant.limitTier.serverFunctionLimitMemory ?? undefined,
+      time: tenant.limitTier.serverFunctionLimitTime ?? undefined,
+    };
   }
 }

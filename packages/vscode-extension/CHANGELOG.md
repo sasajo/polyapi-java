@@ -1,3 +1,19 @@
+### 0.3.9
+* Add `async` to webhook handlers clipboard.
+
+### 0.3.8
+* Fix links on chat answers while printing new chunks of data.
+
+### 0.3.7
+* Fix webhook handle clipboard when copying from poly tree.
+
+### 0.3.6
+* Keep user's selection while adding chunks of data in answers like open ai.
+
+### 0.3.5
+* Remove staging instance from default values.
+* Emulated open ai scroll.
+
 ### 0.3.4
 * Docs updates.
 

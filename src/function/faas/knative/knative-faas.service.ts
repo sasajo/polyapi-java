@@ -9,9 +9,10 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
 import { ConfigService } from 'config/config.service';
-import { FaasService } from '../faas.service';
+import { ExecuteFunctionResult, FaasService } from '../faas.service';
 import { CustomObjectsApi } from '@kubernetes/client-node';
 import { makeCustomObjectsApiClient } from 'kubernetes/client';
+import { ServerFunctionLimits } from '@poly/model';
 
 // sleep function from SO
 // https://stackoverflow.com/a/39914235
@@ -80,6 +81,8 @@ export class KNativeFaasService implements FaasService {
     code: string,
     requirements: string[],
     apiKey: string,
+    limits: ServerFunctionLimits,
+    createFromScratch = false,
   ): Promise<void> {
     this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -97,11 +100,11 @@ export class KNativeFaasService implements FaasService {
       this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
       await writeFile(`${functionPath}/function/index.js`, content);
 
-      await this.deploy(id, tenantId, environmentId, imageName, apiKey);
+      await this.deploy(id, tenantId, environmentId, imageName, apiKey, limits);
     };
 
     const additionalRequirements = this.filterPreinstalledNpmPackages(requirements);
-    if (additionalRequirements.length > 0) {
+    if (additionalRequirements.length > 0 || createFromScratch) {
       const customImageName = `${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)}`;
 
       // not awaiting on purpose, so it returns immediately with the message
@@ -122,7 +125,7 @@ export class KNativeFaasService implements FaasService {
     args: any[],
     headers = {},
     maxRetryCount = 3,
-  ): Promise<any> {
+  ): Promise<ExecuteFunctionResult> {
     const functionUrl = await this.getFunctionUrl(id);
 
     if (!functionUrl) {
@@ -136,9 +139,21 @@ export class KNativeFaasService implements FaasService {
     return await lastValueFrom(
       this.http
         .post(`${functionUrl}`, { args }, { headers: this.filterPassThroughHeaders(headers) })
-        .pipe(map((response) => response.data))
+        .pipe(map((response) => (
+          {
+            body: response.data,
+            statusCode: response.status,
+          }
+        )))
         .pipe(
           catchError(async (error: AxiosError) => {
+            if (error.response?.status !== 500) {
+              return {
+                body: error.response?.data,
+                statusCode: error.response?.status || 500,
+              };
+            }
+
             this.logger.error(
               `Error while performing HTTP request for server function (id: ${id}): ${
                 (error.response?.data as any)?.message || error
@@ -163,10 +178,11 @@ export class KNativeFaasService implements FaasService {
     code: string,
     requirements: string[],
     apiKey: string,
+    limits: ServerFunctionLimits,
   ) {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey);
+    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits);
   }
 
   async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {
@@ -207,7 +223,7 @@ export class KNativeFaasService implements FaasService {
     return `${relative ? '' : `${this.config.faasFunctionsBasePath}/`}${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
   }
 
-  private getFunctionName(id: string) {
+  public getFunctionName(id: string) {
     return `function-${id}`;
   }
 
@@ -231,7 +247,7 @@ export class KNativeFaasService implements FaasService {
     }
   }
 
-  private async deploy(id: string, tenantId: string, environmentId: string, imageName: string, apiKey: string) {
+  private async deploy(id: string, tenantId: string, environmentId: string, imageName: string, apiKey: string, limits: ServerFunctionLimits) {
     this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
     await this.deleteFunction(id, tenantId, environmentId, false);
 
@@ -249,6 +265,7 @@ export class KNativeFaasService implements FaasService {
       spec: {
         template: {
           spec: {
+            timeoutSeconds: limits.time,
             containers: [
               {
                 image: `${imageName}`,
@@ -272,6 +289,12 @@ export class KNativeFaasService implements FaasService {
                 command: ['/bin/sh', '-c'],
                 args: [`if [ -f "/workspace/function/${workingDir}/function/index.js" ]; then /cnb/lifecycle/launcher "cp -f function/${workingDir}/function/index.js $home/workspace && npx poly generate && npm start"; else /cnb/lifecycle/launcher "npx poly generate && npm start"; fi`],
                 workingDir: `/workspace/function/${workingDir}/function`,
+                resources: {
+                  limits: {
+                    cpu: limits.cpu ? `${limits.cpu}m` : undefined,
+                    memory: limits.memory ? `${limits.memory}Mi` : undefined,
+                  },
+                },
               },
             ],
             volumes: [

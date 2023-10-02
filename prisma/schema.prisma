@@ -143,6 +143,7 @@ model ApiFunction {
   graphqlIdentifier            String?      @map("graphql_identifier")
   graphqlIntrospectionResponse String?      @map("introspection_response")
   environment                  Environment  @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  enableRedirect               Boolean      @default(false) @map("enable_redirect")
 
   @@map("api_function")
 }
@@ -195,7 +196,8 @@ model WebhookHandle {
   environmentId       String      @map("environment_id")
   context             String
   name                String
-  eventPayload        String      @map("event_payload")
+  eventPayload        String?     @map("event_payload")
+  eventPayloadType    String      @default("") @map("event_payload_type")
   description         String      @default("")
   visibility          String      @default("ENVIRONMENT")
   responseHeaders     String?     @map("response_headers")
@@ -203,7 +205,7 @@ model WebhookHandle {
   responseStatus      Int?        @map("response_status")
   subpath             String?     @map("subpath")
   method              String?
-  securityFunctionIds String?     @map("security_function_ids")
+  securityFunctions   String?     @map("security_functions")
   enabled             Boolean     @default(true)
   environment         Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   @@map("webhook_handle")
@@ -399,11 +401,11 @@ model PerfLog {
   start         DateTime
   duration      Float  // in seconds
   snippet       String   // human readable snippet about this logline
-  input_length  Int  // how long was the input in characters?
-  output_length Int   // how long was output in characters?
-  type          Int   // see PerfLogType
-  data          String @default("")  // more granular JSON data like how did each stage perform?
-  load          Int @default(0)  // what is the load on the system? always 0 for now
+  inputLength   Int          @map("input_length") // how long was input in characters?
+  outputLength  Int          @map("output_length") // how long was output in characters?
+  type          Int // see PerfLogType
+  data          String       @default("") // more granular JSON data like how did each stage perform?
+  load          Int          @default(0) // what is the load on the system? always 0 for now
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   applicationId String?      @map("application_id")
   user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
