@@ -22,6 +22,7 @@ export class DocsController {
         id: doc.id,
         title: doc.title,
         text: doc.text,
+        tenantId: doc.tenantId,
       };
     });
     return rv;
