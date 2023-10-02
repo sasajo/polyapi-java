@@ -73,7 +73,7 @@ describe('json-template', () => {
       });
     });
 
-    it('Should not transform arguments concatenated with other string content', () => {
+    it('Should not transform arguments concatenated with other string content.', () => {
       const result = getMetadataTemplateObject(`
             {
                 "name": "The name is {{name}}"
@@ -199,7 +199,7 @@ describe('json-template', () => {
       });
     });
 
-    it('Should respect all json data types', () => {
+    it('Should respect all json data types.', () => {
       const templateObject = {
         name: 'bar',
         lastName: null,
@@ -224,6 +224,32 @@ describe('json-template', () => {
       );
 
       expect(result).toStrictEqual(templateObject);
+    });
+
+    it('Should respect boolean and number types if argument is surrounded by double quotes.', () => {
+      const templateObject = {
+        age: {
+          [POLY_ARG_NAME_KEY]: 'age',
+          quoted: true,
+        },
+        vip: {
+          [POLY_ARG_NAME_KEY]: 'vip',
+          quoted: true,
+        },
+      };
+
+      const result = mergeArgumentsInTemplateObject(
+        templateObject,
+        {
+          age: 27,
+          vip: true,
+        },
+      );
+
+      expect(result).toStrictEqual({
+        age: '27',
+        vip: 'true',
+      });
     });
   });
 });
