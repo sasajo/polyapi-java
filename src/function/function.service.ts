@@ -75,9 +75,9 @@ import {
 import { AuthService } from 'auth/auth.service';
 import { AuthData, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
-import { getMetadataTemplateObject, mergeArgumentsInTemplateObject } from './custom/json-template';
+import { getMetadataTemplateObject, isTemplateArg, mergeArgumentsInTemplateObject, POLY_ARG_NAME_KEY } from './custom/json-template';
 
-const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
+const ARGUMENT_PATTERN = /(?<=\{\{)([^}{]+)(?=\}\})/g;
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -819,38 +819,40 @@ export class FunctionService implements OnModuleInit {
       }
 
       if (isPlainObject(value)) {
-        const argName = value['$polyArgName'];
-
         if (
-          typeof argName !== 'undefined'
+          isTemplateArg(value)
         ) {
-          const argValue = typeof args[argName];
-          const arg = typeof argumentsMetadata[argName] as ArgumentsMetadata[string];
+          const argName = value[POLY_ARG_NAME_KEY];
+          const argValue = args[argName];
+          const argMetadata = argumentsMetadata[argName] as ArgumentsMetadata[string];
 
-          if (typeof arg === 'undefined') {
-            return value;
-          }
-
-          if (arg.required === false && arg.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined') {
+          if (typeof argMetadata === 'undefined' || (argMetadata.required === false && argMetadata.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined')) {
             return undefined;
           }
 
           return value;
         }
-      }
 
-      for (const key of Object.keys(value)) {
-        value[key] = removeUndefinedValuesFromOptionalArgs(value[key]);
-        if (typeof value[key] === 'undefined') {
-          delete value[key];
+        for (const key of Object.keys(value)) {
+          value[key] = removeUndefinedValuesFromOptionalArgs(value[key]);
+          if (typeof value[key] === 'undefined') {
+            delete value[key];
+          }
         }
       }
+
       return value;
     };
 
+    // Filter un-used optional args.
     const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
 
-    return JSON.stringify(mergeArgumentsInTemplateObject(filteredJsonTemplate, args));
+    const rawObj = mergeArgumentsInTemplateObject(filteredJsonTemplate, args);
+
+    return {
+      mode: 'raw',
+      raw: JSON.stringify(rawObj),
+    } as RawBody;
   }
 
   async executeApiFunction(
@@ -889,6 +891,7 @@ export class FunctionService implements OnModuleInit {
 
       const filteredBody = parsedBody.mode === 'formdata'
         ? {
+            mode: parsedBody.mode,
             formdata: parsedBody.formdata.filter(filterOptionalArgs),
           }
         : {
@@ -898,10 +901,7 @@ export class FunctionService implements OnModuleInit {
 
       body = JSON.parse(mustache.render(JSON.stringify(filteredBody), argumentValueMap)) as Body;
     } else if (parsedBody.mode === 'raw') {
-      body = {
-        mode: 'raw',
-        raw: this.processRawBody(parsedBody, argumentsMetadata, args),
-      };
+      body = this.processRawBody(parsedBody, argumentsMetadata, args);
     } else {
       body = JSON.parse(mustache.render(apiFunction.body || '', argumentsMetadata)) as Body;
     }

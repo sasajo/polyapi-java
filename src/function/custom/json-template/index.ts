@@ -7,6 +7,8 @@ hls.registerLanguage(LANGUAGE_NAME, getExtendedJsonLanguage);
 
 export const POLY_ARG_NAME_KEY = '$polyArgName';
 
+export const isTemplateArg = (value): value is ArgMetadata => typeof value[POLY_ARG_NAME_KEY] !== 'undefined';
+
 /**
  * This function replaces all arguments from raw json string for valid objects of type {@link ArgMetadata}
  * and returns a valid json object. This is useful when you need to modify something from client json string that has
@@ -26,7 +28,7 @@ export const getMetadataTemplateObject = (raw: string): Record<string, any> => {
   }
 
   for (const node of dom.querySelectorAll('.hljs-string')) {
-    if (node.textContent.match(/^"\{\{.+?\}\}"$/)) {
+    if (node.textContent.match(/^"\{{2}[^\{\}]+?\}{2}"$/)) {
       const argName = node.textContent.replace('{{', '').replace('}}', '').replace(/"/g, '');
 
       node.textContent = `{"${POLY_ARG_NAME_KEY}": "${argName}", "quoted": true}`;
@@ -52,8 +54,8 @@ export const mergeArgumentsInTemplateObject = (templateObject: Record<string, un
 
   const isTemplateArg = (value): value is ArgMetadata => typeof value[POLY_ARG_NAME_KEY] !== 'undefined';
 
-  const assignArgValues = (value: Record<string, any>) => {
-    if (isPlainObject(value)) {
+  const assignArgValues = (value: unknown) => {
+    if ((isPlainObject as (value: any) => value is Record<string, any>)(value)) {
       if (isTemplateArg(value)) {
         const argValue = args[value.$polyArgName];
 
@@ -85,6 +87,23 @@ export const mergeArgumentsInTemplateObject = (templateObject: Record<string, un
     if (Array.isArray(value)) {
       for (let i = 0; i < value.length; i++) {
         value[i] = assignArgValues(value[i]);
+      }
+    }
+
+    if (typeof value === 'string') {
+      const matchedArgs = value.match(/(?<=\{\{)([^}{]+)(?=\}\})/g);
+
+      if (matchedArgs?.length) {
+        let newValue = value;
+        for (const argName of matchedArgs) {
+          const argValue = args[argName];
+
+          if (typeof args[argName] !== 'undefined') {
+            newValue = newValue.replace(`{{${argName}}}`, argValue);
+          }
+        }
+
+        return newValue;
       }
     }
 

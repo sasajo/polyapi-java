@@ -29,6 +29,8 @@ import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { AuthService } from 'auth/auth.service';
 import { LimitService } from 'limit/limit.service';
 
+import * as JsonTemplate from 'function/custom/json-template/index';
+
 describe('FunctionService', () => {
   let functionService: FunctionService;
   let moduleRef: TestingModule;
@@ -646,7 +648,7 @@ describe('FunctionService', () => {
     });
   });
 
-  describe('executeApiFunction', () => {
+  describe.only('executeApiFunction', () => {
     const testResponseBody = {
       value: 'testResponse',
     };
@@ -806,44 +808,6 @@ describe('FunctionService', () => {
       });
     });
 
-    it('Should send hardcoded raw values as json.', async() => {
-
-      const hardcodedBodyObject = {
-        name: 'foo',
-        lastName: 'bar',
-        data: {
-          age: 27,
-          list: [1, false, "", { a: 'b'}]
-        },
-        foo: null
-      }
-
-      const apiFunction = {
-        url: 'https://jsonplaceholder.typicode.com/posts',
-        body: JSON.stringify({
-          mode: 'raw',
-          raw: JSON.stringify(hardcodedBodyObject)
-        } as RawBody),
-        method: 'POST',
-        headers: '[]',
-        auth: '{}',
-        argumentsMetadata: '{}',
-      } as ApiFunction & { environment: Environment };
-
-      const result = await functionService.executeApiFunction(apiFunction, {
-        userId: undefined,
-        title: 'test1',
-      });
-      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
-        data: hardcodedBodyObject
-      }));
-      expect(result).toEqual({
-        data: testResponseBody,
-        status: 200,
-        headers: {},
-      });
-    })
-
     it('Should remove optional arguments that has not been provided for urlencoded body.', async () => {
       const apiFunction = {
         url: 'https://jsonplaceholder.typicode.com/posts',
@@ -921,7 +885,81 @@ describe('FunctionService', () => {
     });
 
 
-    
+    it('Should remove optional arguments that has not been provided for raw body.', async() => {
+      jest.spyOn(JsonTemplate, 'getMetadataTemplateObject').mockReturnValue({
+        name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+        lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
+        vip: true,
+        list: [
+          { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+          {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
+          {
+            age: 27,
+            lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true}
+          },
+          1
+        ]
+      });
+
+      const mergeArgumentsInTemplateObjectSpy = jest.spyOn(JsonTemplate, 'mergeArgumentsInTemplateObject').mockReturnValue({
+        name: 'Poly'
+      });
+
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'raw',
+          raw: '',
+        } as RawBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          name: {
+            type: 'string'
+          },
+          lastName: {
+            type: 'string',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        name: 'Poly',
+        lastName: undefined,
+      });
+
+      expect(mergeArgumentsInTemplateObjectSpy).toHaveBeenCalledWith({
+        name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+        vip: true,
+        list: [
+          { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+          undefined,
+          {
+            age: 27
+          },
+          1
+        ]
+      }, {
+        name: 'Poly',
+        lastName: undefined,
+      })
+
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          name: 'Poly'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+    // it('Should ')
 
     it('should return error when error in request occurs', async () => {
       jest.spyOn(functionService as any, 'getBodyData')

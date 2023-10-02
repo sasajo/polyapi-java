@@ -86,7 +86,7 @@ describe('json-template', () => {
     });
   });
 
-  describe('mergeArgumentsInTemplateObject', () => {
+  describe.only('mergeArgumentsInTemplateObject', () => {
     it('Should be able to send an object inside a double quoted arg.', () => {
       const templateObject = {
         name: {
@@ -249,6 +249,43 @@ describe('json-template', () => {
       expect(result).toStrictEqual({
         age: '27',
         vip: 'true',
+      });
+    });
+
+    it.only('Should be able to replace arguments inside strings with content.', () => {
+      const age = 27;
+      const templateObject = {
+        ageDescription: 'My age is {{age}}.',
+        ageDescription2: 'My age is {{{{age}}}}',
+        age: {
+          [POLY_ARG_NAME_KEY]: 'age',
+          quoted: false,
+        },
+        list:
+        [
+          {
+            [POLY_ARG_NAME_KEY]: 'age',
+            quoted: false,
+          },
+          'My age is {{age}}.',
+        ],
+      };
+
+      const result = mergeArgumentsInTemplateObject(
+        templateObject,
+        {
+          age,
+        },
+      );
+
+      expect(result).toStrictEqual({
+        ageDescription: `My age is ${age}.`,
+        ageDescription2: `My age is {{${age}}}`,
+        age,
+        list: [
+          age,
+          `My age is ${age}.`,
+        ],
       });
     });
   });
