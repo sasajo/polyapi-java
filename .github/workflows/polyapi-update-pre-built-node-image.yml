@@ -2,7 +2,7 @@ name: Update pre-built node docker image
 on:
   push:
     paths:
-      - "packages/client"
+      - "packages/client/**"
     branches:
       - develop
       - main
