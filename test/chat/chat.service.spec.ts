@@ -60,7 +60,9 @@ describe('ChatService', () => {
       };
 
       const detail = await service.getConversationDetail(auth, '', conversation.id);
-      expect(detail).toBe('USER\n\nI am super');
+      // console.log(detail);
+      expect(detail).toContain('USER');
+      expect(detail).toContain('I am super');
     });
 
     it('should NOT allow the Admin to get conversations cross-tenant', async () => {

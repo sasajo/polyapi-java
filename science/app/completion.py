@@ -152,6 +152,8 @@ Please return only the ids of the functions or variables and their confidence sc
 [ {"id": "111111-1111-1111-1111-1111111111", "score": 3}, {"id": "222222-2222-2222-2222-222222222", "score": 1} ]
 ```
 
+Do not explain your reasoning.
+
 If no function or variable is suitable, please return the following:
 
 ```

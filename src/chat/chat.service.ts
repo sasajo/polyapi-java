@@ -222,7 +222,7 @@ export class ChatService {
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
-    const parts = messages.map((m) => `${m.role.toUpperCase()}\n\n${m.content}`);
+    const parts = messages.map((m) => `${m.role.toUpperCase()} (${m.createdAt.toISOString()})\n\n${m.content}`);
     return parts.join('\n\n');
   }
 
