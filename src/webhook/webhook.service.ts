@@ -174,6 +174,7 @@ export class WebhookService {
     subpath?: string,
     method?: string,
     securityFunctions: WebhookSecurityFunction[] = [],
+    templateBody?: string,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ): Promise<WebhookHandle> {
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
@@ -210,7 +211,7 @@ export class WebhookService {
     const webhookData = {
       eventPayloadType: eventPayloadTypeSchema
         ? JSON.stringify(eventPayloadTypeSchema)
-        : await this.getEventPayloadType(eventPayload),
+        : await this.getEventPayloadType(templateBody || eventPayload, templateBody ? 'eventPayload' : undefined),
       visibility,
       responsePayload,
       responseHeaders,
@@ -286,7 +287,7 @@ export class WebhookService {
                 data: {
                   eventPayloadType: eventPayloadTypeSchema
                     ? JSON.stringify(eventPayloadTypeSchema)
-                    : await this.getEventPayloadType(eventPayload),
+                    : await this.getEventPayloadType(templateBody || eventPayload, templateBody ? 'eventPayload' : undefined),
                   context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
                   description: description || aiResponse.description,
                   name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
@@ -403,6 +404,7 @@ export class WebhookService {
     method: string | null | undefined,
     securityFunctions: WebhookSecurityFunction[] | undefined,
     enabled: boolean | undefined,
+    templateBody: string | undefined,
   ) {
     name = this.normalizeName(name, webhookHandle);
     context = this.normalizeContext(context, webhookHandle);
@@ -429,7 +431,7 @@ export class WebhookService {
         description,
         visibility,
         eventPayloadType: eventPayload
-          ? await this.getEventPayloadType(eventPayload)
+          ? await this.getEventPayloadType(templateBody || eventPayload, templateBody ? 'eventPayload' : undefined)
           : eventPayloadTypeSchema
             ? JSON.stringify(eventPayloadTypeSchema)
             : eventPayloadType
@@ -678,9 +680,9 @@ export class WebhookService {
     return params;
   }
 
-  private async getEventPayloadType(eventPayload: any): Promise<string> {
+  private async getEventPayloadType(eventPayload: string | Record<string, any>, subpath?: string): Promise<string> {
     const [type, typeSchema] = eventPayload
-      ? await this.commonService.resolveType('WebhookEventType', JSON.stringify(eventPayload))
+      ? await this.commonService.resolveType('WebhookEventType', typeof eventPayload === 'string' ? eventPayload : JSON.stringify(eventPayload), subpath)
       : ['string'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : JSON.stringify(type);

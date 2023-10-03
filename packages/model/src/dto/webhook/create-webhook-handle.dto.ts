@@ -51,4 +51,8 @@ export class CreateWebhookHandleDto {
   @IsOptional()
   @IsArray()
   securityFunctions?: WebhookSecurityFunction[];
+
+  @IsOptional()
+  @IsString()
+  templateBody: string;
 }
