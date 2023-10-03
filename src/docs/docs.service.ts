@@ -8,7 +8,6 @@ export type DocUpdateT = {
   context?: string;
   title?: string;
   text?: string;
-  tenantId?: string;
 };
 
 @Injectable()
