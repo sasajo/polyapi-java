@@ -1841,7 +1841,7 @@ export class FunctionService implements OnModuleInit {
           this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
           continue;
         }
-        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(payload[arg.name]) : payload[arg.name] ;
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(payload[arg.name]) : payload[arg.name];
       } else {
         argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(args[arg.name]) : args[arg.name];
       }

@@ -648,7 +648,7 @@ describe('FunctionService', () => {
     });
   });
 
-  describe.only('executeApiFunction', () => {
+  describe('executeApiFunction', () => {
     const testResponseBody = {
       value: 'testResponse',
     };
@@ -886,6 +886,14 @@ describe('FunctionService', () => {
 
 
     it('Should remove optional arguments that has not been provided for raw body.', async() => {
+
+      const args = {
+        name: 'Poly',
+        lastName: undefined,
+      }
+
+      const getArgumentValueMapSpy = jest.spyOn((functionService as any), 'getArgumentValueMap').mockReturnValue(args);
+
       jest.spyOn(JsonTemplate, 'getMetadataTemplateObject').mockReturnValue({
         name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
         lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
@@ -909,7 +917,7 @@ describe('FunctionService', () => {
         url: 'https://jsonplaceholder.typicode.com/posts',
         body: JSON.stringify({
           mode: 'raw',
-          raw: '',
+          raw: '{"name": "{{name}}", "lastName": "{{lastName}}", "vip": true, "list": ["{{name}}", "{{lastName}}", {"age": 27,"lastName": "{{lastName}}" }, 1]}',
         } as RawBody),
         method: 'POST',
         headers: '[]',
@@ -926,10 +934,10 @@ describe('FunctionService', () => {
         }),
       } as ApiFunction & { environment: Environment };
 
-      const result = await functionService.executeApiFunction(apiFunction, {
-        name: 'Poly',
-        lastName: undefined,
-      });
+      const result = await functionService.executeApiFunction(apiFunction, args);
+
+
+      expect(getArgumentValueMapSpy).toHaveBeenCalledWith(apiFunction, args, false)
 
       expect(mergeArgumentsInTemplateObjectSpy).toHaveBeenCalledWith({
         name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
@@ -942,10 +950,7 @@ describe('FunctionService', () => {
           },
           1
         ]
-      }, {
-        name: 'Poly',
-        lastName: undefined,
-      })
+      }, args)
 
       expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
         data: {
@@ -958,8 +963,6 @@ describe('FunctionService', () => {
         headers: {},
       });
     });
-
-    // it('Should ')
 
     it('should return error when error in request occurs', async () => {
       jest.spyOn(functionService as any, 'getBodyData')
