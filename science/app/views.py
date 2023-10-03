@@ -94,8 +94,10 @@ def function_completion() -> Response:
         resp = general_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "help":
         resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
-    elif route == "documentation":
-        resp = documentation_question(user_id, conversation.id, question, prev_msgs)
+    elif route == "tenant_documentation":
+        resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenantId=user.tenantId)
+    elif route == "poly_documentation":
+        resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenantId=None)
     else:
         resp = "unexpected category: {route}"
 

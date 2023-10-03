@@ -8,6 +8,7 @@ from typing import Dict, Generator, List, Optional, Union
 import openai
 from prisma import get_client
 from prisma.models import ConversationMessage, DocSection
+from prisma.types import DocSectionWhereInput
 from app.constants import QUESTION_TEMPLATE, MessageType
 from app.typedefs import MessageDict
 from app.utils import (
@@ -18,7 +19,7 @@ from app.utils import (
 )
 
 DOC_PROMPT = """
-The following documentation helps users understand how to use Poly API a.k.a “Poly” or “PolyAPI” or “Poly AI Assistant”
+%s
 
 This documentation was written for the purpose of an AI agent to consume it. Note there are hints to the AI agent included in the document using this notation: <<this is a hint to the AI>>. Feel free to use your own knowledge to elaborate these points where hints are included.
 
@@ -35,11 +36,27 @@ Translate the answer to the same language of the question.
 """
 
 
+# HACK replace these hardcoded tenant ids + tenant prompts with table in the DB
+SYSTEM_TENANT_ID = None
+# OPTORO_TENANT_ID = 'd314c8b7-2663-4286-83ff-3d623f1620f6'
+
+
+def _get_tenant_prompt(tenantId: Optional[str]):
+    if tenantId == SYSTEM_TENANT_ID:
+        return "The following documentation helps users understand how to use Poly API a.k.a “Poly” or “PolyAPI” or “Poly AI Assistant”"
+    # elif tenantId == OPTORO_TENANT_ID:
+    #     return "The following documentation helps users understand how to use Optoro's platform called Optiturn. Optiturn is a platform which helps e-commerce and retail customers manage their returns. You are being prompted by a developer trying build integrations to Optiturn."
+    else:
+        return "The following documentation is internal company documentation."
+
+
 def documentation_question(
     user_id: str,
     conversation_id: str,
     question: str,
     prev_msgs: List[ConversationMessage],
+    *,
+    tenantId: Optional[str],
 ) -> Union[Generator, str]:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
@@ -47,7 +64,8 @@ def documentation_question(
     query_vector = query_embed["data"][0]["embedding"]
 
     db = get_client()
-    docs = db.docsection.find_many()
+    where: DocSectionWhereInput = {"tenantId": tenantId}
+    docs = db.docsection.find_many(where=where)
     most_similar_doc: Optional[DocSection] = None
     max_similarity = -2.0  # similarity is -1 to 1
     stats: Dict[str, Dict] = {"similarity": {}}
@@ -64,7 +82,8 @@ def documentation_question(
     if not most_similar_doc:
         raise NotImplementedError("No matching documentation found!")
 
-    prompt = DOC_PROMPT % (most_similar_doc.title, most_similar_doc.text)
+    tenant_prompt = _get_tenant_prompt(tenantId)
+    prompt = DOC_PROMPT % (tenant_prompt, most_similar_doc.title, most_similar_doc.text)
     prompt_msg = MessageDict(role="user", content=prompt)
     question_msg = MessageDict(
         role="user", content=QUESTION_TEMPLATE.format(question), type=MessageType.user
@@ -72,7 +91,7 @@ def documentation_question(
     messages = msgs_to_msg_dicts(prev_msgs) + [prompt_msg, question_msg]  # type: ignore
 
     host_url = os.environ.get("HOST_URL", "https://na1.polyapi.io")
-    if host_url != "https://na1.polyapi.io":
+    if tenantId == SYSTEM_TENANT_ID and host_url != "https://na1.polyapi.io":
         content = f"The user's instance url is '{host_url}'. Use it to generate the urls for the poly instance specific links."
         messages.append(MessageDict(role="user", content=content))
 

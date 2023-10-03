@@ -109,6 +109,7 @@ export class WebhookController {
       subpath,
       method,
       securityFunctions = [],
+      templateBody,
     } = createWebhookHandle;
 
     await this.authService.checkPermissions(req.user, Permission.Teach);
@@ -135,6 +136,7 @@ export class WebhookController {
       subpath,
       method,
       securityFunctions,
+      templateBody,
     );
     return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
@@ -161,6 +163,7 @@ export class WebhookController {
       method,
       securityFunctions,
       enabled,
+      templateBody,
     } = updateWebhookHandleDto;
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
@@ -207,6 +210,7 @@ export class WebhookController {
         method,
         securityFunctions,
         enabled,
+        templateBody,
       ),
       req.user.environment,
     );
