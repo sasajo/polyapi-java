@@ -58,6 +58,7 @@ export class DocsController {
     if (!user) {
       throw Error('PolyAuthGuard should force user!'); // hack for types
     }
-    return await this.service.deleteDoc(id, user.tenantId);
+    await this.service.deleteDoc(id, user.tenantId);
+    return 'deleted';
   }
 }
