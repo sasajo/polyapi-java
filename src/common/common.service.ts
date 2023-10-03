@@ -86,7 +86,7 @@ export class CommonService {
     }
   }
 
-  async resolveType(typeName: string, value: any): Promise<[string, Record<string, any>?, Record<string, string>?]> {
+  async resolveType(typeName: string, value: any, subpath?: string): Promise<[string, Record<string, any>?, Record<string, string>?]> {
     const numberRegex = /^-?\d+\.?\d*$/;
     const booleanRegex = /^(true|false)$/;
 
@@ -98,11 +98,15 @@ export class CommonService {
     }
     try {
       const isStringValue = typeof value === 'string';
-      const obj = isStringValue ? JSON.parse(this.filterJSONComments(value)) : value;
+      let obj = isStringValue ? JSON.parse(this.filterJSONComments(value)) : value;
       if (obj && typeof obj === 'object') {
+        if (subpath) {
+          obj = this.getPathContent(obj, subpath);
+        }
+
         const typeSchema = await this.getJsonSchema(typeName, obj);
         if (typeSchema) {
-          return ['object', isStringValue ? this.enhanceJSONSchemaWithComments(typeSchema, value) : typeSchema];
+          return ['object', isStringValue ? this.enhanceJSONSchemaWithComments(typeSchema, value, subpath) : typeSchema];
         } else {
           return ['object'];
         }
@@ -358,8 +362,8 @@ export class CommonService {
     }
   }
 
-  private enhanceJSONSchemaWithComments(typeSchema: Record<string, any>, jsoncString: string): Record<string, any> {
-    const comments = this.extractComments(jsoncString);
+  private enhanceJSONSchemaWithComments(typeSchema: Record<string, any>, jsoncString: string, subpath?: string): Record<string, any> {
+    const comments = this.extractComments(jsoncString, subpath);
 
     const processObject = (obj: any, currentPath = '') => {
       if (obj.$ref) {
@@ -387,7 +391,7 @@ export class CommonService {
     return typeSchema;
   }
 
-  private extractComments(jsoncString: string): Record<string, string> {
+  private extractComments(jsoncString: string, subpath?: string): Record<string, string> {
     const propComments = {};
     const parsed = parse(jsoncString, undefined);
 
@@ -405,13 +409,20 @@ export class CommonService {
           `after:${key}`,
         ];
         const propertyPath = currentPath ? `${currentPath}.${Array.isArray(obj) ? '[]' : key}` : key;
+        if (subpath && !propertyPath.startsWith(subpath)) {
+          return;
+        }
         const propertyComments = commentSymbols
           .map(symbol => commentsToString(obj[Symbol.for(symbol)]))
           .filter(Boolean)
           .join('\n');
 
         if (propertyComments) {
-          propComments[propertyPath] = [propComments[propertyPath]].filter(Boolean)
+          let path = subpath ? propertyPath.substring(subpath.length) : propertyPath;
+          if (path.startsWith('.')) {
+            path = path.substring(1);
+          }
+          propComments[path] = [propComments[path]].filter(Boolean)
             .concat(propertyComments)
             .join('\n');
         }
