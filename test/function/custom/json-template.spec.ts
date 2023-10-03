@@ -86,7 +86,7 @@ describe('json-template', () => {
     });
   });
 
-  describe.only('mergeArgumentsInTemplateObject', () => {
+  describe('mergeArgumentsInTemplateObject', () => {
     it('Should be able to send an object inside a double quoted arg.', () => {
       const templateObject = {
         name: {
@@ -252,7 +252,7 @@ describe('json-template', () => {
       });
     });
 
-    it.only('Should be able to replace arguments inside strings with content.', () => {
+    it('Should be able to replace arguments inside strings with content.', () => {
       const age = 27;
       const templateObject = {
         ageDescription: 'My age is {{age}}.',

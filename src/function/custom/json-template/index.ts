@@ -1,6 +1,7 @@
 import hls from 'highlight.js';
 import { parse } from 'node-html-parser';
 import { getExtendedJsonLanguage, LANGUAGE_NAME } from './extended-json-language';
+import { ARGUMENT_PATTERN } from '../constants';
 import { cloneDeep, isPlainObject } from 'lodash';
 
 hls.registerLanguage(LANGUAGE_NAME, getExtendedJsonLanguage);
@@ -91,7 +92,7 @@ export const mergeArgumentsInTemplateObject = (templateObject: Record<string, un
     }
 
     if (typeof value === 'string') {
-      const matchedArgs = value.match(/(?<=\{\{)([^}{]+)(?=\}\})/g);
+      const matchedArgs = value.match(ARGUMENT_PATTERN);
 
       if (matchedArgs?.length) {
         let newValue = value;

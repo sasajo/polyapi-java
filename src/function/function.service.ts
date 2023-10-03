@@ -76,8 +76,7 @@ import { AuthService } from 'auth/auth.service';
 import { AuthData, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
 import { getMetadataTemplateObject, isTemplateArg, mergeArgumentsInTemplateObject, POLY_ARG_NAME_KEY } from './custom/json-template';
-
-const ARGUMENT_PATTERN = /(?<=\{\{)([^}{]+)(?=\}\})/g;
+import { ARGUMENT_PATTERN } from './custom/constants';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
