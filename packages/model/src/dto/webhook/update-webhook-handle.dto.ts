@@ -77,4 +77,8 @@ export class UpdateWebhookHandleDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  templateBody: string;
 }
