@@ -863,15 +863,14 @@ export class FunctionService implements OnModuleInit {
     this.logger.debug(`Executing function ${apiFunction.id}...`);
 
     const argumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}') as ArgumentsMetadata;
-    const argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
-    const url = mustache.render(apiFunction.url, argumentValueMap);
+    let argumentValueMap: {[key: string]: any } = {};
     const method = apiFunction.method;
-    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
     const parsedBody = JSON.parse(apiFunction.body || '{}') as Body;
 
     let body: Body | null = null;
 
     if (parsedBody.mode === 'urlencoded' || parsedBody.mode === 'formdata') {
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
       const filterOptionalArgs = (entry: PostmanVariableEntry) => {
         if (!entry.value.match(ARGUMENT_PATTERN)) {
           return true;
@@ -900,10 +899,15 @@ export class FunctionService implements OnModuleInit {
 
       body = JSON.parse(mustache.render(JSON.stringify(filteredBody), argumentValueMap)) as Body;
     } else if (parsedBody.mode === 'raw') {
-      body = this.processRawBody(parsedBody, argumentsMetadata, args);
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args, false);
+      body = this.processRawBody(parsedBody, argumentsMetadata, argumentValueMap);
     } else {
-      body = JSON.parse(mustache.render(apiFunction.body || '', argumentsMetadata)) as Body;
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
+      body = JSON.parse(mustache.render(apiFunction.body || '', argumentValueMap)) as Body;
     }
+
+    const url = mustache.render(apiFunction.url, argumentValueMap);
+    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
 
     const params = {
       ...this.getAuthorizationQueryParams(auth),
@@ -1802,8 +1806,8 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>) {
-    const normalizeArg = (arg: any) => {
+  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>, normalizeArg = true) {
+    const normalizeArgFn = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
           .replace(/\n/g, '\\n')
@@ -1837,9 +1841,9 @@ export class FunctionService implements OnModuleInit {
           this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
           continue;
         }
-        argumentValueMap[arg.key] = normalizeArg(payload[arg.name]);
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(payload[arg.name]) : payload[arg.name] ;
       } else {
-        argumentValueMap[arg.key] = normalizeArg(args[arg.name]);
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(args[arg.name]) : args[arg.name];
       }
     }
 
