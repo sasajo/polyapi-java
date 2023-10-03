@@ -36,14 +36,18 @@ Translate the answer to the same language of the question.
 """
 
 
+# HACK replace these hardcoded tenant ids + tenant prompts with table in the DB
 SYSTEM_TENANT_ID = None
+OPTORO_TENANT_ID = 'd314c8b7-2663-4286-83ff-3d623f1620f6'
 
 
 def _get_tenant_prompt(tenantId: Optional[str]):
     if tenantId == SYSTEM_TENANT_ID:
         return "The following documentation helps users understand how to use Poly API a.k.a “Poly” or “PolyAPI” or “Poly AI Assistant”"
-    else:
+    elif tenantId == OPTORO_TENANT_ID:
         return "The following documentation helps users understand how to use Optoro's platform called Optiturn. Optiturn is a platform which helps e-commerce and retail customers manage their returns. You are being prompted by a developer trying build integrations to Optiturn."
+    else:
+        return "The following documentation is internal company documentation."
 
 
 def documentation_question(
