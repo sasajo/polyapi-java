@@ -18,3 +18,10 @@ export class CreateCustomFunctionDto {
   @IsNotEmpty()
   code: string;
 }
+
+export class CreateClientCustomFunctionDto extends CreateCustomFunctionDto {
+}
+
+export class CreateServerCustomFunctionDto extends CreateCustomFunctionDto {
+  typeSchemas?: Record<string, any>;
+}

@@ -55,6 +55,7 @@ export const createOrUpdateServerFunction = async (
   name: string,
   description: string | null,
   code: string,
+  typeSchemas: Record<string, any>,
 ) => {
   return (
     await axios.post<any, AxiosResponse<FunctionDetailsDto>>(
@@ -64,6 +65,7 @@ export const createOrUpdateServerFunction = async (
         name,
         description,
         code,
+        typeSchemas,
       },
       {
         headers: {

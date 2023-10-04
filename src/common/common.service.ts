@@ -22,7 +22,6 @@ import {
   VisibilityQuery,
 } from '@poly/model';
 
-const ARGUMENT_TYPE_SUFFIX = '.Argument';
 const JSON_META_SCHEMA_CACHE = {};
 
 @Injectable()
@@ -131,10 +130,6 @@ export class CommonService {
         kind: 'array',
         items: await this.toPropertyType(name, type.substring(0, type.length - 2)),
       };
-    }
-    if (type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
-      // backward compatibility (might be removed in the future)
-      type = 'object';
     }
 
     switch (type) {

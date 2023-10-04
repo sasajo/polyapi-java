@@ -82,7 +82,7 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-    createFromScratch = false,
+    createFromScratch?: boolean,
   ): Promise<void> {
     this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -179,7 +179,7 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-  ) {
+  ): Promise<void> {
     this.logger.debug(`Updating server function '${id}'...`);
 
     return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits);

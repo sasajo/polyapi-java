@@ -25,7 +25,8 @@ import {
   ApiFunctionResponseDto,
   ArgumentsMetadata,
   CreateApiFunctionDto,
-  CreateCustomFunctionDto,
+  CreateClientCustomFunctionDto,
+  CreateServerCustomFunctionDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
   ExecuteCustomFunctionQueryParams,
@@ -256,21 +257,19 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/client')
-  async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
+  async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateClientCustomFunctionDto): Promise<FunctionDetailsDto> {
     const { context = '', name, description = '', code } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createOrUpdateCustomFunction(
+        await this.service.createOrUpdateClientFunction(
           req.user.environment,
           context,
           name,
           description,
           code,
-          false,
-          req.user.key,
           () => this.checkFunctionsLimit(req.user.tenant, 'creating custom client function'),
         ),
       );
@@ -366,21 +365,21 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/server')
-  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, description = '', code } = data;
+  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateServerCustomFunctionDto): Promise<FunctionDetailsDto> {
+    const { context = '', name, description = '', code, typeSchemas = {} } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     await this.checkFunctionsLimit(req.user.tenant, 'creating custom server function');
 
     try {
-      const customFunction = await this.service.createOrUpdateCustomFunction(
+      const customFunction = await this.service.createOrUpdateServerFunction(
         req.user.environment,
         context,
         name,
         description,
         code,
-        true,
+        typeSchemas,
         req.user.key,
         () => this.checkFunctionsLimit(req.user.tenant, 'creating custom server function'),
       );

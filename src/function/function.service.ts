@@ -1095,14 +1095,61 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  async createOrUpdateClientFunction(
+    environment: Environment,
+    context: string,
+    name: string,
+    description: string,
+    customCode: string,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
+  ) {
+    return this.createOrUpdateCustomFunction(
+      environment,
+      context,
+      name,
+      description,
+      customCode,
+      {},
+      false,
+      null,
+      checkBeforeCreate,
+    );
+  }
+
+  async createOrUpdateServerFunction(
+    environment: Environment,
+    context: string,
+    name: string,
+    description: string,
+    customCode: string,
+    typeSchemas: Record<string, any>,
+    apiKey: string,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
+    createFromScratch = false,
+  ) {
+    return this.createOrUpdateCustomFunction(
+      environment,
+      context,
+      name,
+      description,
+      customCode,
+      typeSchemas,
+      true,
+      apiKey,
+      checkBeforeCreate,
+      createFromScratch,
+    );
+  }
+
   async createOrUpdateCustomFunction(
     environment: Environment,
     context: string,
     name: string,
     description: string,
     customCode: string,
+    typeSchemas: Record<string, any>,
     serverFunction: boolean,
-    apiKey: string,
+    apiKey: string | null,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
     createFromScratch = false,
   ): Promise<CustomFunction> {
@@ -1113,7 +1160,7 @@ export class FunctionService implements OnModuleInit {
       synchronous,
       contextChain,
       requirements,
-    } = await transpileCode(name, customCode);
+    } = await transpileCode(name, customCode, typeSchemas);
 
     context = context || contextChain.join('.');
 
@@ -1198,7 +1245,7 @@ export class FunctionService implements OnModuleInit {
       });
     }
 
-    if (serverFunction) {
+    if (serverFunction && apiKey) {
       this.logger.debug(`Creating server side custom function ${name}`);
 
       const revertServerFunctionFlag = async () => {
@@ -1625,13 +1672,13 @@ export class FunctionService implements OnModuleInit {
       function ${functionName}(): void {};
     `;
 
-    const customFunction = await this.createOrUpdateCustomFunction(
+    const customFunction = await this.createOrUpdateServerFunction(
       user.environment,
       '',
       functionName,
       '',
       code,
-      true,
+      { },
       user.key,
       () => Promise.resolve(),
       true,

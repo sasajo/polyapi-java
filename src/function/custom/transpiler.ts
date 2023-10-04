@@ -22,7 +22,7 @@ export interface TranspileResult {
   requirements: string[];
 }
 
-export const transpileCode = async (functionName: string, code: string): Promise<TranspileResult> => {
+export const transpileCode = async (functionName: string, code: string, providedTypeSchemas: Record<string, any>): Promise<TranspileResult> => {
   let functionArguments: FunctionArgument[] | null = null;
   let returnType: string | null = null;
   let synchronous = true;
@@ -163,23 +163,43 @@ export const transpileCode = async (functionName: string, code: string): Promise
     returnType = returnType.replace('Promise<', '').replace('>', '');
   }
 
-  const typeSchemas = await getJSONSchemas(interfaceDeclarations, enumDeclarations, classDeclarations);
+  const typeSchemas = {
+    ...await getJSONSchemas(interfaceDeclarations, enumDeclarations, classDeclarations),
+    ...toTypeSchemaJSONString(providedTypeSchemas),
+  };
+  const getTypeSchema = (type: string) => {
+    const typeSchema = typeSchemas[type];
+    if (typeSchema) {
+      return typeSchema;
+    }
 
-  const returnTypeSchema = typeSchemas[returnType.replace('[]', '')];
-  if (returnTypeSchema) {
-    returnType = returnType.endsWith('[]') ? wrapIntoArraySchema(returnTypeSchema) : returnTypeSchema;
-  }
+    if (type.endsWith('[]')) {
+      const arrayType = type.substring(0, type.length - 2);
+      const arrayTypeSchema = typeSchemas[arrayType];
+      if (arrayTypeSchema) {
+        return wrapIntoArraySchema(arrayTypeSchema);
+      }
+    }
+
+    if (type.endsWith('>')) {
+      const genericType = type.replace(/<.*>/, '');
+      return getTypeSchema(genericType);
+    }
+
+    return null;
+  };
+
   functionArguments.forEach((arg) => {
-    const argTypeSchema = typeSchemas[arg.type.replace('[]', '')];
+    const argTypeSchema = getTypeSchema(arg.type);
     if (argTypeSchema) {
-      arg.typeSchema = arg.type.endsWith('[]') ? wrapIntoArraySchema(argTypeSchema) : argTypeSchema;
+      arg.typeSchema = argTypeSchema;
     }
   });
 
   return {
     code: result.outputText,
     args: functionArguments,
-    returnType,
+    returnType: getTypeSchema(returnType) || returnType,
     synchronous,
     contextChain,
     requirements: Array.from(importedLibraries)
@@ -187,7 +207,11 @@ export const transpileCode = async (functionName: string, code: string): Promise
   };
 };
 
-const getJSONSchemas = async (interfaceDeclarations: Record<string, ts.InterfaceDeclaration>, enumDeclarations: Record<string, ts.EnumDeclaration>, classDeclarations: Record<string, ts.ClassDeclaration>): Promise<Record<string, string>> => {
+const getJSONSchemas = async (
+  interfaceDeclarations: Record<string, ts.InterfaceDeclaration>,
+  enumDeclarations: Record<string, ts.EnumDeclaration>,
+  classDeclarations: Record<string, ts.ClassDeclaration>,
+): Promise<Record<string, string>> => {
   if (Object.keys(interfaceDeclarations).length === 0 && Object.keys(enumDeclarations).length === 0 && Object.keys(classDeclarations).length === 0) {
     return {};
   }
@@ -244,6 +268,13 @@ const getJSONSchemas = async (interfaceDeclarations: Record<string, ts.Interface
   await unlink(tempFilePath);
 
   return schemas;
+};
+
+const toTypeSchemaJSONString = (typeSchemas: Record<string, any>) => {
+  return Object.keys(typeSchemas).reduce((acc, key) => {
+    acc[key] = JSON.stringify(typeSchemas[key]);
+    return acc;
+  }, {} as Record<string, string>);
 };
 
 const wrapIntoArraySchema = (schemaString: string): string => {

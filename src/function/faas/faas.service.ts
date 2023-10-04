@@ -16,7 +16,7 @@ export interface FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-    createFromScratch?: boolean
+    createFromScratch?: boolean,
   ) => Promise<void>;
   executeFunction: (id: string, tenantId: string, environmentId: string, args: any[], headers: Record<string, any>) => Promise<ExecuteFunctionResult>;
   updateFunction: (
@@ -27,7 +27,7 @@ export interface FaasService {
     code: string,
     requirements: string[],
     apiKey: string,
-    limits: ServerFunctionLimits
+    limits: ServerFunctionLimits,
   ) => Promise<void>;
   deleteFunction: (id: string, tenantId: string, environmentId: string) => Promise<void>;
 
