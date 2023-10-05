@@ -1,3 +1,6 @@
+### 0.4.0
+* Add dependencies checking on setup.
+
 ### 0.3.9
 * Add `async` to webhook handlers clipboard.
 
