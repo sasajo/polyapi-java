@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import * as vscode from 'vscode';
 import fs from 'fs';
 import { getClientPackageJson, getCredentialsFromExtension, getLibraryVersionFromApiHost, getPackageManager, getWorkspacePath, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
-import { MESSAGES, checkLibraryVersions, checkNodeVersion, checkTsConfig, getUpdateLibraryVersionMessage } from '@poly/common/client/dependencies';
+import { MESSAGES, checkLibraryVersions, checkNodeVersion, checkTsConfig, getUpdateLibraryVersionMessage } from '@poly/common/client-dependencies';
 
 const exec = promisify(childProcess.exec);
 
@@ -182,11 +182,11 @@ export default class DefaultView {
               }
 
               await exec(`cd ${workSpacePath} && ${getPackageManager()} add ${library}@latest`);
-              resolve();
+              resolve(undefined);
             } catch (err) {
               console.log(err);
               vscode.window.showErrorMessage(`Couldn't ${create ? 'create' : 'update '} ${library}.`);
-              resolve();
+              resolve(undefined);
             }
           });
         });

@@ -3,7 +3,7 @@ import inquirer from 'inquirer';
 import fs from 'fs';
 import { loadConfig, saveConfig } from '../config';
 import chalk from 'chalk';
-// import { checkNodeVersion, checkLibraryVersions, getUpdateLibraryVersionMessage, checkTsConfig } from '@poly/common/client/dependencies';
+import { checkNodeVersion, checkLibraryVersions, getUpdateLibraryVersionMessage, checkTsConfig } from '@poly/common/client-dependencies';
 
 const URL_REGEX = /https?:\/\/(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))/;
 
@@ -48,16 +48,16 @@ const setup = async () => {
 
 const setupEnvironment = async () => {
   loadConfig();
-  /*
+
   checkNodeVersion({
     onOldVersion(message) {
       shell.echo(chalk.red(message));
       throw new Error('Node.js version is too old.');
     },
-  });*/
+  });
 
   const packageJson = getPackageJson();
-  /*
+
   await checkLibraryVersions(packageJson, {
     async createOrUpdateLib(library, create) {
       await shell.echo(`${create ? 'Installing' : 'Updating'} ${library}...`);
@@ -113,7 +113,7 @@ const setupEnvironment = async () => {
     async saveTsConfig(tsConfig) {
       fs.writeFileSync(`${process.cwd()}/tsconfig.json`, tsConfig);
     },
-  }); */
+  });
 };
 
 const getPackageManager = () : 'npm' | 'yarn' => {
