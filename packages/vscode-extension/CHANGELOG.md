@@ -1,6 +1,9 @@
 ### 0.4.0
 * Add dependencies checking on setup.
 
+### 0.3.10
+* Fix `missingCredentials` state when user completes credentials step on project setup.
+
 ### 0.3.9
 * Add `async` to webhook handlers clipboard.
 
