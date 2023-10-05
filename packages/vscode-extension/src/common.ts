@@ -73,3 +73,7 @@ export const isPolyLibraryInstalled = () => {
     return false;
   });
 };
+
+export const getClientPackageJson = () => {
+  return fs.readFileSync(`${getWorkspacePath()}/package.json`, 'utf-8');
+};
