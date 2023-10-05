@@ -259,8 +259,6 @@ model AuthToken {
   audience       String?
   scopes         String
   state          String?
-  accessToken    String?       @map("access_token")
-  refreshToken   String?       @map("refresh_token")
   eventsClientId String?       @map("events_client_id")
   userId         String?       @map("user_id")
   authProvider   AuthProvider  @relation(fields: [authProviderId], references: [id], onDelete: Cascade)

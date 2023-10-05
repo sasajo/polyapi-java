@@ -11,6 +11,7 @@ import { VariableModule } from 'variable/variable.module';
 import { LimitModule } from 'limit/limit.module';
 import { StatisticsModule } from 'statistics/statistics.module';
 import { ConfigVariableModule } from 'config-variable/config-variable.module';
+import { SecretModule } from 'secret/secret.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ConfigVariableModule } from 'config-variable/config-variable.module';
     LimitModule,
     StatisticsModule,
     ConfigVariableModule,
+    SecretModule,
   ],
   controllers: [AuthProviderController],
   providers: [AuthProviderService],

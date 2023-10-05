@@ -21,6 +21,12 @@ import { SpecsService } from 'specs/specs.service';
 import { CommonService } from 'common/common.service';
 import { WithTenant } from 'common/types';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
+import { SecretService } from 'secret/secret.service';
+
+interface AuthTokenData {
+  accessToken: string;
+  refreshToken: string | null;
+}
 
 @Injectable()
 export class AuthProviderService {
@@ -35,6 +41,7 @@ export class AuthProviderService {
     @Inject(forwardRef(() => SpecsService))
     private readonly specsService: SpecsService,
     private readonly configVariableService: ConfigVariableService,
+    private readonly secretService: SecretService,
   ) {
   }
 
@@ -304,18 +311,23 @@ export class AuthProviderService {
           userId,
         },
       });
-      if (existingToken?.accessToken) {
-        this.logger.debug(`Token exists for user ${userId}.`);
-        return {
-          url: this.getAuthProviderAuthorizationUrl(authProvider, existingToken),
-          token: existingToken.accessToken,
-        };
+      if (existingToken) {
+        const tokenData = await this.getAuthTokenData(authProvider, existingToken);
+        if (tokenData?.accessToken) {
+          this.logger.debug(`Token exists for user ${userId}.`);
+          return {
+            url: this.getAuthProviderAuthorizationUrl(authProvider, existingToken),
+            token: tokenData.accessToken,
+          };
+        } else {
+          this.logger.debug(`Token does not exist for user ${userId}. Continuing OAuth flow...`);
+        }
       } else {
         this.logger.debug(`Token does not exist for user ${userId}. Continuing OAuth flow...`);
       }
     }
 
-    await this.prisma.authToken.deleteMany({
+    const authTokens = await this.prisma.authToken.findMany({
       where: {
         authProvider: {
           id: authProvider.id,
@@ -325,6 +337,16 @@ export class AuthProviderService {
         eventsClientId,
       },
     });
+    if (authTokens.length) {
+      for (const authToken of authTokens) {
+        await this.deleteAuthTokenData(authProvider, authToken);
+        await this.prisma.authToken.delete({
+          where: {
+            id: authToken.id,
+          },
+        });
+      }
+    }
 
     const state = crypto.randomBytes(20).toString('hex');
     const authToken = await this.prisma.authToken.create({
@@ -348,6 +370,17 @@ export class AuthProviderService {
     return {
       url: this.getAuthProviderAuthorizationUrl(authProvider, authToken),
     };
+  }
+
+  private async deleteAuthTokenData(authProvider: AuthProvider, authToken: AuthToken) {
+    await this.secretService.delete(authProvider.environmentId, this.getAuthTokenDataKey(authToken));
+  }
+
+  private async getAuthTokenData(authProvider: AuthProvider, authToken: AuthToken) {
+    return await this.secretService.get<AuthTokenData>(
+      authProvider.environmentId,
+      this.getAuthTokenDataKey(authToken),
+    );
   }
 
   private getAuthProviderAuthorizationUrl(authProvider: AuthProvider, authToken: AuthToken) {
@@ -459,11 +492,10 @@ export class AuthProviderService {
         id: authToken.id,
       },
       data: {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
         state: crypto.randomBytes(20).toString('hex'),
       },
     });
+    await this.saveAuthTokenData(authProvider, updatedAuthToken, tokenData.access_token, tokenData.refresh_token);
 
     this.eventService.sendAuthFunctionEvent(id, updatedAuthToken.eventsClientId, {
       token: tokenData.access_token,
@@ -479,30 +511,17 @@ export class AuthProviderService {
     }
 
     this.logger.debug(`Revoking auth token for provider ${authProvider.id}...`);
-    const authToken = await this.prisma.authToken.findFirst({
-      where: {
-        authProvider: {
-          id: authProvider.id,
-        },
-        OR: [
-          {
-            accessToken: token,
-          },
-          {
-            refreshToken: token,
-          },
-        ],
-      },
-    });
+    const { authToken, tokenData } = await this.findAuthTokenByToken(authProvider, token) || {};
     if (authToken) {
       await this.prisma.authToken.deleteMany({
         where: {
           id: authToken.id,
         },
       });
+      await this.deleteAuthTokenData(authProvider, authToken);
     }
 
-    if (!authToken?.accessToken) {
+    if (!authToken || !tokenData) {
       this.logger.debug(`No auth token found for auth function ${authProvider.id}`);
       return;
     }
@@ -518,7 +537,7 @@ export class AuthProviderService {
           data: {
             client_id: authToken.clientId,
             client_secret: authToken.clientSecret,
-            token: authToken.accessToken,
+            token: tokenData.accessToken,
           },
         })
         .pipe(
@@ -530,6 +549,28 @@ export class AuthProviderService {
     );
   }
 
+  private async findAuthTokenByToken(authProvider: AuthProvider, token: string) {
+    const authTokens = await this.prisma.authToken.findMany({
+      where: {
+        authProvider: {
+          id: authProvider.id,
+        },
+      },
+    });
+
+    for (const authToken of authTokens) {
+      const tokenData = await this.getAuthTokenData(authProvider, authToken);
+      if (tokenData?.accessToken === token || tokenData?.refreshToken === token) {
+        return {
+          authToken,
+          tokenData,
+        };
+      }
+    }
+
+    return null;
+  }
+
   async introspectAuthToken(authProvider: AuthProvider, token: string): Promise<any> {
     if (!authProvider.introspectUrl) {
       return;
@@ -537,7 +578,7 @@ export class AuthProviderService {
 
     this.logger.debug(`Introspecting auth token for provider ${authProvider.id}...`);
     return lastValueFrom(
-      await this.httpService
+      this.httpService
         .request({
           url: authProvider.introspectUrl,
           method: 'POST',
@@ -569,21 +610,14 @@ export class AuthProviderService {
     }
 
     this.logger.debug(`Refreshing auth token for provider ${authProvider.id}...`);
-    const authToken = await this.prisma.authToken.findFirst({
-      where: {
-        authProvider: {
-          id: authProvider.id,
-        },
-        accessToken: token,
-      },
-    });
-    if (!authToken?.refreshToken) {
+    const { authToken, tokenData } = await this.findAuthTokenByToken(authProvider, token) || {};
+    if (!tokenData?.refreshToken || !authToken) {
       this.logger.debug(`No refresh token found for auth function ${authProvider.id}`);
       throw new BadRequestException(`No auth token found for auth function ${authProvider.id}`);
     }
 
     const { access_token: accessToken } = await lastValueFrom(
-      await this.httpService
+      this.httpService
         .request({
           url: authProvider.tokenUrl,
           method: 'POST',
@@ -596,7 +630,7 @@ export class AuthProviderService {
             client_secret: authToken.clientSecret,
             audience: authToken.audience,
             grant_type: 'refresh_token',
-            refresh_token: authToken.refreshToken,
+            refresh_token: tokenData.refreshToken,
           },
         })
         .pipe(
@@ -613,14 +647,7 @@ export class AuthProviderService {
         ),
     );
 
-    await this.prisma.authToken.update({
-      where: {
-        id: authToken.id,
-      },
-      data: {
-        accessToken,
-      },
-    });
+    await this.saveAuthTokenData(authProvider, authToken, accessToken, tokenData.refreshToken);
 
     return accessToken;
   }
@@ -944,5 +971,17 @@ export class AuthProviderService {
       ...authProvider,
       hidden: !this.commonService.isPublicVisibilityAllowed(authProvider, defaultHidden, visibleContexts),
     };
+  }
+
+  private getAuthTokenDataKey(authToken: AuthToken) {
+    return `authTokenData:${authToken.id}`;
+  }
+
+  private saveAuthTokenData(authProvider: AuthProvider, updatedAuthToken: AuthToken, accessToken: string, refreshToken: string | null) {
+    const authTokenData: AuthTokenData = {
+      accessToken,
+      refreshToken,
+    };
+    return this.secretService.set(authProvider.environmentId, this.getAuthTokenDataKey(updatedAuthToken), authTokenData);
   }
 }
