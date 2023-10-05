@@ -2,7 +2,7 @@ import vscode from 'vscode';
 import fs, { Stats } from 'fs';
 
 import { polySpecsChanged } from './events';
-import { getCredentialsFromExtension, isPolyLibraryInstalled, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
+import { getCredentialsFromExtension, isPolyLibraryInstalled, saveCredentialsInExtension, saveLibraryConfig } from './common';
 
 const CHECK_INTERVAL = 5000;
 
@@ -24,7 +24,10 @@ const checkForLibraryInstalled = () => {
   if (installed && !prevPolyLibraryInstalledState) {
     const extensionCredentials = getCredentialsFromExtension();
     if (extensionCredentials.apiBaseUrl && extensionCredentials.apiKey) {
-      saveCredentialsOnClientLibrary(extensionCredentials.apiBaseUrl, extensionCredentials.apiKey);
+      saveLibraryConfig({
+        POLY_API_BASE_URL: extensionCredentials.apiBaseUrl,
+        POLY_API_KEY: extensionCredentials.apiKey,
+      });
     } else {
       vscode.commands.executeCommand('setContext', 'missingCredentials', false);
     }
@@ -48,7 +51,10 @@ const watchCredentials = () => {
       }
 
       if (isPolyLibraryInstalled()) {
-        saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
+        saveLibraryConfig({
+          POLY_API_BASE_URL: credentials.apiBaseUrl,
+          POLY_API_KEY: credentials.apiKey,
+        });
       }
     }
   });

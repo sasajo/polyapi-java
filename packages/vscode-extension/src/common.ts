@@ -44,7 +44,7 @@ export const getLibraryVersionFromApiHost = (apiBaseUrl: unknown) => {
   return result;
 };
 
-export const saveCredentialsOnClientLibrary = (apiBaseUrl: unknown, apiKey: unknown) => {
+export const saveLibraryConfig = (newConfig: Record<string, any>) => {
   const workspacePath = getWorkspacePath();
 
   if (!workspacePath) {
@@ -53,15 +53,63 @@ export const saveCredentialsOnClientLibrary = (apiBaseUrl: unknown, apiKey: unkn
 
   const polyFolder = path.join(getWorkspacePath(), 'node_modules/.poly');
 
+  const configEnvPath = path.join(polyFolder, '.config.env');
+
+  let currentConfig = {};
+
+  if (fs.existsSync(configEnvPath)) {
+    const content = fs.readFileSync(configEnvPath, 'utf8');
+
+    const credentialsList = content.split('\n').filter(value => value !== '');
+
+    currentConfig = credentialsList.reduce((acum, value) => {
+      const [credentialKey, credentialValue] = value.split('=');
+
+      return {
+        ...acum,
+        [credentialKey]: credentialValue,
+      };
+    }, {});
+  }
+
   try {
     fs.mkdirSync(polyFolder, { recursive: true });
+
+    const newContent = Object.entries({
+      ...currentConfig,
+      ...newConfig,
+    })
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+
     fs.writeFileSync(
-      path.join(polyFolder, '.config.env'),
-          `POLY_API_BASE_URL=${apiBaseUrl}\nPOLY_API_KEY=${apiKey}\n`,
+      configEnvPath,
+      newContent,
     );
   } catch (err) {
     console.log(err);
   }
+};
+
+export const getLibraryConfig = () => {
+  const configEnvPath = path.join(getWorkspacePath(), 'node_modules/.poly/.config.env');
+
+  if (!fs.existsSync(configEnvPath)) {
+    return {};
+  }
+
+  const content = fs.readFileSync(configEnvPath, 'utf8');
+
+  const credentialsList = content.split('\n').filter(line => line !== '');
+
+  return credentialsList.reduce((acum, value) => {
+    const [credentialKey, credentialValue] = value.split('=');
+
+    return {
+      ...acum,
+      [credentialKey]: credentialValue,
+    };
+  }, {});
 };
 
 export const isPolyLibraryInstalled = () => {

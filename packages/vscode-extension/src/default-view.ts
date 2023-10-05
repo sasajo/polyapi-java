@@ -2,7 +2,7 @@ import * as childProcess from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
 import fs from 'fs';
-import { getClientPackageJson, getCredentialsFromExtension, getLibraryVersionFromApiHost, getPackageManager, getWorkspacePath, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
+import { getClientPackageJson, getCredentialsFromExtension, getLibraryConfig, getLibraryVersionFromApiHost, getPackageManager, getWorkspacePath, saveCredentialsInExtension, saveLibraryConfig } from './common';
 import { MESSAGES, checkLibraryVersions, checkNodeVersion, checkTsConfig, getUpdateLibraryVersionMessage } from '@poly/common/client-dependencies';
 
 const exec = promisify(childProcess.exec);
@@ -14,7 +14,10 @@ export default class DefaultView {
     const credentials = getCredentialsFromExtension();
 
     if (credentials.apiBaseUrl && credentials.apiKey) {
-      return saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
+      return saveLibraryConfig({
+        POLY_API_BASE_URL: credentials.apiBaseUrl,
+        POLY_API_KEY: credentials.apiKey,
+      });
     }
 
     const apiBaseUrl = await vscode.window.showInputBox({
@@ -49,7 +52,10 @@ export default class DefaultView {
 
     if (apiBaseUrl && apiKey) {
       saveCredentialsInExtension(apiBaseUrl, apiKey);
-      saveCredentialsOnClientLibrary(apiBaseUrl, apiKey);
+      saveLibraryConfig({
+        POLY_API_BASE_URL: apiBaseUrl,
+        POLY_API_KEY: apiKey,
+      });
       vscode.commands.executeCommand('setContext', 'missingCredentials', false);
     } else {
       throw new Error('Missing credentials.');
@@ -57,17 +63,23 @@ export default class DefaultView {
   }
 
   async setupLibrary() {
-    let invalidNodeVersion = false;
+    const libraryConfig = getLibraryConfig();
 
-    checkNodeVersion({
-      onOldVersion(message) {
-        invalidNodeVersion = true;
-        vscode.window.showErrorMessage(message);
-      },
-    });
+    const isSetupComplete = libraryConfig['ENVIRONMENT_SETUP_COMPLETE'] === 'true';
 
-    if (invalidNodeVersion) {
-      return;
+    if (!isSetupComplete) {
+      let invalidNodeVersion = false;
+
+      checkNodeVersion({
+        onOldVersion(message) {
+          invalidNodeVersion = true;
+          vscode.window.showErrorMessage(message);
+        },
+      });
+
+      if (invalidNodeVersion) {
+        return;
+      }
     }
 
     try {
@@ -83,11 +95,17 @@ export default class DefaultView {
       return vscode.window.showErrorMessage('Failed to install polyapi');
     }
 
-    try {
-      await this.checkDependencies();
-    } catch (err) {
-      console.log(err);
-      vscode.window.showErrorMessage('Failed checking dependencies.');
+    if (!isSetupComplete) {
+      try {
+        await this.checkDependencies();
+
+        saveLibraryConfig({
+          ENVIRONMENT_SETUP_COMPLETE: 'true',
+        });
+      } catch (err) {
+        console.log(err);
+        vscode.window.showErrorMessage('Failed checking dependencies.');
+      }
     }
 
     try {
