@@ -102,13 +102,14 @@ def _get_previous_messages(conversation_id: str, db_api_key: ApiKey) -> List[Con
 
 def get_plugin_chat(
     api_key: str,
+    api_key_id: str,
     plugin_id: int,
     conversation_id: str,
     message: str,
 ) -> List[MessageDict]:
     """chat with a plugin"""
     db = get_client()
-    db_api_key = db.apikey.find_unique(where={"key": api_key})
+    db_api_key = db.apikey.find_unique(where={"id": api_key_id})
     assert db_api_key
 
     prev_msgs = _get_previous_messages(conversation_id, db_api_key)

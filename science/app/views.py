@@ -202,9 +202,9 @@ def plugin_chat() -> Response:
 
     data = request.get_json(force=True)
 
-    verify_required_fields(data, ["apiKey", "pluginId", "conversationId", "message"])
+    verify_required_fields(data, ["apiKey", "apiKeyId", "pluginId", "conversationId", "message"])
     messages = get_plugin_chat(
-        data["apiKey"], data["pluginId"], data["conversationId"], data["message"]
+        data["apiKey"], data["apiKeyId"], data["pluginId"], data["conversationId"], data["message"]
     )
 
     resp = jsonify(messages)
