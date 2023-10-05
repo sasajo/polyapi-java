@@ -185,7 +185,7 @@ class T(DbTestCase):
 
         question = "please send a text message saying 'tested' to 503-267-0612"
         conversation_id = uuid.uuid4().hex
-        resp = get_plugin_chat(api_key.key, plugin.id, conversation_id, question)
+        resp = get_plugin_chat(api_key.key, api_key.id, plugin.id, conversation_id, question)
 
         self.assertEqual(requests_get.call_count, 1)
         self.assertEqual(requests_post.call_count, 4)  # loop over and hit all 4 functions
@@ -209,7 +209,7 @@ class T(DbTestCase):
 
         question = "what is the capital of Sweden?"
         conversation_id = uuid.uuid4().hex
-        messages = get_plugin_chat(api_key.key, plugin.id, conversation_id, question)
+        messages = get_plugin_chat(api_key.key, api_key.id, plugin.id, conversation_id, question)
         self.assertEqual(len(messages), 2)
         self.assertEqual(messages[1]["role"], "assistant")
         self.assertEqual(messages[1]["content"], "The capital of Sweden is Stockholm.")

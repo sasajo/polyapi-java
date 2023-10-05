@@ -540,6 +540,7 @@ export class GptPluginService {
   async chat(authData, slug: string, conversationId: string, message: string) {
     const plugin = await this.getPlugin(slug, authData.environment.id);
     const hashedKey = await this.authService.hashApiKey(authData.key);
-    return await this.aiService.pluginChat(hashedKey, plugin.id, conversationId, message);
+    const apiKey = await this.prisma.apiKey.findUniqueOrThrow({ where: { key: hashedKey } });
+    return await this.aiService.pluginChat(authData.key, apiKey.id, plugin.id, conversationId, message);
   }
 }
