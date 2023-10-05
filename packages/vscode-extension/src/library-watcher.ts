@@ -40,11 +40,15 @@ const watchCredentials = () => {
   return vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration('poly.apiBaseUrl') || event.affectsConfiguration('poly.apiKey')) {
       const credentials = getCredentialsFromExtension();
+
       if (!credentials.apiBaseUrl || !credentials.apiKey) {
         vscode.commands.executeCommand('setContext', 'missingCredentials', true);
-      } else if (isPolyLibraryInstalled()) {
-        saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
+      } else {
         vscode.commands.executeCommand('setContext', 'missingCredentials', false);
+      }
+
+      if (isPolyLibraryInstalled()) {
+        saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
       }
     }
   });
