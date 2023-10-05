@@ -18,6 +18,7 @@ import {
 import { FunctionService } from 'function/function.service';
 import { ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/client';
 import { Request } from 'express';
+import { AuthService } from 'auth/auth.service';
 
 const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
 // for testing locally
@@ -285,6 +286,7 @@ export class GptPluginService {
   constructor(
     private readonly functionService: FunctionService,
     private readonly aiService: AiService,
+    private readonly authService: AuthService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -537,6 +539,7 @@ export class GptPluginService {
 
   async chat(authData, slug: string, conversationId: string, message: string) {
     const plugin = await this.getPlugin(slug, authData.environment.id);
-    return await this.aiService.pluginChat(authData.key, plugin.id, conversationId, message);
+    const hashedKey = await this.authService.hashApiKey(authData.key);
+    return await this.aiService.pluginChat(hashedKey, plugin.id, conversationId, message);
   }
 }

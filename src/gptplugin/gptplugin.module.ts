@@ -10,6 +10,7 @@ import { ChatModule } from 'chat/chat.module';
 import { AiModule } from 'ai/ai.module';
 import { StatisticsModule } from 'statistics/statistics.module';
 import { LimitModule } from 'limit/limit.module';
+import { AuthService } from 'auth/auth.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { LimitModule } from 'limit/limit.module';
     StatisticsModule,
     LimitModule,
   ],
-  providers: [GptPluginService, ChatService],
+  providers: [GptPluginService, ChatService, AuthService],
   controllers: [GptPluginController],
 })
 export class GptPluginModule {
