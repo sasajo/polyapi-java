@@ -1,3 +1,4 @@
+import os
 from flask import Flask, got_request_exception, request
 from prisma import Prisma, register
 import socket
@@ -14,6 +15,9 @@ def report_exception(app, exception):
 
 def create_app(testing=False):
     # create and configure the app
+    if not os.environ.get("DATABASE_URL"):
+        raise NotImplementedError("DATABASE_URL missing from env variables")
+
     db = Prisma()
     db.connect()
     register(db)
@@ -26,11 +30,17 @@ def create_app(testing=False):
     # TODO handle config more pro
     if app.config["DEBUG"]:
         app.config["NODE_API_URL"] = "http://localhost:8000"
+    elif app.testing:
+        app.config["NODE_API_URL"] = "http://localhost:8000"
     else:
         print("DEBUG OFF")
         app.config["NODE_API_URL"] = "http://localhost:8000"
 
-        rollbar.init("d31f5efb15034e86b11fa6cf82d8cef0", socket.gethostname())
-        got_request_exception.connect(report_exception, app)
+        if os.environ.get("ROLLBAR_TOKEN"):
+            try:
+                rollbar.init(os.environ.get("ROLLBAR_TOKEN"), socket.gethostname())
+                got_request_exception.connect(report_exception, app)
+            except:
+                print("ROLLBAR FAILED TO INITIALIZE. MOVING ON!")
 
     return app
