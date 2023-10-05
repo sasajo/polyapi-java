@@ -57,10 +57,12 @@
     "graphql": "^16.7.1",
     "graphql-2-json-schema": "^0.10.0",
     "handlebars": "^4.7.7",
+    "highlight.js": "^11.8.0",
     "ioredis": "^5.3.2",
     "jsonpath": "^1.1.1",
     "lodash": "^4.17.21",
     "mustache": "^4.2.0",
+    "node-html-parser": "^6.1.10",
     "passport": "^0.6.0",
     "passport-http-bearer": "^1.0.1",
     "prom-client": "^14.2.0",
@@ -107,7 +109,10 @@
       "json",
       "ts"
     ],
-    "rootDir": "test",
+    "roots": [
+      "<rootDir>/test",
+      "<rootDir>/src"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
@@ -115,15 +120,23 @@
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "./coverage",
+    "coveragePathIgnorePatterns": [
+      "<rootDir>/node_modules",
+      "<rootDir>/packages",
+      "<rootDir>/src/migration",
+      "<rootDir>/src/.*\\.module\\.ts",
+      "<rootDir>/test/mocks",
+      "<rootDir>/test/utils"
+    ],
     "testEnvironment": "node",
     "moduleDirectories": [
       "node_modules",
       "src"
     ],
     "moduleNameMapper": {
-      "@poly/model": "<rootDir>/../packages/model/src",
-      "^@poly/common/(.+)$": "<rootDir>/../packages/common/src/$1"
+      "@poly/model": "<rootDir>/packages/model/src",
+      "^@poly/common/(.+)$": "<rootDir>/packages/common/src/$1"
     },
     "verbose": true,
     "reporters": ["default", "jest-summary-reporter"]

@@ -24,10 +24,12 @@ import { SpecsService } from 'specs/specs.service';
 import { EventService } from 'event/event.service';
 import { AiService } from 'ai/ai.service';
 import { VariableService } from 'variable/variable.service';
-import { Visibility } from '@poly/model';
+import { FormDataBody, RawBody, UrlencodedBody, Visibility } from '@poly/model';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { AuthService } from 'auth/auth.service';
 import { LimitService } from 'limit/limit.service';
+
+import * as JsonTemplate from 'function/custom/json-template/index';
 
 describe('FunctionService', () => {
   let functionService: FunctionService;
@@ -697,13 +699,10 @@ describe('FunctionService', () => {
       });
     });
 
-    it('should execute api function with variable values given', async () => {
-      jest.spyOn(functionService as any, 'getBodyData')
-        .mockImplementationOnce(body => body);
-
+    it('should execute api function with variable values given on auth, method, headers and url.', async () => {
       const apiFunction = {
         url: 'https://jsonplaceholder.typicode.com/posts/{{variable1}}',
-        body: '{"bodyVar1": "{{bodyVar1}}"}',
+        body: JSON.stringify({}),
         method: 'GET',
         headers: '[{"key": "header1", "value": "{{headerVar1}}"}]',
         auth: '{"auth1": "{{authVar1}}"}',
@@ -717,13 +716,247 @@ describe('FunctionService', () => {
         authVar1: 'test4',
       });
       expect(requestSpy).toHaveBeenCalledWith({
-        data: { bodyVar1: 'test2' },
+        data: undefined,
         headers: { header1: 'test3' },
         params: {},
         method: 'GET',
         maxRedirects: 0,
         url: 'https://jsonplaceholder.typicode.com/posts/test1',
       });
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+    it('Should send hardcoded urlencoded values.', async() => {
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'urlencoded',
+          urlencoded: [{ key: "name", value: "foo" }, { key: "lastName", value: "bar"}]
+        } as UrlencodedBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          title: {
+            type: 'string'
+          },
+          userId: {
+            type: 'number',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          name: 'foo',
+          lastName: 'bar'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+    it('Should send hardcoded formdata values.', async() => {
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'formdata',
+          formdata: [{ key: "name", value: "foo", type: "text" }, { key: "lastName", value: "bar", type: "text"}]
+        } as FormDataBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          title: {
+            type: 'string'
+          },
+          userId: {
+            type: 'number',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          name: 'foo',
+          lastName: 'bar'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+    it('Should remove optional arguments that has not been provided for urlencoded body.', async () => {
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'urlencoded',
+          urlencoded: [{ key: "title", value: "{{title}}" }, { key: "userId", value: "{{userId}}"}]
+        } as UrlencodedBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          title: {
+            type: 'string'
+          },
+          userId: {
+            type: 'number',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          title: 'test1'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+    
+    it('Should remove optional arguments that has not been provided for formdata body.', async () => {
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'formdata',
+          formdata: [{ key: "title", value: "{{title}}" , type: 'text'}, { key: "userId", value: "{{userId}}", type: 'text'}]
+        } as FormDataBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          title: {
+            type: 'string'
+          },
+          userId: {
+            type: 'number',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, {
+        userId: undefined,
+        title: 'test1',
+      });
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          title: 'test1'
+        }
+      }));
+      expect(result).toEqual({
+        data: testResponseBody,
+        status: 200,
+        headers: {},
+      });
+    });
+
+
+    it('Should remove optional arguments that has not been provided for raw body.', async() => {
+
+      const args = {
+        name: 'Poly',
+        lastName: undefined,
+      }
+
+      const getArgumentValueMapSpy = jest.spyOn((functionService as any), 'getArgumentValueMap').mockReturnValue(args);
+
+      jest.spyOn(JsonTemplate, 'getMetadataTemplateObject').mockReturnValue({
+        name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+        lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
+        vip: true,
+        list: [
+          { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+          {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
+          {
+            age: 27,
+            lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true}
+          },
+          1
+        ]
+      });
+
+      const mergeArgumentsInTemplateObjectSpy = jest.spyOn(JsonTemplate, 'mergeArgumentsInTemplateObject').mockReturnValue({
+        name: 'Poly'
+      });
+
+      const apiFunction = {
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        body: JSON.stringify({
+          mode: 'raw',
+          raw: '{"name": "{{name}}", "lastName": "{{lastName}}", "vip": true, "list": ["{{name}}", "{{lastName}}", {"age": 27,"lastName": "{{lastName}}" }, 1]}',
+        } as RawBody),
+        method: 'POST',
+        headers: '[]',
+        auth: '{}',
+        argumentsMetadata: JSON.stringify({
+          name: {
+            type: 'string'
+          },
+          lastName: {
+            type: 'string',
+            required: false,
+            removeIfNotPresentOnExecute: true
+          }
+        }),
+      } as ApiFunction & { environment: Environment };
+
+      const result = await functionService.executeApiFunction(apiFunction, args);
+
+
+      expect(getArgumentValueMapSpy).toHaveBeenCalledWith(apiFunction, args, false)
+
+      expect(mergeArgumentsInTemplateObjectSpy).toHaveBeenCalledWith({
+        name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+        vip: true,
+        list: [
+          { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+          undefined,
+          {
+            age: 27
+          },
+          1
+        ]
+      }, args)
+
+      expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+        data: {
+          name: 'Poly'
+        }
+      }));
       expect(result).toEqual({
         data: testResponseBody,
         status: 200,

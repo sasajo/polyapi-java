@@ -59,5 +59,6 @@ export type ArgumentsMetadata = {
     typeObject?: object;
     payload?: boolean;
     variable?: string | null;
+    removeIfNotPresentOnExecute?: boolean;
   };
 };

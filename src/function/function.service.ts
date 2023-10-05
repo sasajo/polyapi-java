@@ -62,7 +62,7 @@ import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { cloneDeep, isPlainObject, mergeWith, omit, uniqBy, mapValues } from 'lodash';
+import { isPlainObject, mergeWith, omit, uniqBy } from 'lodash';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { VariableService } from 'variable/variable.service';
 import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
@@ -73,11 +73,10 @@ import {
   resolveGraphqlArgumentType,
 } from './graphql/utils';
 import { AuthService } from 'auth/auth.service';
-import crypto from 'crypto';
 import { AuthData, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
-
-const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
+import { getMetadataTemplateObject, isTemplateArg, mergeArgumentsInTemplateObject, POLY_ARG_NAME_KEY } from './custom/json-template';
+import { ARGUMENT_PATTERN } from './custom/constants';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -228,6 +227,7 @@ export class FunctionService implements OnModuleInit {
       .map<Omit<FunctionArgument<Record<string, any>>, 'location'>>(arg => ({
         ...omit(arg, 'location'),
         typeSchema: arg.typeSchema && JSON.parse(arg.typeSchema),
+        removeIfNotPresentOnExecute: arg.removeIfNotPresentOnExecute || false,
       }));
 
     const parsedBody = JSON.parse(apiFunction.body || '{}');
@@ -637,23 +637,8 @@ export class FunctionService implements OnModuleInit {
     }
 
     if (source?.body?.mode === 'raw') {
-      const fakedData = mapValues(argumentsMetadata || {}, (arg) => {
-        switch (arg.type) {
-          case 'string':
-            return 'string';
-          case 'number':
-            return 0;
-          case 'boolean':
-            return true;
-          case 'object':
-            return JSON.stringify({});
-          default:
-            return 'string';
-        }
-      });
-
       try {
-        this.getSanitizedRawBody(source.body, argumentsMetadata || {}, fakedData);
+        getMetadataTemplateObject(source.body.raw);
       } catch (error) {
         if (error instanceof SyntaxError) {
           throw new BadRequestException('Invalid raw json.');
@@ -818,6 +803,57 @@ export class FunctionService implements OnModuleInit {
     return sourceData;
   }
 
+  private processRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, args: Record<string, any>) {
+    const jsonTemplateObject = getMetadataTemplateObject(body.raw);
+
+    const removeUndefinedValuesFromOptionalArgs = (value: any) => {
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          value[i] = removeUndefinedValuesFromOptionalArgs(value[i]);
+        }
+      }
+
+      if (!(isPlainObject as (value: unknown) => value is Record<string, any>)(value)) {
+        return value;
+      }
+
+      if (isPlainObject(value)) {
+        if (
+          isTemplateArg(value)
+        ) {
+          const argName = value[POLY_ARG_NAME_KEY];
+          const argValue = args[argName];
+          const argMetadata = argumentsMetadata[argName] as ArgumentsMetadata[string];
+
+          if (typeof argMetadata === 'undefined' || (argMetadata.required === false && argMetadata.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined')) {
+            return undefined;
+          }
+
+          return value;
+        }
+
+        for (const key of Object.keys(value)) {
+          value[key] = removeUndefinedValuesFromOptionalArgs(value[key]);
+          if (typeof value[key] === 'undefined') {
+            delete value[key];
+          }
+        }
+      }
+
+      return value;
+    };
+
+    // Filter un-used optional args.
+    const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
+
+    const rawObj = mergeArgumentsInTemplateObject(filteredJsonTemplate, args);
+
+    return {
+      mode: 'raw',
+      raw: JSON.stringify(rawObj),
+    } as RawBody;
+  }
+
   async executeApiFunction(
     apiFunction: ApiFunction & { environment: Environment },
     args: Record<string, any>,
@@ -826,19 +862,52 @@ export class FunctionService implements OnModuleInit {
   ): Promise<ApiFunctionResponseDto | null> {
     this.logger.debug(`Executing function ${apiFunction.id}...`);
 
-    const argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
-    const url = mustache.render(apiFunction.url, argumentValueMap);
+    const argumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}') as ArgumentsMetadata;
+    let argumentValueMap: {[key: string]: any } = {};
     const method = apiFunction.method;
-    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
     const parsedBody = JSON.parse(apiFunction.body || '{}') as Body;
 
     let body: Body | null = null;
 
-    if (parsedBody.mode !== 'raw') {
-      body = JSON.parse(mustache.render(apiFunction.body || '{}', argumentValueMap)) as Body;
+    if (parsedBody.mode === 'urlencoded' || parsedBody.mode === 'formdata') {
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
+      const filterOptionalArgs = (entry: PostmanVariableEntry) => {
+        if (!entry.value.match(ARGUMENT_PATTERN)) {
+          return true;
+        }
+
+        const argName = entry.value.replace('{{', '').replace('}}', '');
+
+        if (argumentsMetadata[argName].required === false &&
+          argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
+          typeof argumentValueMap[argName] === 'undefined') {
+          return false;
+        }
+
+        return true;
+      };
+
+      const filteredBody = parsedBody.mode === 'formdata'
+        ? {
+            mode: parsedBody.mode,
+            formdata: parsedBody.formdata.filter(filterOptionalArgs),
+          }
+        : {
+            mode: parsedBody.mode,
+            urlencoded: parsedBody.urlencoded.filter(filterOptionalArgs),
+          };
+
+      body = JSON.parse(mustache.render(JSON.stringify(filteredBody), argumentValueMap)) as Body;
+    } else if (parsedBody.mode === 'raw') {
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args, false);
+      body = this.processRawBody(parsedBody, argumentsMetadata, argumentValueMap);
     } else {
-      body = this.getSanitizedRawBody(parsedBody, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentValueMap);
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
+      body = JSON.parse(mustache.render(apiFunction.body || '', argumentValueMap)) as Body;
     }
+
+    const url = mustache.render(apiFunction.url, argumentValueMap);
+    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
 
     const params = {
       ...this.getAuthorizationQueryParams(auth),
@@ -1780,11 +1849,12 @@ export class FunctionService implements OnModuleInit {
       required: argumentsMetadata[argument]?.required !== false,
       secure: argumentsMetadata[argument]?.secure || false,
       variable: argumentsMetadata[argument]?.variable || undefined,
+      removeIfNotPresentOnExecute: argumentsMetadata[argument]?.removeIfNotPresentOnExecute,
     };
   }
 
-  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>) {
-    const normalizeArg = (arg: any) => {
+  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>, normalizeArg = true) {
+    const normalizeArgFn = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
           .replace(/\n/g, '\\n')
@@ -1818,9 +1888,9 @@ export class FunctionService implements OnModuleInit {
           this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
           continue;
         }
-        argumentValueMap[arg.key] = normalizeArg(payload[arg.name]);
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(payload[arg.name]) : payload[arg.name];
       } else {
-        argumentValueMap[arg.key] = normalizeArg(args[arg.name]);
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(args[arg.name]) : args[arg.name];
       }
     }
 
@@ -2349,130 +2419,6 @@ export class FunctionService implements OnModuleInit {
       : ['void'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : type;
-  }
-
-  private getSanitizedRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): RawBody {
-    const uuidRemovableKeyValue = crypto.randomUUID();
-
-    const parsedArgumentsMetadata = Object.entries(argumentsMetadata).reduce<Record<string, FunctionArgument>>((acum, [key]) => {
-      return {
-        ...acum,
-        [key]: this.toArgument(key, argumentsMetadata),
-      };
-    }, {});
-
-    const clonedArgumentValueMap = cloneDeep(argumentValueMap);
-
-    const sanitizeStringArgumentValue = (name: string, quoted: boolean) => {
-      const escapeRegularArgumentString = () => {
-        // Escape string values, we should  only escape double quotes to avoid breaking json syntax on mustache template.
-        const escapedString = (clonedArgumentValueMap[name] || uuidRemovableKeyValue).replace(/"/g, '\\"');
-
-        clonedArgumentValueMap[name] = quoted ? escapedString : `"${escapedString}"`;
-      };
-
-      try {
-        const parsedValue = JSON.parse(clonedArgumentValueMap[name]);
-
-        /*
-          If function argument string is an stringified JSON we should stringify it again since it will be included inside a key value in the
-          final rendered mustache template.
-        */
-        if (isPlainObject(parsedValue) || Array.isArray(parsedValue)) {
-          const doubleStringifiedValue = JSON.stringify(clonedArgumentValueMap[name]);
-
-          if (quoted) {
-            // Removed first and last double quotes since they are already present on mustache template.
-            clonedArgumentValueMap[name] = `${doubleStringifiedValue.replace(/^"/, '').replace(/"$/, '')}`;
-          } else {
-            clonedArgumentValueMap[name] = doubleStringifiedValue;
-          }
-        } else {
-          // Valid JSON string case, they are stringified strings, like JSON.stringify('foo') = '"foo"'
-          escapeRegularArgumentString();
-        }
-      } catch (err) {
-        // Invalid JSON but value it is still a string
-        escapeRegularArgumentString();
-      }
-    };
-
-    const sanitizeNonStringOptionalArgument = (name: string, quoted: boolean) => {
-      /*
-        We should set a "fake value" for optional arguments that are not strings and weren't provided on execution call from client side.
-        If not, since, non string arguments are specified on json raw as mustache syntax like `"data": {{data}}`, we would be building
-        an invalid json string since non string arguments are non enclosed by double quotes.
-        At the end of `getSanitizedRawBody`, before returning valid stringyfied object, we can remove this non provided arguments matching them
-        by our "fake value" in this function.
-      */
-      if (typeof clonedArgumentValueMap[name] === 'undefined') {
-        if (!quoted) {
-          clonedArgumentValueMap[name] = `"${uuidRemovableKeyValue}"`; // We should enclose fake value in double quotes since they are always unquoted.
-        }
-      }
-    };
-
-    const foundArgs: {
-      quoted: boolean,
-      name: string,
-    }[] = [];
-
-    const pushFoundArg = (arg: string, quoted: boolean) => {
-      foundArgs.push({
-        quoted,
-        name: arg.replace('{{', '').replace('}}', ''),
-      });
-    };
-
-    const unquotedArgsRegexp = /(?<!")\{\{.+?\}\}(?!")/ig;
-    const quotedArgsRegexp = /(?<=")\{\{.+?\}\}(?=")/ig;
-    const bodyString = body.raw || '';
-
-    const unquotedArgsMatchResult = bodyString.match(unquotedArgsRegexp) || [];
-    const quotedArgsMatchResult = bodyString.match(quotedArgsRegexp) || [];
-    this.logger.debug(`Api function body: ${JSON.stringify(body)}`);
-    this.logger.debug(`Arguments metadata for sanitization: ${JSON.stringify(argumentsMetadata)}`);
-    this.logger.debug(`Cloned arguments metadata for sanitization: ${JSON.stringify(parsedArgumentsMetadata)}`);
-    this.logger.debug(`Arguments value map for sanitization: ${JSON.stringify(argumentValueMap)}`);
-    this.logger.debug(`Sanitizing unquoted arguments: ${JSON.stringify(unquotedArgsMatchResult)}`);
-    this.logger.debug(`Sanitizing quoted arguments: ${JSON.stringify(quotedArgsMatchResult)}`);
-
-    for (const unquotedArg of unquotedArgsMatchResult) {
-      pushFoundArg(unquotedArg, false);
-    }
-
-    for (const quotedArg of quotedArgsMatchResult) {
-      pushFoundArg(quotedArg, true);
-    }
-
-    for (const arg of foundArgs) {
-      if (parsedArgumentsMetadata[arg.name]?.type === 'string') {
-        sanitizeStringArgumentValue(arg.name, arg.quoted);
-      } else {
-        sanitizeNonStringOptionalArgument(arg.name, arg.quoted);
-      }
-    }
-
-    const renderedContent = mustache.render(body.raw || '{}', clonedArgumentValueMap, {}, {
-      escape(text) {
-        return text;
-      },
-    });
-
-    this.logger.debug(`Rendered content after sanitization: ${renderedContent}`);
-
-    const parsedObjectFromRenderedContent = JSON.parse(renderedContent);
-
-    for (const [key, value] of Object.entries(parsedObjectFromRenderedContent)) {
-      if (value === uuidRemovableKeyValue) {
-        delete parsedObjectFromRenderedContent[key];
-      }
-    }
-
-    return {
-      ...body,
-      raw: JSON.stringify(parsedObjectFromRenderedContent),
-    };
   }
 
   private async resolveVisibility<T extends { environment: Environment & { tenant: Tenant }, context: string | null }>(
