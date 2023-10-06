@@ -278,7 +278,7 @@ export class KNativeFaasService implements FaasService {
 
       if (sleep) {
         annotations['autoscaling.knative.dev/class'] = 'kpa.autoscaling.knative.dev';
-        annotations['autoscaling.knative.dev/scale-to-zero-pod-retention-period'] = `${sleepAfter}s`;
+        annotations['autoscaling.knative.dev/window'] = `${sleepAfter}s`;
       } else {
         annotations['autoscaling.knative.dev/class'] = 'hpa.autoscaling.knative.dev';
       }
