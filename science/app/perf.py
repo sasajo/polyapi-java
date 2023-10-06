@@ -1,3 +1,4 @@
+import json
 import datetime
 import time
 from typing import Optional
@@ -25,6 +26,9 @@ class PerfLogger:
         self.snippet = snippet
         self.input_length = input_length
         self.output_length = output_length
+        if not isinstance(data, str):
+            # sometimes we get an object from FE
+            data = json.dumps(data)
         self.data = data
         self.type = type
         self.apiKey = apiKey
