@@ -32,11 +32,30 @@
   ],
   "main": "./build/vscode-extension/src/extension.js",
   "contributes": {
-    "menus": {},
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "poly.copyInject",
+          "when": "viewItem == 'serverVariable'"
+        },
+        {
+          "command": "poly.copyGet",
+          "when": "viewItem == 'serverVariable'"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "poly.focusMessageInput",
         "title": "Focus Poly input"
+      },
+      {
+        "command": "poly.copyInject",
+        "title": "Inject"
+      },
+      {
+        "command": "poly.copyGet",
+        "title": "Get"
       }
     ],
     "configuration": {

@@ -151,6 +151,7 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
       command: 'poly.copyLibraryItem',
       arguments: [element],
     };
+    element.contextValue = element.data.type;
     return element;
   }
 
@@ -160,7 +161,11 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
     this._onDidChangeTreeData.fire();
   }
 
-  static copyLibraryItem(item: LibraryTreeItem) {
+  static copyLibraryItem(item: LibraryTreeItem, opts: {
+    variGet: boolean
+  } = {
+    variGet: false,
+  }) {
     const { parentPath, data, label } = item;
     const { type, name } = data;
 
@@ -191,7 +196,7 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
         vscode.env.clipboard.writeText(`poly${parentPath}.${name}(async(event, headers, params) => {\n\n});`);
         break;
       case 'serverVariable':
-        vscode.env.clipboard.writeText(`await vari${parentPath}.${name}.get();`);
+        vscode.env.clipboard.writeText(`await vari${parentPath}.${name}.${opts.variGet ? 'get' : 'inject'}()`);
         break;
       default:
         vscode.env.clipboard.writeText(`poly${parentPath}.${label}`);
