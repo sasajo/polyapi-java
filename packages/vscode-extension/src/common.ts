@@ -44,6 +44,31 @@ export const getLibraryVersionFromApiHost = (apiBaseUrl: unknown) => {
   return result;
 };
 
+const getConfigEnvPath = () => {
+  return path.join(getWorkspacePath(), 'node_modules/.poly/.config.env');
+};
+
+export const getLibraryConfig = () => {
+  const configEnvPath = getConfigEnvPath();
+
+  if (!fs.existsSync(configEnvPath)) {
+    return {};
+  }
+
+  const content = fs.readFileSync(configEnvPath, 'utf8');
+
+  const variableList = content.split('\n').filter(line => line !== '');
+
+  return variableList.reduce((acum, value) => {
+    const [variableName, variableValue] = value.split('=');
+
+    return {
+      ...acum,
+      [variableName]: variableValue,
+    };
+  }, {});
+};
+
 export const saveLibraryConfig = (newConfig: Record<string, any>) => {
   const workspacePath = getWorkspacePath();
 
@@ -53,24 +78,7 @@ export const saveLibraryConfig = (newConfig: Record<string, any>) => {
 
   const polyFolder = path.join(getWorkspacePath(), 'node_modules/.poly');
 
-  const configEnvPath = path.join(polyFolder, '.config.env');
-
-  let currentConfig = {};
-
-  if (fs.existsSync(configEnvPath)) {
-    const content = fs.readFileSync(configEnvPath, 'utf8');
-
-    const credentialsList = content.split('\n').filter(value => value !== '');
-
-    currentConfig = credentialsList.reduce((acum, value) => {
-      const [credentialKey, credentialValue] = value.split('=');
-
-      return {
-        ...acum,
-        [credentialKey]: credentialValue,
-      };
-    }, {});
-  }
+  const currentConfig = getLibraryConfig();
 
   try {
     fs.mkdirSync(polyFolder, { recursive: true });
@@ -83,33 +91,12 @@ export const saveLibraryConfig = (newConfig: Record<string, any>) => {
       .join('\n');
 
     fs.writeFileSync(
-      configEnvPath,
+      getConfigEnvPath(),
       newContent,
     );
   } catch (err) {
     console.log(err);
   }
-};
-
-export const getLibraryConfig = () => {
-  const configEnvPath = path.join(getWorkspacePath(), 'node_modules/.poly/.config.env');
-
-  if (!fs.existsSync(configEnvPath)) {
-    return {};
-  }
-
-  const content = fs.readFileSync(configEnvPath, 'utf8');
-
-  const credentialsList = content.split('\n').filter(line => line !== '');
-
-  return credentialsList.reduce((acum, value) => {
-    const [credentialKey, credentialValue] = value.split('=');
-
-    return {
-      ...acum,
-      [credentialKey]: credentialValue,
-    };
-  }, {});
 };
 
 export const isPolyLibraryInstalled = () => {
