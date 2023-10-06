@@ -44,7 +44,32 @@ export const getLibraryVersionFromApiHost = (apiBaseUrl: unknown) => {
   return result;
 };
 
-export const saveCredentialsOnClientLibrary = (apiBaseUrl: unknown, apiKey: unknown) => {
+const getConfigEnvPath = () => {
+  return path.join(getWorkspacePath(), 'node_modules/.poly/.config.env');
+};
+
+export const getLibraryConfig = () => {
+  const configEnvPath = getConfigEnvPath();
+
+  if (!fs.existsSync(configEnvPath)) {
+    return {};
+  }
+
+  const content = fs.readFileSync(configEnvPath, 'utf8');
+
+  const variableList = content.split('\n').filter(line => line !== '');
+
+  return variableList.reduce((acum, value) => {
+    const [variableName, variableValue] = value.split('=');
+
+    return {
+      ...acum,
+      [variableName]: variableValue,
+    };
+  }, {});
+};
+
+export const saveLibraryConfig = (newConfig: Record<string, any>) => {
   const workspacePath = getWorkspacePath();
 
   if (!workspacePath) {
@@ -53,11 +78,21 @@ export const saveCredentialsOnClientLibrary = (apiBaseUrl: unknown, apiKey: unkn
 
   const polyFolder = path.join(getWorkspacePath(), 'node_modules/.poly');
 
+  const currentConfig = getLibraryConfig();
+
   try {
     fs.mkdirSync(polyFolder, { recursive: true });
+
+    const newContent = Object.entries({
+      ...currentConfig,
+      ...newConfig,
+    })
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+
     fs.writeFileSync(
-      path.join(polyFolder, '.config.env'),
-          `POLY_API_BASE_URL=${apiBaseUrl}\nPOLY_API_KEY=${apiKey}\n`,
+      getConfigEnvPath(),
+      newContent,
     );
   } catch (err) {
     console.log(err);
@@ -72,4 +107,8 @@ export const isPolyLibraryInstalled = () => {
 
     return false;
   });
+};
+
+export const getClientPackageJson = () => {
+  return fs.readFileSync(`${getWorkspacePath()}/package.json`, 'utf-8');
 };

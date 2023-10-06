@@ -1,7 +1,9 @@
 import * as childProcess from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
-import { getCredentialsFromExtension, getLibraryVersionFromApiHost, getPackageManager, getWorkspacePath, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
+import fs from 'fs';
+import { getClientPackageJson, getCredentialsFromExtension, getLibraryConfig, getLibraryVersionFromApiHost, getPackageManager, getWorkspacePath, saveCredentialsInExtension, saveLibraryConfig } from './common';
+import { MESSAGES, checkLibraryVersions, checkNodeVersion, checkTsConfig, getUpdateLibraryVersionMessage } from '@poly/common/client-dependencies';
 
 const exec = promisify(childProcess.exec);
 
@@ -12,7 +14,10 @@ export default class DefaultView {
     const credentials = getCredentialsFromExtension();
 
     if (credentials.apiBaseUrl && credentials.apiKey) {
-      return saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
+      return saveLibraryConfig({
+        POLY_API_BASE_URL: credentials.apiBaseUrl,
+        POLY_API_KEY: credentials.apiKey,
+      });
     }
 
     const apiBaseUrl = await vscode.window.showInputBox({
@@ -47,7 +52,10 @@ export default class DefaultView {
 
     if (apiBaseUrl && apiKey) {
       saveCredentialsInExtension(apiBaseUrl, apiKey);
-      saveCredentialsOnClientLibrary(apiBaseUrl, apiKey);
+      saveLibraryConfig({
+        POLY_API_BASE_URL: apiBaseUrl,
+        POLY_API_KEY: apiKey,
+      });
       vscode.commands.executeCommand('setContext', 'missingCredentials', false);
     } else {
       throw new Error('Missing credentials.');
@@ -55,6 +63,25 @@ export default class DefaultView {
   }
 
   async setupLibrary() {
+    const libraryConfig = getLibraryConfig();
+
+    const isSetupComplete = libraryConfig['ENVIRONMENT_SETUP_COMPLETE'] === 'true';
+
+    if (!isSetupComplete) {
+      let invalidNodeVersion = false;
+
+      checkNodeVersion({
+        onOldVersion(message) {
+          invalidNodeVersion = true;
+          vscode.window.showErrorMessage(message);
+        },
+      });
+
+      if (invalidNodeVersion) {
+        return;
+      }
+    }
+
     try {
       await this.setupLibraryCredentials();
     } catch (err) {
@@ -68,8 +95,21 @@ export default class DefaultView {
       return vscode.window.showErrorMessage('Failed to install polyapi');
     }
 
+    if (!isSetupComplete) {
+      try {
+        await this.checkDependencies();
+
+        saveLibraryConfig({
+          ENVIRONMENT_SETUP_COMPLETE: 'true',
+        });
+      } catch (err) {
+        console.log(err);
+        vscode.window.showErrorMessage('Failed checking dependencies.');
+      }
+    }
+
     try {
-      await this.execGenerateCommandInLibrary();
+      await this.requestPolyGenerateExecution();
       vscode.window.showInformationMessage('Generated poly client code.');
     } catch (err) {
       vscode.window.showErrorMessage('Failed to generate poly client code.');
@@ -113,7 +153,7 @@ export default class DefaultView {
     });
   }
 
-  private execGenerateCommandInLibrary() {
+  private requestPolyGenerateExecution() {
     return new Promise((resolve, reject) => {
       vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -133,6 +173,70 @@ export default class DefaultView {
           reject(err);
         }
       });
+    });
+  }
+
+  private async checkDependencies() {
+    const packageJsonContents = getClientPackageJson();
+
+    await checkLibraryVersions(JSON.parse(packageJsonContents), {
+      async requestUserPermissionToUpdateLib(library, version, minVersion) {
+        const answer = await vscode.window.showQuickPick(['Yes', 'No'], {
+          title: getUpdateLibraryVersionMessage(version, minVersion, library), canPickMany: false,
+        });
+
+        return answer === 'Yes';
+      },
+      async createOrUpdateLib(library, create) {
+        return new Promise((resolve) => {
+          vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `${create ? 'Installing' : 'Updating'} ${library}...`,
+          }, async () => {
+            try {
+              const workSpacePath = getWorkspacePath();
+              if (!workSpacePath) {
+                throw new Error('Path not found');
+              }
+
+              await exec(`cd ${workSpacePath} && ${getPackageManager()} add ${library}@latest`);
+              resolve(undefined);
+            } catch (err) {
+              console.log(err);
+              vscode.window.showErrorMessage(`Couldn't ${create ? 'create' : 'update '} ${library}.`);
+              resolve(undefined);
+            }
+          });
+        });
+      },
+    });
+
+    await checkTsConfig({
+      async getCurrentConfig() {
+        const tsConfigPath = `${getWorkspacePath()}/tsconfig.json`;
+        if (!fs.existsSync(tsConfigPath)) {
+          return undefined;
+        }
+
+        return fs.readFileSync(tsConfigPath, 'utf-8');
+      },
+      async requestUserPermissionToCreateTsConfig() {
+        const answer = await vscode.window.showQuickPick(['Yes', 'No'], {
+          title: MESSAGES.TS_CONFIG_DO_NOT_EXIST, canPickMany: false,
+        });
+
+        return answer === 'Yes';
+      },
+      async requestUserPermissionToUpdateTsConfig() {
+        const answer = await vscode.window.showQuickPick(['Yes', 'No'], {
+          title: MESSAGES.TS_CONFIG_UPDATE, canPickMany: false,
+        });
+
+        return answer === 'Yes';
+      },
+      async saveTsConfig(tsConfig) {
+        fs.writeFileSync(`${getWorkspacePath()}/tsconfig.json`, tsConfig);
+      },
     });
   }
 }
