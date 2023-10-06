@@ -1,21 +1,11 @@
 import shell from 'shelljs';
 import inquirer from 'inquirer';
 import fs from 'fs';
-import semver from 'semver';
 import { loadConfig, saveConfig } from '../config';
 import chalk from 'chalk';
+import { checkNodeVersion, checkLibraryVersions, getUpdateLibraryVersionMessage, checkTsConfig } from '@poly/common/client-dependencies';
 
 const URL_REGEX = /https?:\/\/(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))/;
-
-const MIN_TS_NODE_VERSION = '5.0.0';
-const MIN_TYPESCRIPT_VERSION = '4.0.0';
-const MIN_NODE_VERSION = '14.0.0';
-
-const DEFAULT_TS_CONFIG = {
-  compilerOptions: {
-    esModuleInterop: true,
-  },
-};
 
 const setup = async () => {
   loadConfig();
@@ -59,65 +49,56 @@ const setup = async () => {
 const setupEnvironment = async () => {
   loadConfig();
 
-  await checkNodeVersion();
+  checkNodeVersion({
+    onOldVersion(message) {
+      shell.echo(chalk.red(message));
+      throw new Error('Node.js version is too old.');
+    },
+  });
 
   const packageJson = getPackageJson();
-  await checkLibraryVersion(packageJson, 'ts-node', MIN_TS_NODE_VERSION);
-  await checkLibraryVersion(packageJson, 'typescript', MIN_TYPESCRIPT_VERSION);
 
-  await checkTsConfig();
-};
-
-const checkNodeVersion = async () => {
-  if (semver.lt(process.version, MIN_NODE_VERSION)) {
-    shell.echo(chalk.red(`Node.js version is too old. The minimum required version is ${MIN_NODE_VERSION}. Please update Node.js to a newer version.`));
-    throw new Error('Node.js version is too old.');
-  }
-};
-
-const getPackageManager = () : 'npm' | 'yarn' => {
-  return fs.existsSync(`${process.cwd()}/yarn.lock`) ? 'yarn' : 'npm';
-};
-
-const checkLibraryVersion = async (packageJson: Record<string, any>, library: string, minVersion: string) => {
-  const version = packageJson.devDependencies?.[library] || packageJson.dependencies?.[library];
-
-  if (!version || semver.lt(version.replace(/[^0-9.]/g, ''), minVersion)) {
-    const { updateVersion } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'updateVersion',
-        message: version
-          ? `${library} version is lower than ${minVersion}. Do you want to update it to the latest version?`
-          : `${library} is not installed. Do you want to install it?`,
-        default: true,
-      },
-    ]);
-    if (updateVersion) {
-      await shell.echo(`Installing ${library}...`);
+  await checkLibraryVersions(packageJson, {
+    async createOrUpdateLib(library, create) {
+      await shell.echo(`${create ? 'Installing' : 'Updating'} ${library}...`);
       await shell.exec(`${getPackageManager()} add ${library}@latest`);
-    }
-  }
-};
+    },
 
-const checkTsConfig = async () => {
-  if (!fs.existsSync(`${process.cwd()}/tsconfig.json`)) {
-    const { createTsConfig } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'createTsConfig',
-        message: 'tsconfig.json does not exist. Do you want to create it?',
-        default: true,
-      },
-    ]);
+    async requestUserPermissionToUpdateLib(library, version, minVersion) {
+      const { updateVersion } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'updateVersion',
+          message: getUpdateLibraryVersionMessage(version, minVersion, library),
+          default: true,
+        },
+      ]);
 
-    if (createTsConfig) {
-      await shell.echo('Creating tsconfig.json...');
-      fs.writeFileSync(`${process.cwd()}/tsconfig.json`, JSON.stringify(DEFAULT_TS_CONFIG, null, 2));
-    }
-  } else {
-    const tsConfig = JSON.parse(fs.readFileSync(`${process.cwd()}/tsconfig.json`).toString());
-    if (!tsConfig.compilerOptions?.esModuleInterop) {
+      return updateVersion;
+    },
+  });
+
+  await checkTsConfig({
+    async getCurrentConfig() {
+      if (!fs.existsSync(`${process.cwd()}/tsconfig.json`)) {
+        return undefined;
+      }
+
+      return fs.readFileSync(`${process.cwd()}/tsconfig.json`).toString();
+    },
+    async requestUserPermissionToCreateTsConfig() {
+      const { createTsConfig } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'createTsConfig',
+          message: 'tsconfig.json does not exist. Do you want to create it?',
+          default: true,
+        },
+      ]);
+
+      return createTsConfig;
+    },
+    async requestUserPermissionToUpdateTsConfig() {
       const { updateTsConfig } = await inquirer.prompt([
         {
           type: 'confirm',
@@ -126,17 +107,17 @@ const checkTsConfig = async () => {
           default: true,
         },
       ]);
-      if (!updateTsConfig) {
-        return;
-      }
 
-      tsConfig.compilerOptions = {
-        ...tsConfig.compilerOptions,
-        esModuleInterop: true,
-      };
-      fs.writeFileSync(`${process.cwd()}/tsconfig.json`, JSON.stringify(tsConfig, null, 2));
-    }
-  }
+      return updateTsConfig;
+    },
+    async saveTsConfig(tsConfig) {
+      fs.writeFileSync(`${process.cwd()}/tsconfig.json`, tsConfig);
+    },
+  });
+};
+
+const getPackageManager = () : 'npm' | 'yarn' => {
+  return fs.existsSync(`${process.cwd()}/yarn.lock`) ? 'yarn' : 'npm';
 };
 
 const getPackageJson = () => {

@@ -166,6 +166,8 @@ model CustomFunction {
   apiKey        String?      @map("api_key")
   visibility    String       @default("ENVIRONMENT")
   enabled       Boolean      @default(true)
+  sleep         Boolean?     @map("sleep")
+  sleepAfter    Int?         @map("sleep_after")
   environment   Environment  @relation(fields: [environmentId], references: [id], onDelete: Cascade)
 
   @@map("custom_function")

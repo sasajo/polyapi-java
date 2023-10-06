@@ -83,6 +83,8 @@ export class KNativeFaasService implements FaasService {
     apiKey: string,
     limits: ServerFunctionLimits,
     createFromScratch?: boolean,
+    sleep?: boolean | null,
+    sleepAfter?: number | null,
   ): Promise<void> {
     this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -100,7 +102,7 @@ export class KNativeFaasService implements FaasService {
       this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
       await writeFile(`${functionPath}/function/index.js`, content);
 
-      await this.deploy(id, tenantId, environmentId, imageName, apiKey, limits);
+      await this.deploy(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter);
     };
 
     const additionalRequirements = this.filterPreinstalledNpmPackages(requirements);
@@ -179,10 +181,12 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
+    sleep?: boolean | null,
+    sleepAfter?: number | null,
   ): Promise<void> {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits);
+    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits, undefined, sleep, sleepAfter);
   }
 
   async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {
@@ -247,13 +251,40 @@ export class KNativeFaasService implements FaasService {
     }
   }
 
-  private async deploy(id: string, tenantId: string, environmentId: string, imageName: string, apiKey: string, limits: ServerFunctionLimits) {
+  private async deploy(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    imageName: string,
+    apiKey: string,
+    limits: ServerFunctionLimits,
+    sleep?: boolean | null,
+    sleepAfter?: number | null,
+  ) {
     this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
     await this.deleteFunction(id, tenantId, environmentId, false);
 
     this.logger.debug(`Creating KNative service for function '${id}'...`);
 
     const workingDir = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+    const getAnnotations = () => {
+      const annotations = {};
+      if (sleep == null) {
+        sleep = true;
+      }
+      if (sleepAfter == null || sleepAfter <= 0) {
+        sleepAfter = this.config.faasDefaultSleepSeconds;
+      }
+
+      if (sleep) {
+        annotations['autoscaling.knative.dev/class'] = 'kpa.autoscaling.knative.dev';
+        annotations['autoscaling.knative.dev/scale-to-zero-pod-retention-period'] = `${sleepAfter}s`;
+      } else {
+        annotations['autoscaling.knative.dev/class'] = 'hpa.autoscaling.knative.dev';
+      }
+
+      return annotations;
+    };
 
     const options = {
       apiVersion: 'serving.knative.dev/v1',
@@ -264,6 +295,9 @@ export class KNativeFaasService implements FaasService {
       },
       spec: {
         template: {
+          metadata: {
+            annotations: getAnnotations(),
+          },
           spec: {
             timeoutSeconds: limits.time,
             containers: [
@@ -277,6 +311,10 @@ export class KNativeFaasService implements FaasService {
                   },
                 ],
                 env: [
+                  {
+                    name: 'ENVIRONMENT_SETUP_COMPLETE',
+                    value: 'true',
+                  },
                   {
                     name: 'POLY_API_BASE_URL',
                     value: this.config.faasPolyServerUrl,

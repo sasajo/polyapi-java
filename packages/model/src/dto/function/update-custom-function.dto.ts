@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, Validate } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Validate } from 'class-validator';
 import { Visibility } from '../../specs';
 import { ContextIdentifier, NameIdentifier } from '../validators';
 import { ArgumentsMetadata } from '../../function';
@@ -24,9 +24,22 @@ export class UpdateCustomFunctionDto {
   visibility?: Visibility;
 
   @IsOptional()
+  arguments?: ArgumentsMetadata;
+}
+
+export class UpdateClientCustomFunctionDto extends UpdateCustomFunctionDto {
+}
+
+export class UpdateServerCustomFunctionDto extends UpdateCustomFunctionDto {
+  @IsOptional()
   @IsBoolean()
   enabled?: boolean;
 
   @IsOptional()
-  arguments?: ArgumentsMetadata;
+  @IsBoolean()
+  sleep?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  sleepAfter?: number;
 }

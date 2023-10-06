@@ -426,13 +426,6 @@ def get_completion_answer(
         return general_question(user_id, conversation_id, question, prev_msgs)  # type: ignore
 
 
-def simple_chatgpt_question(question: str) -> str:
-    messages = [MessageDict(role="user", content=question)]
-    content = get_chat_completion(messages)
-    assert isinstance(content, str)
-    return content
-
-
 def general_question(
     user_id: str,
     conversation_id: str,
