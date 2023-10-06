@@ -196,7 +196,7 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
         vscode.env.clipboard.writeText(`poly${parentPath}.${name}(async(event, headers, params) => {\n\n});`);
         break;
       case 'serverVariable':
-        vscode.env.clipboard.writeText(`await vari${parentPath}.${name}.${opts.variGet ? 'get' : 'inject'}()`);
+        vscode.env.clipboard.writeText(`${opts.variGet ? 'await ' : ''}vari${parentPath}.${name}.${opts.variGet ? 'get' : 'inject'}()`);
         break;
       default:
         vscode.env.clipboard.writeText(`poly${parentPath}.${label}`);
