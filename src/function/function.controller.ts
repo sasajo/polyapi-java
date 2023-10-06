@@ -14,8 +14,10 @@ import {
   Patch,
   Post,
   Query,
-  Req, Res,
-  UseGuards, UseInterceptors,
+  Req,
+  Res,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiSecurity } from '@nestjs/swagger';
 import { FunctionService } from 'function/function.service';
@@ -31,11 +33,14 @@ import {
   ExecuteCustomFunctionDto,
   ExecuteCustomFunctionQueryParams,
   FunctionBasicDto,
-  FunctionDetailsDto, FunctionPublicBasicDto, FunctionPublicDetailsDto,
+  FunctionDetailsDto,
+  FunctionPublicBasicDto,
+  FunctionPublicDetailsDto,
   Permission,
   Role,
   UpdateApiFunctionDto,
-  UpdateCustomFunctionDto,
+  UpdateClientCustomFunctionDto,
+  UpdateServerCustomFunctionDto,
   UpdateSourceFunctionDto,
   Visibility,
 } from '@poly/model';
@@ -314,7 +319,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Patch('/client/:id')
-  async updateClientFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
+  async updateClientFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateClientCustomFunctionDto): Promise<FunctionDetailsDto> {
     const {
       context = null,
       description = null,
@@ -330,7 +335,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(clientFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(clientFunction, null, context, description, visibility),
+      await this.service.updateClientFunction(clientFunction, null, context, description, visibility),
     );
   }
 
@@ -425,7 +430,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Patch('/server/:id')
-  async updateServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateCustomFunctionDto): Promise<FunctionDetailsDto> {
+  async updateServerFunction(@Req() req: AuthRequest, @Param('id') id: string, @Body() data: UpdateServerCustomFunctionDto): Promise<FunctionDetailsDto> {
     const {
       name = null,
       context = null,
@@ -433,8 +438,10 @@ export class FunctionController {
       visibility = null,
       enabled,
       arguments: argumentsMetadata,
+      sleep,
+      sleepAfter,
     } = data;
-    const serverFunction = await this.service.findServerFunction(id);
+    const serverFunction = await this.service.findServerFunction(id, true);
     if (!serverFunction) {
       throw new NotFoundException('Function not found');
     }
@@ -446,13 +453,18 @@ export class FunctionController {
         throw new BadRequestException('You do not have permission to enable/disable functions.');
       }
     }
+    if (sleep !== undefined || sleepAfter !== undefined) {
+      if (req.user.user?.role !== Role.SuperAdmin) {
+        throw new BadRequestException('You do not have permission to change sleep data.');
+      }
+    }
     if (argumentsMetadata !== undefined) {
       this.checkServerFunctionUpdateArguments(argumentsMetadata);
     }
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateCustomFunction(serverFunction, name, context, description, visibility, argumentsMetadata, enabled),
+      await this.service.updateServerFunction(serverFunction, name, context, description, visibility, argumentsMetadata, enabled, sleep, sleepAfter),
     );
   }
 

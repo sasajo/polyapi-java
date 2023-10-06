@@ -73,7 +73,7 @@ import {
   resolveGraphqlArgumentType,
 } from './graphql/utils';
 import { AuthService } from 'auth/auth.service';
-import { AuthData, WithTenant } from 'common/types';
+import { AuthData, WithEnvironment, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
 import { getMetadataTemplateObject, isTemplateArg, mergeArgumentsInTemplateObject, POLY_ARG_NAME_KEY } from './custom/json-template';
 import { ARGUMENT_PATTERN } from './custom/constants';
@@ -1281,6 +1281,7 @@ export class FunctionService implements OnModuleInit {
           synchronous,
           requirements: JSON.stringify(requirements),
           serverSide: serverFunction,
+          apiKey: serverFunction ? apiKey : null,
         },
       });
 
@@ -1355,14 +1356,58 @@ export class FunctionService implements OnModuleInit {
     return customFunction;
   }
 
-  async updateCustomFunction(
-    customFunction: CustomFunction,
+  async updateClientFunction(
+    customFunction: WithEnvironment<CustomFunction>,
+    name: string | null,
+    context: string | null,
+    description: string | null,
+    visibility: Visibility | null,
+    argumentsMetadata?: ArgumentsMetadata,
+  ) {
+    return this.updateCustomFunction(
+      customFunction,
+      name,
+      context,
+      description,
+      visibility,
+      argumentsMetadata,
+    );
+  }
+
+  async updateServerFunction(
+    customFunction: WithEnvironment<CustomFunction>,
     name: string | null,
     context: string | null,
     description: string | null,
     visibility: Visibility | null,
     argumentsMetadata?: ArgumentsMetadata,
     enabled?: boolean,
+    sleep?: boolean,
+    sleepAfter?: number,
+  ) {
+    return this.updateCustomFunction(
+      customFunction,
+      name,
+      context,
+      description,
+      visibility,
+      argumentsMetadata,
+      enabled,
+      sleep,
+      sleepAfter,
+    );
+  }
+
+  private async updateCustomFunction(
+    customFunction: WithEnvironment<CustomFunction>,
+    name: string | null,
+    context: string | null,
+    description: string | null,
+    visibility: Visibility | null,
+    argumentsMetadata?: ArgumentsMetadata,
+    enabled?: boolean,
+    sleep?: boolean,
+    sleepAfter?: number,
   ) {
     const { id, name: currentName, context: currentContext } = customFunction;
 
@@ -1378,6 +1423,22 @@ export class FunctionService implements OnModuleInit {
     this.logger.debug(
       `Updating custom function ${id} with name ${name}, context ${context}, description ${description}`,
     );
+
+    if (customFunction.serverSide && (sleepAfter != null || sleep != null)) {
+      await this.faasService.updateFunction(
+        customFunction.id,
+        customFunction.environment.tenantId,
+        customFunction.environment.id,
+        customFunction.name,
+        customFunction.code,
+        JSON.parse(customFunction.requirements || '[]'),
+        customFunction.apiKey!,
+        await this.limitService.getTenantServerFunctionLimits(customFunction.environment.tenantId),
+        sleep ?? customFunction.sleep,
+        sleepAfter ?? customFunction.sleepAfter,
+      );
+    }
+
     return this.prisma.customFunction.update({
       where: {
         id,
@@ -1389,6 +1450,8 @@ export class FunctionService implements OnModuleInit {
         visibility: visibility == null ? customFunction.visibility : visibility,
         enabled,
         arguments: argumentsMetadata ? JSON.stringify(argumentsMetadata) : undefined,
+        sleep,
+        sleepAfter,
       },
     });
   }
@@ -1433,6 +1496,9 @@ export class FunctionService implements OnModuleInit {
       where: {
         id,
         serverSide: false,
+      },
+      include: {
+        environment: true,
       },
     });
   }
@@ -1747,7 +1813,7 @@ export class FunctionService implements OnModuleInit {
       functionName,
       '',
       code,
-      { },
+      {},
       user.key,
       () => Promise.resolve(),
       true,
