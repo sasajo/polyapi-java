@@ -192,6 +192,7 @@ export class FunctionController {
       visibility = null,
       source,
       enableRedirect,
+      templateBody,
     } = data;
 
     const apiFunction = await this.service.findApiFunction(id);
@@ -210,7 +211,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect),
+      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect, templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody),
     );
   }
 

@@ -75,7 +75,7 @@ import {
 import { AuthService } from 'auth/auth.service';
 import { AuthData, WithEnvironment, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
-import { getMetadataTemplateObject, isTemplateArg, mergeArgumentsInTemplateObject, POLY_ARG_NAME_KEY } from './custom/json-template';
+import { isTemplateArg, JsonTemplate, POLY_ARG_NAME_KEY } from './custom/json-template';
 import { ARGUMENT_PATTERN } from './custom/constants';
 
 mustache.escape = (text) => {
@@ -90,6 +90,7 @@ mustache.escape = (text) => {
 export class FunctionService implements OnModuleInit {
   private readonly logger: Logger = new Logger(FunctionService.name);
   private readonly faasService: FaasService;
+  private readonly jsonTemplate: JsonTemplate;
 
   constructor(
     private readonly commonService: CommonService,
@@ -106,6 +107,7 @@ export class FunctionService implements OnModuleInit {
     private readonly limitService: LimitService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
+    this.jsonTemplate = new JsonTemplate();
   }
 
   async onModuleInit() {
@@ -556,6 +558,7 @@ export class FunctionService implements OnModuleInit {
     visibility: Visibility | null,
     source: UpdateSourceFunctionDto | undefined,
     enableRedirect: boolean | undefined,
+    templateBody: string | undefined,
   ) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, true) : null;
@@ -581,7 +584,7 @@ export class FunctionService implements OnModuleInit {
       responseType = await this.getResponseType(response, payload ?? apiFunction.payload);
     }
 
-    const newSourceData = this.processNewSourceData(apiFunction, source);
+    const newSourceData = this.processNewSourceData(apiFunction, source, templateBody);
 
     const patchSourceData = {
       ...(newSourceData?.body ? { body: newSourceData.body } : null),
@@ -636,18 +639,6 @@ export class FunctionService implements OnModuleInit {
       }
     }
 
-    if (source?.body?.mode === 'raw') {
-      try {
-        getMetadataTemplateObject(source.body.raw);
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          throw new BadRequestException('Invalid raw json.');
-        }
-
-        throw error;
-      }
-    }
-
     return this.prisma.apiFunction.update({
       where: {
         id: apiFunction.id,
@@ -666,13 +657,15 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  private processNewSourceData(apiFunction: ApiFunction, source: UpdateSourceFunctionDto | undefined): {
+  private processNewSourceData(apiFunction: ApiFunction, source: UpdateSourceFunctionDto | undefined, templateBody: string | undefined): {
     headers?: string;
     url?: string;
     body?: string;
     method?: string;
     auth?: string;
   } | null {
+    const jsonTemplateParser = new JsonTemplate();
+
     if (!source) {
       return null;
     }
@@ -746,9 +739,15 @@ export class FunctionService implements OnModuleInit {
       if (source.body.mode === 'empty') {
         currentBody = {};
       } else if (source.body.mode === 'raw') {
+        if (typeof templateBody === 'undefined') {
+          throw new BadRequestException('Could not process this operation. Did you miss your poly-training-assistant.js pre-request script ?.');
+        }
+
+        const templateObj = jsonTemplateParser.parse(templateBody);
+
         currentBody = {
           mode: 'raw',
-          raw: source.body.raw,
+          raw: jsonTemplateParser.toTemplateString(templateObj['source']['body']['raw']),
         };
       } else {
         if (source.body.mode === 'urlencoded') {
@@ -804,7 +803,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   private processRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, args: Record<string, any>) {
-    const jsonTemplateObject = getMetadataTemplateObject(body.raw);
+    const jsonTemplateObject = this.jsonTemplate.parse(body.raw);
 
     const removeUndefinedValuesFromOptionalArgs = (value: any) => {
       if (Array.isArray(value)) {
@@ -846,7 +845,7 @@ export class FunctionService implements OnModuleInit {
     // Filter un-used optional args.
     const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
 
-    const rawObj = mergeArgumentsInTemplateObject(filteredJsonTemplate, args);
+    const rawObj = this.jsonTemplate.render(filteredJsonTemplate, args);
 
     return {
       mode: 'raw',

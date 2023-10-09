@@ -29,7 +29,7 @@ import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { AuthService } from 'auth/auth.service';
 import { LimitService } from 'limit/limit.service';
 
-import * as JsonTemplate from 'function/custom/json-template/index';
+import { JsonTemplate, POLY_ARG_NAME_KEY } from 'function/custom/json-template/index';
 
 describe('FunctionService', () => {
   let functionService: FunctionService;
@@ -893,23 +893,23 @@ describe('FunctionService', () => {
       }
 
       const getArgumentValueMapSpy = jest.spyOn((functionService as any), 'getArgumentValueMap').mockReturnValue(args);
-
-      jest.spyOn(JsonTemplate, 'getMetadataTemplateObject').mockReturnValue({
-        name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
-        lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
+      
+      jest.spyOn(JsonTemplate.prototype, 'parse').mockReturnValue({
+        name: { [POLY_ARG_NAME_KEY]: 'name', quoted: true },
+        lastName: {[POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
         vip: true,
         list: [
-          { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
-          {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
+          { [POLY_ARG_NAME_KEY]: 'name', quoted: true },
+          {[POLY_ARG_NAME_KEY]: 'lastName', quoted: true},
           {
             age: 27,
-            lastName: {[JsonTemplate.POLY_ARG_NAME_KEY]: 'lastName', quoted: true}
+            lastName: {[POLY_ARG_NAME_KEY]: 'lastName', quoted: true}
           },
           1
         ]
       });
 
-      const mergeArgumentsInTemplateObjectSpy = jest.spyOn(JsonTemplate, 'mergeArgumentsInTemplateObject').mockReturnValue({
+      const mergeArgumentsInTemplateObjectSpy = jest.spyOn(JsonTemplate.prototype, 'render').mockReturnValue({
         name: 'Poly'
       });
 
@@ -940,10 +940,10 @@ describe('FunctionService', () => {
       expect(getArgumentValueMapSpy).toHaveBeenCalledWith(apiFunction, args, false)
 
       expect(mergeArgumentsInTemplateObjectSpy).toHaveBeenCalledWith({
-        name: { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+        name: { [POLY_ARG_NAME_KEY]: 'name', quoted: true },
         vip: true,
         list: [
-          { [JsonTemplate.POLY_ARG_NAME_KEY]: 'name', quoted: true },
+          { [POLY_ARG_NAME_KEY]: 'name', quoted: true },
           undefined,
           {
             age: 27

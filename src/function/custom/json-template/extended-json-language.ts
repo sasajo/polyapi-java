@@ -11,9 +11,16 @@ const CUSTOM_ARGUMENT = {
   end: /\}\}/,
 };
 
+const ARGUMENT_OBJECT_DEFINITION = {
+  scope: 'argument-object',
+  className: 'literal argument-object',
+  begin: /\{[\s|\n]*"\$polyArgName/,
+  end: /\}/,
+};
+
 /**
  * Json language definition taken from https://github.com/highlightjs/highlight.js/blob/main/src/languages/json.js
- * I've extended it adding support for arguments as values, see {@link CUSTOM_ARGUMENT}
+ * I've extended it adding support for arguments as values, see {@link CUSTOM_ARGUMENT} and {@link ARGUMENT_OBJECT_DEFINITION}
  */
 export const getExtendedJsonLanguage = (hljs: typeof hlsLib) => {
   const ATTRIBUTE = {
@@ -44,6 +51,7 @@ export const getExtendedJsonLanguage = (hljs: typeof hlsLib) => {
     },
     contains: [
       ATTRIBUTE,
+      ARGUMENT_OBJECT_DEFINITION, // Support for argument objects like { "$polyArgName": "age", quoted: true }
       CUSTOM_ARGUMENT, // Support for arguments.
       PUNCTUATION,
       hljs.QUOTE_STRING_MODE,

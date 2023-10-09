@@ -43,4 +43,8 @@ export class UpdateApiFunctionDto {
   @IsOptional()
   @IsBoolean()
   enableRedirect: boolean | undefined;
+
+  @IsString()
+  @IsOptional()
+  templateBody: string | undefined;
 }
