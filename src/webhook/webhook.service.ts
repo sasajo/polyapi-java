@@ -317,7 +317,14 @@ export class WebhookService {
     }
 
     this.eventService.sendWebhookEvent(webhookHandle.id, executionEnvironment, eventPayload, eventHeaders, subpathParams);
-    return await this.triggerService.triggerWebhookEvent(webhookHandle.id, eventPayload, eventHeaders, subpathParams);
+
+    return await this.triggerService.triggerWebhookEvent(
+      executionEnvironment ? executionEnvironment.id : webhookHandle.environmentId,
+      webhookHandle.id,
+      eventPayload,
+      eventHeaders,
+      subpathParams,
+    );
   }
 
   private async executeSecurityFunctions(

@@ -37,7 +37,7 @@ describe('transpiler', () => {
         return arg1;
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.args.map(arg => arg.name)).toEqual(['arg1', 'arg2', 'arg3']);
     });
 
@@ -47,7 +47,7 @@ describe('transpiler', () => {
         return arg1;
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.args.find(arg => arg.name === 'arg1')?.required).toBe(false);
       expect(result.args.find(arg => arg.name === 'arg2')?.required).not.toBeDefined();
       expect(result.args.find(arg => arg.name === 'arg3')?.required).toBe(false);
@@ -60,7 +60,7 @@ describe('transpiler', () => {
         return arg1.prop1;
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.args[0].type).toBe('MyInterface');
       expect(result.args[0].typeSchema).toBeDefined();
       expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({ type: 'object', properties: { prop1: { type: 'string' }, prop2: { type: 'number' } } });
@@ -72,7 +72,7 @@ describe('transpiler', () => {
         return arg1;
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.returnType).toBe('string');
     });
 
@@ -83,7 +83,7 @@ describe('transpiler', () => {
         return { prop1: arg1, prop2: 42 };
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(JSON.parse(result.returnType)).toMatchObject({ type: 'object', properties: { prop1: { type: 'string' }, prop2: { type: 'number' } } });
     });
 
@@ -95,7 +95,7 @@ describe('transpiler', () => {
         });
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.synchronous).toBe(false);
       expect(result.returnType).toBe('string'); // After removing Promise<>
     });
@@ -106,7 +106,7 @@ describe('transpiler', () => {
         return arg1;
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.synchronous).toBe(true);
     });
 
@@ -116,7 +116,7 @@ describe('transpiler', () => {
         return arg1;
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.synchronous).toBe(false);
     });
 
@@ -127,7 +127,7 @@ describe('transpiler', () => {
         return njwt.test(arg1);
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.requirements).toContain('njwt');
     });
 
@@ -139,7 +139,7 @@ describe('transpiler', () => {
         return path.basename(arg1);
       }
     `;
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
       expect(result.requirements).not.toContain('path');
       expect(result.requirements).not.toContain('fs');
     });
@@ -152,7 +152,7 @@ describe('transpiler', () => {
         }
       `;
 
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
 
       expect(result.args[0].type).toBe('Colors');
       expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
@@ -168,7 +168,7 @@ describe('transpiler', () => {
         }
       `;
 
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
 
       expect(result.args[0].type).toBe('string[]');
       expect(result.args[0].typeSchema).toBeUndefined();
@@ -182,7 +182,7 @@ describe('transpiler', () => {
         }
       `;
 
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
 
       expect(result.args[0].type).toBe('MyInterface[]');
       expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
@@ -205,7 +205,7 @@ describe('transpiler', () => {
         }
       `;
 
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
 
       expect(result.args[0].type).toBe('Colors[]');
       expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
@@ -225,7 +225,7 @@ describe('transpiler', () => {
         }
       `;
 
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
 
       expect(result.args[0].type).toBe('MyClass');
       expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({
@@ -245,7 +245,7 @@ describe('transpiler', () => {
       }
     `;
 
-      const result = await transpileCode('testFunc', code);
+      const result = await transpileCode('testFunc', code, {});
 
       expect(result.args[0].type).toBe('MyClass[]');
       expect(JSON.parse(result.args[0].typeSchema!)).toMatchObject({

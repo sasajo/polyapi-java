@@ -51,6 +51,7 @@ describe('SpecsController (e2e)', () => {
         visibilityMetadata: {
           visibility: Visibility.Environment,
         },
+        apiType: 'rest',
       },
     ];
 

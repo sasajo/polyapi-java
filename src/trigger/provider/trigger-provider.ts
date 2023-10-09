@@ -18,5 +18,5 @@ export interface TriggerProvider {
     waitForResponse: boolean | undefined,
   ) => Promise<TriggerDto>;
   deleteTrigger: (environmentId: string, trigger: TriggerDto) => Promise<void>;
-  triggerEvent: (executionId: string, source: TriggerSource, data: any) => Promise<void>;
+  triggerEvent: (environmentId: string, executionId: string, source: TriggerSource, data: any) => Promise<void>;
 }
