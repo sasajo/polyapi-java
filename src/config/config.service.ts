@@ -138,6 +138,10 @@ export class ConfigService {
     return this.get('FAAS_PREINSTALLED_NPM_PACKAGES', '').split(',');
   }
 
+  get faasDefaultSleepSeconds(): number {
+    return Number(this.get('FAAS_DEFAULT_SLEEP_SECONDS', 30));
+  }
+
   get vaultAddress(): string {
     return this.get('VAULT_ADDRESS');
   }
