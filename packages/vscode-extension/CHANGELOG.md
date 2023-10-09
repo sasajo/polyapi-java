@@ -1,3 +1,6 @@
+### 0.5.0
+* Add context menu "get" and "inject" for variables, and make `inject()` as default when copying to clipboard.
+
 ### 0.4.0
 * Add dependencies checking on setup.
 
