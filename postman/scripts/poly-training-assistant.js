@@ -2,7 +2,9 @@ const postmanCollection = require('postman-collection');
 
 const templateBodyParts = pm.request.body.raw.split('{');
 
-templateBodyParts[1] = `"templateBody": "${btoa(pm.request.body.raw)}", ${templateBodyParts[1]}`
+let shouldEncode = pm.request.url.getPath().match(/^\/functions\/api\/[-,0-9,a-z]{36}$/) !== null;
+
+templateBodyParts[1] = `"templateBody": ${shouldEncode ? `"${btoa(pm.request.body.raw)}"` : JSON.stringify(pm.request.body.raw)}, ${templateBodyParts[1]}`
 
 
 pm.request.update({

@@ -136,7 +136,7 @@ export class WebhookController {
       subpath,
       method,
       securityFunctions,
-      templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody,
+      templateBody,
     );
     return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
@@ -210,7 +210,7 @@ export class WebhookController {
         method,
         securityFunctions,
         enabled,
-        templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody,
+        templateBody,
       ),
       req.user.environment,
     );
