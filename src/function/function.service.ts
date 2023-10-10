@@ -740,7 +740,7 @@ export class FunctionService implements OnModuleInit {
         currentBody = {};
       } else if (source.body.mode === 'raw') {
         if (typeof templateBody === 'undefined') {
-          throw new BadRequestException('Could not process this operation. Did you miss your poly-training-assistant.js pre-request script ?.');
+          throw new BadRequestException('Could not process this operation. Did you forgot to add your poly-training-assistant.js pre-request script ?.');
         }
 
         const templateObj = jsonTemplateParser.parse(templateBody);
@@ -748,6 +748,11 @@ export class FunctionService implements OnModuleInit {
         currentBody = {
           mode: 'raw',
           raw: jsonTemplateParser.toTemplateString(templateObj['source']['body']['raw']),
+          options: {
+            raw: {
+              language: 'json',
+            },
+          },
         };
       } else {
         if (source.body.mode === 'urlencoded') {
