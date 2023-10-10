@@ -15,7 +15,7 @@ const contextPaths = [
 {{/each}}
 ];
 
-const getVariableHandlers = (clientID, getSocket) => {
+const getVariableHandlers = (clientID, getSocket, getApiKey) => {
   const variableHandlers = {};
   variables.forEach(([path, id, secret]) => {
     set(variableHandlers, path, {
@@ -47,7 +47,7 @@ const getVariableHandlers = (clientID, getSocket) => {
           socket.emit('unregisterVariableChangeEventHandler', {
               clientID,
               variableId: id,
-              apiKey: '{{apiKey}}'
+              apiKey: getApiKey(),
           });
           if (timeoutID) {
             clearTimeout(timeoutID);
@@ -59,7 +59,7 @@ const getVariableHandlers = (clientID, getSocket) => {
         socket.emit('registerVariableChangeEventHandler', {
           clientID,
           variableId: id,
-          apiKey: '{{apiKey}}'
+          apiKey: getApiKey(),
         }, registered => {
           if (registered) {
             socket.on(`handleVariableChangeEvent:${id}`, handleEvent);
@@ -109,7 +109,7 @@ module.exports = (clientID, getSocket) => merge(
         socket.emit('unregisterVariablesChangeEventHandler', {
             clientID,
             path,
-            apiKey: '{{apiKey}}'
+            apiKey: getApiKey(),
         });
       }
 
@@ -117,7 +117,7 @@ module.exports = (clientID, getSocket) => merge(
         clientID,
         path,
         options,
-        apiKey: '{{apiKey}}'
+        apiKey: getApiKey(),
       }, registered => {
         if (registered) {
           socket.on(`handleVariablesChangeEvent:${path}`, callback);

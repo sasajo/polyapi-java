@@ -3,6 +3,7 @@ const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const https = require('https');
 const dotenv = require('dotenv');
+const polyCustom = require('./poly-custom');
 
 dotenv.config();
 
@@ -18,7 +19,6 @@ if (!isDevEnv) {
 
 const axios = Axios.create({
   baseURL,
-  headers: { 'Authorization': 'Bearer {{apiKey}}' },
   httpAgent: httpProxy
     ? new HttpProxyAgent(httpProxy)
     : undefined,
@@ -31,5 +31,14 @@ const axios = Axios.create({
       : undefined,
   proxy: false,
 });
+axios.interceptors.request.use(
+  config => {
+    config.headers['Authorization'] = `Bearer ${polyCustom.executionApiKey || '{{apiKey}}'}`;
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 module.exports = axios;

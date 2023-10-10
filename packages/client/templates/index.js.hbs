@@ -7,6 +7,7 @@ const webhooks = require('./webhooks');
 const authFunctions = require('./auth');
 const serverFunctions = require('./server');
 const vari = require('./vari');
+const polyCustom = require('./poly-custom');
 
 const clientID = '{{clientID}}';
 const nodeEnv = process.env.NODE_ENV;
@@ -24,6 +25,7 @@ const getSocket = () => {
   }
   return socket;
 };
+const getApiKey = () => polyCustom.executionApiKey || '{{apiKey}}';
 
 const errorHandler = {
   on: (path, callback, options) => {
@@ -32,7 +34,7 @@ const errorHandler = {
     socket.emit('registerErrorHandler', {
       ...options,
       path,
-      apiKey: '{{apiKey}}'
+      apiKey: getApiKey(),
     }, (id) => {
       handlerId = id;
       socket.on(`handleError:${handlerId}`, callback);
@@ -44,7 +46,7 @@ const errorHandler = {
         socket.emit('unregisterErrorHandler', {
           id: handlerId,
           path,
-          apiKey: '{{apiKey}}'
+          apiKey: getApiKey(),
         });
       }
     };
@@ -52,21 +54,18 @@ const errorHandler = {
 };
 
 const poly = {};
-const polyCustom = {
-  responseStatusCode: 200,
-};
 
 merge(
   poly,
   apiFunctions(clientID),
   clientFunctions(poly),
   serverFunctions(clientID),
-  authFunctions(clientID, getSocket),
-  webhooks(clientID, getSocket)
+  authFunctions(clientID, getSocket, getApiKey),
+  webhooks(clientID, getSocket, getApiKey),
 ),
 module.exports = {
   ...poly,
   errorHandler,
-  vari: vari(clientID, getSocket),
+  vari: vari(clientID, getSocket, getApiKey),
   polyCustom,
 };
