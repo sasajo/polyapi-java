@@ -126,7 +126,7 @@ export class JsonTemplate implements JsonTemplateInterface {
   }
 
   /**
-   * Reverts a parsed template to its string version.
+   * Converts a parsed template to its string version.
    * @example
    * const jsonTemplate = new JsonTemplate();
    * const result = jsonTemplate.parse('{"name": {{name}}, lastName: "{{userLastName}}"}');
