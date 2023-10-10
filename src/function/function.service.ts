@@ -1170,6 +1170,7 @@ export class FunctionService implements OnModuleInit {
     name: string,
     description: string,
     customCode: string,
+    typeSchemas: Record<string, any>,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
   ) {
     return this.createOrUpdateCustomFunction(
@@ -1178,7 +1179,7 @@ export class FunctionService implements OnModuleInit {
       name,
       description,
       customCode,
-      {},
+      typeSchemas,
       false,
       null,
       checkBeforeCreate,

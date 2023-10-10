@@ -82,6 +82,7 @@ export const createOrUpdateClientFunction = async (
   name: string,
   description: string | null,
   code: string,
+  typeSchemas: Record<string, any>,
 ) => {
   return (
     await axios.post<any, AxiosResponse<FunctionDetailsDto>>(
@@ -91,6 +92,7 @@ export const createOrUpdateClientFunction = async (
         name,
         description,
         code,
+        typeSchemas,
       },
       {
         headers: {

@@ -263,7 +263,7 @@ export class FunctionController {
   @UseGuards(PolyAuthGuard)
   @Post('/client')
   async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateClientCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, description = '', code } = data;
+    const { context = '', name, description = '', code, typeSchemas = {} } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
@@ -275,6 +275,7 @@ export class FunctionController {
           name,
           description,
           code,
+          typeSchemas,
           () => this.checkFunctionsLimit(req.user.tenant, 'creating custom client function'),
         ),
       );
