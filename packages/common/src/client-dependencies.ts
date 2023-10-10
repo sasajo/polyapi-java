@@ -16,7 +16,7 @@ const DEFAULT_TS_CONFIG = {
 
 export const MESSAGES = {
   TS_CONFIG_DO_NOT_EXIST: 'tsconfig.json does not exist in this project. Do you want to create it?',
-  TS_CONFIG_UPDATE: 'tsconfig.json does not have esModuleInterop set to true. Do you want to update it?',
+  TS_CONFIG_UPDATE: 'tsconfig.json does not have esModuleInterop set to true in this project. Do you want to update it?',
 };
 
 type TsConfigSetupSteps = {
