@@ -7,4 +7,5 @@ export default {
   sanitizeContextIdentifier: getFnMock<CommonService['sanitizeContextIdentifier']>().mockImplementation((context: string) => context),
   resolveType: getFnMock<CommonService['resolveType']>(),
   toPropertyType: getFnMock<CommonService['toPropertyType']>(),
+  filterJSONComments: getFnMock<CommonService['filterJSONComments']>(),
 } as TypedMock<CommonService>;
