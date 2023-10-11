@@ -3,39 +3,24 @@ import { parse } from 'node-html-parser';
 import { getExtendedJsonLanguage, LANGUAGE_NAME } from './extended-json-language';
 import { ARGUMENT_PATTERN } from '../constants';
 import { cloneDeep, isPlainObject } from 'lodash';
-import { JsonTemplateInterface, TemplateValue, POLY_ARG_NAME_KEY } from './json-template';
+import { JsonTemplateProcessor, TemplateValue, POLY_ARG_NAME_KEY, ArgMetadata } from './json-template';
 import hljs from 'highlight.js';
-
-export { POLY_ARG_NAME_KEY } from './json-template';
 
 hls.registerLanguage(LANGUAGE_NAME, getExtendedJsonLanguage);
 
+export * from './json-template';
+
 export const isTemplateArg = (value): value is ArgMetadata => typeof value[POLY_ARG_NAME_KEY] !== 'undefined';
 
-export type ArgMetadata = {
-    /**
-     * Argument name
-     */
-    [POLY_ARG_NAME_KEY]: string;
-    /**
-     * If argument is surrounded by double quotes or not in template's string.
-     */
-    quoted: boolean;
-}
+/* eslint-disable no-dupe-class-members */
 
 /**
  * Use this when you need to parse and modify raw json from api functions.
 */
-export class JsonTemplate implements JsonTemplateInterface {
-  /**
-   * This function replaces all arguments from raw json string for valid objects of type {@link ArgMetadata}
-   * and returns a valid json object. This is useful when you need to modify something from client json string that has
-   * extended syntax `{"foo": {{myArgument}}}` and you need to modify it based on some argument state.
-   * @example
-   * const result = new JsonTemplate().parse('{"name": {{name}}, lastName: "{{userLastName}}"}')
-   * console.log(result) // { name: { $polyArgName: "name", quoted: false }, lastName: { $polyArgName: "userLastName", quoted: true }}
-   */
-  parse(template: string): Record<string, TemplateValue> | TemplateValue[] {
+export class JsonTemplate implements JsonTemplateProcessor {
+  parse(template: string, getStringVersion: true): string
+  parse(template: string): Record<string, TemplateValue> | TemplateValue[];
+  parse(template: string, getStringVersion?: boolean): Record<string, TemplateValue> | TemplateValue[] | string {
     const { value } = hls.highlight(template, {
       language: LANGUAGE_NAME,
     });
@@ -56,7 +41,7 @@ export class JsonTemplate implements JsonTemplateInterface {
       }
     }
 
-    return JSON.parse(dom.textContent);
+    return getStringVersion ? dom.textContent : JSON.parse(dom.textContent);
   }
 
   render(template: string | Record<string, TemplateValue> | TemplateValue[], args: Record<string, any>): any[] | Record<string, any> {
@@ -125,19 +110,24 @@ export class JsonTemplate implements JsonTemplateInterface {
     return result as any;
   }
 
-  /**
-   * Converts a parsed template to its string version.
-   * @example
-   * const jsonTemplate = new JsonTemplate();
-   * const result = jsonTemplate.parse('{"name": {{name}}, lastName: "{{userLastName}}"}');
-   * console.log(result) // { name: { $polyArgName: "name", quoted: false }, lastName: { $polyArgName: "userLastName", quoted: true }}
-   * const templateString = jsonTemplate.toTemplateString(result);
-   * console.log(templateString) // '{"name": {{name}}, lastName: "{{userLastName}}"}'
-   */
-  toTemplateString(template: Record<string, TemplateValue> | TemplateValue[], prettify = true): string {
-    const { value } = hljs.highlight(JSON.stringify(template, null, prettify ? 4 : undefined), {
-      language: LANGUAGE_NAME,
-    });
+  toTemplateString(template: string): string
+  toTemplateString(template: Record<string, TemplateValue> | TemplateValue[], prettify?: boolean): string
+  toTemplateString(template: Record<string, TemplateValue> | TemplateValue[] | string, prettify = true): string {
+    let value: string;
+
+    if (typeof template === 'string') {
+      const { value: hljsValue } = hljs.highlight(template, {
+        language: LANGUAGE_NAME,
+      });
+
+      value = hljsValue;
+    } else {
+      const { value: hljsValue } = hljs.highlight(JSON.stringify(template, null, prettify ? 4 : undefined), {
+        language: LANGUAGE_NAME,
+      });
+
+      value = hljsValue;
+    }
 
     const dom = parse(value);
 
@@ -149,4 +139,6 @@ export class JsonTemplate implements JsonTemplateInterface {
 
     return dom.textContent;
   }
+
+  /* eslint-enable no-dupe-class-members */
 }

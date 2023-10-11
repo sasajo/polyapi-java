@@ -3,7 +3,7 @@ import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core
 import jsonpath from 'jsonpath';
 import { validator } from '@exodus/schemasafe';
 import axios from 'axios';
-import _ from 'lodash';
+import _, { isPlainObject } from 'lodash';
 import { toPascalCase } from '@guanghechen/helper-string';
 import { ConfigVariable, Environment, Prisma, Tenant } from '@prisma/client';
 import { CommentToken, parse, stringify } from 'comment-json';
@@ -21,12 +21,14 @@ import {
   Visibility,
   VisibilityQuery,
 } from '@poly/model';
+import { JsonTemplate, JsonTemplateProcessor } from 'function/custom/json-template';
 
 const JSON_META_SCHEMA_CACHE = {};
 
 @Injectable()
 export class CommonService {
   private readonly logger = new Logger(CommonService.name);
+  private readonly jsonTemplate: JsonTemplateProcessor = new JsonTemplate();
 
   constructor(
     private readonly config: ConfigService,
@@ -350,7 +352,17 @@ export class CommonService {
 
   filterJSONComments(jsonString: string) {
     try {
-      return stringify(parse(jsonString, undefined, true));
+      // Get valid json string, 'comment-json' lib does not support unquoted args.
+      const validJsonString = this.jsonTemplate.parse(jsonString, true);
+
+      // Trim comments
+      const parsedTemplateStringWithoutComments = parse(validJsonString, undefined, true);
+
+      if (Array.isArray(parsedTemplateStringWithoutComments) || (isPlainObject as (value: unknown) => value is object)(parsedTemplateStringWithoutComments)) {
+        return this.jsonTemplate.toTemplateString(parsedTemplateStringWithoutComments);
+      }
+
+      return stringify(parsedTemplateStringWithoutComments);
     } catch (e) {
       // error while parsing json, return original string
       return jsonString;

@@ -75,7 +75,7 @@ import {
 import { AuthService } from 'auth/auth.service';
 import { AuthData, WithEnvironment, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
-import { isTemplateArg, JsonTemplate, POLY_ARG_NAME_KEY } from './custom/json-template';
+import { isTemplateArg, JsonTemplate, JsonTemplateProcessor, POLY_ARG_NAME_KEY } from './custom/json-template';
 import { ARGUMENT_PATTERN } from './custom/constants';
 
 mustache.escape = (text) => {
@@ -90,7 +90,7 @@ mustache.escape = (text) => {
 export class FunctionService implements OnModuleInit {
   private readonly logger: Logger = new Logger(FunctionService.name);
   private readonly faasService: FaasService;
-  private readonly jsonTemplate: JsonTemplate;
+  private readonly jsonTemplate: JsonTemplateProcessor;
 
   constructor(
     private readonly commonService: CommonService,
