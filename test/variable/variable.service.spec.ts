@@ -527,7 +527,7 @@ describe('VariableService', () => {
       });
 
       expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
-      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value);
+      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value, undefined, false);
       expect(commonServiceMock.toPropertyType).toHaveBeenCalledWith(variable.name, resolvedType[0], value, resolvedType[1]);
     });
 
@@ -621,7 +621,7 @@ describe('VariableService', () => {
       });
 
       expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
-      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value);
+      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value, undefined, false);
       expect(commonServiceMock.toPropertyType).toHaveBeenCalledWith(variable.name, resolvedType[0], value, resolvedType[1]);
     });
 
