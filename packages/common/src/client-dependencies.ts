@@ -15,8 +15,8 @@ const DEFAULT_TS_CONFIG = {
 };
 
 export const MESSAGES = {
-  TS_CONFIG_DO_NOT_EXIST: 'tsconfig.json does not exist. Do you want to create it?',
-  TS_CONFIG_UPDATE: 'tsconfig.json does not have esModuleInterop set to true. Do you want to update it?',
+  TS_CONFIG_DO_NOT_EXIST: 'tsconfig.json does not exist in this project. Do you want to create it?',
+  TS_CONFIG_UPDATE: 'tsconfig.json does not have esModuleInterop set to true in this project. Do you want to update it?',
 };
 
 type TsConfigSetupSteps = {
@@ -38,8 +38,8 @@ type CheckNodeVersionOpts = {
 
 export const getUpdateLibraryVersionMessage = (version: string, minVersion: string, library: string) => {
   return version
-    ? `${library} version is lower than ${minVersion}. Do you want to update it to the latest version?`
-    : `${library} is not installed. Do you want to install it?`;
+    ? `${library} version is lower than ${minVersion} in this project. Do you want to update it to the latest version?`
+    : `${library} is not installed in this project. Do you want to install it?`;
 };
 
 export const checkTsConfig = async (steps: TsConfigSetupSteps) => {
