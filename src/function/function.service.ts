@@ -808,7 +808,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   private processRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, args: Record<string, any>) {
-    const jsonTemplateObject = this.jsonTemplate.parse(body.raw);
+    const jsonTemplateObject = this.jsonTemplate.parse(this.commonService.filterJSONComments(body.raw));
 
     const removeUndefinedValuesFromOptionalArgs = (value: any) => {
       if (Array.isArray(value)) {
