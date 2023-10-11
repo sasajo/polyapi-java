@@ -192,6 +192,8 @@ export class FunctionController {
       visibility = null,
       source,
       enableRedirect,
+      returnType,
+      returnTypeSchema,
     } = data;
 
     const apiFunction = await this.service.findApiFunction(id);
@@ -203,6 +205,19 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
+    if (returnType === 'object' && !returnTypeSchema) {
+      throw new BadRequestException('returnTypeSchema is required if returnType is object');
+    }
+    if (returnTypeSchema && (returnType && returnType !== 'object')) {
+      throw new BadRequestException('returnTypeSchema is only allowed if returnType is object');
+    }
+    if (response && returnType) {
+      throw new BadRequestException('response and returnType cannot be set at the same time');
+    }
+    if (response && returnTypeSchema) {
+      throw new BadRequestException('response and returnTypeSchema cannot be set at the same time');
+    }
+
     this.checkSourceUpdateAuth(source);
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
@@ -210,7 +225,20 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect),
+      await this.service.updateApiFunction(
+        apiFunction,
+        name,
+        context,
+        description,
+        argumentsMetadata,
+        response,
+        payload,
+        visibility,
+        source,
+        enableRedirect,
+        returnType,
+        returnTypeSchema,
+      ),
     );
   }
 

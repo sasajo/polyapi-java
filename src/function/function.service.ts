@@ -246,6 +246,8 @@ export class FunctionService implements OnModuleInit {
       });
     }
 
+    const [returnType, returnTypeSchema] = this.getReturnTypeData(apiFunction.responseType);
+
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
       arguments: argumentsList,
@@ -257,6 +259,8 @@ export class FunctionService implements OnModuleInit {
         auth: parsedAuth,
       },
       enabledRedirect: apiFunction.enableRedirect,
+      returnType,
+      returnTypeSchema,
     };
   }
 
@@ -556,6 +560,8 @@ export class FunctionService implements OnModuleInit {
     visibility: Visibility | null,
     source: UpdateSourceFunctionDto | undefined,
     enableRedirect: boolean | undefined,
+    returnType: string | undefined,
+    returnTypeSchema: Record<string, any> | undefined,
   ) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, true) : null;
@@ -579,6 +585,10 @@ export class FunctionService implements OnModuleInit {
     let responseType: string | undefined;
     if (response !== undefined) {
       responseType = await this.getResponseType(response, payload ?? apiFunction.payload);
+    } else if (returnTypeSchema !== undefined) {
+      responseType = JSON.stringify(returnTypeSchema);
+    } else if (returnType !== undefined) {
+      responseType = returnType.trim();
     }
 
     const newSourceData = this.processNewSourceData(apiFunction, source);
@@ -1131,6 +1141,8 @@ export class FunctionService implements OnModuleInit {
   }
 
   customFunctionToDetailsDto(customFunction: CustomFunction): FunctionDetailsDto {
+    const [returnType, returnTypeSchema] = this.getReturnTypeData(customFunction.returnType);
+
     return {
       ...this.customFunctionToBasicDto(customFunction),
       arguments: JSON.parse(customFunction.arguments).map((arg) => ({
@@ -1138,6 +1150,8 @@ export class FunctionService implements OnModuleInit {
         required: arg.required == null ? true : arg.required,
         secure: arg.secure == null ? false : arg.secure,
       })),
+      returnType,
+      returnTypeSchema,
     };
   }
 
@@ -2565,5 +2579,14 @@ export class FunctionService implements OnModuleInit {
     }
 
     return result;
+  }
+
+  private getReturnTypeData(returnType: string | null): [string, Record<string, any> | undefined] {
+    try {
+      const typeSchema = returnType ? JSON.parse(returnType) : undefined;
+      return ['object', typeSchema];
+    } catch (e) {
+      return ['string', undefined];
+    }
   }
 }

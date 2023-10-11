@@ -50,6 +50,8 @@ export interface FunctionBasicDto {
 export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: Omit<FunctionArgument<Record<string, any>>, 'location'>[];
   source?: ApiFunctionSource
+  returnType: string | null;
+  returnTypeSchema?: Record<string, any>;
 }
 
 export interface ApiFunctionDetailsDto extends FunctionDetailsDto {
