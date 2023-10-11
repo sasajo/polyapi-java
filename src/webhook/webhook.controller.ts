@@ -88,7 +88,7 @@ export class WebhookController {
   public async getWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
     const webhookHandle = await this.findWebhookHandle(id);
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.ManageWebhooks);
 
     return this.webhookService.toDto(webhookHandle, req.user.environment);
   }
@@ -112,7 +112,7 @@ export class WebhookController {
       templateBody,
     } = createWebhookHandle;
 
-    await this.authService.checkPermissions(req.user, Permission.Teach);
+    await this.authService.checkPermissions(req.user, Permission.ManageWebhooks);
 
     if (method && !subpath) {
       throw new BadRequestException('subpath is required if method is set');
@@ -191,7 +191,7 @@ export class WebhookController {
       throw new BadRequestException('eventPayload and eventPayloadTypeSchema cannot be set at the same time');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.ManageWebhooks);
 
     return this.webhookService.toDto(
       await this.webhookService.updateWebhookHandle(
@@ -276,7 +276,7 @@ export class WebhookController {
   public async deleteWebhookHandle(@Req() req: AuthRequest, @Param('id') id: string) {
     const webhookHandle = await this.findWebhookHandle(id);
 
-    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(webhookHandle, req.user, false, Permission.ManageWebhooks);
 
     await this.webhookService.deleteWebhookHandle(id);
   }
@@ -289,7 +289,7 @@ export class WebhookController {
     @Param('name') name: string,
     @Body() payload: any,
   ) {
-    await this.authService.checkPermissions(req.user, Permission.Teach);
+    await this.authService.checkPermissions(req.user, Permission.ManageWebhooks);
 
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
       req.user.environment,
@@ -305,7 +305,7 @@ export class WebhookController {
   @UseGuards(PolyAuthGuard)
   @Put(':name')
   public async registerWebhookFunction(@Req() req: AuthRequest, @Param('name') name: string, @Body() payload: any) {
-    await this.authService.checkPermissions(req.user, Permission.Teach);
+    await this.authService.checkPermissions(req.user, Permission.ManageWebhooks);
 
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
       req.user.environment,

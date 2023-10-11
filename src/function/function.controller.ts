@@ -111,7 +111,7 @@ export class FunctionController {
     } = data;
     const environmentId = req.user.environment.id;
 
-    await this.authService.checkPermissions(req.user, Permission.Teach);
+    await this.authService.checkPermissions(req.user, Permission.ManageApiFunctions);
 
     this.logger.debug(`Creating or updating API function in environment ${environmentId}...`);
     this.logger.debug(
@@ -207,7 +207,7 @@ export class FunctionController {
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
 
     return this.service.apiFunctionToDetailsDto(
       await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect),
@@ -227,7 +227,7 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Execute);
     data = await this.variableService.unwrapVariables(req.user, data);
 
     await this.statisticsService.trackFunctionCall(req.user, apiFunction.id, 'api');
@@ -248,7 +248,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
     await this.service.deleteApiFunction(id);
   }
 
@@ -506,7 +506,7 @@ export class FunctionController {
       throw new BadRequestException(`Function with id ${id} has been disabled by System Administrator and cannot be used.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Execute);
 
     console.log('Data before unwrap', JSON.stringify(data));
     data = await this.variableService.unwrapVariables(req.user, data);
