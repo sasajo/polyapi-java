@@ -62,7 +62,7 @@ export const mockedAuthData: AuthData = {
   },
   permissions: {
     [Permission.CustomDev]: true,
-    [Permission.Teach]: true,
+    [Permission.ManageApiFunctions]: true,
   },
 };
 

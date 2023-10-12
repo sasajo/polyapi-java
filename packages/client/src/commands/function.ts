@@ -63,6 +63,7 @@ const generateTypeSchemas = (fileName: string): { [typeName: string]: any } => {
   const settings: TJS.PartialArgs = {
     required: true,
     noExtraProps: true,
+    ignoreErrors: true,
   };
   const generator = TJS.buildGenerator(program, settings);
 
@@ -196,6 +197,7 @@ export const addOrUpdateCustomFunction = async (
     }
 
     const code = fs.readFileSync(file, 'utf8');
+    const typeSchemas = generateTypeSchemas(file);
 
     if (server) {
       shell.echo('-n', chalk.rgb(255, 255, 255)(`${updating ? 'Updating' : 'Adding'} custom server side function...`));
@@ -204,16 +206,13 @@ export const addOrUpdateCustomFunction = async (
         shell.echo(chalk.yellow('Please note that deploying your functions will take a few minutes because it makes use of libraries other than polyapi.'));
       }
 
-      const typeSchemas = generateTypeSchemas(file);
-      // console.log(JSON.stringify(typeSchemas, null, 2));
-
       customFunction = await createOrUpdateServerFunction(context, name, description, code, typeSchemas);
       shell.echo(chalk.green('DEPLOYED'));
 
       shell.echo(chalk.rgb(255, 255, 255)(`Function ID: ${customFunction.id}`));
     } else {
       shell.echo('-n', chalk.rgb(255, 255, 255)(`${updating ? 'Updating' : 'Adding'} custom client side function...`));
-      customFunction = await createOrUpdateClientFunction(context, name, description, code);
+      customFunction = await createOrUpdateClientFunction(context, name, description, code, typeSchemas);
       shell.echo(chalk.green('DONE'));
       shell.echo(chalk.rgb(255, 255, 255)(`Function ID: ${customFunction.id}`));
     }

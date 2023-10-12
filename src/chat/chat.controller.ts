@@ -60,7 +60,7 @@ export class ChatController {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     return this.service.storeMessage(data.message);
   }
@@ -75,7 +75,7 @@ export class ChatController {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     const message = data.message || null;
     const uuid = data.message_uuid || null;
@@ -112,7 +112,7 @@ export class ChatController {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     await this.service.processCommand(environmentId, userId, body.command);
   }

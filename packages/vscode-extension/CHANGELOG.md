@@ -1,3 +1,6 @@
+### 0.5.1
+* Little changes for dependency checking messages.
+
 ### 0.5.0
 * Add context menu "get" and "inject" for variables, and make `inject()` as default when copying to clipboard.
 

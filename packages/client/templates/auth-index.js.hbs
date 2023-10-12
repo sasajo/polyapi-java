@@ -21,10 +21,10 @@ const subResourceFunctions = [
 {{/each}}
 ];
 
-module.exports = (clientID, getSocket) => merge(
+module.exports = (clientID, getSocket, getApiKey) => merge(
   {},
   getTokenFunctions.reduce(
-    (acc, [name, fn]) => set(acc, name, (...args) => fn(clientID, getSocket, ...args)),
+    (acc, [name, fn]) => set(acc, name, (...args) => fn(clientID, getSocket, getApiKey, ...args)),
     {}
   ),
   subResourceFunctions.reduce(

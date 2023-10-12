@@ -1,6 +1,6 @@
 const axios = require('../axios');
 
-module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, autoCloseOnUrl = false, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, autoCloseOnUrl = false, userId } = {}{{/if}}) {
+module.exports = function(eventsClientId, getSocket, getApiKey, clientId, clientSecret, {{#if audienceRequired}}audience, scopes, callback, { callbackUrl, timeout = 120000, autoCloseOnToken = true, autoCloseOnUrl = false, userId } = {}{{else}}scopes, callback, { audience, callbackUrl, timeout = 120000, autoCloseOnToken = true, autoCloseOnUrl = false, userId } = {}{{/if}}) {
   if (userId) {
     eventsClientId = `${eventsClientId}-${userId}`;
   }
@@ -12,11 +12,11 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
     if (!socket) {
       return;
     }
-    socket.off(`handleAuthFunctionEvent:ee35849b-e40b-4f8a-bcb3-da4e1134f219`);
+    socket.off(`handleAuthFunctionEvent:{{id}}`);
     socket.emit('unregisterAuthFunctionEventHandler', {
       clientID: eventsClientId,
-      functionId: 'ee35849b-e40b-4f8a-bcb3-da4e1134f219',
-      apiKey: 'ptab4f62d3421bca3674hfd627',
+      functionId: '{{id}}',
+      apiKey: getApiKey()
     });
     socket.close();
     socket = null;
@@ -46,7 +46,7 @@ module.exports = function(eventsClientId, getSocket, clientId, clientSecret, {{#
       socket.emit('registerAuthFunctionEventHandler', {
         clientID: eventsClientId,
         functionId: '{{id}}',
-        apiKey: '{{apiKey}}'
+        apiKey: getApiKey()
       }, registered => {
         if (registered) {
           socket.on(`handleAuthFunctionEvent:{{id}}`, handleEvent);

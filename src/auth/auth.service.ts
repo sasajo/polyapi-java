@@ -138,13 +138,13 @@ export class AuthService {
   private getDefaultApiKeyPermissions(application: Application | null, user: User | null): Permissions {
     if (application) {
       return {
-        [Permission.Use]: true,
+        [Permission.Execute]: true,
       };
     } else if (user) {
       switch (user.role) {
         case Role.User: {
           return {
-            [Permission.Use]: true,
+            [Permission.Execute]: true,
           };
         }
       }

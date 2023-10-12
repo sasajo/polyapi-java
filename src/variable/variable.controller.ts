@@ -37,7 +37,7 @@ export class VariableController {
     await this.authService.checkPermissions(req.user, [
       Permission.ManageSecretVariables,
       Permission.ManageNonSecretVariables,
-      Permission.Use,
+      Permission.Execute,
     ]);
 
     const variables = await this.service.getAll(environmentId);
@@ -52,7 +52,7 @@ export class VariableController {
     await this.authService.checkPermissions(req.user, [
       Permission.ManageSecretVariables,
       Permission.ManageNonSecretVariables,
-      Permission.Use,
+      Permission.Execute,
     ]);
 
     const { tenant, environment, user } = req.user;
@@ -67,7 +67,7 @@ export class VariableController {
   async getPublicVariable(@Req() req: AuthRequest, @Param('id') id: string): Promise<VariablePublicDto> {
     const { tenant, environment } = req.user;
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     const variable = await this.service.findPublicById(tenant, environment, id);
 
@@ -106,7 +106,7 @@ export class VariableController {
   async getVariable(@Req() req: AuthRequest, @Param('id') id: string): Promise<VariableDto> {
     const variable = await this.findVariable(req.user, id);
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
     await this.statisticsService.trackVariableCall(req.user, 'read', variable.id);
 
     return this.service.toDto(variable);
@@ -120,7 +120,7 @@ export class VariableController {
       throw new NotFoundException(`Variable with id '${id}' is secret`);
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
     await this.statisticsService.trackVariableCall(req.user, 'read', variable.id);
 
     return this.service.getVariableValue(variable);
@@ -129,7 +129,7 @@ export class VariableController {
   @UseGuards(PolyAuthGuard, VariableCallsLimitGuard)
   @Get('/context/values')
   async getAllContextVariableValues(@Req() req: AuthRequest): Promise<ContextVariableValues> {
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
     await this.statisticsService.trackVariableCall(req.user, 'read-context-values');
 
     return this.service.getContextVariableValues(req.user.environment.id, req.user.tenant.id, null);
@@ -138,7 +138,7 @@ export class VariableController {
   @UseGuards(PolyAuthGuard, VariableCallsLimitGuard)
   @Get('/context/:context/values')
   async getContextVariableValues(@Req() req: AuthRequest, @Param('context') context: string): Promise<ContextVariableValues> {
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
     await this.statisticsService.trackVariableCall(req.user, 'read-context-values', undefined, context);
 
     return this.service.getContextVariableValues(req.user.environment.id, req.user.tenant.id, context);

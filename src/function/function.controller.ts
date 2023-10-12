@@ -111,7 +111,7 @@ export class FunctionController {
     } = data;
     const environmentId = req.user.environment.id;
 
-    await this.authService.checkPermissions(req.user, Permission.Teach);
+    await this.authService.checkPermissions(req.user, Permission.ManageApiFunctions);
 
     this.logger.debug(`Creating or updating API function in environment ${environmentId}...`);
     this.logger.debug(
@@ -192,6 +192,8 @@ export class FunctionController {
       visibility = null,
       source,
       enableRedirect,
+      returnType,
+      returnTypeSchema,
       templateBody,
     } = data;
 
@@ -204,14 +206,43 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
+    if (returnType === 'object' && !returnTypeSchema) {
+      throw new BadRequestException('returnTypeSchema is required if returnType is object');
+    }
+    if (returnTypeSchema && (returnType && returnType !== 'object')) {
+      throw new BadRequestException('returnTypeSchema is only allowed if returnType is object');
+    }
+    if (response && returnType) {
+      throw new BadRequestException('response and returnType cannot be set at the same time');
+    }
+    if (response && returnTypeSchema) {
+      throw new BadRequestException('response and returnTypeSchema cannot be set at the same time');
+    }
+
     this.checkSourceUpdateAuth(source);
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
+
+    const decodedTemplateBody = templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody;
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect, templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody),
+      await this.service.updateApiFunction(
+        apiFunction,
+        name,
+        context,
+        description,
+        argumentsMetadata,
+        response,
+        payload,
+        visibility,
+        source,
+        enableRedirect,
+        returnType,
+        returnTypeSchema,
+        decodedTemplateBody,
+      ),
     );
   }
 
@@ -228,7 +259,7 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Execute);
     data = await this.variableService.unwrapVariables(req.user, data);
 
     await this.statisticsService.trackFunctionCall(req.user, apiFunction.id, 'api');
@@ -249,7 +280,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
     await this.service.deleteApiFunction(id);
   }
 
@@ -264,7 +295,7 @@ export class FunctionController {
   @UseGuards(PolyAuthGuard)
   @Post('/client')
   async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateClientCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, description = '', code } = data;
+    const { context = '', name, description = '', code, typeSchemas = {} } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
@@ -276,6 +307,7 @@ export class FunctionController {
           name,
           description,
           code,
+          typeSchemas,
           () => this.checkFunctionsLimit(req.user.tenant, 'creating custom client function'),
         ),
       );
@@ -506,7 +538,7 @@ export class FunctionController {
       throw new BadRequestException(`Function with id ${id} has been disabled by System Administrator and cannot be used.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Execute);
 
     console.log('Data before unwrap', JSON.stringify(data));
     data = await this.variableService.unwrapVariables(req.user, data);

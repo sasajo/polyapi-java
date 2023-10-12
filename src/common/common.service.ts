@@ -87,13 +87,18 @@ export class CommonService {
     }
   }
 
-  async resolveType(typeName: string, value: any, subpath?: string): Promise<[string, Record<string, any>?, Record<string, string>?]> {
+  async resolveType(typeName: string, value: any, subpath?: string, numericStringAsNumber = true): Promise<[string, Record<string, any>?, Record<string, string>?]> {
     const numberRegex = /^-?\d+\.?\d*$/;
     const booleanRegex = /^(true|false)$/;
 
-    if (numberRegex.test(value)) {
+    if (numericStringAsNumber) {
+      if (numberRegex.test(value)) {
+        return ['number'];
+      };
+    } else if (typeof value === 'number' && !Number.isNaN(value)) {
       return ['number'];
     }
+
     if (booleanRegex.test(value)) {
       return ['boolean'];
     }

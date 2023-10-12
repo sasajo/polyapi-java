@@ -63,6 +63,7 @@ const generateJSFiles = async (specs: Specification[]) => {
   const serverVariables = specs.filter((spec) => spec.type === 'serverVariable') as ServerVariableSpecification[];
 
   await generateIndexJSFile();
+  await generatePolyCustomJSFile();
   await generateAxiosJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
@@ -78,6 +79,17 @@ const generateIndexJSFile = async () => {
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
       clientID: uuidv4(),
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
+    }),
+  );
+};
+
+const generatePolyCustomJSFile = async () => {
+  const polyCustomJSTemplate = handlebars.compile(await loadTemplate('poly-custom.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/poly-custom.js`,
+    polyCustomJSTemplate({
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),

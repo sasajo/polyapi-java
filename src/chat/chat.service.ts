@@ -256,7 +256,7 @@ export class ChatService {
       }
     }
 
-    if (auth.user.role === Role.User && auth.user.id === conversation.userId && auth.permissions[Permission.Use]) {
+    if (auth.user.role === Role.User && auth.user.id === conversation.userId && auth.permissions[Permission.Execute]) {
       // user is user, is in the right environment and has use permission
       return null;
     }
