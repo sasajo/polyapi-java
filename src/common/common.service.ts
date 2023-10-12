@@ -3,7 +3,7 @@ import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core
 import jsonpath from 'jsonpath';
 import { validator } from '@exodus/schemasafe';
 import axios from 'axios';
-import _, { isPlainObject } from 'lodash';
+import _ from 'lodash';
 import { toPascalCase } from '@guanghechen/helper-string';
 import { ConfigVariable, Environment, Prisma, Tenant } from '@prisma/client';
 import { CommentToken, parse, stringify } from 'comment-json';
@@ -22,6 +22,8 @@ import {
   VisibilityQuery,
 } from '@poly/model';
 import { JsonTemplate, JsonTemplateProcessor } from 'function/custom/json-template';
+
+const isPlainObject = _.isPlainObject as (value: unknown) => value is object;
 
 const JSON_META_SCHEMA_CACHE = {};
 
@@ -363,7 +365,7 @@ export class CommonService {
       // Trim comments
       const parsedTemplateStringWithoutComments = parse(validJsonString, undefined, true);
 
-      if (Array.isArray(parsedTemplateStringWithoutComments) || (isPlainObject as (value: unknown) => value is object)(parsedTemplateStringWithoutComments)) {
+      if (Array.isArray(parsedTemplateStringWithoutComments) || isPlainObject(parsedTemplateStringWithoutComments)) {
         return this.jsonTemplate.toTemplateString(parsedTemplateStringWithoutComments);
       }
 
