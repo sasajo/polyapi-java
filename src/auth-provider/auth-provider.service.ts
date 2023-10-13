@@ -543,7 +543,8 @@ export class AuthProviderService {
         .pipe(
           catchError((error: AxiosError) => {
             this.logger.error(`Error while performing token revoke for auth function (id: ${authProvider.id}): ${error}`);
-            throw new InternalServerErrorException(error.response?.data || error.message);
+            // we ignore any error coming from the provider, as we don't have a way to handle it
+            return of(null);
           }),
         ),
     );
