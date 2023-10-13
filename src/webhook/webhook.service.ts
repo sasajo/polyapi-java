@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, forwardRef, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { Environment, Tenant, WebhookHandle } from '@prisma/client';
 import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
@@ -312,19 +312,33 @@ export class WebhookService {
       ? await this.resolveSubpathParams(subpath, webhookHandle.subpath)
       : {};
 
+    let securityFunctionResponseStatus: number | null = null;
     if (webhookHandle.securityFunctions) {
-      await this.executeSecurityFunctions(webhookHandle, executionEnvironment, eventPayload, eventHeaders, subpathParams);
+      securityFunctionResponseStatus = await this.executeSecurityFunctions(webhookHandle, executionEnvironment, eventPayload, eventHeaders, subpathParams);
     }
 
     this.eventService.sendWebhookEvent(webhookHandle.id, executionEnvironment, eventPayload, eventHeaders, subpathParams);
 
-    return await this.triggerService.triggerWebhookEvent(
+    const response = await this.triggerService.triggerWebhookEvent(
       executionEnvironment ? executionEnvironment.id : webhookHandle.environmentId,
       webhookHandle.id,
       eventPayload,
       eventHeaders,
       subpathParams,
     );
+
+    if (securityFunctionResponseStatus) {
+      if (response) {
+        response.statusCode = securityFunctionResponseStatus;
+      } else {
+        return {
+          statusCode: securityFunctionResponseStatus,
+          data: null,
+        };
+      }
+    }
+
+    return response;
   }
 
   private async executeSecurityFunctions(
@@ -336,10 +350,11 @@ export class WebhookService {
   ) {
     const securityFunctions = webhookHandle.securityFunctions ? JSON.parse(webhookHandle.securityFunctions) : [];
     if (securityFunctions.length === 0) {
-      return;
+      return null;
     }
 
     this.logger.debug(`Found ${securityFunctions.length} security function(s) - executing for security check...`);
+    let responseStatus: number | null = null;
     for (const securityFunction of securityFunctions) {
       const serverFunction = await this.functionService.findServerFunction(securityFunction.id, true);
       if (!serverFunction) {
@@ -357,9 +372,15 @@ export class WebhookService {
         ],
       );
       if (response?.body !== true) {
-        throw new ForbiddenException(securityFunction.message);
+        throw new HttpException(
+          response?.body.message || securityFunction.message,
+          response?.statusCode && response.statusCode !== 200 ? response.statusCode : HttpStatus.FORBIDDEN,
+        );
       }
+      responseStatus = response?.statusCode !== 200 ? response?.statusCode : responseStatus;
     }
+
+    return responseStatus;
   }
 
   toDto(webhookHandle: WebhookHandle, forEnvironment: Environment): WebhookHandleDto {
