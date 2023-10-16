@@ -14,6 +14,7 @@ from app.typedefs import MessageDict
 from app.utils import (
     cosine_similarity,
     get_chat_completion,
+    get_tenant_openai_key,
     msgs_to_msg_dicts,
     store_messages,
 )
@@ -95,7 +96,8 @@ def documentation_question(
         content = f"The user's instance url is '{host_url}'. Use it to generate the urls for the poly instance specific links."
         messages.append(MessageDict(role="user", content=content))
 
-    resp = get_chat_completion(messages, stream=True)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    resp = get_chat_completion(messages, stream=True, api_key=openai_api_key)
     store_messages(conversation_id, messages)
 
     return resp

@@ -8,6 +8,7 @@ from app.utils import (
     func_path,
     get_chat_completion,
     get_config_variable,
+    get_tenant_openai_key,
     insert_internal_step_info,
     remove_punctuation,
     store_messages,
@@ -73,9 +74,11 @@ def extract_keywords(
         MessageDict(role="user", content=prompt),
         MessageDict(role="user", content=KEYWORD_TRANSFORM_PROMPT),
     ]
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
     content = get_chat_completion(
         messages,
         temperature=get_extract_keywords_temperature(),
+        api_key=openai_api_key,
     )
     assert isinstance(content, str)
     content = content.replace("```", "")
