@@ -3,12 +3,12 @@ from thefuzz import fuzz
 from typing import Optional, Tuple, List
 from app.constants import VarName
 from app.typedefs import MessageDict, StatsDict, ExtractKeywordDto, SpecificationDto
+from app.log import log
 from app.utils import (
     func_path,
     get_chat_completion,
     get_config_variable,
     insert_internal_step_info,
-    log,
     remove_punctuation,
     store_messages,
 )

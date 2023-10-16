@@ -4,7 +4,8 @@ import csv
 import os
 from typing import List, TypedDict
 from prisma import Prisma, register, get_client
-from prisma.models import User, ApiFunction, Environment, GptPlugin
+from prisma.models import User, ApiFunction, Environment, GptPlugin, Variable
+from app.constants import VarName
 from app.utils import url_function_path
 
 
@@ -54,6 +55,20 @@ def test_environment_get_or_create() -> Environment:
             }
         )
     return user
+
+
+def test_variable_get_or_create(environment_id, variable_id) -> Variable:
+    db = get_client()
+    variable = db.variable.delete_many(where={"id": variable_id})
+    variable = db.variable.create(
+        data={
+            "environmentId": environment_id,
+            "id": variable_id,
+            "context": "ConfigVariable",
+            "name": VarName.openai_tenant_api_key.value,
+        }
+    )
+    return variable
 
 
 def test_plugin_get_or_create(slug: str) -> GptPlugin:

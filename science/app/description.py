@@ -9,12 +9,12 @@ from app.typedefs import (
     SpecificationDto,
     VarDescInputDto,
 )
+from app.log import log
 from app.utils import (
     camel_case,
     extract_code,
     func_path_with_args,
     get_chat_completion,
-    log,
 )
 from app.constants import CHAT_GPT_MODEL
 

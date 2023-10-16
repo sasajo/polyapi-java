@@ -11,6 +11,7 @@ class VarName(Enum):
     extract_keywords_temperature = "OpenAIExtractKeywordsTemperature"
     chat_conversation_lookback = "OpenAIChatConversationLookback"  # number of past messages to include for chat
     plugin_conversation_lookback = "OpenAIPluginConversationLookback"  # number of past messages to include for plugin
+    openai_tenant_api_key = "OpenAITenantApiKey"
 
 
 @unique

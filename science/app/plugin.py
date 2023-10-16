@@ -13,8 +13,9 @@ from prisma.models import ConversationMessage, ApiKey
 
 from app.constants import CHAT_GPT_MODEL, MessageType
 from app.typedefs import ChatGptChoice, MessageDict
+from app.log import log
 from app.utils import (
-    log,
+    get_tenant_openai_key,
     msgs_to_msg_dicts,
     store_messages,
     strip_type_and_info,
@@ -120,7 +121,9 @@ def get_plugin_chat(
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
     ]
+    openai_api_key = get_tenant_openai_key(user_id=db_api_key.userId, application_id=db_api_key.applicationId)
     resp = openai.ChatCompletion.create(
+        api_key=openai_api_key,
         model=CHAT_GPT_MODEL,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),
         functions=functions,

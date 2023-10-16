@@ -6,10 +6,7 @@ from prisma import get_client
 from prisma.models import SystemPrompt, ConversationMessage
 from app.constants import QUESTION_TEMPLATE, MessageType
 from app.conversation import insert_prev_msgs
-
-# TODO change to relative imports
 from app.typedefs import (
-    # ChatGptStreamChoice,  TODO
     ExtractKeywordDto,
     StatsDict,
 )
@@ -18,11 +15,12 @@ from app.typedefs import (
     SpecificationDto,
     MessageDict,
 )
+from app.log import log
 from app.utils import (
     filter_to_real_public_ids,
     get_return_type_properties,
+    get_tenant_openai_key,
     insert_internal_step_info,
-    log,
     func_path_with_args,
     msgs_to_msg_dicts,
     public_ids_to_specs,
@@ -237,7 +235,8 @@ def get_best_functions(
         # we have no candidate functions whatsoever, abort!
         return [], stats
 
-    answer_msg = get_chat_completion(messages, temperature=0.2)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    answer_msg = get_chat_completion(messages, temperature=0.2, api_key=openai_api_key)
     assert isinstance(answer_msg, str)
 
     # store conversation
@@ -373,8 +372,9 @@ def get_best_function_example(
     insert_prev_msgs(messages, prev_msgs)
     insert_system_prompt(messages, environment_id)
 
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
     try:
-        resp = get_chat_completion(messages, temperature=0.5, stream=True)
+        resp = get_chat_completion(messages, temperature=0.5, stream=True, api_key=openai_api_key)
     except InvalidRequestError as e:
         if "maximum content length" in str(e) and prev_msgs:
             log(
@@ -387,7 +387,7 @@ def get_best_function_example(
                 messages, environment_id
             )  # let's reinsert system prompt
             resp = get_chat_completion(
-                messages, temperature=0.5, stream=True
+                messages, temperature=0.5, stream=True, api_key=openai_api_key
             )  # try again!
         else:
             # cant recover from this error, just move on!
@@ -437,6 +437,7 @@ def general_question(
         MessageDict(role="user", content=question, type=MessageType.user)
     ]
 
-    resp = get_chat_completion(messages, stream=True)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    resp = get_chat_completion(messages, stream=True, api_key=openai_api_key)
     store_messages(conversation_id, messages)
     return resp

@@ -1,9 +1,13 @@
+import uuid
+from mock import Mock, patch
+from app.constants import VarName
 from .testing import DbTestCase
 from app.typedefs import SpecificationDto
 from load_fixtures import (
     load_functions,
     test_environment_get_or_create,
     test_user_get_or_create,
+    test_variable_get_or_create,
     united_get_status_get_or_create,
 )
 from app.utils import (
@@ -17,6 +21,7 @@ from app.utils import (
     func_path_with_args,
     get_public_id,
     get_return_type_properties,
+    get_tenant_openai_key,
     get_variables,
     store_message,
 )
@@ -644,8 +649,7 @@ GAPIKey: string,  // your api key
 
     def test_get_variables(self):
         environment = test_environment_get_or_create()
-        self.db.variable.delete_many(where={"visibility": "PUBLIC"})
-        self.db.variable.delete_many(where={"name": "foo"})
+        self.db.variable.delete_many()
         var = self.db.variable.create(
             data={
                 "name": "foo",
@@ -910,3 +914,45 @@ GAPIKey: string,  // your api key
     def test_process_property_spec_function(self):
         arg = _process_property_spec(CALLBACK_PROPERTY)
         self.assertIn("WebhookEventType", arg)
+
+    def test_get_openai_api_key_none(self):
+        user = test_user_get_or_create()
+        openai_api_key = get_tenant_openai_key(user_id=user.id)
+        self.assertIsNone(openai_api_key)
+
+    @patch("app.vault.requests.get")
+    def test_get_openai_api_key_foobar(self, requests_get: Mock):
+        # prepare
+        requests_get.return_value = Mock(status_code=200, json=lambda: {"data": {"data": {"value": "foobar"}}})
+
+        user = test_user_get_or_create()
+        environment = self.db.environment.create(
+            data={
+                "name": "test",
+                "tenantId": user.tenantId,
+                "subdomain": uuid.uuid4().hex,
+            }
+        )
+        variable = test_variable_get_or_create(environment.id, "variable1")
+        self.db.configvariable.delete_many(
+            where={
+                "tenantId": user.tenantId,
+            }
+        )
+        self.db.configvariable.create(
+            data={
+                "tenantId": user.tenantId,
+                "name": VarName.openai_tenant_api_key.value,
+                "value": variable.id,
+            }
+        )
+
+        # GO
+        with self.override_config(VAULT_ADDRESS="http://example.com", VAULT_TOKEN="root"):
+            openai_api_key = get_tenant_openai_key(user_id=user.id)
+
+        # should get proper value
+        self.assertEqual(openai_api_key, "foobar")
+
+        # should hit proper url
+        self.assertEqual(requests_get.call_count, 1)
