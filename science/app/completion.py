@@ -302,6 +302,8 @@ Consider the comments when generating example data.
 Use any combination of only the following functions to answer my question:
 
 {spec_str}
+
+{language_prompt}
 """
 
 BEST_FUNCTION_VARIABLES_TEMPLATE = """Use any combination of the following variables as arguments to those functions:
@@ -332,6 +334,7 @@ def get_best_function_example(
     public_ids: List[str],
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
+    language: str = "",
 ) -> Union[Generator, str]:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
@@ -341,10 +344,15 @@ def get_best_function_example(
     variables = [s for s in specs if s["type"] == "serverVariable"]
     specs = [s for s in specs if s["type"] != "serverVariable"]
 
+    language_prompt = ""
+    if language:
+        language_prompt = f"Please provide all code examples in {language}"
+
     best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
         spec_str="\n\n".join(
             spec_prompt(spec, include_return_type=True) for spec in specs
-        )
+        ),
+        language_prompt=language_prompt
     )
     messages = [
         MessageDict(
@@ -406,6 +414,7 @@ def get_completion_answer(
     environment_id: str,
     question: str,
     prev_msgs: List[ConversationMessage],
+    language: str = "",
 ) -> Union[Generator, str]:
     best_function_ids, stats = get_best_functions(
         user_id, conversation_id, environment_id, question
@@ -421,6 +430,7 @@ def get_completion_answer(
             best_function_ids,
             question,
             prev_msgs,
+            language
         )
     else:
         return general_question(user_id, conversation_id, question, prev_msgs)  # type: ignore

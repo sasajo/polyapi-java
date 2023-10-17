@@ -84,19 +84,25 @@ def function_completion() -> Response:
     route, question = split_route_and_question(question)
     stats["route"] = route
 
+    language = data.get("language", "")
+
     resp: Union[Generator, str] = ""  # either str or streaming completion type
     if route == "function":
         resp = get_completion_answer(
-            user_id, conversation.id, environment_id, question, prev_msgs
+            user_id, conversation.id, environment_id, question, prev_msgs, language
         )
     elif route == "general":
         resp = general_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "help":
         resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "tenant_documentation":
-        resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId)
+        resp = documentation_question(
+            user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId
+        )
     elif route == "poly_documentation":
-        resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId)
+        resp = documentation_question(
+            user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId
+        )
     else:
         resp = "unexpected category: {route}"
 
@@ -170,9 +176,9 @@ def function_description() -> Response:
     resp = jsonify(desc)
 
     perf.set_data(
-        snippet=data['url'],
+        snippet=data["url"],
         input_length=len(request.data),
-        output_length=int(resp.headers['Content-Length']),
+        output_length=int(resp.headers["Content-Length"]),
         type=PerfLogType.science_generate_description.value,
         # TODO pass in userId so we can track that?
     )
@@ -198,17 +204,23 @@ def plugin_chat() -> Response:
 
     data = request.get_json(force=True)
 
-    verify_required_fields(data, ["apiKey", "apiKeyId", "pluginId", "conversationId", "message"])
+    verify_required_fields(
+        data, ["apiKey", "apiKeyId", "pluginId", "conversationId", "message"]
+    )
     messages = get_plugin_chat(
-        data["apiKey"], data["apiKeyId"], data["pluginId"], data["conversationId"], data["message"]
+        data["apiKey"],
+        data["apiKeyId"],
+        data["pluginId"],
+        data["conversationId"],
+        data["message"],
     )
 
     resp = jsonify(messages)
     perf.set_data(
-        apiKey=data['apiKey'],
-        snippet=data['message'],
-        input_length=len(data['message']),
-        output_length=int(resp.headers['Content-Length']),
+        apiKey=data["apiKey"],
+        snippet=data["message"],
+        input_length=len(data["message"]),
+        output_length=int(resp.headers["Content-Length"]),
         type=PerfLogType.science_api_execute.value,
     )
     perf.stop_and_save()
