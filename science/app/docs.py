@@ -57,7 +57,7 @@ def documentation_question(
     question: str,
     prev_msgs: List[ConversationMessage],
     *,
-    tenantId: Optional[str],
+    tenant_id: Optional[str],
 ) -> Union[Generator, str]:
     query_embed = openai.Embedding.create(
         input=question, model="text-embedding-ada-002"
@@ -65,7 +65,7 @@ def documentation_question(
     query_vector = query_embed["data"][0]["embedding"]
 
     db = get_client()
-    where: DocSectionWhereInput = {"tenantId": tenantId}
+    where: DocSectionWhereInput = {"tenantId": tenant_id}
     docs = db.docsection.find_many(where=where)
     most_similar_doc: Optional[DocSection] = None
     max_similarity = -2.0  # similarity is -1 to 1
@@ -83,7 +83,7 @@ def documentation_question(
     if not most_similar_doc:
         raise NotImplementedError("No matching documentation found!")
 
-    tenant_prompt = _get_tenant_prompt(tenantId)
+    tenant_prompt = _get_tenant_prompt(tenant_id)
     prompt = DOC_PROMPT % (tenant_prompt, most_similar_doc.title, most_similar_doc.text)
     prompt_msg = MessageDict(role="user", content=prompt)
     question_msg = MessageDict(
@@ -92,11 +92,11 @@ def documentation_question(
     messages = msgs_to_msg_dicts(prev_msgs) + [prompt_msg, question_msg]  # type: ignore
 
     host_url = os.environ.get("HOST_URL", "https://na1.polyapi.io")
-    if tenantId == SYSTEM_TENANT_ID and host_url != "https://na1.polyapi.io":
+    if tenant_id == SYSTEM_TENANT_ID and host_url != "https://na1.polyapi.io":
         content = f"The user's instance url is '{host_url}'. Use it to generate the urls for the poly instance specific links."
         messages.append(MessageDict(role="user", content=content))
 
-    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     resp = get_chat_completion(messages, stream=True, api_key=openai_api_key)
     store_messages(conversation_id, messages)
 

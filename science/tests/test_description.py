@@ -254,6 +254,7 @@ class T(DbTestCase):
         )
 
         arguments = get_argument_descriptions(
+            None,
             "sms.messaging",
             "twilio",
             "send a message",

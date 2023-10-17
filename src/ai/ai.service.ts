@@ -60,6 +60,7 @@ export class AiService {
   }
 
   async getFunctionDescription(
+    tenantId: string,
     url: string,
     method: string,
     description: string,
@@ -72,6 +73,7 @@ export class AiService {
     return await lastValueFrom(
       this.httpService
         .post(`${this.config.scienceServerBaseUrl}/function-description`, {
+          tenantId,
           url,
           method,
           short_description: description,
@@ -85,12 +87,13 @@ export class AiService {
     );
   }
 
-  async getWebhookDescription(url: string, description: string, payload: string): Promise<FunctionDescriptionDto> {
+  async getWebhookDescription(tenantId: string, url: string, description: string, payload: string): Promise<FunctionDescriptionDto> {
     this.logger.debug(`Getting description for webhook: ${url} POST`);
 
     return await lastValueFrom(
       this.httpService
         .post(`${this.config.scienceServerBaseUrl}/webhook-description`, {
+          tenantId,
           url,
           method: 'POST',
           short_description: description,
@@ -102,6 +105,7 @@ export class AiService {
   }
 
   async getVariableDescription(
+    environmentId: string,
     name: string,
     context: string,
     secret: boolean,
@@ -109,9 +113,13 @@ export class AiService {
   ): Promise<VariableDescriptionDto> {
     this.logger.debug(`Getting description for variable: ${name}`);
 
+    const environment = await this.prisma.environment.findUniqueOrThrow({ where: { id: environmentId } });
+    const tenantId = environment.tenantId;
+
     return await lastValueFrom(
       this.httpService
         .post(`${this.config.scienceServerBaseUrl}/variable-description`, {
+          tenantId,
           name,
           context,
           secret,

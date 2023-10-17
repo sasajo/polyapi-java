@@ -6,14 +6,16 @@ import { EventService } from 'event/event.service';
 import { AiService } from 'ai/ai.service';
 import {
   ConfigVariableName,
-  PropertySpecification, PropertyType,
+  PropertySpecification,
+  PropertyType,
   PublicVisibilityValue,
   TrainingDataGeneration,
   Visibility,
   VisibilityQuery,
   WebhookHandleDto,
   WebhookHandlePublicDto,
-  WebhookHandleSpecification, WebhookSecurityFunction,
+  WebhookHandleSpecification,
+  WebhookSecurityFunction,
 } from '@poly/model';
 import { ConfigService } from 'config/config.service';
 import { SpecsService } from 'specs/specs.service';
@@ -39,8 +41,7 @@ export class WebhookService {
     private readonly triggerService: TriggerService,
     @Inject(forwardRef(() => FunctionService))
     private readonly functionService: FunctionService,
-  ) {
-  }
+  ) {}
 
   public async findWebhookHandle(id: string): Promise<WebhookHandle | null> {
     return this.prisma.webhookHandle.findFirst({
@@ -50,7 +51,14 @@ export class WebhookService {
     });
   }
 
-  public async getWebhookHandles(environmentId: string, contexts?: string[], names?: string[], ids?: string[], visibilityQuery?: VisibilityQuery, includeTenant = false): Promise<WebhookHandle[]> {
+  public async getWebhookHandles(
+    environmentId: string,
+    contexts?: string[],
+    names?: string[],
+    ids?: string[],
+    visibilityQuery?: VisibilityQuery,
+    includeTenant = false,
+  ): Promise<WebhookHandle[]> {
     this.logger.debug(`Getting webhook handles for environment ${environmentId}...`);
     return this.prisma.webhookHandle.findMany({
       where: {
@@ -58,9 +66,7 @@ export class WebhookService {
           {
             OR: [
               { environmentId },
-              visibilityQuery
-                ? this.commonService.getVisibilityFilterCondition(visibilityQuery)
-                : {},
+              visibilityQuery ? this.commonService.getVisibilityFilterCondition(visibilityQuery) : {},
             ],
           },
           {
@@ -108,11 +114,9 @@ export class WebhookService {
       },
     });
 
-    return (
-      await Promise.all(
-        handles.map(handle => this.resolveVisibility(tenant, environment, handle)),
-      )
-    ).filter(handle => includeHidden || !handle.hidden);
+    return (await Promise.all(handles.map((handle) => this.resolveVisibility(tenant, environment, handle)))).filter(
+      (handle) => includeHidden || !handle.hidden,
+    );
   }
 
   async findPublicWebhookHandle(tenant: Tenant, environment: Environment, id: string) {
@@ -143,11 +147,14 @@ export class WebhookService {
   }
 
   private async getAIWebhookData(webhookHandle: WebhookHandle, description: string, eventPayload: any) {
+    const environment = await this.prisma.environment.findUniqueOrThrow({ where: { id: webhookHandle.environmentId } });
+    const tenantId = environment.tenantId;
     const {
       name: aiName,
       description: aiDescription,
       context: aiContext,
     } = await this.aiService.getWebhookDescription(
+      tenantId,
       `${this.config.hostUrl}/webhooks/${webhookHandle?.id}`,
       description,
       JSON.stringify(eventPayload),
@@ -199,12 +206,14 @@ export class WebhookService {
     responsePayload = this.normalizeResponsePayload(responsePayload, webhookHandle);
     responseHeaders = this.normalizeResponseHeaders(responseHeaders, webhookHandle);
 
-    if (!(await this.checkContextAndNameDuplicates(
-      environment.id,
-      context,
-      name,
-      webhookHandle ? [webhookHandle.id] : [])
-    )) {
+    if (
+      !(await this.checkContextAndNameDuplicates(
+        environment.id,
+        context,
+        name,
+        webhookHandle ? [webhookHandle.id] : [],
+      ))
+    ) {
       throw new ConflictException(`Function with ${context}/${name} is already registered.`);
     }
 
@@ -226,7 +235,11 @@ export class WebhookService {
 
       if (!name || !context || !description) {
         if (await this.isWebhookAITrainingEnabled(environment)) {
-          const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload || eventPayloadTypeSchema);
+          const aiResponse = await this.getAIWebhookData(
+            webhookHandle,
+            description,
+            eventPayload || eventPayloadTypeSchema,
+          );
 
           return this.prisma.webhookHandle.update({
             where: {
@@ -275,10 +288,18 @@ export class WebhookService {
           });
 
           if (!name || !description || !context) {
-            const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
+            const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(
+              ConfigVariableName.TrainingDataGeneration,
+              environment.tenantId,
+              environment.id,
+            );
 
             if (trainingDataCfgVariable?.value.webhooks) {
-              const aiResponse = await this.getAIWebhookData(webhookHandle, description, eventPayload || eventPayloadTypeSchema);
+              const aiResponse = await this.getAIWebhookData(
+                webhookHandle,
+                description,
+                eventPayload || eventPayloadTypeSchema,
+              );
 
               webhookHandle = await tx.webhookHandle.update({
                 where: {
@@ -287,7 +308,10 @@ export class WebhookService {
                 data: {
                   eventPayloadType: eventPayloadTypeSchema
                     ? JSON.stringify(eventPayloadTypeSchema)
-                    : await this.getEventPayloadType(templateBody || eventPayload, templateBody ? 'eventPayload' : undefined),
+                    : await this.getEventPayloadType(
+                      templateBody || eventPayload,
+                      templateBody ? 'eventPayload' : undefined,
+                    ),
                   context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
                   description: description || aiResponse.description,
                   name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
@@ -305,19 +329,36 @@ export class WebhookService {
     }
   }
 
-  async triggerWebhookHandle(webhookHandle: WebhookHandle, executionEnvironment: Environment | null, eventPayload: any, eventHeaders: Record<string, any>, subpath?: string) {
+  async triggerWebhookHandle(
+    webhookHandle: WebhookHandle,
+    executionEnvironment: Environment | null,
+    eventPayload: any,
+    eventHeaders: Record<string, any>,
+    subpath?: string,
+  ) {
     this.logger.debug(`Triggering webhook for ${webhookHandle.id} (subpath=${subpath})...`);
 
-    const subpathParams = subpath && webhookHandle.subpath
-      ? await this.resolveSubpathParams(subpath, webhookHandle.subpath)
-      : {};
+    const subpathParams =
+      subpath && webhookHandle.subpath ? await this.resolveSubpathParams(subpath, webhookHandle.subpath) : {};
 
     let securityFunctionResponseStatus: number | null = null;
     if (webhookHandle.securityFunctions) {
-      securityFunctionResponseStatus = await this.executeSecurityFunctions(webhookHandle, executionEnvironment, eventPayload, eventHeaders, subpathParams);
+      securityFunctionResponseStatus = await this.executeSecurityFunctions(
+        webhookHandle,
+        executionEnvironment,
+        eventPayload,
+        eventHeaders,
+        subpathParams,
+      );
     }
 
-    this.eventService.sendWebhookEvent(webhookHandle.id, executionEnvironment, eventPayload, eventHeaders, subpathParams);
+    this.eventService.sendWebhookEvent(
+      webhookHandle.id,
+      executionEnvironment,
+      eventPayload,
+      eventHeaders,
+      subpathParams,
+    );
 
     const response = await this.triggerService.triggerWebhookEvent(
       executionEnvironment ? executionEnvironment.id : webhookHandle.environmentId,
@@ -365,11 +406,7 @@ export class WebhookService {
       const response = await this.functionService.executeServerFunction(
         serverFunction,
         executionEnvironment || serverFunction.environment,
-        [
-          eventPayload,
-          eventHeaders,
-          params,
-        ],
+        [eventPayload, eventHeaders, params],
       );
       if (response?.body !== true) {
         throw new HttpException(
@@ -391,9 +428,10 @@ export class WebhookService {
       name: webhookHandle.name,
       context: webhookHandle.context,
       description: webhookHandle.description,
-      url: webhookHandle.visibility !== Visibility.Environment
-        ? `${this.commonService.getHostUrlWithSubdomain(forEnvironment)}/webhooks/${webhookHandle.id}`
-        : `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
+      url:
+        webhookHandle.visibility !== Visibility.Environment
+          ? `${this.commonService.getHostUrlWithSubdomain(forEnvironment)}/webhooks/${webhookHandle.id}`
+          : `${this.config.hostUrl}/webhooks/${webhookHandle.id}`,
       visibility: webhookHandle.visibility as Visibility,
       eventPayloadType: typeof eventPayloadType === 'object' ? 'object' : eventPayloadType,
       eventPayloadTypeSchema: typeof eventPayloadType === 'object' ? eventPayloadType : undefined,
@@ -407,7 +445,10 @@ export class WebhookService {
     };
   }
 
-  toPublicDto(webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean }, forEnvironment: Environment): WebhookHandlePublicDto {
+  toPublicDto(
+    webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean },
+    forEnvironment: Environment,
+  ): WebhookHandlePublicDto {
     return {
       ...this.toDto(webhookHandle, forEnvironment),
       context: this.commonService.getPublicContext(webhookHandle),
@@ -476,11 +517,16 @@ export class WebhookService {
     });
   }
 
-  private async checkContextAndNameDuplicates(environmentId: string, context: string, name: string, excludedIds?: string[]) {
+  private async checkContextAndNameDuplicates(
+    environmentId: string,
+    context: string,
+    name: string,
+    excludedIds?: string[],
+  ) {
     const functionPath = `${context ? `${context}.` : ''}${name.split('.').map(toCamelCase).join('.')}`;
     const paths = (await this.specsService.getSpecificationPaths(environmentId))
-      .filter(path => excludedIds == null || !excludedIds.includes(path.id))
-      .map(path => path.path);
+      .filter((path) => excludedIds == null || !excludedIds.includes(path.id))
+      .map((path) => path.path);
 
     return !paths.includes(functionPath);
   }
@@ -510,13 +556,16 @@ export class WebhookService {
 
   private normalizeVisibility(visibility: Visibility | null, webhookHandle?: WebhookHandle) {
     if (visibility == null) {
-      visibility = webhookHandle?.visibility as Visibility || Visibility.Environment;
+      visibility = (webhookHandle?.visibility as Visibility) || Visibility.Environment;
     }
 
     return visibility;
   }
 
-  private normalizeResponsePayload(responsePayload: any, webhookHandle: WebhookHandle | null): string | null | undefined {
+  private normalizeResponsePayload(
+    responsePayload: any,
+    webhookHandle: WebhookHandle | null,
+  ): string | null | undefined {
     return responsePayload
       ? JSON.stringify(responsePayload)
       : responsePayload === null
@@ -524,7 +573,10 @@ export class WebhookService {
         : webhookHandle?.responsePayload;
   }
 
-  private normalizeResponseHeaders(responseHeaders: any, webhookHandle: WebhookHandle | null): string | null | undefined {
+  private normalizeResponseHeaders(
+    responseHeaders: any,
+    webhookHandle: WebhookHandle | null,
+  ): string | null | undefined {
     return responseHeaders
       ? JSON.stringify(responseHeaders)
       : responseHeaders === null
@@ -533,7 +585,11 @@ export class WebhookService {
   }
 
   private async isWebhookAITrainingEnabled(environment: Environment) {
-    const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(ConfigVariableName.TrainingDataGeneration, environment.tenantId, environment.id);
+    const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(
+      ConfigVariableName.TrainingDataGeneration,
+      environment.tenantId,
+      environment.id,
+    );
 
     return trainingDataCfgVariable?.value.webhooks;
   }
@@ -550,15 +606,16 @@ export class WebhookService {
   async toWebhookHandleSpecification(webhookHandle: WebhookHandle): Promise<WebhookHandleSpecification> {
     const getEventArgument = async (): Promise<PropertySpecification> => {
       const eventPayloadType = JSON.parse(webhookHandle.eventPayloadType);
-      const type: PropertyType = typeof eventPayloadType === 'object'
-        ? {
-            kind: 'object',
-            schema: eventPayloadType,
-          }
-        : {
-            kind: 'primitive',
-            type: eventPayloadType,
-          };
+      const type: PropertyType =
+        typeof eventPayloadType === 'object'
+          ? {
+              kind: 'object',
+              schema: eventPayloadType,
+            }
+          : {
+              kind: 'primitive',
+              type: eventPayloadType,
+            };
 
       return {
         name: 'event',
@@ -630,14 +687,12 @@ export class WebhookService {
     environment: Environment,
     webhookHandle: WithTenant<WebhookHandle>,
   ): Promise<WithTenant<WebhookHandle> & { hidden: boolean }> {
-    const {
-      defaultHidden = false,
-      visibleContexts = null,
-    } = await this.configVariableService.getEffectiveValue<PublicVisibilityValue>(
-      ConfigVariableName.PublicVisibility,
-      tenant.id,
-      environment.id,
-    ) || {};
+    const { defaultHidden = false, visibleContexts = null } =
+      (await this.configVariableService.getEffectiveValue<PublicVisibilityValue>(
+        ConfigVariableName.PublicVisibility,
+        tenant.id,
+        environment.id,
+      )) || {};
 
     return {
       ...webhookHandle,
@@ -710,7 +765,11 @@ export class WebhookService {
 
   private async getEventPayloadType(eventPayload: string | Record<string, any>, subpath?: string): Promise<string> {
     const [type, typeSchema] = eventPayload
-      ? await this.commonService.resolveType('WebhookEventType', typeof eventPayload === 'string' ? eventPayload : JSON.stringify(eventPayload), subpath)
+      ? await this.commonService.resolveType(
+        'WebhookEventType',
+        typeof eventPayload === 'string' ? eventPayload : JSON.stringify(eventPayload),
+        subpath,
+      )
       : ['string'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : JSON.stringify(type);

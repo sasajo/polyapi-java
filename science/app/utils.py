@@ -352,9 +352,11 @@ def strip_type_and_info(messages: List[MessageDict]) -> List[MessageDict]:
     return stripped
 
 
-def get_tenant_openai_key(*, user_id: Optional[str] = None, application_id: Optional[str] = None) -> Optional[str]:
+def get_tenant_openai_key(*, user_id: Optional[str] = None, application_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Optional[str]:
     db = get_client()
-    if user_id:
+    if tenant_id:
+        pass
+    elif user_id:
         user = db.user.find_unique(where={"id": user_id})
         assert user
         tenant_id = user.tenantId
@@ -363,7 +365,7 @@ def get_tenant_openai_key(*, user_id: Optional[str] = None, application_id: Opti
         assert application
         tenant_id = application.tenantId
     else:
-        raise NotImplementedError("Either user_id or application_id is required!")
+        return None
 
     config_var = db.configvariable.find_first(where={"tenantId": tenant_id, "name": VarName.openai_tenant_api_key.value})
     if not config_var:

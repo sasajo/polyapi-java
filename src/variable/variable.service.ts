@@ -222,7 +222,7 @@ export class VariableService {
       throw new ConflictException(`Variable with name '${name}' and context '${context}' already exists`);
     }
 
-    description = description || (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(this.getValueApproximation(value, secret)))).description;
+    description = description || (await this.aiService.getVariableDescription(environmentId, name, context, secret, JSON.stringify(this.getValueApproximation(value, secret)))).description;
 
     return await this.prisma.$transaction(async (tx) => {
       const variable = await tx.variable.create({
@@ -277,7 +277,7 @@ export class VariableService {
     }
 
     description = description === '' && value
-      ? (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(value))).description
+      ? (await this.aiService.getVariableDescription(environmentId, name, context, secret, JSON.stringify(value))).description
       : description;
 
     return this.prisma.$transaction(async (tx) => {
