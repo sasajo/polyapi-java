@@ -13,7 +13,6 @@ from app.description import (
 )
 from app.docs import documentation_question, update_vector
 from app.help import help_question
-from app.log import log
 from app.plugin import get_plugin_chat
 from app.typedefs import DescInputDto, MessageDict, VarDescInputDto
 from app.utils import (
@@ -100,9 +99,6 @@ def function_completion() -> Response:
         resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId)
     else:
         resp = "unexpected category: {route}"
-
-    if user.vip:
-        log(f"VIP USER {user_id}", resp, sep="\n")
 
     def generate():
         if isinstance(resp, str):

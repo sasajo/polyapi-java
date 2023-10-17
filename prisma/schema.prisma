@@ -41,7 +41,7 @@ model User {
   name      String
   tenantId  String     @map("tenant_id")
   role      String     @default("USER")
-  vip       Boolean    @default(false)
+  vip       Boolean    @default(false)  // deprecated field
   email     String?    @unique(map: "idx_25843_user_email_key")
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "user_tenant_id_fkey")
   conversations        Conversation[]
