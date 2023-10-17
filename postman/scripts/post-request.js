@@ -1,5 +1,6 @@
 const postmanCollection = require('postman-collection');
 
+const scriptVersion = '0.1.0';
 const polyData = pm.environment.get('polyData');
 const apiKey = pm.environment.get('polyApiKey');
 const { method, description, url, body } = pm.request;
@@ -47,6 +48,7 @@ const rawObject = {
   statusCode: pm.response.code,
   templateUrl: `${templateUrl.protocol ? `${templateUrl.protocol}://` : ''}${templateUrl.getRemote()}${templateUrl.getPathWithQuery()}`,
   templateBody,
+  scriptVersion
 };
 
 const postRequest = {

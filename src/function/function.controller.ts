@@ -60,6 +60,7 @@ import { PerfLog } from 'statistics/perf-log.decorator';
 import { PerfLogType } from 'statistics/perf-log-type';
 import { PerfLogInterceptor } from 'statistics/perf-log-interceptor';
 import { PerfLogInfoProvider } from 'statistics/perf-log-info-provider';
+import { ConfigService } from 'config/config.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller('functions')
@@ -76,6 +77,7 @@ export class FunctionController {
     private readonly commonService: CommonService,
     private readonly environmentService: EnvironmentService,
     private readonly perfLogInfoProvider: PerfLogInfoProvider,
+    private readonly configService: ConfigService,
   ) {
   }
 
@@ -108,7 +110,17 @@ export class FunctionController {
       id = null,
       introspectionResponse = null,
       enableRedirect = false,
+      scriptVersion,
     } = data;
+
+    if (scriptVersion && scriptVersion !== this.configService.postmanScriptVersion) {
+      throw new BadRequestException(`
+        The Poly training code has been upgraded.
+        Your training script needs to be updated.
+        Please contact support@polyapi.io if you need any assistance!
+      `);
+    }
+
     const environmentId = req.user.environment.id;
 
     await this.authService.checkPermissions(req.user, Permission.ManageApiFunctions);
