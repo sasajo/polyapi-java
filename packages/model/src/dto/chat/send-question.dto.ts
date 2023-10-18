@@ -12,4 +12,8 @@ export class SendQuestionDto {
   @IsOptional()
   @IsString()
   workspaceFolder = '';
+
+  @IsString()
+  @IsOptional()
+  language: string | undefined;
 }

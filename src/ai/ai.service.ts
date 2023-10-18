@@ -21,10 +21,14 @@ export class AiService {
     private readonly prisma: PrismaService,
   ) {}
 
-  getFunctionCompletion(environmentId: string, userId: string, uuid: string, workspaceFolder = '') {
+  getFunctionCompletion(environmentId: string, userId: string, uuid: string, workspaceFolder = '', language = '') {
     let scienceUrl = `${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question_uuid=${uuid}`;
     if (workspaceFolder) {
       scienceUrl += `&workspace_folder=${workspaceFolder}`;
+    }
+
+    if (language) {
+      scienceUrl += `&language=${language}`;
     }
 
     return new EventSource(scienceUrl);

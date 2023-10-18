@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import axios from 'axios';
 import { RawAxiosRequestHeaders } from 'axios/index';
 import EventSource from 'eventsource';
-import { getCredentialsFromExtension, getWorkspacePath } from './common';
+import { getCredentialsFromExtension, getWorkspacePath } from '../common';
+import { getLastOpenedLanguage } from './language';
 
 const PER_PAGE = 5;
 
@@ -182,7 +183,12 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
       return removeLoading();
     }
 
-    const es = new EventSource(`${apiBaseUrl}/chat/question?message_uuid=${uuid}&workspaceFolder=${getWorkspacePath()}`, {
+    const lastOpenedLanguage = getLastOpenedLanguage(this.context);
+    const languageQuery = lastOpenedLanguage ? `&language=${lastOpenedLanguage}` : '';
+
+    console.log('send question to url: ', `${apiBaseUrl}/chat/question?message_uuid=${uuid}&workspaceFolder=${getWorkspacePath()}${languageQuery}`);
+
+    const es = new EventSource(`${apiBaseUrl}/chat/question?message_uuid=${uuid}&workspaceFolder=${getWorkspacePath()}${languageQuery}`, {
       headers: {
         authorization: `Bearer ${apiKey}`,
       },
@@ -205,7 +211,7 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
         type: 'updateMessage',
         data: {
           type: 'markdown',
-          value: answer + (answer.match(/```/g)?.length % 2 === 1 ? '\n```' : ''),
+          value: answer + ((answer.match(/```/g)?.length as number) % 2 === 1 ? '\n```' : ''),
         },
         messageID,
       });

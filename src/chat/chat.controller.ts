@@ -86,7 +86,7 @@ export class ChatController {
 
     await this.statisticsService.trackChatQuestion(req.user);
 
-    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '');
+    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '', data.language);
 
     return observable.pipe<MessageEvent>(
       map((data) => ({
