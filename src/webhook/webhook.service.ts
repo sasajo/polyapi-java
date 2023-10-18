@@ -12,6 +12,7 @@ import {
   TrainingDataGeneration,
   Visibility,
   VisibilityQuery,
+  WebhookHandleBasicDto,
   WebhookHandleDto,
   WebhookHandlePublicDto,
   WebhookHandleSpecification,
@@ -418,6 +419,17 @@ export class WebhookService {
     }
 
     return responseStatus;
+  }
+
+  toBasicDto(webhookHandle: WebhookHandle): WebhookHandleBasicDto {
+    const visibility = webhookHandle.visibility as Visibility;
+    return {
+      id: webhookHandle.id,
+      name: webhookHandle.name,
+      context: webhookHandle.context,
+      description: webhookHandle.description,
+      visibility,
+    };
   }
 
   toDto(webhookHandle: WebhookHandle, forEnvironment: Environment): WebhookHandleDto {

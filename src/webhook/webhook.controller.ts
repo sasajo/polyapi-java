@@ -60,7 +60,7 @@ export class WebhookController {
   public async getWebhookHandles(@Req() req: AuthRequest) {
     const environment = req.user.environment;
     const webhookHandles = await this.webhookService.getWebhookHandles(environment.id);
-    return webhookHandles.map((handle) => this.webhookService.toDto(handle, environment));
+    return webhookHandles.map((handle) => this.webhookService.toBasicDto(handle));
   }
 
   @UseGuards(PolyAuthGuard)
