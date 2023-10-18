@@ -13,6 +13,7 @@ export enum ConfigVariableName {
   OpenAIExtractKeywordsTemperature = 'OpenAIExtractKeywordsTemperature',
   OpenAIChatConversationLookback = 'OpenAIChatConversationLookback',
   OpenAIPluginConversationLookback = 'OpenAIPluginConversationLookback',
+  OpenAITenantApiKey = 'OpenAITenantApiKey',
   TrainingDataGeneration = 'TrainingDataGeneration',
   PublicVisibility = 'PublicVisibility',
   DefaultTier = 'DefaultTier',

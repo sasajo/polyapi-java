@@ -11,12 +11,14 @@ from flask import current_app, abort
 import jsonref
 from typing import Any, Dict, Generator, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
+from app.log import log
 from app.typedefs import (
     MessageDict,
     PropertySpecification,
     SpecificationDto,
     AnyFunction,
 )
+from app.vault import get_variable_value_from_vault
 from prisma import Prisma, get_client, register
 from prisma.models import (
     ConversationMessage,
@@ -138,13 +140,6 @@ def url_function_path(func: AnyFunction) -> str:
     # more like a set of standard function names?
     name = getattr(func, "name", "getToken")
     return f"{func.context}.{name}"
-
-
-def log(*args, **kwargs) -> None:
-    try:
-        print(*args, **kwargs, flush=True)
-    except UnicodeEncodeError:
-        print("UnicodeEncodeError! TODO FIXME")
 
 
 def insert_internal_step_info(messages: List[MessageDict], step: str) -> None:
@@ -357,12 +352,50 @@ def strip_type_and_info(messages: List[MessageDict]) -> List[MessageDict]:
     return stripped
 
 
+def get_tenant_openai_key(*, user_id: Optional[str] = None, application_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Optional[str]:
+    db = get_client()
+    if tenant_id:
+        pass
+    elif user_id:
+        user = db.user.find_unique(where={"id": user_id})
+        assert user
+        tenant_id = user.tenantId
+    elif application_id:
+        application = db.application.find_unique(where={"id": application_id})
+        assert application
+        tenant_id = application.tenantId
+    else:
+        return None
+
+    config_var = db.configvariable.find_first(where={"tenantId": tenant_id, "name": VarName.openai_tenant_api_key.value})
+    if not config_var:
+        return None
+
+    var = db.variable.find_unique(where={"id": config_var.value.strip('"')})
+    if not var:
+        return None
+
+    _ensure_environment_matches_tenant(var.environmentId, tenant_id)
+    value = get_variable_value_from_vault(var.environmentId, var.id)
+    return value
+
+
+def _ensure_environment_matches_tenant(environment_id: str, tenant_id: str) -> None:
+    """ throw an exception if environment is outside tenant"""
+    db = get_client()
+    environment = db.environment.find_unique(where={"id": environment_id})
+    assert environment
+    if environment.tenantId != tenant_id:
+        raise NotImplementedError(f"Someone from {tenant_id} tenant is attempting cross-tenant access to environment {environment_id}. Investigate!")
+
+
 def get_chat_completion(
-    messages: List[MessageDict], *, temperature=1.0, stream=False
+    messages: List[MessageDict], *, temperature=1.0, stream=False, api_key=None,
 ) -> Union[Generator, str]:
     """send the messages to OpenAI and get a response"""
     messages = strip_type_and_info(messages)
     resp = openai.ChatCompletion.create(
+        api_key=api_key,
         model=CHAT_GPT_MODEL,
         messages=messages,
         temperature=temperature,

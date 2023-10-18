@@ -435,6 +435,7 @@ export class FunctionService implements OnModuleInit {
             arguments: aiArguments,
             context: aiContext,
           } = await this.aiService.getFunctionDescription(
+            environment.tenantId,
             url,
             apiFunction?.method || method,
             description || apiFunction?.description || '',
@@ -1270,7 +1271,7 @@ export class FunctionService implements OnModuleInit {
         const {
           description: aiDescription,
           arguments: aiArguments,
-        } = await this.getCustomFunctionAIData(description, args, code);
+        } = await this.getCustomFunctionAIData(environment.tenantId, description, args, code);
         const existingArguments = JSON.parse(customFunction?.arguments || '[]') as FunctionArgument[];
 
         description = description || customFunction?.description || aiDescription;
@@ -2463,11 +2464,12 @@ export class FunctionService implements OnModuleInit {
     return apiFunction;
   }
 
-  private async getCustomFunctionAIData(description: string, args: FunctionArgument[], code: string) {
+  private async getCustomFunctionAIData(tenantId: string, description: string, args: FunctionArgument[], code: string) {
     const {
       description: aiDescription,
       arguments: aiArguments,
     } = await this.aiService.getFunctionDescription(
+      tenantId,
       '',
       '',
       description,

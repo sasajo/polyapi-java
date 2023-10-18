@@ -1,3 +1,6 @@
+### 0.5.2
+* Relocate views and little adjustment on credentials start up.
+
 ### 0.5.1
 * Little changes for dependency checking messages.
 

@@ -39,16 +39,20 @@ const checkForLibraryInstalled = () => {
   vscode.commands.executeCommand('setContext', 'polyLibraryInstalled', installed);
 };
 
+const updateMissingCredentialsContext = (credentials: ReturnType<typeof getCredentialsFromExtension>) => {
+  if (!credentials.apiBaseUrl || !credentials.apiKey) {
+    vscode.commands.executeCommand('setContext', 'missingCredentials', true);
+  } else {
+    vscode.commands.executeCommand('setContext', 'missingCredentials', false);
+  }
+};
+
 const watchCredentials = () => {
   return vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration('poly.apiBaseUrl') || event.affectsConfiguration('poly.apiKey')) {
       const credentials = getCredentialsFromExtension();
 
-      if (!credentials.apiBaseUrl || !credentials.apiKey) {
-        vscode.commands.executeCommand('setContext', 'missingCredentials', true);
-      } else {
-        vscode.commands.executeCommand('setContext', 'missingCredentials', false);
-      }
+      updateMissingCredentialsContext(credentials);
 
       if (isPolyLibraryInstalled()) {
         saveLibraryConfig({
@@ -70,6 +74,8 @@ export const start = () => {
   vscode.workspace.workspaceFolders?.forEach(watchWorkspace);
 
   checkForLibraryInstalled();
+
+  updateMissingCredentialsContext(getCredentialsFromExtension());
 
   const credentialsWatcherDisposable = watchCredentials();
 

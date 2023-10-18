@@ -9,12 +9,13 @@ from app.typedefs import (
     SpecificationDto,
     VarDescInputDto,
 )
+from app.log import log
 from app.utils import (
     camel_case,
     extract_code,
     func_path_with_args,
     get_chat_completion,
-    log,
+    get_tenant_openai_key,
 )
 from app.constants import CHAT_GPT_MODEL
 
@@ -142,8 +143,10 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
     }
     messages = [prompt_msg, limitations]
 
+    tenant_id = data.get("tenantId")
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=messages
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=messages, api_key=openai_api_key
     )
     completion = resp["choices"][0]["message"]["content"].strip()
     try:
@@ -161,13 +164,21 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
     log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     rv["arguments"] = get_argument_descriptions(
-        rv["context"], rv["name"], rv["description"], data.get("arguments", [])
+        openai_api_key,
+        rv["context"],
+        rv["name"],
+        rv["description"],
+        data.get("arguments", []),
     )
     return rv
 
 
 def get_argument_descriptions(
-    context: str, name: str, description: str, arguments: Optional[List[Dict]]
+    api_key: Optional[str],
+    context: str,
+    name: str,
+    description: str,
+    arguments: Optional[List[Dict]],
 ):
     if not arguments:
         return []
@@ -187,7 +198,10 @@ def get_argument_descriptions(
     prompt_msg = MessageDict(role="user", content=prompt)
 
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
+        model=CHAT_GPT_MODEL,
+        temperature=0.2,
+        messages=[prompt_msg],
+        api_key=api_key,
     )
 
     message: MessageDict = resp["choices"][0]["message"]
@@ -202,7 +216,8 @@ def _get_code_prompt(code: Optional[str]) -> str:
 
 
 def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
-    # contexts = _get_context_and_names()
+    tenant_id = data.get("tenantId")
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     short = data.get("short_description", "")
     short = f"User given name: {short}" if short else ""
     prompt = NAME_CONTEXT_DESCRIPTION_PROMPT.format(
@@ -222,7 +237,10 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
     }
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg, limitations]
+        model=CHAT_GPT_MODEL,
+        temperature=0.2,
+        messages=[prompt_msg, limitations],
+        api_key=openai_api_key,
     )
     completion = resp["choices"][0]["message"]["content"].strip()
     try:
@@ -273,10 +291,12 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
 
 
 def get_variable_description(data: VarDescInputDto) -> Dict:
+    tenant_id = data.get("tenantId")
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     func_name = data["context"] + "." + data["name"]
     prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data["secret"], data["value"])
     messages = [MessageDict(role="user", content=prompt)]
-    resp = get_chat_completion(messages)
+    resp = get_chat_completion(messages, api_key=openai_api_key)
     assert isinstance(resp, str)
     resp = resp.strip("```")
     rv = json.loads(resp)

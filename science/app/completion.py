@@ -6,10 +6,7 @@ from prisma import get_client
 from prisma.models import SystemPrompt, ConversationMessage
 from app.constants import QUESTION_TEMPLATE, MessageType
 from app.conversation import insert_prev_msgs
-
-# TODO change to relative imports
 from app.typedefs import (
-    # ChatGptStreamChoice,  TODO
     ExtractKeywordDto,
     StatsDict,
 )
@@ -18,11 +15,12 @@ from app.typedefs import (
     SpecificationDto,
     MessageDict,
 )
+from app.log import log
 from app.utils import (
     filter_to_real_public_ids,
     get_return_type_properties,
+    get_tenant_openai_key,
     insert_internal_step_info,
-    log,
     func_path_with_args,
     msgs_to_msg_dicts,
     public_ids_to_specs,
@@ -237,7 +235,8 @@ def get_best_functions(
         # we have no candidate functions whatsoever, abort!
         return [], stats
 
-    answer_msg = get_chat_completion(messages, temperature=0.2)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    answer_msg = get_chat_completion(messages, temperature=0.2, api_key=openai_api_key)
     assert isinstance(answer_msg, str)
 
     # store conversation
@@ -303,6 +302,8 @@ Consider the comments when generating example data.
 Use any combination of only the following functions to answer my question:
 
 {spec_str}
+
+{language_prompt}
 """
 
 BEST_FUNCTION_VARIABLES_TEMPLATE = """Use any combination of the following variables as arguments to those functions:
@@ -333,6 +334,7 @@ def get_best_function_example(
     public_ids: List[str],
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
+    language: str = "",
 ) -> Union[Generator, str]:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
@@ -342,10 +344,15 @@ def get_best_function_example(
     variables = [s for s in specs if s["type"] == "serverVariable"]
     specs = [s for s in specs if s["type"] != "serverVariable"]
 
+    language_prompt = ""
+    if language:
+        language_prompt = f"Please provide all code examples in {language}"
+
     best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
         spec_str="\n\n".join(
             spec_prompt(spec, include_return_type=True) for spec in specs
-        )
+        ),
+        language_prompt=language_prompt
     )
     messages = [
         MessageDict(
@@ -373,8 +380,9 @@ def get_best_function_example(
     insert_prev_msgs(messages, prev_msgs)
     insert_system_prompt(messages, environment_id)
 
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
     try:
-        resp = get_chat_completion(messages, temperature=0.5, stream=True)
+        resp = get_chat_completion(messages, temperature=0.5, stream=True, api_key=openai_api_key)
     except InvalidRequestError as e:
         if "maximum content length" in str(e) and prev_msgs:
             log(
@@ -387,7 +395,7 @@ def get_best_function_example(
                 messages, environment_id
             )  # let's reinsert system prompt
             resp = get_chat_completion(
-                messages, temperature=0.5, stream=True
+                messages, temperature=0.5, stream=True, api_key=openai_api_key
             )  # try again!
         else:
             # cant recover from this error, just move on!
@@ -406,6 +414,7 @@ def get_completion_answer(
     environment_id: str,
     question: str,
     prev_msgs: List[ConversationMessage],
+    language: str = "",
 ) -> Union[Generator, str]:
     best_function_ids, stats = get_best_functions(
         user_id, conversation_id, environment_id, question
@@ -421,6 +430,7 @@ def get_completion_answer(
             best_function_ids,
             question,
             prev_msgs,
+            language
         )
     else:
         return general_question(user_id, conversation_id, question, prev_msgs)  # type: ignore
@@ -437,6 +447,7 @@ def general_question(
         MessageDict(role="user", content=question, type=MessageType.user)
     ]
 
-    resp = get_chat_completion(messages, stream=True)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    resp = get_chat_completion(messages, stream=True, api_key=openai_api_key)
     store_messages(conversation_id, messages)
     return resp

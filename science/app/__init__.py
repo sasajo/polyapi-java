@@ -30,11 +30,15 @@ def create_app(testing=False):
     # TODO handle config more pro
     if app.config["DEBUG"]:
         app.config["NODE_API_URL"] = "http://localhost:8000"
+        app.config["VAULT_ADDRESS"] = "http://127.0.0.1:8200"
+        app.config["VAULT_TOKEN"] = "root"
     elif app.testing:
         app.config["NODE_API_URL"] = "http://localhost:8000"
     else:
         print("DEBUG OFF")
         app.config["NODE_API_URL"] = "http://localhost:8000"
+        app.config["VAULT_ADDRESS"] = os.environ.get("VAULT_ADDRESS", "")
+        app.config["VAULT_TOKEN"] = os.environ.get("VAULT_TOKEN", "")
 
         if os.environ.get("ROLLBAR_TOKEN"):
             try:
