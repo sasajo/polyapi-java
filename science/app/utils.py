@@ -342,6 +342,8 @@ def camel_case(text: str) -> str:
 
 
 def strip_type_and_info(messages: List[MessageDict]) -> List[MessageDict]:
+    """ strip type and info from the messages before we forward to openai
+    """
     stripped = copy.deepcopy(messages)
     stripped = [
         m for m in stripped if m["role"] != "info"
