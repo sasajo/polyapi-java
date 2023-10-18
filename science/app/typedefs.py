@@ -23,6 +23,7 @@ class DescOutputDto(TypedDict):
     description: str
     arguments: Optional[List[Dict]]
     openai_response: str
+    trace_id: NotRequired[str]
 
 
 class VarDescInputDto(TypedDict):

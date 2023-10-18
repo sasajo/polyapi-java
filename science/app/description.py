@@ -1,6 +1,7 @@
-from typing import Dict, List, Optional, Union
+import uuid
 import json
 import openai
+from typing import Dict, List, Optional, Union
 from app.typedefs import (
     DescInputDto,
     DescOutputDto,
@@ -9,7 +10,7 @@ from app.typedefs import (
     SpecificationDto,
     VarDescInputDto,
 )
-from app.log import log
+from app.log import log, rlog_desc_info
 from app.utils import (
     camel_case,
     extract_code,
@@ -124,6 +125,8 @@ Return it as JSON in the following format:
 
 
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
+    trace_id = uuid.uuid4().hex
+
     short = data.get("short_description", "")
     short = f"User given name: {short}" if short else ""
     prompt = NAME_CONTEXT_DESCRIPTION_PROMPT.format(
@@ -152,11 +155,18 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
     try:
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
-        log_error(data, completion, prompt)
-        return {"error": "Error parsing JSON from OpenAI: " + completion}
+        msg = "Error parsing JSON from OpenAI: "
+        rlog_desc_info(trace_id, msg, dict(data), completion)
+        return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
-        log_error(data, completion, prompt)
+        rlog_desc_info(
+            trace_id,
+            "Error getting context/name/description from OpenAI",
+            dict(data),
+            completion,
+        )
+        rv["trace_id"] = trace_id
         return rv
 
     # for now log EVERYTHING
@@ -170,7 +180,34 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         rv["description"],
         data.get("arguments", []),
     )
+    log("argument descriptions generated:", json.dumps(rv['arguments']))
+
+    if _arguments_missing_descriptions(rv['arguments']):
+        rlog_desc_info(
+            trace_id,
+            "Some arguments did not get descriptions from OpenAI!",
+            dict(data),
+            json.dumps(rv['arguments']),
+        )
+        rv['trace_id'] = trace_id
+
     return rv
+
+
+def _arguments_missing_descriptions(args: Optional[List[Dict]]) -> bool:
+    if not args:
+        return True
+
+    try:
+        for arg in args:
+            # TODO maybe figure out how to try nested args?
+            if not arg.get("description"):
+                return True
+    except:
+        # this data structure is not what we expect, just go ahead and say we are missing description!!
+        return True
+
+    return False
 
 
 def get_argument_descriptions(
@@ -216,6 +253,8 @@ def _get_code_prompt(code: Optional[str]) -> str:
 
 
 def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
+    trace_id = uuid.uuid4().hex
+
     tenant_id = data.get("tenantId")
     openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     short = data.get("short_description", "")
@@ -246,30 +285,24 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
     try:
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
-        log_error(data, completion, prompt)
-        return {"error": "Error parsing JSON from OpenAI: " + completion}
+        msg = "Error parsing JSON from OpenAI: "
+        rlog_desc_info(trace_id, msg, dict(data), completion)
+        return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
-        log_error(data, completion, prompt)
+        rlog_desc_info(
+            trace_id,
+            "Error getting context/name/description from OpenAI",
+            dict(data),
+            completion,
+        )
+        rv["trace_id"] = trace_id
     else:
         # for now log EVERYTHING
         rv["description"] = rv["description"][:DESCRIPTION_LENGTH_LIMIT]
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
-
-
-def log_error(data: DescInputDto, completion: str, prompt: str) -> None:
-    parts = [
-        "Error getting context/name/description from OpenAI",
-        "input:",
-        str(data),
-        "output:",
-        completion,
-        "prompt:",
-        prompt,
-    ]
-    log("\n".join(parts))
 
 
 def _parse_openai_response(completion: str) -> DescOutputDto:
