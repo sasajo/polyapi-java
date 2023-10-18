@@ -1,3 +1,6 @@
+### 0.6.0
+* Pass language option automatically to poly assistant.
+
 ### 0.5.2
 * Relocate views and little adjustment on credentials start up.
 

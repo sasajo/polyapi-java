@@ -186,8 +186,6 @@ export default class ChatViewProvider implements vscode.WebviewViewProvider {
     const lastOpenedLanguage = getLastOpenedLanguage(this.context);
     const languageQuery = lastOpenedLanguage ? `&language=${lastOpenedLanguage}` : '';
 
-    console.log('send question to url: ', `${apiBaseUrl}/chat/question?message_uuid=${uuid}&workspaceFolder=${getWorkspacePath()}${languageQuery}`);
-
     const es = new EventSource(`${apiBaseUrl}/chat/question?message_uuid=${uuid}&workspaceFolder=${getWorkspacePath()}${languageQuery}`, {
       headers: {
         authorization: `Bearer ${apiKey}`,
