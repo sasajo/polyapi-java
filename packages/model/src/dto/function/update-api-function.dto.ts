@@ -50,4 +50,9 @@ export class UpdateApiFunctionDto {
 
   @IsOptional()
   returnTypeSchema?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  templateBody: string | undefined;
+
 }

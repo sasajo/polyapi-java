@@ -206,6 +206,7 @@ export class FunctionController {
       enableRedirect,
       returnType,
       returnTypeSchema,
+      templateBody,
     } = data;
 
     const apiFunction = await this.service.findApiFunction(id);
@@ -236,6 +237,8 @@ export class FunctionController {
 
     await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
 
+    const decodedTemplateBody = templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody;
+
     return this.service.apiFunctionToDetailsDto(
       await this.service.updateApiFunction(
         apiFunction,
@@ -250,6 +253,7 @@ export class FunctionController {
         enableRedirect,
         returnType,
         returnTypeSchema,
+        decodedTemplateBody,
       ),
     );
   }

@@ -1,9 +1,12 @@
-import { getMetadataTemplateObject, mergeArgumentsInTemplateObject, POLY_ARG_NAME_KEY } from 'function/custom/json-template';
+import { JsonTemplate, POLY_ARG_NAME_KEY } from 'function/custom/json-template/index';
+import { ArgMetadata, JsonTemplateProcessor } from 'function/custom/json-template/json-template';
 
 describe('json-template', () => {
-  describe('getMetadataTemplateObject', () => {
+  const jsonTemplate: JsonTemplateProcessor = new JsonTemplate();
+
+  describe('parse', () => {
     it('Should get same object structure replacing arguments by `ArgMetadata` object.', () => {
-      const result = getMetadataTemplateObject(`
+      const result = jsonTemplate.parse(`
             {
                 "name": {{name}},
                 "lastName": "{{lastName}}",
@@ -40,7 +43,7 @@ describe('json-template', () => {
     });
 
     it('Should support duplicated arguments.', () => {
-      const result = getMetadataTemplateObject(`
+      const result = jsonTemplate.parse(`
             {
                 "name": {{name}},
                 "lastName": "{{name}}",
@@ -74,7 +77,7 @@ describe('json-template', () => {
     });
 
     it('Should not transform arguments concatenated with other string content.', () => {
-      const result = getMetadataTemplateObject(`
+      const result = jsonTemplate.parse(`
             {
                 "name": "The name is {{name}}"
             }
@@ -86,7 +89,7 @@ describe('json-template', () => {
     });
   });
 
-  describe('mergeArgumentsInTemplateObject', () => {
+  describe('render', () => {
     it('Should be able to send an object inside a double quoted arg.', () => {
       const templateObject = {
         name: {
@@ -101,7 +104,7 @@ describe('json-template', () => {
         ],
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           name: 'foo',
@@ -129,7 +132,7 @@ describe('json-template', () => {
         ],
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           name: 'foo',
@@ -157,7 +160,7 @@ describe('json-template', () => {
         ],
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           name: '"foo"',
@@ -185,7 +188,7 @@ describe('json-template', () => {
         ],
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           name: { foo: 'bar' },
@@ -215,7 +218,7 @@ describe('json-template', () => {
         list: [1, false, null, 'lorem ipsum'],
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           name: { foo: 'bar' },
@@ -238,7 +241,7 @@ describe('json-template', () => {
         },
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           age: 27,
@@ -271,7 +274,7 @@ describe('json-template', () => {
         ],
       };
 
-      const result = mergeArgumentsInTemplateObject(
+      const result = jsonTemplate.render(
         templateObject,
         {
           age,
@@ -286,6 +289,190 @@ describe('json-template', () => {
           age,
           `My age is ${age}.`,
         ],
+      });
+    });
+  });
+
+  describe('toTemplateString', () => {
+    it('Should transform quoted arguments properly.', () => {
+      const parsedTemplate = {
+        age: {
+          [POLY_ARG_NAME_KEY]: 'age',
+          quoted: true,
+        },
+        list: [
+          {
+            [POLY_ARG_NAME_KEY]: 'age',
+            quoted: true,
+          }, {
+            data: {
+              [POLY_ARG_NAME_KEY]: 'age',
+              quoted: true,
+            },
+          },
+        ],
+      } as {
+        age: ArgMetadata,
+        list: [ArgMetadata, { data: ArgMetadata }]
+      };
+
+      const parsedTemplate2 = [
+        {
+          [POLY_ARG_NAME_KEY]: 'age',
+          quoted: true,
+        }, {
+          data: {
+            [POLY_ARG_NAME_KEY]: 'age',
+            quoted: true,
+          },
+        },
+      ] as [ArgMetadata, { data: ArgMetadata }];
+
+      const parsedTemplateStringVersion1 = '{"age":{"$polyArgName":"age","quoted":true},"list":[{"$polyArgName":"age","quoted":true},{"data":{"$polyArgName":"age","quoted": true}}]}';
+      const parsedTemplateStringVersion2 = '[{"$polyArgName":"age","quoted":true},{"data":{"$polyArgName":"age","quoted":true}}]';
+
+      const result = jsonTemplate.toTemplateString(parsedTemplate, false);
+      const result2 = jsonTemplate.toTemplateString(parsedTemplate2, false);
+      const result3 = jsonTemplate.toTemplateString(parsedTemplateStringVersion1);
+      const result4 = jsonTemplate.toTemplateString(parsedTemplateStringVersion2);
+
+      expect(result).toBe('{"age":"{{age}}","list":["{{age}}",{"data":"{{age}}"}]}');
+      expect(result2).toBe('["{{age}}",{"data":"{{age}}"}]');
+
+      // Check parsing strings.
+      expect(result3).toBe('{"age":"{{age}}","list":["{{age}}",{"data":"{{age}}"}]}');
+      expect(result4).toBe('["{{age}}",{"data":"{{age}}"}]');
+    });
+
+    it('Should transform unquoted arguments properly.', () => {
+      const parsedTemplate = {
+        age: {
+          [POLY_ARG_NAME_KEY]: 'age',
+          quoted: false,
+        },
+        list: [
+          {
+            [POLY_ARG_NAME_KEY]: 'age',
+            quoted: false,
+          }, {
+            data: {
+              [POLY_ARG_NAME_KEY]: 'age',
+              quoted: false,
+            },
+          },
+        ],
+      } as {
+        age: ArgMetadata,
+        list: [ArgMetadata, { data: ArgMetadata }]
+      };
+
+      const parsedTemplate2 = [
+        {
+          [POLY_ARG_NAME_KEY]: 'age',
+          quoted: false,
+        }, {
+          data: {
+            [POLY_ARG_NAME_KEY]: 'age',
+            quoted: false,
+          },
+        },
+      ] as [ArgMetadata, { data: ArgMetadata }];
+
+      const parsedTemplateStringVersion1 = '{"age":{"$polyArgName":"age","quoted":false},"list":[{"$polyArgName":"age","quoted":false},{"data":{"$polyArgName":"age","quoted": false}}]}';
+      const parsedTemplateStringVersion2 = '[{"$polyArgName":"age","quoted":false},{"data":{"$polyArgName":"age","quoted":false}}]';
+
+      const result = jsonTemplate.toTemplateString(parsedTemplate, false);
+      const result2 = jsonTemplate.toTemplateString(parsedTemplate2, false);
+      const result3 = jsonTemplate.toTemplateString(parsedTemplateStringVersion1);
+      const result4 = jsonTemplate.toTemplateString(parsedTemplateStringVersion2);
+
+      expect(result).toBe('{"age":{{age}},"list":[{{age}},{"data":{{age}}}]}');
+      expect(result2).toBe('[{{age}},{"data":{{age}}}]');
+
+      // Check parsing strings.
+      expect(result3).toBe('{"age":{{age}},"list":[{{age}},{"data":{{age}}}]}');
+      expect(result4).toBe('[{{age}},{"data":{{age}}}]');
+    });
+
+    it('Should respect rest of json types properly.', () => {
+      const parsedTemplate = {
+        age: 27,
+        name: 'test',
+        vip: false,
+        moreData: null,
+        list: [
+          1, false, null, {
+            list: [1, false, null],
+          },
+        ],
+      };
+
+      const parsedTemplate2 = [
+        1, false, null, 'foo', {
+          age: 27,
+          list: [1, false, null, 'foo', { age: 27 }],
+        },
+      ];
+
+      const parsedTemplateStringVersion1 = '{"age":27,"name":"test","vip":false,"moreData":null,"list":[1,false,null,{"list":[1,false,null]}]}';
+      const parsedTemplateStringVersion2 = '[1,false,null,"foo",{"age":27,"list":[1,false,null,"foo",{"age":27}]}]';
+
+      const result = jsonTemplate.toTemplateString(parsedTemplate, false);
+      const result2 = jsonTemplate.toTemplateString(parsedTemplate2, false);
+      const result3 = jsonTemplate.toTemplateString(parsedTemplateStringVersion1);
+      const result4 = jsonTemplate.toTemplateString(parsedTemplateStringVersion2);
+
+      expect(result).toBe('{"age":27,"name":"test","vip":false,"moreData":null,"list":[1,false,null,{"list":[1,false,null]}]}');
+      expect(result2).toBe('[1,false,null,"foo",{"age":27,"list":[1,false,null,"foo",{"age":27}]}]');
+
+      // Check parsing strings.
+      expect(result3).toBe(parsedTemplateStringVersion1);
+      expect(result4).toBe(parsedTemplateStringVersion2);
+    });
+
+    it('Should prettify template string.', () => {
+      const jsonStringifySpy = jest.spyOn(JSON, 'stringify');
+
+      const parsedTemplate = { foo: { [POLY_ARG_NAME_KEY]: 'foo', quoted: false } };
+
+      jsonTemplate.toTemplateString(parsedTemplate, true);
+
+      expect(jsonStringifySpy).toHaveBeenCalledWith(parsedTemplate, null, 4);
+    });
+  });
+
+  describe('filterComments', () => {
+    it('should filter out // comments from JSON string', () => {
+      const jsonString = `{
+        "test": "test1", // comment
+        "test2": "test2", // comment
+        // comment1
+        // comment2
+        "test3": "test3"
+      }`;
+
+      const result = jsonTemplate.filterComments(jsonString);
+      expect(JSON.parse(result)).toEqual({
+        test: 'test1',
+        test2: 'test2',
+        test3: 'test3',
+      });
+    });
+
+    it('should filter out /* */ comments from JSON string', () => {
+      const jsonString = `{
+        "test": "test1", /* comment */
+        "test2": "test2", /* comment */
+        /* comment1 */
+        /* comment2 */
+        "test3": "test3"
+      }`;
+
+      const result = jsonTemplate.filterComments(jsonString);
+      expect(JSON.parse(result)).toEqual({
+        test: 'test1',
+        test2: 'test2',
+        test3: 'test3',
       });
     });
   });
