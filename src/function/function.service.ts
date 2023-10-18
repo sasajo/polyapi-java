@@ -819,7 +819,7 @@ export class FunctionService implements OnModuleInit {
   }
 
   private processRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, args: Record<string, any>) {
-    const jsonTemplateObject = this.jsonTemplate.parse(this.commonService.filterJSONComments(body.raw));
+    const jsonTemplateObject = this.jsonTemplate.parse(body.raw);
 
     const removeUndefinedValuesFromOptionalArgs = (value: any) => {
       if (Array.isArray(value)) {
@@ -1852,7 +1852,7 @@ export class FunctionService implements OnModuleInit {
         if (body.options?.raw?.language === 'json') {
           return {
             ...body,
-            raw: this.commonService.filterJSONComments(body.raw),
+            raw: this.jsonTemplate.filterComments(body.raw),
           };
         }
         return body;

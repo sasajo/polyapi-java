@@ -6,7 +6,7 @@ import axios from 'axios';
 import _ from 'lodash';
 import { toPascalCase } from '@guanghechen/helper-string';
 import { ConfigVariable, Environment, Prisma, Tenant } from '@prisma/client';
-import { CommentToken, parse, stringify } from 'comment-json';
+import { CommentToken, parse } from 'comment-json';
 import { ConfigService } from 'config/config.service';
 import { PathError } from './path-error';
 import {
@@ -22,8 +22,6 @@ import {
   VisibilityQuery,
 } from '@poly/model';
 import { JsonTemplate, JsonTemplateProcessor } from 'function/custom/json-template';
-
-const isPlainObject = _.isPlainObject as (value: unknown) => value is object;
 
 const JSON_META_SCHEMA_CACHE = {};
 
@@ -106,7 +104,7 @@ export class CommonService {
     }
     try {
       const isStringValue = typeof value === 'string';
-      let obj = isStringValue ? JSON.parse(this.filterJSONComments(value)) : value;
+      let obj = isStringValue ? JSON.parse(this.jsonTemplate.filterComments(value)) : value;
       if (obj && typeof obj === 'object') {
         if (subpath) {
           obj = this.getPathContent(obj, subpath);
@@ -354,25 +352,6 @@ export class CommonService {
   checkVisibilityAllowed(tenant: Tenant, visibility: Visibility | null | undefined) {
     if (tenant.name === null && visibility === Visibility.Public) {
       throw new BadRequestException(`Cannot set ${Visibility.Public} if tenant does not have a name.`);
-    }
-  }
-
-  filterJSONComments(jsonString: string) {
-    try {
-      // Get valid json string, 'comment-json' lib does not support unquoted args.
-      const validJsonString = this.jsonTemplate.parse(jsonString, true);
-
-      // Trim comments
-      const parsedTemplateStringWithoutComments = parse(validJsonString, undefined, true);
-
-      if (Array.isArray(parsedTemplateStringWithoutComments) || isPlainObject(parsedTemplateStringWithoutComments)) {
-        return this.jsonTemplate.toTemplateString(parsedTemplateStringWithoutComments);
-      }
-
-      return stringify(parsedTemplateStringWithoutComments);
-    } catch (e) {
-      // error while parsing json, return original string
-      return jsonString;
     }
   }
 

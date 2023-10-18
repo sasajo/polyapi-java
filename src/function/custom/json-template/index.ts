@@ -1,5 +1,5 @@
 import hls from 'highlight.js';
-import { parse } from 'node-html-parser';
+import { parse, HTMLElement } from 'node-html-parser';
 import { getExtendedJsonLanguage, LANGUAGE_NAME } from './extended-json-language';
 import { ARGUMENT_PATTERN } from '../constants';
 import { cloneDeep, isPlainObject } from 'lodash';
@@ -18,9 +18,7 @@ export const isTemplateArg = (value): value is ArgMetadata => typeof value[POLY_
  * Use this when you need to parse and modify raw json from api functions.
 */
 export class JsonTemplate implements JsonTemplateProcessor {
-  parse(template: string, getStringVersion: true): string
-  parse(template: string): Record<string, TemplateValue> | TemplateValue[];
-  parse(template: string, getStringVersion?: boolean): Record<string, TemplateValue> | TemplateValue[] | string {
+  parse(template: string): Record<string, TemplateValue> | TemplateValue[] {
     const { value } = hls.highlight(template, {
       language: LANGUAGE_NAME,
     });
@@ -41,7 +39,9 @@ export class JsonTemplate implements JsonTemplateProcessor {
       }
     }
 
-    return getStringVersion ? dom.textContent : JSON.parse(dom.textContent);
+    this.filterCommentsFromDomObject(dom);
+
+    return JSON.parse(dom.textContent);
   }
 
   render(template: string | Record<string, TemplateValue> | TemplateValue[], args: Record<string, any>): any[] | Record<string, any> {
@@ -138,6 +138,24 @@ export class JsonTemplate implements JsonTemplateProcessor {
     }
 
     return dom.textContent;
+  }
+
+  filterComments(template: string): string {
+    const { value } = hls.highlight(template, {
+      language: LANGUAGE_NAME,
+    });
+
+    const dom = parse(value);
+
+    this.filterCommentsFromDomObject(dom);
+
+    return dom.textContent;
+  }
+
+  private filterCommentsFromDomObject(dom: HTMLElement) {
+    for (const node of dom.querySelectorAll('.hljs-comment')) {
+      node.remove();
+    }
   }
 
   /* eslint-enable no-dupe-class-members */

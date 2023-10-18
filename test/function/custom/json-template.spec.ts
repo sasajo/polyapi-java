@@ -87,40 +87,6 @@ describe('json-template', () => {
         name: 'The name is {{name}}',
       });
     });
-
-    it('Should get template parsed string version respecting json comments.', () => {
-      const result = jsonTemplate.parse(`
-            {
-                /* The name */
-                "name": {{name}},
-                "lastName": "{{lastName}}" // Last name,
-                "list": [
-                    {{title}} // Title,
-                    2,
-                    "3",
-                    /* null value */
-                    null,
-                    false // False value
-                ]
-            }
-      `, true);
-
-      expect(result).toStrictEqual(`
-            {
-                /* The name */
-                "name": {"$polyArgName": "name", "quoted": false},
-                "lastName": {"$polyArgName": "lastName", "quoted": true} // Last name,
-                "list": [
-                    {"$polyArgName": "title", "quoted": false} // Title,
-                    2,
-                    "3",
-                    /* null value */
-                    null,
-                    false // False value
-                ]
-            }
-      `);
-    });
   });
 
   describe('render', () => {
@@ -472,6 +438,42 @@ describe('json-template', () => {
       jsonTemplate.toTemplateString(parsedTemplate, true);
 
       expect(jsonStringifySpy).toHaveBeenCalledWith(parsedTemplate, null, 4);
+    });
+  });
+
+  describe('filterComments', () => {
+    it('should filter out // comments from JSON string', () => {
+      const jsonString = `{
+        "test": "test1", // comment
+        "test2": "test2", // comment
+        // comment1
+        // comment2
+        "test3": "test3"
+      }`;
+
+      const result = jsonTemplate.filterComments(jsonString);
+      expect(JSON.parse(result)).toEqual({
+        test: 'test1',
+        test2: 'test2',
+        test3: 'test3',
+      });
+    });
+
+    it('should filter out /* */ comments from JSON string', () => {
+      const jsonString = `{
+        "test": "test1", /* comment */
+        "test2": "test2", /* comment */
+        /* comment1 */
+        /* comment2 */
+        "test3": "test3"
+      }`;
+
+      const result = jsonTemplate.filterComments(jsonString);
+      expect(JSON.parse(result)).toEqual({
+        test: 'test1',
+        test2: 'test2',
+        test3: 'test3',
+      });
     });
   });
 });
