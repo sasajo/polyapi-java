@@ -62,21 +62,21 @@ export class GptPluginController {
   }
 
   @UseGuards(PolyAuthGuard)
-  @Get('api/conversations/:id')
-  public async apiConversationGet(@Req() req: AuthRequest, @Param('id') conversationId: string): Promise<unknown> {
-    return this.chatService.getConversationDetail(req.user, '', conversationId);
+  @Get('api/conversations/:slug')
+  public async apiConversationGet(@Req() req: AuthRequest, @Param('slug') conversationSlug: string): Promise<unknown> {
+    return this.chatService.getConversationDetailBySlug(req.user, conversationSlug);
   }
 
   @UseGuards(PolyAuthGuard, ChatQuestionsLimitGuard)
-  @Post('api/conversations/:id')
-  public async apiConversationPost(@Req() req: AuthRequest, @Param('id') conversationId: string, @Body() body): Promise<unknown> {
+  @Post('api/conversations/:slug')
+  public async apiConversationPost(@Req() req: AuthRequest, @Param('slug') conversationSlug: string, @Body() body): Promise<unknown> {
     const slug = getSlugSubdomain(req.hostname)[0];
     // for testing locally!
     // const slug = 'megatronical';
     if (!slug) {
       throw new BadRequestException('Slug not found! Please use your plugin subdomain like "foo-1234.na1.polyapi.io".');
     }
-    const resp = await this.service.chat(req.user, slug, conversationId, body.message);
+    const resp = await this.service.chat(req.user, slug, conversationSlug, body.message);
 
     await this.statisticsService.trackChatQuestion(req.user);
 
@@ -84,9 +84,9 @@ export class GptPluginController {
   }
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
-  @Delete('api/conversations/:id')
-  public async apiConversationDelete(@Req() req: AuthRequest, @Param('id') conversationId: string): Promise<unknown> {
-    return this.chatService.deleteConversation(conversationId);
+  @Delete('api/conversations/:slug')
+  public async apiConversationDelete(@Req() req: AuthRequest, @Param('id') conversationSlug: string): Promise<unknown> {
+    return this.chatService.deleteConversation(req.user, conversationSlug);
   }
 
   @UseGuards(PolyAuthGuard)

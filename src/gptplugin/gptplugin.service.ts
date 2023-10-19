@@ -16,9 +16,10 @@ import {
   Specification,
 } from '@poly/model';
 import { FunctionService } from 'function/function.service';
-import { ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/client';
+import { Prisma, Conversation, ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/client';
 import { Request } from 'express';
 import { AuthService } from 'auth/auth.service';
+import { AuthData } from 'common/types';
 
 const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
 // for testing locally
@@ -342,7 +343,6 @@ export class GptPluginService {
 
   async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
     const [, subdomain] = getSlugSubdomain(hostname);
-    console.log(`WHY NO ENVIRON ${hostname} ${subdomain}`);
     const environment = await this.prisma.environment.findUniqueOrThrow({ where: { subdomain } });
     const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({
       where: { slug_environmentId: { slug, environmentId: environment.id } },
@@ -538,10 +538,39 @@ export class GptPluginService {
     };
   }
 
-  async chat(authData, slug: string, conversationId: string, message: string) {
+  async chat(authData: AuthData, slug: string, conversationSlug: string, message: string) {
+    const where = this._getConversationWhereInput(authData, conversationSlug);
+    let conversation = await this.prisma.conversation.findFirst({ where });
+    if (!conversation) {
+      conversation = await this._createConversation(authData, conversationSlug);
+    }
+
     const plugin = await this.getPlugin(slug, authData.environment.id);
     const hashedKey = await this.authService.hashApiKey(authData.key);
     const apiKey = await this.prisma.apiKey.findUniqueOrThrow({ where: { key: hashedKey } });
-    return await this.aiService.pluginChat(authData.key, apiKey.id, plugin.id, conversationId, message);
+    return await this.aiService.pluginChat(authData.key, apiKey.id, plugin.id, conversation.id, message);
+  }
+
+  private async _createConversation(authData: AuthData, conversationSlug: string): Promise<Conversation> {
+    return this.prisma.conversation.create({
+      data: {
+        applicationId: authData.application?.id,
+        userId: authData.user?.id,
+        slug: conversationSlug,
+      },
+    });
+  }
+
+  // HACK copypasta from chat.service.ts
+  _getConversationWhereInput(authData: AuthData, conversationSlug: string): Prisma.ConversationWhereInput {
+    let where: Prisma.ConversationWhereInput = {};
+    if (authData.user) {
+      where = { userId: authData.user.id, slug: conversationSlug };
+    } else if (authData.application) {
+      where = { applicationId: authData.application.id, slug: conversationSlug };
+    } else {
+      throw new BadRequestException('user or application is required');
+    }
+    return where;
   }
 }

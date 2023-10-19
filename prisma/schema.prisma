@@ -216,6 +216,8 @@ model WebhookHandle {
 
 model Conversation {
   id              String               @id(map: "idx_26012_sqlite_autoindex_conversation_1") @default(uuid())
+  // optional human-readable slug only usable by gptplugin currently
+  slug            String               @default("")
   createdAt       DateTime             @default(now()) @db.Timestamptz(6) @map("createdat")
   user            User?                @relation(fields: [userId], references: [id])
   userId          String?              @map("userid")

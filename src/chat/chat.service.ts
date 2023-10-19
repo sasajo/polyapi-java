@@ -226,6 +226,24 @@ export class ChatService {
     return parts.join('\n\n');
   }
 
+  async getConversationDetailBySlug(authData: AuthData, conversationSlug: string): Promise<string> {
+    // user is the user for permissions purposes whereas userId is which userId to see last convo for
+    let conversation: Conversation;
+    const where = this._getConversationWhereInput(authData, conversationSlug);
+    try {
+      conversation = await this.prisma.conversation.findFirstOrThrow({ where, orderBy: { createdAt: 'desc' } });
+    } catch {
+      return new Promise((resolve) => resolve('Conversation not found.'));
+    }
+
+    const messages = await this.prisma.conversationMessage.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    const parts = messages.map((m) => `${m.role.toUpperCase()} (${m.createdAt.toISOString()})\n\n${m.content}`);
+    return parts.join('\n\n');
+  }
+
   async checkConversationDetailPermissions(auth: AuthData, conversation: Conversation) {
     // return null if user has permission, otherwise throw an exception
     if (auth.application) {
@@ -276,14 +294,31 @@ export class ChatService {
     }
   }
 
-  async deleteConversation(conversationId: string): Promise<string> {
+  async deleteConversation(authData: AuthData, conversationSlug: string): Promise<string> {
+    if (!conversationSlug) {
+      throw new BadRequestException('Conversation slug is required');
+    }
+
+    const where = this._getConversationWhereInput(authData, conversationSlug);
     try {
-      await this.prisma.conversation.delete({ where: { id: conversationId } });
+      await this.prisma.conversation.deleteMany({ where });
     } catch {
       return new Promise((resolve) => resolve('Conversation not found.'));
     }
 
     return new Promise((resolve) => resolve('Conversation deleted!'));
+  }
+
+  _getConversationWhereInput(authData: AuthData, conversationSlug: string): Prisma.ConversationWhereInput {
+    let where: Prisma.ConversationWhereInput = {};
+    if (authData.user) {
+      where = { userId: authData.user.id, slug: conversationSlug };
+    } else if (authData.application) {
+      where = { applicationId: authData.application.id, slug: conversationSlug };
+    } else {
+      throw new BadRequestException('user or application is required');
+    }
+    return where;
   }
 
   async getHistory(
