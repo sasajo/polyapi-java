@@ -342,6 +342,7 @@ export class GptPluginService {
 
   async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
     const [, subdomain] = getSlugSubdomain(hostname);
+    console.log(`WHY NO ENVIRON ${hostname} ${subdomain}`);
     const environment = await this.prisma.environment.findUniqueOrThrow({ where: { subdomain } });
     const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({
       where: { slug_environmentId: { slug, environmentId: environment.id } },
