@@ -224,6 +224,13 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  apiFunctionToTrainingDto(apiFunction: ApiFunction & { traceId?: string }) {
+    return {
+      ...this.apiFunctionToBasicDto(apiFunction),
+      traceId: 'foo',
+    };
+  }
+
   apiFunctionToDetailsDto(apiFunction: ApiFunction): ApiFunctionDetailsDto {
     const argumentsList = this.getFunctionArguments(apiFunction)
       .map<Omit<FunctionArgument<Record<string, any>>, 'location'>>(arg => ({
@@ -305,7 +312,7 @@ export class FunctionService implements OnModuleInit {
     enableRedirect: boolean,
     templateAuth?: Auth,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
-  ): Promise<ApiFunction> {
+  ): Promise<ApiFunction & { traceId?: string }> {
     if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.BAD_REQUEST)) {
       throw new BadRequestException(
         `Api response status code should be between ${HttpStatus.OK} and ${HttpStatus.AMBIGUOUS}.`,
@@ -426,6 +433,8 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug('Creating new poly function...');
     }
 
+    let traceId: string | undefined;
+
     if ((!name || !context || !description) && !updating) {
       if (await this.isApiFunctionAITrainingEnabled(environment)) {
         try {
@@ -434,6 +443,7 @@ export class FunctionService implements OnModuleInit {
             description: aiDescription,
             arguments: aiArguments,
             context: aiContext,
+            trace_id: traceIdResponse,
           } = await this.aiService.getFunctionDescription(
             environment.tenantId,
             url,
@@ -443,6 +453,10 @@ export class FunctionService implements OnModuleInit {
             JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
             JSON.stringify(this.commonService.trimDownObject(response)),
           );
+
+          if (traceIdResponse) {
+            traceId = traceIdResponse;
+          }
 
           if (!name) {
             name = aiName
@@ -538,18 +552,21 @@ export class FunctionService implements OnModuleInit {
       });
     }
 
-    return this.prisma.apiFunction.create({
-      data: {
-        environment: {
-          connect: {
-            id: environment.id,
+    return {
+      ...(await this.prisma.apiFunction.create({
+        data: {
+          environment: {
+            connect: {
+              id: environment.id,
+            },
           },
+          ...upsertPayload,
+          name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true),
+          method,
         },
-        ...upsertPayload,
-        name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true),
-        method,
-      },
-    });
+      })),
+      traceId,
+    };
   }
 
   async updateApiFunction(
@@ -1160,6 +1177,13 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  customServerFunctionResponseDto(customFunction: CustomFunction & { traceId?: string }) {
+    return {
+      ...this.customFunctionToDetailsDto(customFunction),
+      traceId: customFunction.traceId,
+    };
+  }
+
   customFunctionToPublicBasicDto(customFunction: WithTenant<CustomFunction> & {
     hidden: boolean
   }): FunctionPublicBasicDto {
@@ -1241,7 +1265,7 @@ export class FunctionService implements OnModuleInit {
     apiKey: string | null,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
     createFromScratch = false,
-  ): Promise<CustomFunction> {
+  ): Promise<CustomFunction & { traceId?: string }> {
     const {
       code,
       args,
@@ -1261,6 +1285,8 @@ export class FunctionService implements OnModuleInit {
       },
     });
 
+    let traceId: string | undefined;
+
     const argumentsNeedDescription = !customFunction || JSON.parse(customFunction.arguments).some((arg) => {
       const newArg = args.find((a) => a.key === arg.key);
       return !newArg || newArg.type !== arg.type || !arg.description;
@@ -1271,8 +1297,13 @@ export class FunctionService implements OnModuleInit {
         const {
           description: aiDescription,
           arguments: aiArguments,
+          traceId: traceIdResponse,
         } = await this.getCustomFunctionAIData(environment.tenantId, description, args, code);
         const existingArguments = JSON.parse(customFunction?.arguments || '[]') as FunctionArgument[];
+
+        if (traceIdResponse) {
+          traceId = traceIdResponse;
+        }
 
         description = description || customFunction?.description || aiDescription;
         aiArguments.forEach(aiArgument => {
@@ -1373,7 +1404,10 @@ export class FunctionService implements OnModuleInit {
       }
     }
 
-    return customFunction;
+    return {
+      ...customFunction,
+      traceId,
+    };
   }
 
   async updateClientFunction(
@@ -2468,6 +2502,7 @@ export class FunctionService implements OnModuleInit {
     const {
       description: aiDescription,
       arguments: aiArguments,
+      trace_id: traceId,
     } = await this.aiService.getFunctionDescription(
       tenantId,
       '',
@@ -2482,6 +2517,7 @@ export class FunctionService implements OnModuleInit {
     return {
       description: aiDescription,
       arguments: aiArguments || [],
+      traceId,
     };
   }
 

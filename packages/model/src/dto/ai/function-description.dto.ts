@@ -6,4 +6,5 @@ export interface FunctionDescriptionDto {
     name: string;
     description: string;
   }[];
+  trace_id?: string;
 }

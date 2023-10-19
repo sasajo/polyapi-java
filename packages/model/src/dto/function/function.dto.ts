@@ -47,6 +47,10 @@ export interface FunctionBasicDto {
   enabled?: boolean;
 }
 
+export interface TrainingFunctionDto extends FunctionBasicDto{
+  traceId?: string;
+}
+
 export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: Omit<FunctionArgument<Record<string, any>>, 'location'>[];
   source?: ApiFunctionSource
@@ -70,4 +74,8 @@ export interface FunctionPublicDetailsDto extends FunctionDetailsDto {
 
 export interface ApiFunctionPublicDetailsDto extends FunctionPublicDetailsDto {
   enabledRedirect: boolean;
+}
+
+export interface CreateServerCustomFunctionResponseDto extends FunctionDetailsDto {
+  traceId?: string;
 }
