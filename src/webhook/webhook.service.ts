@@ -13,6 +13,7 @@ import {
   Visibility,
   VisibilityQuery,
   WebhookHandleBasicDto,
+  WebhookHandleBasicPublicDto,
   WebhookHandleDto,
   WebhookHandlePublicDto,
   WebhookHandleSpecification,
@@ -463,6 +464,17 @@ export class WebhookService {
   ): WebhookHandlePublicDto {
     return {
       ...this.toDto(webhookHandle, forEnvironment),
+      context: this.commonService.getPublicContext(webhookHandle),
+      tenant: webhookHandle.environment.tenant.name || '',
+      hidden: webhookHandle.hidden,
+    };
+  }
+
+  toBasicPublicDto(
+    webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean },
+  ): WebhookHandleBasicPublicDto {
+    return {
+      ...this.toBasicDto(webhookHandle),
       context: this.commonService.getPublicContext(webhookHandle),
       tenant: webhookHandle.environment.tenant.name || '',
       hidden: webhookHandle.hidden,
