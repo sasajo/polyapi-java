@@ -324,7 +324,7 @@ export class GptPluginService {
     } else if (slug === LOCALHOST_PAGEKITE) {
       return `${protocol}://${LOCALHOST_PAGEKITE}.pagekite.me/openapi-localhost.yaml`;
     } else {
-      return `${protocol}://${host}/plugins/${slug}/openapi`;
+      return `${protocol}://${host}/plugins/${slug}/openapi.json`;
     }
   }
 
