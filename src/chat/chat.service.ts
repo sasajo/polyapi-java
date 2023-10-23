@@ -39,6 +39,7 @@ export class ChatService {
     message: string | null,
     uuid: string | null,
     workspaceFolder = '',
+    language = '',
   ): Promise<Observable<string>> {
     let eventSource: any;
 
@@ -53,14 +54,14 @@ export class ChatService {
 
       this.logger.debug(`Sending question to science server with key ${messageKey}`);
 
-      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder);
+      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder, language);
     } else if (message) {
       const { uuid } = await this.storeMessage(message);
       const messageKey = this.getMessageKey(uuid);
 
       this.logger.debug(`Sending question to science server with uuid ${messageKey}`);
 
-      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder);
+      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder, language);
     } else {
       throw new Error('At least one of `message` or `uuid` must be provided.');
     }
