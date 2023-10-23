@@ -271,7 +271,7 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
-    // await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Execute);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Execute);
     data = await this.variableService.unwrapVariables(req.user, data);
 
     await this.statisticsService.trackFunctionCall(req.user, apiFunction.id, 'api');
