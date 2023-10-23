@@ -28,6 +28,7 @@ import {
   Role,
   UpdateWebhookHandleDto,
   Visibility,
+  WebhookHandleBasicPublicDto,
   WebhookHandlePublicDto,
 } from '@poly/model';
 import { AuthRequest } from 'common/types';
@@ -65,10 +66,10 @@ export class WebhookController {
 
   @UseGuards(PolyAuthGuard)
   @Get('/public')
-  public async getPublicWebhookHandles(@Req() req: AuthRequest): Promise<WebhookHandlePublicDto[]> {
+  public async getPublicWebhookHandles(@Req() req: AuthRequest): Promise<WebhookHandleBasicPublicDto[]> {
     const { tenant, environment, user } = req.user;
     const webhookHandles = await this.webhookService.getPublicWebhookHandles(tenant, environment, user?.role === Role.Admin);
-    return webhookHandles.map((handle) => this.webhookService.toPublicDto(handle, environment));
+    return webhookHandles.map((handle) => this.webhookService.toBasicPublicDto(handle));
   }
 
   @UseGuards(PolyAuthGuard)

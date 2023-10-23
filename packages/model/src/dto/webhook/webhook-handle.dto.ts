@@ -32,3 +32,8 @@ export interface WebhookHandlePublicDto extends WebhookHandleDto {
   tenant: string;
   hidden: boolean;
 }
+
+export interface WebhookHandleBasicPublicDto extends WebhookHandleBasicDto {
+  tenant: string;
+  hidden: boolean;
+}
