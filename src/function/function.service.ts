@@ -443,7 +443,7 @@ export class FunctionService implements OnModuleInit {
             description: aiDescription,
             arguments: aiArguments,
             context: aiContext,
-            trace_id: traceIdResponse,
+            trace_id: aiTraceId,
           } = await this.aiService.getFunctionDescription(
             environment.tenantId,
             url,
@@ -454,8 +454,8 @@ export class FunctionService implements OnModuleInit {
             JSON.stringify(this.commonService.trimDownObject(response)),
           );
 
-          if (traceIdResponse) {
-            traceId = traceIdResponse;
+          if (aiTraceId) {
+            traceId = aiTraceId;
           }
 
           if (!name) {
@@ -1297,12 +1297,12 @@ export class FunctionService implements OnModuleInit {
         const {
           description: aiDescription,
           arguments: aiArguments,
-          traceId: traceIdResponse,
+          traceId: aiTraceId,
         } = await this.getCustomFunctionAIData(environment.tenantId, description, args, code);
         const existingArguments = JSON.parse(customFunction?.arguments || '[]') as FunctionArgument[];
 
-        if (traceIdResponse) {
-          traceId = traceIdResponse;
+        if (aiTraceId) {
+          traceId = aiTraceId;
         }
 
         description = description || customFunction?.description || aiDescription;
