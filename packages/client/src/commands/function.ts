@@ -6,7 +6,7 @@ import * as TJS from 'typescript-json-schema';
 import { createOrUpdateServerFunction, createOrUpdateClientFunction, getSpecs } from '../api';
 import { loadConfig } from '../config';
 import { generateSingleCustomFunction } from './generate';
-import { FunctionDetailsDto } from '@poly/model';
+import { CreateServerCustomFunctionResponseDto, FunctionDetailsDto } from '@poly/model';
 import { EXCLUDED_REQUIREMENTS } from '@poly/common/transpiler';
 
 interface SchemaDef {
@@ -207,6 +207,13 @@ export const addOrUpdateCustomFunction = async (
       }
 
       customFunction = await createOrUpdateServerFunction(context, name, description, code, typeSchemas);
+
+      const traceId: string | undefined = (customFunction as CreateServerCustomFunctionResponseDto).traceId;
+
+      if (traceId) {
+        shell.echo(chalk.yellow('\nWarning:'), 'Failed to generate descriptions while deploying the server function, trace id:', chalk.bold(traceId));
+      }
+
       shell.echo(chalk.green('DEPLOYED'));
 
       shell.echo(chalk.rgb(255, 255, 255)(`Function ID: ${customFunction.id}`));
