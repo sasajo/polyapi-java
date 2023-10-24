@@ -221,7 +221,9 @@ export default class LibraryIndexViewProvider implements vscode.TreeDataProvider
     const path = `${element.parentPath}.${element.label}`;
 
     if (state === vscode.TreeItemCollapsibleState.Collapsed) {
-      delete prevTreeState[path];
+      if (typeof prevTreeState !== 'undefined') {
+        delete prevTreeState[path];
+      }
       return this.context.globalState.update(TREE_STATE_KEY, prevTreeState);
     }
 

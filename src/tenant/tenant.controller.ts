@@ -128,7 +128,7 @@ export class TenantController {
     return this.tenantService.toDtoWithAdminApiKey(tenant, apiKey);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @UsePipes(new ValidationPipe({ transform: true }))
   @Get(':id')
   async getTenant(
@@ -138,7 +138,7 @@ export class TenantController {
   ): Promise<TenantDto> {
     const tenant = await this.findTenant(id);
 
-    await this.authService.checkTenantAccess(tenant.id, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenant.id, req.user);
 
     return full ? this.tenantService.toFullDto(tenant) : this.tenantService.toDto(tenant);
   }
@@ -203,27 +203,27 @@ export class TenantController {
     await this.tenantService.delete(tenant.id);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/users')
   async getUsers(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<UserDto[]> {
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return (await this.userService.getAllUsersByTenant(tenantId)).map((user) => this.userService.toUserDto(user));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get('/:id/config-variables')
   async getConfigVariablesUnderTenant(
     @Req() req: AuthRequest,
     @Param('id') tenantId: string,
   ) {
     await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return (await this.configVariableService.getMany(tenantId)).map(this.configVariableService.toDto);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get('/:id/config-variables/:name')
   async getConfigVariableUnderTenant(
     @Req() req: AuthRequest,
@@ -231,14 +231,14 @@ export class TenantController {
     @Param('name') name: string,
   ) {
     await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     const configVariable = await this.getConfigVariable(name, tenantId);
 
     return this.configVariableService.toDto(configVariable);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch('/:id/config-variables/:name')
   async setConfigVariableUnderTenant(
     @Req() req: AuthRequest,
@@ -249,14 +249,14 @@ export class TenantController {
     @Param('id') tenantId: string,
   ) {
     await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return this.configVariableService.toDto(
       await this.configVariableService.configure(data.name, data.value, tenantId),
     );
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete('/:id/config-variables/:name')
   async deleteConfigVariableUnderTenant(
     @Req() req: AuthRequest,
@@ -264,14 +264,14 @@ export class TenantController {
     @Param('name') name: string,
   ) {
     await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     const configVariable = await this.findConfigVariable(name, tenantId);
 
     return this.configVariableService.toDto(await this.configVariableService.delete(configVariable));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get('/:id/environments/:environment/config-variables')
   async getConfigVariablesUnderEnvironment(
     @Req() req: AuthRequest,
@@ -279,12 +279,12 @@ export class TenantController {
     @Param('environment') environmentId: string,
   ) {
     await this.findEnvironment(tenantId, environmentId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return (await this.configVariableService.getMany(tenantId, environmentId)).map(this.configVariableService.toDto);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get('/:id/environments/:environment/config-variables/:name')
   async getConfigVariableUnderEnvironment(
     @Req() req: AuthRequest,
@@ -293,14 +293,14 @@ export class TenantController {
     @Param('environment') environmentId: string,
   ) {
     await this.findEnvironment(tenantId, environmentId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     const configVariable = await this.getConfigVariable(name, tenantId, environmentId);
 
     return this.configVariableService.toDto(configVariable);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch('/:id/environments/:environment/config-variables/:name')
   async setConfigVariableUnderEnvironment(
     @Req() req: AuthRequest,
@@ -312,14 +312,14 @@ export class TenantController {
     @Param('environment') environmentId: string,
   ) {
     await this.findEnvironment(tenantId, environmentId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return this.configVariableService.toDto(
       await this.configVariableService.configure(data.name, data.value, tenantId, environmentId),
     );
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete('/:id/environments/:environment/config-variables/:name')
   async deleteConfigVariableUnderEnvironment(
     @Req() req: AuthRequest,
@@ -328,14 +328,14 @@ export class TenantController {
     @Param('name') name: string,
   ) {
     await this.findEnvironment(tenantId, environmentId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     const configVariable = await this.findConfigVariable(name, tenantId, environmentId);
 
     return this.configVariableService.toDto(await this.configVariableService.delete(configVariable));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post(':id/users')
   async createUser(
     @Req() req: AuthRequest,
@@ -349,12 +349,12 @@ export class TenantController {
     }
 
     await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return this.userService.toUserDto(await this.userService.createUser(tenantId, name, role as Role));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/users/:userId')
   async getUser(
     @Req() req: AuthRequest,
@@ -362,13 +362,12 @@ export class TenantController {
     @Param('userId') userId: string,
   ): Promise<UserDto> {
     const user = await this.findUser(tenantId, userId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
 
     return this.userService.toUserDto(user);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id/users/:userId')
   async updateUser(
     @Req() req: AuthRequest,
@@ -378,31 +377,27 @@ export class TenantController {
   ): Promise<UserDto> {
     const user = await this.findUser(tenantId, userId);
     const { name, role } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.userService.toUserDto(await this.userService.updateUser(user, name, role as Role));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete(':id/users/:userId')
   async deleteUser(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('userId') userId: string) {
     const user = await this.findUser(tenantId, userId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     await this.userService.deleteUser(user.id);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/teams')
   async getTeams(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<TeamDto[]> {
     const tenant = await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return (await this.teamService.getAllTeamsByTenant(tenant.id)).map((team) => this.teamService.toTeamDto(team));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post(':id/teams')
   async createTeam(
     @Req() req: AuthRequest,
@@ -411,13 +406,11 @@ export class TenantController {
   ): Promise<TeamDto> {
     const tenant = await this.findTenant(tenantId);
     const { name } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.teamService.toTeamDto(await this.teamService.createTeam(tenant.id, name));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/teams/:teamId')
   async getTeam(
     @Req() req: AuthRequest,
@@ -425,13 +418,11 @@ export class TenantController {
     @Param('teamId') teamId: string,
   ): Promise<TeamDto> {
     const team = await this.findTeam(tenantId, teamId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.teamService.toTeamDto(team);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id/teams/:teamId')
   async updateTeam(
     @Req() req: AuthRequest,
@@ -441,23 +432,19 @@ export class TenantController {
   ): Promise<TeamDto> {
     const team = await this.findTeam(tenantId, teamId);
     const { name } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.teamService.toTeamDto(await this.teamService.updateTeam(team, name));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete(':id/teams/:teamId')
   async deleteTeam(@Req() req: AuthRequest, @Param('id') tenantId: string, @Param('teamId') teamId: string) {
     const team = await this.findTeam(tenantId, teamId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     await this.teamService.deleteTeam(team.id);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/teams/:teamId/members')
   async getMembers(
     @Req() req: AuthRequest,
@@ -465,13 +452,11 @@ export class TenantController {
     @Param('teamId') teamId: string,
   ): Promise<TeamMemberDto[]> {
     const team = await this.findTeam(tenantId, teamId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return (await this.teamService.getAllMembersByTeam(team.id)).map((member) => this.teamService.toMemberDto(member));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post(':id/teams/:teamId/members')
   async createMember(
     @Req() req: AuthRequest,
@@ -482,9 +467,7 @@ export class TenantController {
     const { userId } = data;
     const team = await this.findTeam(tenantId, teamId);
     const user = await this.findUser(tenantId, userId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     if (await this.teamService.checkMemberExists(team.id, userId)) {
       throw new BadRequestException('Given user is already member of this team.');
     }
@@ -492,7 +475,7 @@ export class TenantController {
     return this.teamService.toMemberDto(await this.teamService.createMember(team.id, user.id));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/teams/:teamId/members/:memberId')
   async getMember(
     @Req() req: AuthRequest,
@@ -501,13 +484,11 @@ export class TenantController {
     @Param('memberId') memberId: string,
   ): Promise<TeamMemberDto> {
     const member = await this.findMember(tenantId, teamId, memberId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.teamService.toMemberDto(member);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete(':id/teams/:teamId/members/:memberId')
   async deleteMember(
     @Req() req: AuthRequest,
@@ -516,23 +497,21 @@ export class TenantController {
     @Param('memberId') memberId: string,
   ) {
     const member = await this.findMember(tenantId, teamId, memberId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     await this.teamService.deleteMember(member.id);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/environments')
   async getEnvironments(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<EnvironmentDto[]> {
     const tenant = await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return (await this.environmentService.getAllByTenant(tenant.id)).map((environment) =>
       this.environmentService.toDto(environment),
     );
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post(':id/environments')
   async createEnvironment(
     @Req() req: AuthRequest,
@@ -541,13 +520,11 @@ export class TenantController {
   ): Promise<EnvironmentDto> {
     const tenant = await this.findTenant(tenantId);
     const { name } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.environmentService.toDto(await this.environmentService.create(tenant.id, name));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/environments/:environmentId')
   async getEnvironment(
     @Req() req: AuthRequest,
@@ -555,13 +532,11 @@ export class TenantController {
     @Param('environmentId') environmentId: string,
   ): Promise<EnvironmentDto> {
     const environment = await this.findEnvironment(tenantId, environmentId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.environmentService.toDto(environment);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id/environments/:environmentId')
   async updateEnvironment(
     @Req() req: AuthRequest,
@@ -571,13 +546,11 @@ export class TenantController {
   ): Promise<EnvironmentDto> {
     const environment = await this.findEnvironment(tenantId, environmentId);
     const { name } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.environmentService.toDto(await this.environmentService.update(environment, name));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete(':id/environments/:environmentId')
   async deleteEnvironment(
     @Req() req: AuthRequest,
@@ -585,13 +558,11 @@ export class TenantController {
     @Param('environmentId') environmentId: string,
   ) {
     const environment = await this.findEnvironment(tenantId, environmentId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     await this.environmentService.delete(environment.id);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/environments/:environmentId/api-keys')
   async getApiKeys(
     @Req() req: AuthRequest,
@@ -599,13 +570,11 @@ export class TenantController {
     @Param('environmentId') environmentId: string,
   ): Promise<ApiKeyDto[]> {
     await this.findEnvironment(tenantId, environmentId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return (await this.authService.getAllApiKeys(environmentId)).map((apiKey) => this.authService.toApiKeyDto(apiKey));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post(':id/environments/:environmentId/api-keys')
   async createApiKey(
     @Req() req: AuthRequest,
@@ -624,15 +593,13 @@ export class TenantController {
     }
     const application = applicationId ? await this.findApplication(tenantId, applicationId) : null;
     const user = userId ? await this.findUser(tenantId, userId) : null;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.authService.toApiKeyDto(
       await this.authService.createApiKey(environmentId, name, application, user, permissions),
     );
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/environments/:environmentId/api-keys/:apiKeyId')
   async getApiKey(
     @Req() req: AuthRequest,
@@ -641,13 +608,11 @@ export class TenantController {
     @Param('apiKeyId') apiKeyId: string,
   ): Promise<ApiKeyDto> {
     const apiKey = await this.findApiKey(tenantId, environmentId, apiKeyId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.authService.toApiKeyDto(apiKey);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id/environments/:environmentId/api-keys/:apiKeyId')
   async updateApiKey(
     @Req() req: AuthRequest,
@@ -658,13 +623,11 @@ export class TenantController {
   ): Promise<ApiKeyDto> {
     const apiKey = await this.findApiKey(tenantId, environmentId, apiKeyId);
     const { name, permissions } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.authService.toApiKeyDto(await this.authService.updateApiKey(apiKey, name, permissions));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete(':id/environments/:environmentId/api-keys/:apiKeyId')
   async deleteApiKey(
     @Req() req: AuthRequest,
@@ -673,25 +636,21 @@ export class TenantController {
     @Param('apiKeyId') apiKeyId: string,
   ) {
     const apiKey = await this.findApiKey(tenantId, environmentId, apiKeyId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     await this.authService.deleteApiKey(apiKey.id);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/applications')
   async getApplications(@Req() req: AuthRequest, @Param('id') tenantId: string): Promise<ApplicationDto[]> {
     await this.findTenant(tenantId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return (await this.applicationService.getAll(tenantId)).map((application) =>
       this.applicationService.toApplicationDto(application),
     );
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post(':id/applications')
   async createApplication(
     @Req() req: AuthRequest,
@@ -700,13 +659,11 @@ export class TenantController {
   ): Promise<ApplicationDto> {
     const { name, description } = data;
     await this.findTenant(tenantId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.applicationService.toApplicationDto(await this.applicationService.create(tenantId, name, description));
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get(':id/applications/:applicationId')
   async getApplication(
     @Req() req: AuthRequest,
@@ -714,13 +671,11 @@ export class TenantController {
     @Param('applicationId') applicationId: string,
   ): Promise<ApplicationDto> {
     const application = await this.findApplication(tenantId, applicationId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.applicationService.toApplicationDto(application);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Patch(':id/applications/:applicationId')
   async updateApplication(
     @Req() req: AuthRequest,
@@ -730,15 +685,13 @@ export class TenantController {
   ): Promise<ApplicationDto> {
     const application = await this.findApplication(tenantId, applicationId);
     const { name, description } = data;
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.applicationService.toApplicationDto(
       await this.applicationService.update(application, name, description),
     );
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Delete(':id/applications/:applicationId')
   async deleteApplication(
     @Req() req: AuthRequest,
@@ -746,9 +699,7 @@ export class TenantController {
     @Param('applicationId') applicationId: string,
   ) {
     const application = await this.findApplication(tenantId, applicationId);
-
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     await this.applicationService.delete(application.id);
   }
 
@@ -845,19 +796,18 @@ export class TenantController {
     await this.tenantService.resendVerificationCode(data.email);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Get('/:id/tos-agreements')
   async getTenantAgreements(
     @Req() req: AuthRequest,
     @Param('id') tenantId: string,
   ) {
     await this.findTenant(tenantId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return (await this.tenantService.getTenantAgreements(tenantId)).map(this.tenantService.toTenantAgreementDto);
   }
 
-  @UseGuards(PolyAuthGuard)
+  @UseGuards(new PolyAuthGuard([Role.SuperAdmin, Role.Admin]))
   @Post('/:id/tos-agreements')
   async createTenantAgreements(
     @Req() req: AuthRequest,
@@ -866,8 +816,7 @@ export class TenantController {
   ): Promise<TenantAgreementDto> {
     await this.findTenant(tenantId);
     await this.findTos(data.tosId);
-    await this.authService.checkTenantAccess(tenantId, req.user, [Role.Admin]);
-
+    await this.authService.checkTenantAccess(tenantId, req.user);
     return this.tenantService.toTenantAgreementDto(
       await this.tenantService.createTenantAgreement(tenantId, data.tosId, req.user.user?.email || '', data.agreedAt, data.notes),
     );

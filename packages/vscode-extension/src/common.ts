@@ -100,7 +100,11 @@ export const saveLibraryConfig = (newConfig: Record<string, any>) => {
 };
 
 export const isPolyLibraryInstalled = () => {
-  return vscode.workspace.workspaceFolders?.some((folder) => {
+  if (typeof vscode.workspace.workspaceFolders === 'undefined') {
+    return false;
+  }
+
+  return vscode.workspace.workspaceFolders.some((folder) => {
     if (fs.existsSync(`${folder.uri.fsPath}/node_modules/polyapi/package.json`)) {
       return true;
     }
