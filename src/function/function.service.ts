@@ -930,7 +930,7 @@ export class FunctionService implements OnModuleInit {
           };
 
       body = JSON.parse(mustache.render(JSON.stringify(filteredBody), argumentValueMap)) as Body;
-    } else if (parsedBody.mode === 'raw') {
+    } else if (parsedBody.mode === 'raw' && parsedBody.raw) {
       argumentValueMap = await this.getArgumentValueMap(apiFunction, args, false);
       body = this.processRawBody(parsedBody, argumentsMetadata, argumentValueMap);
     } else {
