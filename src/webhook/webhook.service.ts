@@ -1,5 +1,5 @@
 import { ConflictException, forwardRef, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { Environment, Tenant, WebhookHandle } from '@prisma/client';
+import { CustomFunction, Environment, Tenant, WebhookHandle } from '@prisma/client';
 import { CommonService } from 'common/common.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { EventService } from 'event/event.service';
@@ -24,7 +24,7 @@ import { SpecsService } from 'specs/specs.service';
 import { toCamelCase } from '@guanghechen/helper-string';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { TriggerService } from 'trigger/trigger.service';
-import { WithTenant } from 'common/types';
+import { WithSecurityFunctions, WithTenant } from 'common/types';
 import { FunctionService } from 'function/function.service';
 
 @Injectable()
@@ -91,6 +91,33 @@ export class WebhookService {
     });
   }
 
+  public async getWebhookHandle(id: string, environment: Environment) {
+    return this.prisma.webhookHandle.findFirst({
+      where: {
+        id,
+      },
+      include: {
+        environment: true,
+        customFunctions: {
+          select: {
+            message: true,
+            customFunction: {
+              select: {
+                id: true,
+                environmentId: true,
+              },
+            },
+          },
+          where: {
+            customFunction: {
+              environmentId: environment.id,
+            },
+          },
+        },
+      },
+    });
+  }
+
   public async getPublicWebhookHandles(tenant: Tenant, environment: Environment, includeHidden = false) {
     const handles = await this.prisma.webhookHandle.findMany({
       where: {
@@ -136,6 +163,22 @@ export class WebhookService {
         environment: {
           include: {
             tenant: true,
+          },
+        },
+        customFunctions: {
+          select: {
+            customFunction: {
+              select: {
+                id: true,
+                environmentId: true,
+              },
+            },
+            message: true,
+          },
+          where: {
+            customFunction: {
+              environmentId: environment.id,
+            },
           },
         },
       },
@@ -343,10 +386,29 @@ export class WebhookService {
     const subpathParams =
       subpath && webhookHandle.subpath ? await this.resolveSubpathParams(subpath, webhookHandle.subpath) : {};
 
+    const securityFunctions: Parameters<typeof this.executeSecurityFunctions>[0] = (await this.prisma.customFunctionWebhookHandle.findMany({
+      where: {
+        webhook_handle_id: webhookHandle.id,
+        customFunction: {
+          environmentId: executionEnvironment?.id || webhookHandle.environmentId,
+        },
+      },
+      include: {
+        customFunction: {
+          include: {
+            environment: true,
+          },
+        },
+      },
+    })).map(({ customFunction, message }) => ({
+      ...customFunction,
+      message,
+    }));
+
     let securityFunctionResponseStatus: number | null = null;
-    if (webhookHandle.securityFunctions) {
+    if (securityFunctions.length) {
       securityFunctionResponseStatus = await this.executeSecurityFunctions(
-        webhookHandle,
+        securityFunctions,
         executionEnvironment,
         eventPayload,
         eventHeaders,
@@ -385,13 +447,12 @@ export class WebhookService {
   }
 
   private async executeSecurityFunctions(
-    webhookHandle: WebhookHandle,
+    securityFunctions: (CustomFunction & { environment: Environment } & { message: string | null })[],
     executionEnvironment: Environment | null,
     eventPayload: any,
     eventHeaders: Record<string, any>,
     params: Record<string, any>,
   ) {
-    const securityFunctions = webhookHandle.securityFunctions ? JSON.parse(webhookHandle.securityFunctions) : [];
     if (securityFunctions.length === 0) {
       return null;
     }
@@ -399,15 +460,9 @@ export class WebhookService {
     this.logger.debug(`Found ${securityFunctions.length} security function(s) - executing for security check...`);
     let responseStatus: number | null = null;
     for (const securityFunction of securityFunctions) {
-      const serverFunction = await this.functionService.findServerFunction(securityFunction.id, true);
-      if (!serverFunction) {
-        this.logger.debug(`Security function ${securityFunction.id} not found - skipping...`);
-        continue;
-      }
-
       const response = await this.functionService.executeServerFunction(
-        serverFunction,
-        executionEnvironment || serverFunction.environment,
+        securityFunction,
+        executionEnvironment || securityFunction.environment,
         [eventPayload, eventHeaders, params],
       );
       if (response?.body !== true) {
@@ -433,7 +488,7 @@ export class WebhookService {
     };
   }
 
-  toDto(webhookHandle: WebhookHandle, forEnvironment: Environment): WebhookHandleDto {
+  toDto(webhookHandle: WithSecurityFunctions<WebhookHandle>, forEnvironment: Environment): WebhookHandleDto {
     const eventPayloadType = JSON.parse(webhookHandle.eventPayloadType);
 
     return {
@@ -453,13 +508,16 @@ export class WebhookService {
       responseStatus: webhookHandle.responseStatus,
       subpath: webhookHandle.subpath,
       method: webhookHandle.method,
-      securityFunctions: webhookHandle.securityFunctions ? JSON.parse(webhookHandle.securityFunctions) : [],
+      securityFunctions: (webhookHandle.customFunctions || []).map(customFunctionWebhookHandle => ({
+        id: customFunctionWebhookHandle.customFunction.id,
+        ...(customFunctionWebhookHandle.message ? { message: customFunctionWebhookHandle.message } : null),
+      })),
       enabled: !webhookHandle.enabled ? false : undefined,
     };
   }
 
   toPublicDto(
-    webhookHandle: WithTenant<WebhookHandle> & { hidden: boolean },
+    webhookHandle: WithSecurityFunctions<WithTenant<WebhookHandle>> & { hidden: boolean },
     forEnvironment: Environment,
   ): WebhookHandlePublicDto {
     return {
@@ -514,30 +572,77 @@ export class WebhookService {
       `Updating webhook for ${webhookHandle.context}/${webhookHandle.name} with context:${context}/name:${name} and description: "${description}"...`,
     );
 
-    return this.prisma.webhookHandle.update({
-      where: {
-        id: webhookHandle.id,
-      },
-      data: {
-        context,
-        name,
-        description,
-        visibility,
-        eventPayloadType: eventPayload
-          ? await this.getEventPayloadType(templateBody || eventPayload, templateBody ? 'eventPayload' : undefined)
-          : eventPayloadTypeSchema
-            ? JSON.stringify(eventPayloadTypeSchema)
-            : eventPayloadType
-              ? JSON.stringify(eventPayloadType)
-              : undefined,
-        responsePayload,
-        responseHeaders,
-        responseStatus,
-        subpath,
-        method,
-        securityFunctions: securityFunctions ? JSON.stringify(securityFunctions) : undefined,
-        enabled,
-      },
+    return this.prisma.$transaction(async trx => {
+      if (securityFunctions) {
+        await trx.customFunctionWebhookHandle.deleteMany({
+          where: {
+            webhook_handle_id: webhookHandle.id,
+            customFunction: {
+              environmentId: webhookHandle.environmentId,
+            },
+          },
+        });
+      }
+
+      await trx.webhookHandle.update({
+        where: {
+          id: webhookHandle.id,
+        },
+        data: {
+          context: context as string,
+          name: name as string,
+          description: description as string,
+          visibility: visibility as Visibility,
+          eventPayloadType: eventPayload
+            ? await this.getEventPayloadType(templateBody || eventPayload, templateBody ? 'eventPayload' : undefined)
+            : eventPayloadTypeSchema
+              ? JSON.stringify(eventPayloadTypeSchema)
+              : eventPayloadType
+                ? JSON.stringify(eventPayloadType)
+                : undefined,
+          responsePayload,
+          responseHeaders,
+          responseStatus,
+          subpath,
+          method,
+          securityFunctions: securityFunctions ? JSON.stringify(securityFunctions) : undefined,
+          enabled,
+          ...(securityFunctions?.length
+            ? {
+                customFunctions: {
+                  create: securityFunctions.map(securityFunction => ({
+                    custom_function_id: securityFunction.id,
+                    message: securityFunction.message,
+                  })),
+                },
+              }
+            : null),
+        },
+      });
+
+      return trx.webhookHandle.findFirst({
+        where: {
+          id: webhookHandle.id,
+        },
+        include: {
+          customFunctions: {
+            select: {
+              customFunction: {
+                select: {
+                  id: true,
+                  environmentId: true,
+                },
+              },
+              message: true,
+            },
+            where: {
+              customFunction: {
+                environmentId: webhookHandle.environmentId,
+              },
+            },
+          },
+        },
+      }) as Promise<WithSecurityFunctions<WebhookHandle>>;
     });
   }
 
@@ -706,11 +811,75 @@ export class WebhookService {
     };
   }
 
-  private async resolveVisibility(
+  async updatePublicWebhookHandle(webhookHandle: WebhookHandle, tenant: Tenant, environment: Environment, securityFunctions?: WebhookSecurityFunction[]) {
+    return this.prisma.$transaction(async trx => {
+      if (securityFunctions) {
+        await trx.customFunctionWebhookHandle.deleteMany({
+          where: {
+            webhook_handle_id: webhookHandle.id,
+            customFunction: {
+              environmentId: environment.id,
+            },
+          },
+        });
+      }
+
+      await trx.webhookHandle.update({
+        where: {
+          id: webhookHandle.id,
+        },
+        data: {
+          ...(securityFunctions?.length
+            ? {
+                customFunctions: {
+                  create: securityFunctions.map(securityFunction => ({
+                    custom_function_id: securityFunction.id,
+                    message: securityFunction.message,
+                  })),
+                },
+              }
+            : null),
+        },
+      });
+
+      const updatedWebhookHandle = await trx.webhookHandle.findFirst({
+        where: {
+          id: webhookHandle.id,
+        },
+        include: {
+          environment: {
+            include: {
+              tenant: true,
+            },
+          },
+          customFunctions: {
+            select: {
+              customFunction: {
+                select: {
+                  id: true,
+                  environmentId: true,
+                },
+              },
+              message: true,
+            },
+            where: {
+              customFunction: {
+                environmentId: environment.id,
+              },
+            },
+          },
+        },
+      });
+
+      return await this.resolveVisibility(tenant, environment, updatedWebhookHandle as NonNullable<typeof updatedWebhookHandle>);
+    });
+  }
+
+  private async resolveVisibility<T extends WebhookHandle = WebhookHandle>(
     tenant: Tenant,
     environment: Environment,
-    webhookHandle: WithTenant<WebhookHandle>,
-  ): Promise<WithTenant<WebhookHandle> & { hidden: boolean }> {
+    webhookHandle: WithTenant<T>,
+  ): Promise<WithTenant<T> & { hidden: boolean }> {
     const { defaultHidden = false, visibleContexts = null } =
       (await this.configVariableService.getEffectiveValue<PublicVisibilityValue>(
         ConfigVariableName.PublicVisibility,
