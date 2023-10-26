@@ -141,3 +141,5 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 - Error handlers
 - Injecting Poly Variables to Poly Functions
 - Fetching multiple Poly Variables from context
+
+These features will be added in the future releases.
