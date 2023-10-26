@@ -1,0 +1,10 @@
+# IDE - Idea
+.idea
+*.iml
+
+# IDE - VSCode
+*/.vscode
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

@@ -1,0 +1,73 @@
+package {{packageName}};
+
+import java.util.function.Consumer;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.gson.JsonObject;
+import io.polyapi.client.api.*;
+
+public class {{className}} {
+  private final ApiClient apiClient = ApiClient.getInstance();
+  private final WebSocketClient webSocketClient = WebSocketClient.getInstance();
+  private final ObjectMapper objectMapper = ObjectMapper.getInstance();
+
+  public {{typeName}} get() {
+    {{#if specification.variable.secret}}
+    throw new PolyRuntimeException("Cannot access secret variable from client.");
+    {{else}}
+    var response = apiClient.get("/variables/{{specification.id}}/value");
+    try {
+      var responseBody = response.getBody();
+      return objectMapper.readValue(responseBody, {{typeName}}.class);
+    } catch (Exception e) {
+      throw new PolyRuntimeException(e);
+    }
+    {{/if}}
+  }
+
+  public VariableUpdateResponse<{{typeName}}> update({{typeName}} value) {
+    var payloadForThePolyApiFunction = new JsonObject();
+
+    payloadForThePolyApiFunction.addProperty("value", value.toString());
+
+    try {
+      var response = apiClient.patch("/variables/{{specification.id}}", payloadForThePolyApiFunction.toString());
+      var typeRef = new TypeReference<VariableUpdateResponse.Data<{{typeName}}>>() {
+      };
+      var variable = objectMapper.readValue(response.getBody(), typeRef);
+      return new VariableUpdateResponse<>(variable, response.getStatusCode(), response.getHeaders());
+    } catch (Exception e) {
+      throw new PolyRuntimeException(e);
+    }
+  }
+
+  public {{typeName}} inject() {
+    throw new UnsupportedOperationException("Inject is not supported on Java client.");
+  }
+
+  public {{typeName}} inject(String path) {
+    throw new UnsupportedOperationException("Inject is not supported on Java client.");
+  }
+
+  public OnUpdateListener onUpdate(Consumer<VariableChangeEvent<{{typeName}}>> callback) {
+    try {
+      return webSocketClient.registerOnUpdateVariableEventHandler("{{specification.id}}", objects -> {
+        var data = (JSONObject) objects[0];
+        var typeRef = new TypeReference<VariableChangeEvent<{{typeName}}>>() {
+        };
+        try {
+          callback.accept(
+            objectMapper.readValue(data.toString(), typeRef)
+          );
+        } catch (Exception e) {
+          throw new PolyRuntimeException(e);
+        }
+      });
+    } catch (JSONException e) {
+      throw new PolyRuntimeException(e);
+    }
+  }
+}
