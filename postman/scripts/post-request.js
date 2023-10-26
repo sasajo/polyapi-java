@@ -140,13 +140,13 @@ function teachPoly(introspectionResponse) {
 (async () => {
 
   try {
-    console.log('Training poly function...');
+    console.info('Training poly function...');
 
     let response = null;
 
     if (body.mode === 'graphql' && !polyData?.inferArgTypesFromPostmanGraphqlVariables) {
 
-      console.log('Introspecting api...');
+      console.info('Introspecting api...');
 
       const introspectionResponse = await getIntrospectionData();
 
@@ -158,7 +158,7 @@ function teachPoly(introspectionResponse) {
 
     } else {
       if(body.mode === 'graphql') {
-        console.log('`inferArgTypesFromPostmanGraphqlVariables` flag activated, inferring argument types from postman graphql variables box...');
+        console.info('`inferArgTypesFromPostmanGraphqlVariables` flag activated, inferring argument types from postman graphql variables box...');
       }
       response = await teachPoly();
     }
@@ -167,10 +167,15 @@ function teachPoly(introspectionResponse) {
       return console.error(`Training call failed with status code ${response.code}`);
     }
 
-    console.log('Function trained.');
+    const responseBody = await response.json();
+
+    if(responseBody.traceId) {
+        console.warn(`Failed to generate descriptions while training function, trace id: ${responseBody.traceId}`);
+    }
+
+    console.info('Function trained.');
   } catch (err) {
-    console.log('Training of poly function failed.');
-    console.error(err);
+    console.error('Training of poly function failed.', err);
   }
 })();
 

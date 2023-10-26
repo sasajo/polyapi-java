@@ -29,6 +29,7 @@ import {
   CreateApiFunctionDto,
   CreateClientCustomFunctionDto,
   CreateServerCustomFunctionDto,
+  CreateServerCustomFunctionResponseDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
   ExecuteCustomFunctionQueryParams,
@@ -38,6 +39,7 @@ import {
   FunctionPublicDetailsDto,
   Permission,
   Role,
+  TrainingFunctionDto,
   UpdateApiFunctionDto,
   UpdateClientCustomFunctionDto,
   UpdateServerCustomFunctionDto,
@@ -90,7 +92,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/api')
-  async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<FunctionBasicDto> {
+  async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<TrainingFunctionDto> {
     const {
       url,
       body,
@@ -130,7 +132,7 @@ export class FunctionController {
       `name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}, statusCode: ${statusCode}`,
     );
 
-    return this.service.apiFunctionToBasicDto(
+    return this.service.apiFunctionToTrainingDto(
       await this.service.createOrUpdateApiFunction(
         id,
         req.user.environment,
@@ -415,7 +417,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/server')
-  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateServerCustomFunctionDto): Promise<FunctionDetailsDto> {
+  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateServerCustomFunctionDto): Promise<CreateServerCustomFunctionResponseDto> {
     const { context = '', name, description = '', code, typeSchemas = {} } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
@@ -433,7 +435,7 @@ export class FunctionController {
         req.user.key,
         () => this.checkFunctionsLimit(req.user.tenant, 'creating custom server function'),
       );
-      return this.service.customFunctionToDetailsDto(customFunction);
+      return this.service.customServerFunctionResponseDto(customFunction);
     } catch (e) {
       throw new BadRequestException(e.message);
     }
