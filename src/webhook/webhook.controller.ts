@@ -137,7 +137,7 @@ export class WebhookController {
       responseStatus,
       subpath,
       method,
-      securityFunctions = [],
+      securityFunctions,
       templateBody,
     } = createWebhookHandle;
 
@@ -150,6 +150,8 @@ export class WebhookController {
     if (!eventPayload && !eventPayloadTypeSchema) {
       throw new BadRequestException('eventPayload or eventPayloadTypeSchema is required');
     }
+
+    await this.checkSecurityFunctions(req.user.environment, securityFunctions);
 
     const webhookHandle = await this.webhookService.createOrUpdateWebhookHandle(
       req.user.environment,

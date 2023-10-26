@@ -41,6 +41,7 @@ export class MigrationService implements OnModuleInit {
       functionService: this.functionService,
       authService: this.authService,
       webhookService: this.webhookService,
+      loggerService: this.logger,
     };
 
     migrationFiles.sort();

@@ -225,10 +225,10 @@ export class WebhookService {
     responseStatus?: number,
     subpath?: string,
     method?: string,
-    securityFunctions: WebhookSecurityFunction[] = [],
+    securityFunctions?: WebhookSecurityFunction[],
     templateBody?: string,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
-  ): Promise<WebhookHandle> {
+  ): Promise<WithSecurityFunctions<WebhookHandle>> {
     this.logger.debug(`Creating webhook handle for ${context}/${name}...`);
     if (eventPayload) {
       this.logger.debug(`Event payload: ${JSON.stringify(eventPayload)}`);
@@ -242,7 +242,6 @@ export class WebhookService {
         name,
         context,
         environmentId: environment.id,
-        securityFunctions: JSON.stringify(securityFunctions),
       },
     });
 
@@ -272,44 +271,96 @@ export class WebhookService {
       responseStatus,
       subpath,
       method,
-      securityFunctions: securityFunctions ? JSON.stringify(securityFunctions) : undefined,
+      ...(securityFunctions?.length
+        ? {
+            customFunctions: {
+              create: securityFunctions.map(securityFunction => ({
+                custom_function_id: securityFunction.id,
+                message: securityFunction.message,
+              })),
+            },
+          }
+        : null),
     };
 
     if (webhookHandle) {
-      this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
+      return await this.prisma.$transaction(async trx => {
+        this.logger.debug(`Webhook handle found for ${context}/${name} - updating...`);
 
-      if (!name || !context || !description) {
-        if (await this.isWebhookAITrainingEnabled(environment)) {
-          const aiResponse = await this.getAIWebhookData(
-            webhookHandle,
-            description,
-            eventPayload || eventPayloadTypeSchema,
-          );
+        if (securityFunctions) {
+          await trx.customFunctionWebhookHandle.deleteMany({
+            where: {
+              webhook_handle_id: webhookHandle.id,
+              customFunction: {
+                environmentId: environment.id,
+              },
+            },
+          });
+        }
 
-          return this.prisma.webhookHandle.update({
+        let alreadyUpdated = false;
+
+        if (!name || !context || !description) {
+          if (await this.isWebhookAITrainingEnabled(environment)) {
+            const aiResponse = await this.getAIWebhookData(
+              webhookHandle,
+              description,
+              eventPayload || eventPayloadTypeSchema,
+            );
+
+            await trx.webhookHandle.update({
+              where: {
+                id: webhookHandle.id,
+              },
+              data: {
+                ...webhookData,
+                context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
+                description: description || aiResponse.description,
+                name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
+              },
+            });
+
+            alreadyUpdated = true;
+          }
+        }
+
+        if (!alreadyUpdated) {
+          await trx.webhookHandle.update({
             where: {
               id: webhookHandle.id,
             },
             data: {
               ...webhookData,
-              context: context || this.commonService.sanitizeContextIdentifier(aiResponse.context),
-              description: description || aiResponse.description,
-              name: name || this.commonService.sanitizeNameIdentifier(aiResponse.name),
+              name,
+              context,
+              description: description || webhookHandle.description,
             },
           });
         }
-      }
 
-      return this.prisma.webhookHandle.update({
-        where: {
-          id: webhookHandle.id,
-        },
-        data: {
-          ...webhookData,
-          name,
-          context,
-          description: description || webhookHandle.description,
-        },
+        return trx.webhookHandle.findFirst({
+          where: {
+            id: webhookHandle.id,
+          },
+          include: {
+            customFunctions: {
+              select: {
+                customFunction: {
+                  select: {
+                    id: true,
+                    environmentId: true,
+                  },
+                },
+                message: true,
+              },
+              where: {
+                customFunction: {
+                  environmentId: webhookHandle.environmentId,
+                },
+              },
+            },
+          },
+        }) as Promise<WithSecurityFunctions<WebhookHandle>>;
       });
     } else {
       await checkBeforeCreate();
@@ -331,6 +382,18 @@ export class WebhookService {
               description,
             },
           });
+
+          if (securityFunctions?.length) {
+            for (const securityFunction of securityFunctions) {
+              await tx.customFunctionWebhookHandle.create({
+                data: {
+                  custom_function_id: securityFunction.id,
+                  message: securityFunction.message,
+                  webhook_handle_id: webhookHandle.id,
+                },
+              });
+            }
+          }
 
           if (!name || !description || !context) {
             const trainingDataCfgVariable = await this.configVariableService.getOneParsed<TrainingDataGeneration>(
