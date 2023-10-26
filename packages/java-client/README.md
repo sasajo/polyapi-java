@@ -76,6 +76,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 </build>
 ```
 Make sure you replace `{API_KEY}` with valid API key to access the Poly API.
+5. Run `mvn clean compile` to generate the Poly functions and compile the project (this needs to be done everytime you update your Poly functions)
 
 ## Using the library
 ### Poly Functions
