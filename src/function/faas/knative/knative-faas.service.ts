@@ -13,6 +13,7 @@ import { ExecuteFunctionResult, FaasService } from '../faas.service';
 import { CustomObjectsApi } from '@kubernetes/client-node';
 import { makeCustomObjectsApiClient } from 'kubernetes/client';
 import { ServerFunctionLimits } from '@poly/model';
+import { ServerFunctionDoesNotExists } from './errors/ServerFunctionDoesNotExist';
 
 // sleep function from SO
 // https://stackoverflow.com/a/39914235
@@ -128,11 +129,14 @@ export class KNativeFaasService implements FaasService {
     headers = {},
     maxRetryCount = 3,
   ): Promise<ExecuteFunctionResult> {
-    const functionUrl = await this.getFunctionUrl(id);
-
-    if (!functionUrl) {
-      this.logger.error(`Function ${id} does not exists.`);
-      throw new Error(`Function ${id} does not exists. Please, redeploy it again.`);
+    let functionUrl = '';
+    try {
+      functionUrl = await this.getFunctionUrl(id);
+    } catch (err) {
+      if (err instanceof ServerFunctionDoesNotExists) {
+        throw new Error(`Function ${id} does not exists. Please, redeploy it again.`);
+      }
+      throw err;
     }
 
     this.logger.debug(`Executing server function '${id}'...`);
@@ -382,7 +386,10 @@ export class KNativeFaasService implements FaasService {
     return requirements.filter((requirement) => !this.config.faasPreinstalledNpmPackages.includes(requirement));
   }
 
-  private async getFunctionUrl(id: string): Promise<string | null> {
+  /**
+   * @throws {ServerFunctionDoesNotExists}
+   */
+  private async getFunctionUrl(id: string): Promise<string> {
     const name = this.getFunctionName(id);
 
     try {
@@ -399,12 +406,11 @@ export class KNativeFaasService implements FaasService {
     } catch (e) {
       if (e.body?.code === 404) {
         this.logger.debug(`Server function '${id}' doesn't exist.`);
-      } else {
-        this.logger.error(`Error while getting function: ${e.message}`, e);
+        throw new ServerFunctionDoesNotExists(e.message);
       }
+      this.logger.error(`Error while getting function: ${e.message}`, e);
+      throw e;
     }
-
-    return null;
   }
 
   private filterPassThroughHeaders(headers: Record<string, any>): Record<string, any> {
