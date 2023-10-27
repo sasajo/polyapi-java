@@ -23,6 +23,13 @@ jobs:
     
     - name: Build the Docker image
       run: |
+        pip3 install pyarmor==8.4.1
+        cd science
+        pyarmor gen -O app_o -r app
+        rm -rf app
+        mv app_o/* ./
+        rmdir app_o
+        cd ..
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
         docker build -t ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }} -f docker/Dockerfile .
         docker push ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }}
