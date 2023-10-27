@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 source .env
 
 pip3 install pyarmor==8.4.1
