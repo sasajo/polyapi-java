@@ -12,4 +12,3 @@ blinker==1.4
 numpy==1.25
 redis==4.6.0
 jsonref==1.1.0
-pyarmor==8.4.1
