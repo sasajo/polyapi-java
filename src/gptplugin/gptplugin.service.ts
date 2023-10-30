@@ -404,6 +404,11 @@ export class GptPluginService {
   }
 
   async createOrUpdatePlugin(environment: Environment, body: CreatePluginDto): Promise<GptPlugin> {
+    // user_http is not working atm
+    if (body.authType === 'user_http') {
+      throw new BadRequestException('`user_http` authentication is not working at the moment. see OpenAI docs for details. Please consider using service_http or oauth');
+    }
+
     // slugs must be lowercase!
     body.slug = body.slug.replaceAll('_', '-');
     body.slug = slugify(body.slug);
