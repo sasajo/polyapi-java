@@ -227,7 +227,7 @@ export class FunctionService implements OnModuleInit {
   apiFunctionToTrainingDto(apiFunction: ApiFunction & { traceId?: string }) {
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
-      traceId: 'foo',
+      traceId: apiFunction.traceId,
     };
   }
 
