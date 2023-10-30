@@ -493,32 +493,20 @@ export class GptPluginService {
     let legalUrl = 'https://polyapi.io/legal';
 
     // default to user auth
-    let auth: PluginAuth = {
-      type: 'user_http',
+    const plugin = await this.getPlugin(slug, environment.id, { environment: true });
+    const auth: PluginAuth = {
+      type: plugin.authType,
       authorization_type: 'bearer',
     };
-    if (slug === 'staging') {
-      name = 'Poly API Staging';
-    } else if (slug === 'develop') {
-      name = 'Poly API Develop';
-    } else {
-      const plugin = await this.getPlugin(slug, environment.id, { environment: true });
-      if (plugin.authType === 'service_http') {
-        auth = {
-          type: plugin.authType,
-          authorization_type: 'bearer',
-          verification_tokens: {
-            openai: plugin.authToken,
-          },
-        };
-      }
-      name = plugin.name;
-      descMarket = plugin.descriptionForMarketplace;
-      descModel = plugin.descriptionForModel;
-      iconUrl = plugin.iconUrl;
-      contactEmail = plugin.contactEmail;
-      legalUrl = plugin.legalUrl;
+    if (plugin.authType === 'service_http') {
+      auth.verification_tokens = { openai: plugin.authToken };
     }
+    name = plugin.name;
+    descMarket = plugin.descriptionForMarketplace;
+    descModel = plugin.descriptionForModel;
+    iconUrl = plugin.iconUrl;
+    contactEmail = plugin.contactEmail;
+    legalUrl = plugin.legalUrl;
 
     return {
       schema_version: 'v1',

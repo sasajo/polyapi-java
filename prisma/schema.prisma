@@ -296,7 +296,7 @@ model GptPlugin {
   iconUrl                   String      @map("icon_url")
   functionIds               String      @map("functionids")
   environmentId             String      @map("environment_id")
-  authType                  String      @default("user_http") @map("auth_type")
+  authType                  String      @default("service_http") @map("auth_type")
   authToken                 String      @default("") @map("authtoken")
   environment               Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
 
@@ -434,6 +434,6 @@ model CustomFunctionWebhookHandle {
   custom_function_id  String @map("function_id")
   webhook_handle_id   String
   message             String?
-  
+
   @@map("custom_function_webhook_handle")
 }
