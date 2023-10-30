@@ -307,7 +307,7 @@ export class KNativeFaasService implements FaasService {
         name: this.getFunctionName(id),
         namespace: this.config.faasNamespace,
         labels: {
-          logsEnabled,
+          logsEnabled: logsEnabled ? 'true' : 'false',
         },
       },
       spec: {
