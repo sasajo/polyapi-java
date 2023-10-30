@@ -6,11 +6,7 @@ import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Helper;
 import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import com.github.jknack.handlebars.io.TemplateLoader;
-import io.polyapi.client.model.property.ObjectPropertyType;
-import io.polyapi.client.model.specification.FunctionSpecification;
 import io.polyapi.client.model.specification.PropertySpecification;
-import io.polyapi.client.model.specification.Specification;
-import io.polyapi.client.utils.StringUtils;
 
 public class TemplateGenerator extends Handlebars {
   private final JsonSchemaToTypeGenerator jsonSchemaToTypeGenerator = new JsonSchemaToTypeGenerator();
@@ -30,6 +26,16 @@ public class TemplateGenerator extends Handlebars {
   private void registerHelpers() {
     registerHelper("ifIsType", ifIsType());
     registerHelper("renderArguments", renderArguments());
+    registerHelper("ifEquals", ifEquals());
+  }
+
+  private Helper<Object> ifEquals() {
+    return (value, options) -> {
+      if (value.equals(options.param(0))) {
+        return options.fn();
+      }
+      return options.inverse();
+    };
   }
 
   private static Helper<Object> renderArguments() {

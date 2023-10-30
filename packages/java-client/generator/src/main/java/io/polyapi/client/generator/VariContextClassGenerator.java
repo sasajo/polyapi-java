@@ -3,14 +3,13 @@ package io.polyapi.client.generator;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import io.polyapi.client.model.property.ObjectPropertyType;
 import io.polyapi.client.model.specification.ServerVariableSpecification;
 import io.polyapi.client.utils.StringUtils;
 
-public class VariContextClassGenerator extends AbstractClassGenerator<ServerVariableSpecification> {
+public class VariContextClassGenerator extends SpecificationClassGenerator<ServerVariableSpecification> {
 
   private final LibraryTreeNode<ServerVariableSpecification> root = new LibraryTreeNode<>("Vari", true);
   public void generate(Collection<ServerVariableSpecification> specifications) throws IOException {

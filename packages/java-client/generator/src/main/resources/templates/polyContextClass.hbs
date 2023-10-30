@@ -3,7 +3,6 @@ package {{packageName}};
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.google.gson.JsonObject;
 import org.json.JSONObject;
 import org.json.JSONException;
 import io.polyapi.client.api.*;
@@ -15,6 +14,7 @@ import static io.polyapi.client.api.Utils.*;
 public class {{className}} {
   private final ApiClient apiClient = ApiClient.getInstance();
   private final WebSocketClient webSocketClient = WebSocketClient.getInstance();
+  private final VariableInjectManager variableInjectManager = VariableInjectManager.getInstance();
   private final ObjectMapper objectMapper = ObjectMapper.getInstance();
 
 {{#each subContexts}}
@@ -28,12 +28,12 @@ public class {{className}} {
 {{#each specifications}}
   {{#ifIsType this "ApiFunctionSpecification"}}
   public ApiFunctionResponse<{{{function.returnType.getInCodeType}}}> {{name}}({{{renderArguments function.arguments}}}) {
-    var payloadForThePolyApiFunction = new JsonObject();
-    {{#each function.arguments}}
-    payloadForThePolyApiFunction.addProperty("{{name}}", {{inCodeName}}.toString());
-    {{/each}}
-    var response = apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
     try {
+      var payloadForThePolyApiFunction = new JSONObject();
+      {{#each function.arguments}}
+      payloadForThePolyApiFunction.put("{{name}}", objectMapper.toJSONValue(variableInjectManager.getInjectedValueOrOriginal({{inCodeName}})));
+      {{/each}}
+      var response = apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
       var responseBody = response.getBody();
       var typeRef = new TypeReference<ApiFunctionResponse<{{{function.returnType.getInCodeType}}}>>() {};
       return objectMapper.readValue(responseBody, typeRef);
@@ -49,12 +49,12 @@ public class {{className}} {
   {{/ifIsType}}
   {{#ifIsType this "ServerFunctionSpecification"}}
   public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
-    var payloadForThePolyServerFunction = new JsonObject();
-    {{#each function.arguments}}
-      payloadForThePolyServerFunction.addProperty("{{name}}", {{inCodeName}}.toString());
-    {{/each}}
-    var response = apiClient.post("/functions/server/{{id}}/execute", payloadForThePolyServerFunction.toString());
     try {
+      var payloadForThePolyServerFunction = new JSONObject();
+      {{#each function.arguments}}
+      payloadForThePolyServerFunction.put("{{name}}", objectMapper.toJSONValue(variableInjectManager.getInjectedValueOrOriginal({{inCodeName}})));
+      {{/each}}
+      var response = apiClient.post("/functions/server/{{id}}/execute", payloadForThePolyServerFunction.toString());
       var responseBody = response.getBody();
       if (responseBody == null) {
         return null;
@@ -88,11 +88,15 @@ public class {{className}} {
   {{#ifIsType this "AuthFunctionSpecification"}}
   {{#if subResource}}
   public void {{name}}(String token) {
-    var payload = new JsonObject();
-    payload.addProperty("clientID", ClientInfo.CLIENT_ID);
-    payload.addProperty("token", token);
+    try {
+      var payload = new JSONObject();
+      payload.put("clientID", ClientInfo.CLIENT_ID);
+      payload.put("token", token);
 
-    apiClient.post("/auth-providers/{{id}}/{{subResource}}", payload.toString());
+      apiClient.post("/auth-providers/{{id}}/{{subResource}}", payload.toString());
+    } catch (Exception e) {
+      throw new PolyRuntimeException(e);
+    }
   }
   {{else}}
   public void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
@@ -107,19 +111,19 @@ public class {{className}} {
     var eventsClientId = ClientInfo.CLIENT_ID;
     var timer = new Timer();
 
-    var payload = new JsonObject();
-    payload.addProperty("eventsClientId", eventsClientId);
-    payload.addProperty("clientId", clientID);
-    payload.addProperty("clientSecret", clientSecret);
-    payload.add("scopes", toJsonArray(scopes));
-    {{#if audienceRequired}}payload.addProperty("audience", audience);{{/if}}
-    payload.addProperty("userId", userId);
-    if (callbackUrl != null) {
-      payload.addProperty("callbackUrl", callbackUrl);
-    }
-
-    var response = apiClient.post("/auth-providers/{{id}}/execute", payload.toString());
     try {
+      var payload = new JSONObject();
+      payload.put("eventsClientId", variableInjectManager.getInjectedValueOrOriginal(eventsClientId));
+      payload.put("clientId", variableInjectManager.getInjectedValueOrOriginal(clientID));
+      payload.put("clientSecret", variableInjectManager.getInjectedValueOrOriginal(clientSecret));
+      payload.put("scopes", scopes);
+      {{#if audienceRequired}}payload.put("audience", variableInjectManager.getInjectedValueOrOriginal(audience));{{/if}}
+      payload.put("userId", variableInjectManager.getInjectedValueOrOriginal(userId));
+      if (callbackUrl != null) {
+        payload.put("callbackUrl", variableInjectManager.getInjectedValueOrOriginal(callbackUrl));
+      }
+
+      var response = apiClient.post("/auth-providers/{{id}}/execute", payload.toString());
       var responseBody = response.getBody();
       var data = objectMapper.readValue(responseBody, GetAuthTokenResponse.class);
 
@@ -154,8 +158,8 @@ public class {{className}} {
           @Override
           public void run() {
             try {
-              webSocketClient.unregisterAuthFunctionEventHandler("ee35849b-e40b-4f8a-bcb3-da4e1134f219");
-              callback.accept(null, null, "Timeout reached for auth function ee35849b-e40b-4f8a-bcb3-da4e1134f219");
+              webSocketClient.unregisterAuthFunctionEventHandler("{{id}}");
+              callback.accept(null, null, "Timeout reached for auth function {{id}}");
             } catch (JSONException ex) {
               throw new PolyRuntimeException(ex);
             }

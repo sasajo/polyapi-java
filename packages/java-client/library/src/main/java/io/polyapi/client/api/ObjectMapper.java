@@ -1,7 +1,6 @@
 package io.polyapi.client.api;
 
-import java.io.DataInput;
-import java.io.IOException;
+import org.json.JSONObject;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
@@ -26,5 +25,18 @@ public class ObjectMapper extends com.fasterxml.jackson.databind.ObjectMapper {
       return (T) src;
     }
     return super.readValue(src, valueType);
+  }
+
+  public <T> Object toJSONValue(Object value) {
+    if (
+      value == null
+        || value instanceof String
+        || value instanceof Number
+        || value instanceof Boolean
+    ) {
+      return value;
+    } else {
+      return new JSONObject(value);
+    }
   }
 }

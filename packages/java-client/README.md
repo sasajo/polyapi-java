@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.1.0
+### v0.1.1
 
 ## Introduction
 This is a Java client library for Poly API. It is generated from the [Poly specification](https://develop-k8s.polyapi.io/specs). It is based on its Typescript counterpart [polyapi](https://www.npmjs.com/package/polyapi)
@@ -11,7 +11,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 
 ## Setting up project
 1. Create a new Java Maven project
-2. Download current library release from [here](https://develop-k8s.polyapi.io/java/poly-java-client-0.1.0.zip)
+2. Download current library release from [here](https://develop-k8s.polyapi.io/java/poly-java-client-0.1.1.zip)
 3. Unzip the downloaded file to `repo` directory in your project's root directory (where the `pom.xml` file is located)
 4. Add the following to your project's `pom.xml` file to setup the local repository and add the dependency:
 ```xml
@@ -31,7 +31,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
   <dependency>
     <groupId>io.polyapi.client</groupId>
     <artifactId>library</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
   </dependency>
 </dependencies>
 <build>
@@ -39,7 +39,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
   <plugin>
     <groupId>io.polyapi.client</groupId>
     <artifactId>library</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <executions>
       <execution>
         <phase>generate-sources</phase>
@@ -139,7 +139,10 @@ Currently, the library needs to be used locally. We are working on publishing it
 
 Comparing to its Typescript counterpart, the Java library is still missing the following features:
 - Error handlers
-- Injecting Poly Variables to Poly Functions
 - Fetching multiple Poly Variables from context
 
 These features will be added in the future releases.
+
+## Changelog
+### v0.1.1
+- Added initial support for injecting Poly Variables to Poly Functions

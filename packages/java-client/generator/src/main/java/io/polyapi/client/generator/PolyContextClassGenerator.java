@@ -14,7 +14,7 @@ import io.polyapi.client.model.specification.Specification;
 import io.polyapi.client.model.specification.WebhookHandleSpecification;
 import io.polyapi.client.utils.StringUtils;
 
-public class PolyContextClassGenerator extends AbstractClassGenerator<Specification> {
+public class PolyContextClassGenerator extends SpecificationClassGenerator<Specification> {
 
   private final LibraryTreeNode<Specification> root = new LibraryTreeNode<>("Poly", true);
 
