@@ -412,7 +412,7 @@ def get_best_function_example(
 def _get_import_prompt(language: str) -> str:
     rv = "To import the Poly API Library:\n"
     if language == "java":
-        rv += "import io.polyapi.Poly"
+        rv += "`import io.polyapi.Poly`"
     else:
         rv += "`import poly from 'polyapi'`"
     return rv
