@@ -224,7 +224,7 @@ export class ChatService {
       orderBy: { createdAt: 'asc' },
     });
     const serialized = this._serialize(messages);
-    return { conversationGuid: conversationId, messages: serialized };
+    return { conversationGuid: conversation.id, messages: serialized };
   }
 
   async getConversationDetailBySlug(authData: AuthData, conversationSlug: string): Promise<unknown> {
