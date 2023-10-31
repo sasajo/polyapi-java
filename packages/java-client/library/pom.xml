@@ -13,6 +13,31 @@
   <groupId>io.polyapi.client</groupId>
   <artifactId>library</artifactId>
 
+
+  <url>https://polyapi.io</url>
+  <description>Java client library for Poly API</description>
+  <scm>
+    <url>https://github.com/polyapi/poly-alpha</url>
+  </scm>
+
+  <developers>
+    <developer>
+      <id>polyapi</id>
+      <name>PolyAPI</name>
+      <email>developer@polyapi.io</email>
+      <organization>PolyAPI</organization>
+      <organizationUrl>https://polyapi.io</organizationUrl>
+    </developer>
+  </developers>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <dependencies>
     <dependency>
       <groupId>io.polyapi.client</groupId>
@@ -61,6 +86,20 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>1.6</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-plugin-plugin</artifactId>
