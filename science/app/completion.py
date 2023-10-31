@@ -290,11 +290,14 @@ def _rehydrate_public_ids(short_ids: List, id_map: Dict[int, str]) -> List[str]:
         if public_id:
             rv.append(public_id)
         else:
-            log(f"ERROR: we got the short_id {short_id} back but it doesn't map to any uuid. Did OpenAI screw up or did we?")
+            log(
+                f"ERROR: we got the short_id {short_id} back but it doesn't map to any uuid. Did OpenAI screw up or did we?"
+            )
     return rv
 
 
-BEST_FUNCTION_DETAILS_TEMPLATE = """
+BEST_FUNCTION_DETAILS_TEMPLATE = """To import the Poly API Library:
+
 {import_prompt}
 
 Consider the comments when generating example data.
@@ -308,11 +311,11 @@ Use any combination of only the following functions to answer my question:
 
 BEST_FUNCTION_VARIABLES_TEMPLATE = """Use any combination of the following variables as arguments to those functions:
 
-%s
+{spec_str}
 
-To import vari:
+To import Vari:
 
-`import {vari} from 'polyapi'`
+{import_prompt}
 
 Each variable has the following methods:
 
@@ -349,11 +352,11 @@ def get_best_function_example(
         language_prompt = f"Please provide all code examples in {language}"
 
     best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
-        import_prompt=_get_import_prompt(language),
+        import_prompt=_get_function_import_prompt(language),
         spec_str="\n\n".join(
             spec_prompt(spec, include_return_type=True) for spec in specs
         ),
-        language_prompt=language_prompt
+        language_prompt=language_prompt,
     )
     messages = [
         MessageDict(
@@ -362,8 +365,9 @@ def get_best_function_example(
     ]
 
     if variables:
-        best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE % "\n\n".join(
-            spec_prompt(v) for v in variables
+        best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE.format(
+            spec_str="\n\n".join(spec_prompt(v) for v in variables),
+            import_prompt=_get_variable_import_prompt(language),
         )
         messages.append(
             MessageDict(
@@ -383,7 +387,9 @@ def get_best_function_example(
 
     openai_api_key = get_tenant_openai_key(user_id=user_id)
     try:
-        resp = get_chat_completion(messages, temperature=0.5, stream=True, api_key=openai_api_key)
+        resp = get_chat_completion(
+            messages, temperature=0.5, stream=True, api_key=openai_api_key
+        )
     except InvalidRequestError as e:
         if "maximum content length" in str(e) and prev_msgs:
             log(
@@ -409,13 +415,18 @@ def get_best_function_example(
     return resp
 
 
-def _get_import_prompt(language: str) -> str:
-    rv = "To import the Poly API Library:\n"
+def _get_function_import_prompt(language: str) -> str:
     if language == "java":
-        rv += "`import io.polyapi.Poly`"
+        return "`import io.polyapi.Poly`"
     else:
-        rv += "`import poly from 'polyapi'`"
-    return rv
+        return "`import poly from 'polyapi'`"
+
+
+def _get_variable_import_prompt(language: str) -> str:
+    if language == "java":
+        return "`import io.polyapi.Vari`"
+    else:
+        return "`import {vari} from 'polyapi'`"
 
 
 def get_completion_answer(
@@ -440,7 +451,7 @@ def get_completion_answer(
             best_function_ids,
             question,
             prev_msgs,
-            language
+            language,
         )
     else:
         return general_question(user_id, conversation_id, question, prev_msgs)  # type: ignore
