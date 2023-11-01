@@ -30,7 +30,7 @@ jobs:
     - name: Obfuscate Javascript
       run: |
         yarn install --production=false
-        npm ls
+        ls ./node_modules/.prisma
         yarn build:minified
         rm -rf ./src ./packages ./test
     - name: Obfuscate Python
