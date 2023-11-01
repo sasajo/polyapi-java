@@ -416,14 +416,14 @@ def get_best_function_example(
 
 
 def _get_function_import_prompt(language: str) -> str:
-    if language == "java":
+    if language and language.lower() == "java":
         return "`import io.polyapi.Poly`"
     else:
         return "`import poly from 'polyapi'`"
 
 
 def _get_variable_import_prompt(language: str) -> str:
-    if language == "java":
+    if language and language.lower() == "java":
         return "`import io.polyapi.Vari`"
     else:
         return "`import {vari} from 'polyapi'`"
