@@ -38,7 +38,8 @@ jobs:
         pip3 install pyarmor==8.4.1
         cd science
         pyarmor gen -O app_o -r app
-        rm -rf app
+        rm -rf app tests
+        rm load_fixtures.py README.md
         mv app_o/* ./
         rmdir app_o
         cd ..

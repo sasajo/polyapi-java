@@ -111,3 +111,27 @@ def update_vector(doc_id: str) -> str:
     vector = resp["data"][0]["embedding"]
     db.docsection.update(where={"id": doc_id}, data={"vector": json.dumps(vector)})
     return "updated!"
+
+
+def update_poly_docs() -> None:
+    with open("./data/docs.json") as f:
+        docs = json.loads(f.read())
+
+    db = get_client()
+    for data in docs:
+        doc = db.docsection.find_first(
+            where={"title": data["title"], "context": data["context"], "tenantId": None}
+        )
+        if doc:
+            db.docsection.update(where={"id": doc.id}, data={"text": data["text"]})
+            print(f"{doc.title} updated")
+        else:
+            doc = db.docsection.create(
+                data={
+                    "title": data["title"],
+                    "context": data["context"],
+                    "text": data["text"],
+                }
+            )
+            print(f"{doc.title} created!")
+        update_vector(doc.id)
