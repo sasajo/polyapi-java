@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.1.1
+### v0.1.3
 
 ## Introduction
 This is a Java client library for Poly API. It is generated from the [Poly specification](https://develop-k8s.polyapi.io/specs). It is based on its Typescript counterpart [polyapi](https://www.npmjs.com/package/polyapi)
@@ -13,11 +13,14 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 1. Create a new Java Maven project
 4. Add the following to your project's `pom.xml` to add the dependencies:
 ```xml
+<properties>
+  <poly.api.version>0.1.3</poly.api.version>
+</properties>
 <dependencies>
   <dependency>
     <groupId>io.polyapi.client</groupId>
     <artifactId>library</artifactId>
-    <version>0.1.1</version>
+    <version>${poly.api.version}</version>
   </dependency>
 </dependencies>
 <build>
@@ -25,7 +28,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
     <plugin>
       <groupId>io.polyapi.client</groupId>
       <artifactId>library</artifactId>
-      <version>0.1.1</version>
+      <version>${poly.api.version}</version>
       <executions>
         <execution>
           <phase>generate-sources</phase>
