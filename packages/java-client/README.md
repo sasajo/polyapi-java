@@ -128,5 +128,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.1.2
+- Using String as default class on `inject` secret variable function
+- Fixed Vari packaging causing variable classes overwriting each other 
 ### v0.1.1
 - Added initial support for injecting Poly Variables to Poly Functions
