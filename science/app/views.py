@@ -2,7 +2,7 @@
 import json
 from typing import Any, Dict, Generator, Optional, Union
 from flask import Blueprint, Response, request, jsonify
-from openai.error import OpenAIError, RateLimitError
+from openai.error import OpenAIError, RateLimitError, APIError
 from app.completion import general_question, get_completion_answer
 from app.constants import MessageType, PerfLogType
 from app.conversation import get_chat_conversation_lookback, get_recent_messages
@@ -244,6 +244,13 @@ def clear_conversations_view() -> str:
 @bp.route("/error")
 def error():
     raise NotImplementedError("Intentional error successfully triggered!")
+
+
+@bp.route("/error-api")
+def error_api():
+    raise APIError(
+        "That model is currently overloaded with other requests. You can retry your request, or contact us through our help center at help.openai.com if the error persists. (Please include the request ID 1a63543dd9855ee708b9020f73d50a38 in your message."
+    )
 
 
 @bp.route("/error-rate-limit")
