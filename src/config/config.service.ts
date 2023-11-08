@@ -171,6 +171,14 @@ export class ConfigService {
     }
   }
 
+  get redisPassword(): string {
+    return this.get('REDIS_PASSWORD', '');
+  }
+
+  get redisUsername(): string {
+    return this.get('REDIS_USER');
+  }
+
   get cacheTTL(): number {
     return Number(this.get('CACHE_TTL', 24 * 60 * 60));
   }

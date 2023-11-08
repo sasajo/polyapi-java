@@ -66,10 +66,18 @@ const logger = new Logger('AppModule');
       useFactory: async (configService: ConfigService): Promise<RedisClientOptions | CacheModuleOptions> => {
         if (await isRedisAvailable(configService.redisUrl)) {
           logger.log('Using Redis cache');
+          const password = configService.redisPassword;
+          const username = configService.redisUsername;
           return ({
             store: redisStore as any,
             url: configService.redisUrl,
             ttl: configService.cacheTTL,
+            ...(password && username
+              ? {
+                  password,
+                  username,
+                }
+              : null),
           });
         } else {
           logger.log('Using memory cache');
