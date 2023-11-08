@@ -56,6 +56,7 @@ export class AuthService {
   async findApiKeyByKey(plainTextKey: string, includeEnvironment = false, includeApplication = false, includeUser = false) {
     console.log(`TODO delete me searching for key ${plainTextKey}`);
     const hashedKey = await this.hashApiKey(plainTextKey);
+    console.log(`here is hashed ${hashedKey}`);
 
     return this.prisma.apiKey.findFirst({
       where: {
