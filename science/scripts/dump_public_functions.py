@@ -6,8 +6,8 @@ from prisma import Prisma, register
 
 
 def dump_public_functions() -> None:
-    func_id = "9b2e812a-8bd5-4ee7-8831-7aa548b7df5c"
-    db_funcs = db.apifunction.find_many(where={"id": func_id})
+    func_ids = ["9b2e812a-8bd5-4ee7-8831-7aa548b7df5c"]
+    db_funcs = db.apifunction.find_many(where={"id": {"in": func_ids}})
     funcs = []
     for db_func in db_funcs:
         funcs.append(
@@ -30,7 +30,7 @@ def dump_public_functions() -> None:
                 "enableRedirect": db_func.enableRedirect,
             }
         )
-    with open("out.json", "w") as f:
+    with open("public_functions.json", "w") as f:
         f.write(json.dumps(funcs, indent=2))
 
 

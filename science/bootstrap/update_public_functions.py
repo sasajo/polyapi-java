@@ -9,8 +9,12 @@ from prisma import Prisma, register, get_client
 
 
 def update_poly_functions() -> None:
-    with open("./data/public_functions.json") as f:
-        function_json = json.loads(f.read())
+    try:
+        with open("./data/public_functions.json") as f:
+            function_json = json.loads(f.read())
+    except FileNotFoundError:
+        print("No public function data to load. Please contact support@polyapi.io to get the latest public function data.")
+        return
 
     db = get_client()
     if db.apifunction.count():
