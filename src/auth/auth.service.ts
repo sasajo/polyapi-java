@@ -265,6 +265,7 @@ export class AuthService {
 
   async getAuthData(key: string): Promise<AuthData | null> {
     const apiKey = await this.findApiKeyByKey(key, true, true, true);
+    console.log(`found api key ${apiKey}`);
     if (!apiKey) {
       return null;
     }
