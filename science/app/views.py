@@ -279,6 +279,7 @@ def handle_open_ai_error(e):
 
 @bp.errorhandler(400)
 def handle_400(e):
+    print(f"400 error desc from science server: {e.description}")
     return e.description, 400
 
 

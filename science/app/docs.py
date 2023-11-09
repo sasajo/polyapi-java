@@ -5,6 +5,7 @@ then return the response
 import os
 import json
 from typing import Dict, Generator, List, Optional, Union
+from flask import abort
 import openai
 from prisma import get_client
 from prisma.models import ConversationMessage, DocSection
@@ -81,7 +82,7 @@ def documentation_question(
         stats["similarity"][doc.title] = similarity
 
     if not most_similar_doc:
-        raise NotImplementedError("No matching documentation found!")
+        abort(400, "No matching documentation found!")
 
     tenant_prompt = _get_tenant_prompt(tenant_id)
     prompt = DOC_PROMPT % (tenant_prompt, most_similar_doc.title, most_similar_doc.text)
