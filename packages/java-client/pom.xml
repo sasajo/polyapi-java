@@ -6,13 +6,14 @@
 
   <groupId>io.polyapi</groupId>
   <artifactId>client</artifactId>
-  <version>0.1.3</version>
+  <version>0.1.5</version>
   <packaging>pom</packaging>
   <modules>
     <module>generator</module>
     <module>library</module>
   </modules>
 
+  <name>Poly Java Client Library</name>
   <url>https://polyapi.io</url>
   <description>Java client library for Poly API</description>
   <scm>
@@ -45,11 +46,11 @@
 
   <distributionManagement>
     <snapshotRepository>
-      <id>central</id>
+      <id>ossrh</id>
       <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
     </snapshotRepository>
     <repository>
-      <id>central</id>
+      <id>ossrh</id>
       <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
     </repository>
   </distributionManagement>
@@ -58,7 +59,7 @@
       <id>dev</id>
     </profile>
     <profile>
-      <id>central</id>
+      <id>ossrh</id>
       <activation>
         <activeByDefault>true</activeByDefault>
       </activation>
@@ -79,13 +80,14 @@
             </executions>
           </plugin>
           <plugin>
-            <groupId>org.sonatype.central</groupId>
-            <artifactId>central-publishing-maven-plugin</artifactId>
-            <version>0.1.2</version>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <version>1.6.13</version>
             <extensions>true</extensions>
             <configuration>
-              <publishingServerId>central</publishingServerId>
-              <tokenEnabled>true</tokenEnabled>
+              <serverId>ossrh</serverId>
+              <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
           </plugin>
         </plugins>

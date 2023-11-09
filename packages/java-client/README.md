@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.1.3
+### v0.1.5
 
 ## Introduction
 This is a Java client library for Poly API. It is generated from the [Poly specification](https://develop-k8s.polyapi.io/specs). It is based on its Typescript counterpart [polyapi](https://www.npmjs.com/package/polyapi)
@@ -14,13 +14,13 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 4. Add the following to your project's `pom.xml` to add the dependencies:
 ```xml
 <properties>
-  <poly.api.version>0.1.3</poly.api.version>
+  <poly.version>0.1.5</poly.version>
 </properties>
 <dependencies>
   <dependency>
     <groupId>io.polyapi.client</groupId>
     <artifactId>library</artifactId>
-    <version>${poly.api.version}</version>
+    <version>${poly.version}</version>
   </dependency>
 </dependencies>
 <build>
@@ -28,7 +28,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
     <plugin>
       <groupId>io.polyapi.client</groupId>
       <artifactId>library</artifactId>
-      <version>${poly.api.version}</version>
+      <version>${poly.version}</version>
       <executions>
         <execution>
           <phase>generate-sources</phase>
@@ -131,6 +131,10 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.1.5
+- Fixed issue with void return types
+### v0.1.4
+- Deployment setup update
 ### v0.1.3
 - Storing Poly specs file into `target/.poly/specs.json`
 ### v0.1.2
