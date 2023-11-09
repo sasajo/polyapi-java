@@ -97,11 +97,21 @@ def function_completion() -> Response:
         resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
     elif route == "tenant_documentation":
         resp = documentation_question(
-            user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId
+            user_id,
+            conversation.id,
+            question,
+            prev_msgs,
+            docs_tenant_id=user.tenantId,
+            openai_tenant_id=user.tenantId,
         )
     elif route == "poly_documentation":
         resp = documentation_question(
-            user_id, conversation.id, question, prev_msgs, tenant_id=user.tenantId
+            user_id,
+            conversation.id,
+            question,
+            prev_msgs,
+            docs_tenant_id=None,
+            openai_tenant_id=user.tenantId,
         )
     else:
         resp = "unexpected category: {route}"
