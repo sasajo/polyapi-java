@@ -2,7 +2,11 @@ import { MigrationContext } from 'migration/types';
 
 export default {
   async run({ authService, prisma }: MigrationContext): Promise<void> {
-    const apiKeys = await prisma.apiKey.findMany();
+    const apiKeys = await prisma.apiKey.findMany({
+      where: {
+        keyHashed: false,
+      },
+    });
     for (const apiKey of apiKeys) {
       const hashedKey = await authService.hashApiKey(apiKey.key);
       await prisma.apiKey.update({
@@ -11,6 +15,7 @@ export default {
         },
         data: {
           key: hashedKey,
+          keyHashed: true,
         },
       });
     }
