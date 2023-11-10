@@ -249,16 +249,6 @@ export class FunctionService implements OnModuleInit {
 
     const parsedAuth = JSON.parse(apiFunction.auth || '{}');
 
-    // const bodyContentType = this.getContentTypeHeaders(parsedBody);
-    const authHeaders = this.getAuthorizationHeaders((apiFunction.auth && JSON.parse(apiFunction.auth)) || null);
-
-    for (const [key, value] of Object.entries(authHeaders)) {
-      headers.push({
-        key,
-        value,
-      });
-    }
-
     const [returnType, returnTypeSchema] = this.getReturnTypeData(apiFunction.responseType);
 
     return {
