@@ -1738,7 +1738,7 @@ export class FunctionService implements OnModuleInit {
 
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => args[arg.key]);
 
-    console.log('args after parsing: ', JSON.stringify(args));
+    console.log('args after parsing: ', JSON.stringify(argumentsList));
 
     try {
       const result = await this.faasService.executeFunction(customFunction.id, executionEnvironment.tenantId, executionEnvironment.id, argumentsList, headers);
