@@ -71,7 +71,7 @@ export class LokiLogsService implements FaasLogsService {
     const makeCaseInsensitive = '(?i)';
     const getKeywordQuery = (keyword: string) => `${includeByRegexOperator} "${makeCaseInsensitive}${keyword}"`;
     const textContentQuery = keyword
-      ? `${getKeywordQuery(keyword)}`
+      ? `${excludeSystemLogsQuery} ${getKeywordQuery(keyword)}`
       : `${excludeSystemLogsQuery}`;
     return `{pod=~"function-${functionId}.*",container="user-container"} ${textContentQuery}`;
   }
