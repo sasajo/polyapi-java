@@ -27,6 +27,7 @@ export class LokiLogsService implements FaasLogsService {
           }),
           map((rawLogsData) => this.normalizeFaasLogs(rawLogsData)),
           map((normalizedLogs) => this.sortLogsByNewestFirst(normalizedLogs)),
+          map((sortedLogs) => this.getUserFriendlyLogs(sortedLogs)),
           catchError(this.processLogsRetrievalError()),
         ),
     );
@@ -46,7 +47,7 @@ export class LokiLogsService implements FaasLogsService {
     const logValues = rawLogsData.result
       .flatMap(({ values, stream }) => values.map((logEntry) => ([...logEntry, stream.stream]))) as Array<[string, string, string]>;
     return logValues.map(([nanoSecondsTime, logText, stream]) => ({
-      timestamp: getDateFromNanoseconds(+nanoSecondsTime),
+      timestamp: BigInt(nanoSecondsTime),
       value: logText,
       level: stream === 'stderr' ? 'Error/Warning' : 'Info',
     }));
@@ -58,7 +59,17 @@ export class LokiLogsService implements FaasLogsService {
       does a sorting of values within each of the stream groups
       and we need to sort once all values have been aggregated
     */
-    return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return logs.sort(
+      (a, b) => Number((b.timestamp as bigint) - (a.timestamp as bigint)),
+    );
+  }
+
+  private getUserFriendlyLogs(logs: FunctionLog[]): FunctionLog[] {
+    return logs.map(
+      (logentry) => ({
+        ...logentry,
+        timestamp: getDateFromNanoseconds(logentry.timestamp as bigint),
+      }));
   }
 
   private constructQuery(functionId: string, keyword: string): string {
@@ -66,7 +77,7 @@ export class LokiLogsService implements FaasLogsService {
       The lines below correspond to Grafana's LogQL query language
     */
     const excludeByRegexOperator = '!~';
-    const excludeSystemLogsQuery = `${excludeByRegexOperator} "function-${functionId}-"`;
+    const excludeSystemLogsQuery = `${excludeByRegexOperator} "${this.getSystemLogsQueryRegex(functionId)}"`;
     const includeByRegexOperator = '|~';
     const makeCaseInsensitive = '(?i)';
     const getKeywordQuery = (keyword: string) => `${includeByRegexOperator} "${makeCaseInsensitive}${keyword}"`;
@@ -74,5 +85,9 @@ export class LokiLogsService implements FaasLogsService {
       ? `${excludeSystemLogsQuery} ${getKeywordQuery(keyword)}`
       : `${excludeSystemLogsQuery}`;
     return `{pod=~"function-${functionId}.*",container="user-container"} ${textContentQuery}`;
+  }
+
+  private getSystemLogsQueryRegex(functionId: string): string {
+    return `function-${functionId}-|Cached Poly library found|> http-handler@|> FUNC_LOG_LEVEL=info faas-js-runtime ./index.js|^$`;
   }
 }
