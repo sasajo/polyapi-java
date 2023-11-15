@@ -1484,7 +1484,7 @@ export class FunctionService implements OnModuleInit {
       `Updating custom function ${id} with name ${name}, context ${context}, description ${description}`,
     );
 
-    if (customFunction.serverSide && (sleepAfter != null || sleep != null)) {
+    if (customFunction.serverSide && (sleepAfter != null || sleep != null || logsEnabled != null)) {
       await this.faasService.updateFunction(
         customFunction.id,
         customFunction.environment.tenantId,
@@ -1526,10 +1526,7 @@ export class FunctionService implements OnModuleInit {
       },
     });
 
-    if (
-      customFunction.serverSide &&
-      (customFunction.sleepAfter != null || customFunction.sleep != null || customFunction.logsEnabled != null)
-    ) {
+    if (customFunction.serverSide) {
       this.faasService.deleteFunction(id, environment.tenantId, environment.id).catch((err) => {
         this.logger.error(err, `Something failed when removing custom function ${id}.`);
       });
