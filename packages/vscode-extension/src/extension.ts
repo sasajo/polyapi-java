@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import ChatViewProvider from './chat-view-provider';
+import ChatViewProvider from './chat/chat-view-provider';
 import LibraryIndexViewProvider from './library-index-view-provider';
 import { LibraryTreeItemFileDecorationProvider } from './library-tree-item-file-decoration-provider';
 
@@ -20,7 +20,7 @@ export const activate = (context: vscode.ExtensionContext) => {
     libraryIndexViewProvider.refresh(contexData);
   });
 
-  const stopFileWatcher = startLibraryWatcher();
+  const stopFileWatcher = startLibraryWatcher(context);
 
   libraryIndexViewProvider.register();
 
@@ -29,6 +29,10 @@ export const activate = (context: vscode.ExtensionContext) => {
       chatViewProvider.focusMessageInput();
     }),
     vscode.commands.registerCommand('poly.copyLibraryItem', LibraryIndexViewProvider.copyLibraryItem),
+    vscode.commands.registerCommand('poly.copyInject', LibraryIndexViewProvider.copyLibraryItem),
+    vscode.commands.registerCommand('poly.copyGet', (item: any) => LibraryIndexViewProvider.copyLibraryItem(item, {
+      variGet: true,
+    })),
     vscode.commands.registerCommand('poly.setupLibrary', () => defaultView.setupLibrary()),
     vscode.commands.registerCommand('poly.setupCredentials', () => defaultView.setupLibraryCredentials()),
     vscode.window.registerWebviewViewProvider(

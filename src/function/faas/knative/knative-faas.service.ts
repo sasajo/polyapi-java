@@ -13,6 +13,7 @@ import { ExecuteFunctionResult, FaasService } from '../faas.service';
 import { CustomObjectsApi } from '@kubernetes/client-node';
 import { makeCustomObjectsApiClient } from 'kubernetes/client';
 import { ServerFunctionLimits } from '@poly/model';
+import { ServerFunctionDoesNotExists } from './errors/ServerFunctionDoesNotExist';
 
 // sleep function from SO
 // https://stackoverflow.com/a/39914235
@@ -82,9 +83,10 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-    createFromScratch = false,
+    createFromScratch?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
+    logsEnabled = false,
   ): Promise<void> {
     this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -102,7 +104,7 @@ export class KNativeFaasService implements FaasService {
       this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
       await writeFile(`${functionPath}/function/index.js`, content);
 
-      await this.deploy(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter);
+      await this.deploy(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter, logsEnabled);
     };
 
     const additionalRequirements = this.filterPreinstalledNpmPackages(requirements);
@@ -128,16 +130,19 @@ export class KNativeFaasService implements FaasService {
     headers = {},
     maxRetryCount = 3,
   ): Promise<ExecuteFunctionResult> {
-    const functionUrl = await this.getFunctionUrl(id);
-
-    if (!functionUrl) {
-      this.logger.error(`Function ${id} does not exists.`);
-      throw new Error(`Function ${id} does not exists. Please, redeploy it again.`);
+    let functionUrl = '';
+    try {
+      functionUrl = await this.getFunctionUrl(id);
+    } catch (err) {
+      if (err instanceof ServerFunctionDoesNotExists) {
+        throw new Error(`Function ${id} does not exists. Please, redeploy it again.`);
+      }
+      throw err;
     }
 
     this.logger.debug(`Executing server function '${id}'...`);
     this.logger.verbose(`Calling ${functionUrl}`);
-    this.logger.verbose({ args });
+    this.logger.verbose({ args: JSON.stringify(args) });
     return await lastValueFrom(
       this.http
         .post(`${functionUrl}`, { args }, { headers: this.filterPassThroughHeaders(headers) })
@@ -183,10 +188,11 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-  ) {
+    logsEnabled = false,
+  ): Promise<void> {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits, undefined, sleep, sleepAfter);
+    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits, undefined, sleep, sleepAfter, logsEnabled);
   }
 
   async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {
@@ -260,13 +266,14 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleep?: boolean | null,
     sleepAfter?: number | null,
+    logsEnabled = false,
   ) {
     this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
     await this.deleteFunction(id, tenantId, environmentId, false);
 
     this.logger.debug(`Creating KNative service for function '${id}'...`);
 
-    const workingDir = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+    const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
     const getAnnotations = () => {
       const annotations = {};
       if (sleep == null) {
@@ -286,6 +293,14 @@ export class KNativeFaasService implements FaasService {
       return annotations;
     };
 
+    const cachedPolyGenerateCommand = `if [ -d "/workspace/function/.poly/lib" ];
+    then echo 'Cached Poly library found, reusing...' && cp -r /workspace/function/.poly /workspace/node_modules/;
+    else npx poly generate && cp -r /workspace/node_modules/.poly /workspace/function/; fi`;
+
+    const startUpCommand = `if [ -f "/workspace/function/function/index.js" ]; 
+    then /cnb/lifecycle/launcher "cp -f /workspace/function/function/index.js /workspace/ && ${cachedPolyGenerateCommand} && npm start"; 
+    else /cnb/lifecycle/launcher "npx poly generate"; fi`;
+
     const options = {
       apiVersion: 'serving.knative.dev/v1',
       kind: 'Service',
@@ -297,6 +312,9 @@ export class KNativeFaasService implements FaasService {
         template: {
           metadata: {
             annotations: getAnnotations(),
+            labels: {
+              logging: logsEnabled ? 'enabled' : 'disabled',
+            },
           },
           spec: {
             timeoutSeconds: limits.time,
@@ -307,6 +325,7 @@ export class KNativeFaasService implements FaasService {
                   {
                     mountPath: '/workspace/function',
                     name: 'functions-volume',
+                    subPath: `${functionPath}`,
                     readOnly: false,
                   },
                 ],
@@ -325,8 +344,8 @@ export class KNativeFaasService implements FaasService {
                   },
                 ],
                 command: ['/bin/sh', '-c'],
-                args: [`if [ -f "/workspace/function/${workingDir}/function/index.js" ]; then /cnb/lifecycle/launcher "cp -f function/${workingDir}/function/index.js $home/workspace && npx poly generate && npm start"; else /cnb/lifecycle/launcher "npx poly generate && npm start"; fi`],
-                workingDir: `/workspace/function/${workingDir}/function`,
+                args: [startUpCommand],
+                workingDir: '/workspace/function',
                 resources: {
                   limits: {
                     cpu: limits.cpu ? `${limits.cpu}m` : undefined,
@@ -373,7 +392,10 @@ export class KNativeFaasService implements FaasService {
     return requirements.filter((requirement) => !this.config.faasPreinstalledNpmPackages.includes(requirement));
   }
 
-  private async getFunctionUrl(id: string): Promise<string | null> {
+  /**
+   * @throws {ServerFunctionDoesNotExists}
+   */
+  private async getFunctionUrl(id: string): Promise<string> {
     const name = this.getFunctionName(id);
 
     try {
@@ -390,12 +412,11 @@ export class KNativeFaasService implements FaasService {
     } catch (e) {
       if (e.body?.code === 404) {
         this.logger.debug(`Server function '${id}' doesn't exist.`);
-      } else {
-        this.logger.error(`Error while getting function: ${e.message}`, e);
+        throw new ServerFunctionDoesNotExists(e.message);
       }
+      this.logger.error(`Error while getting function: ${e.message}`, e);
+      throw e;
     }
-
-    return null;
   }
 
   private filterPassThroughHeaders(headers: Record<string, any>): Record<string, any> {

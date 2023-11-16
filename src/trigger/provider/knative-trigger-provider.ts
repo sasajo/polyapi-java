@@ -288,6 +288,7 @@ export class KNativeTriggerProvider implements TriggerProvider {
         filter: {
           attributes: {
             type: this.getType(source),
+            environment: environmentId,
           },
         },
         subscriber: {
@@ -322,11 +323,12 @@ export class KNativeTriggerProvider implements TriggerProvider {
     }
   }
 
-  async triggerEvent(executionId: string, source: TriggerSource, data: any): Promise<void> {
+  async triggerEvent(environmentId: string, executionId: string, source: TriggerSource, data: any): Promise<void> {
     this.logger.debug(`Triggering event ${executionId} (source: ${JSON.stringify(source)})`);
     const cloudEvent = new CloudEvent({
       type: this.getType(source),
       source: executionId,
+      environment: environmentId,
       executionid: executionId,
       data,
     });

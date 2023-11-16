@@ -19,7 +19,21 @@ export interface WebhookHandleDto {
   enabled?: boolean;
 }
 
+export interface WebhookHandleBasicDto {
+  id: string;
+  name: string;
+  context: string;
+  description: string;
+  visibility: Visibility;
+  enabled?: boolean;
+}
+
 export interface WebhookHandlePublicDto extends WebhookHandleDto {
+  tenant: string;
+  hidden: boolean;
+}
+
+export interface WebhookHandleBasicPublicDto extends WebhookHandleBasicDto {
   tenant: string;
   hidden: boolean;
 }

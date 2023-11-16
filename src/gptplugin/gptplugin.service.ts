@@ -4,7 +4,7 @@ import _ from 'lodash';
 import convert from '@openapi-contrib/json-schema-to-openapi-schema';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AiService } from 'ai/ai.service';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import {
   ApiFunctionSpecification,
   CreatePluginDto,
@@ -16,9 +16,10 @@ import {
   Specification,
 } from '@poly/model';
 import { FunctionService } from 'function/function.service';
-import { ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/client';
+import { Prisma, Conversation, ApiFunction, CustomFunction, GptPlugin, Environment } from '@prisma/client';
 import { Request } from 'express';
 import { AuthService } from 'auth/auth.service';
+import { AuthData } from 'common/types';
 
 const POLY_DEFAULT_ICON_URL = 'https://polyapi.io/wp-content/uploads/2023/03/poly-block-logo-mark.png';
 // for testing locally
@@ -403,6 +404,13 @@ export class GptPluginService {
   }
 
   async createOrUpdatePlugin(environment: Environment, body: CreatePluginDto): Promise<GptPlugin> {
+    // user_http is not working atm
+    if (body.authType === 'user_http') {
+      throw new BadRequestException(
+        '`user_http` authentication is not supported by OpenAI at the moment. see OpenAI docs for details. Please use service_http!',
+      );
+    }
+
     // slugs must be lowercase!
     body.slug = body.slug.replaceAll('_', '-');
     body.slug = slugify(body.slug);
@@ -492,32 +500,20 @@ export class GptPluginService {
     let legalUrl = 'https://polyapi.io/legal';
 
     // default to user auth
-    let auth: PluginAuth = {
-      type: 'user_http',
+    const plugin = await this.getPlugin(slug, environment.id, { environment: true });
+    const auth: PluginAuth = {
+      type: plugin.authType,
       authorization_type: 'bearer',
     };
-    if (slug === 'staging') {
-      name = 'Poly API Staging';
-    } else if (slug === 'develop') {
-      name = 'Poly API Develop';
-    } else {
-      const plugin = await this.getPlugin(slug, environment.id, { environment: true });
-      if (plugin.authType === 'service_http') {
-        auth = {
-          type: plugin.authType,
-          authorization_type: 'bearer',
-          verification_tokens: {
-            openai: plugin.authToken,
-          },
-        };
-      }
-      name = plugin.name;
-      descMarket = plugin.descriptionForMarketplace;
-      descModel = plugin.descriptionForModel;
-      iconUrl = plugin.iconUrl;
-      contactEmail = plugin.contactEmail;
-      legalUrl = plugin.legalUrl;
+    if (plugin.authType === 'service_http') {
+      auth.verification_tokens = { openai: plugin.authToken };
     }
+    name = plugin.name;
+    descMarket = plugin.descriptionForMarketplace;
+    descModel = plugin.descriptionForModel;
+    iconUrl = plugin.iconUrl;
+    contactEmail = plugin.contactEmail;
+    legalUrl = plugin.legalUrl;
 
     return {
       schema_version: 'v1',
@@ -537,10 +533,39 @@ export class GptPluginService {
     };
   }
 
-  async chat(authData, slug: string, conversationId: string, message: string) {
+  async chat(authData: AuthData, slug: string, conversationSlug: string, message: string) {
+    const where = this._getConversationWhereInput(authData, conversationSlug);
+    let conversation = await this.prisma.conversation.findFirst({ where });
+    if (!conversation) {
+      conversation = await this._createConversation(authData, conversationSlug);
+    }
+
     const plugin = await this.getPlugin(slug, authData.environment.id);
     const hashedKey = await this.authService.hashApiKey(authData.key);
     const apiKey = await this.prisma.apiKey.findUniqueOrThrow({ where: { key: hashedKey } });
-    return await this.aiService.pluginChat(authData.key, apiKey.id, plugin.id, conversationId, message);
+    return await this.aiService.pluginChat(authData.key, apiKey.id, plugin.id, conversation.id, message);
+  }
+
+  private async _createConversation(authData: AuthData, conversationSlug: string): Promise<Conversation> {
+    return this.prisma.conversation.create({
+      data: {
+        applicationId: authData.application?.id,
+        userId: authData.user?.id,
+        slug: conversationSlug,
+      },
+    });
+  }
+
+  // HACK copypasta from chat.service.ts
+  _getConversationWhereInput(authData: AuthData, conversationSlug: string): Prisma.ConversationWhereInput {
+    let where: Prisma.ConversationWhereInput = {};
+    if (authData.user) {
+      where = { userId: authData.user.id, slug: conversationSlug };
+    } else if (authData.application) {
+      where = { applicationId: authData.application.id, slug: conversationSlug };
+    } else {
+      throw new BadRequestException('user or application is required');
+    }
+    return where;
   }
 }

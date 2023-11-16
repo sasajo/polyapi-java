@@ -9,7 +9,6 @@ import {
   InternalServerErrorException,
   Param,
   Get,
-  Header,
   Query,
   MessageEvent,
   BadRequestException,
@@ -60,7 +59,7 @@ export class ChatController {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     return this.service.storeMessage(data.message);
   }
@@ -75,7 +74,7 @@ export class ChatController {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     const message = data.message || null;
     const uuid = data.message_uuid || null;
@@ -86,7 +85,7 @@ export class ChatController {
 
     await this.statisticsService.trackChatQuestion(req.user);
 
-    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '');
+    const observable = await this.service.sendQuestion(environmentId, userId, message, uuid, data.workspaceFolder || '', data.language);
 
     return observable.pipe<MessageEvent>(
       map((data) => ({
@@ -112,7 +111,7 @@ export class ChatController {
       throw new InternalServerErrorException('Cannot find user to process command');
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.Execute);
 
     await this.service.processCommand(environmentId, userId, body.command);
   }
@@ -142,7 +141,6 @@ export class ChatController {
   }
 
   @UseGuards(PolyAuthGuard)
-  @Header('content-type', 'text/plain')
   @Get('/conversations/:conversationId')
   public async conversationsDetail(
     @Req() req: AuthRequest,

@@ -3,7 +3,6 @@ import { Inject, Logger, Module } from '@nestjs/common';
 import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
-import Redis, { RedisOptions } from 'ioredis';
 import { CacheModuleOptions } from '@nestjs/cache-manager/dist/interfaces/cache-module.interface';
 import { RedisClientOptions } from 'redis';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -11,7 +10,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from 'auth/auth.module';
 import { UserModule } from 'user/user.module';
 import { FunctionModule } from 'function/function.module';
-import { PrismaModule } from 'prisma/prisma.module';
+import { PrismaModule } from 'prisma-module/prisma.module';
 import { ChatModule } from 'chat/chat.module';
 import { EventModule } from 'event/event.module';
 import { WebhookModule } from 'webhook/webhook.module';
@@ -38,22 +37,6 @@ import { EmailModule } from 'email/email.module';
 import { TosModule } from 'tos/tos.module';
 import { HealthModule } from 'health/health.module';
 
-const isRedisAvailable = async (url: string): Promise<boolean> => {
-  const redisOptions: RedisOptions = {
-    maxRetriesPerRequest: 1,
-  };
-
-  const redisClient = new Redis(url, redisOptions);
-  try {
-    await redisClient.ping();
-    return true;
-  } catch (error) {
-    return false;
-  } finally {
-    redisClient.disconnect();
-  }
-};
-
 const logger = new Logger('AppModule');
 
 @Module({
@@ -64,19 +47,18 @@ const logger = new Logger('AppModule');
     }),
     CacheModule.registerAsync({
       useFactory: async (configService: ConfigService): Promise<RedisClientOptions | CacheModuleOptions> => {
-        if (await isRedisAvailable(configService.redisUrl)) {
-          logger.log('Using Redis cache');
-          return ({
-            store: redisStore as any,
-            url: configService.redisUrl,
-            ttl: configService.cacheTTL,
-          });
-        } else {
-          logger.log('Using memory cache');
-          return ({
-            store: 'memory',
-          });
-        }
+        logger.log('Using Redis cache');
+        const password = configService.redisPassword;
+        return ({
+          store: redisStore as any,
+          url: configService.redisUrl,
+          ttl: configService.cacheTTL,
+          ...(password
+            ? {
+                password,
+              }
+            : null),
+        });
       },
       inject: [ConfigService],
       isGlobal: true,

@@ -1,6 +1,7 @@
-from typing import Dict, List, Optional, Union
+import uuid
 import json
 import openai
+from typing import Dict, List, Optional, Union
 from app.typedefs import (
     DescInputDto,
     DescOutputDto,
@@ -9,12 +10,13 @@ from app.typedefs import (
     SpecificationDto,
     VarDescInputDto,
 )
+from app.log import log, rlog_desc_info
 from app.utils import (
     camel_case,
     extract_code,
     func_path_with_args,
     get_chat_completion,
-    log,
+    get_tenant_openai_key,
 )
 from app.constants import CHAT_GPT_MODEL
 
@@ -123,6 +125,8 @@ Return it as JSON in the following format:
 
 
 def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
+    trace_id = uuid.uuid4().hex
+
     short = data.get("short_description", "")
     short = f"User given name: {short}" if short else ""
     prompt = NAME_CONTEXT_DESCRIPTION_PROMPT.format(
@@ -142,18 +146,27 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
     }
     messages = [prompt_msg, limitations]
 
+    tenant_id = data.get("tenantId")
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=messages
+        model=CHAT_GPT_MODEL, temperature=0.2, messages=messages, api_key=openai_api_key
     )
     completion = resp["choices"][0]["message"]["content"].strip()
     try:
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
-        log_error(data, completion, prompt)
-        return {"error": "Error parsing JSON from OpenAI: " + completion}
+        msg = "Error parsing JSON from OpenAI: "
+        rlog_desc_info(trace_id, msg, dict(data), completion)
+        return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
-        log_error(data, completion, prompt)
+        rlog_desc_info(
+            trace_id,
+            "Error getting context/name/description from OpenAI",
+            dict(data),
+            completion,
+        )
+        rv["trace_id"] = trace_id
         return rv
 
     # for now log EVERYTHING
@@ -161,13 +174,48 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
     log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     rv["arguments"] = get_argument_descriptions(
-        rv["context"], rv["name"], rv["description"], data.get("arguments", [])
+        openai_api_key,
+        rv["context"],
+        rv["name"],
+        rv["description"],
+        data.get("arguments", []),
     )
+    log("argument descriptions generated:", json.dumps(rv['arguments']))
+
+    if _arguments_missing_descriptions(rv['arguments']):
+        rlog_desc_info(
+            trace_id,
+            "Some arguments did not get descriptions from OpenAI!",
+            dict(data),
+            json.dumps(rv['arguments']),
+        )
+        rv['trace_id'] = trace_id
+
     return rv
 
 
+def _arguments_missing_descriptions(args: Optional[List[Dict]]) -> bool:
+    if not args:
+        return True
+
+    try:
+        for arg in args:
+            # TODO maybe figure out how to try nested args?
+            if not arg.get("description"):
+                return True
+    except:
+        # this data structure is not what we expect, just go ahead and say we are missing description!!
+        return True
+
+    return False
+
+
 def get_argument_descriptions(
-    context: str, name: str, description: str, arguments: Optional[List[Dict]]
+    api_key: Optional[str],
+    context: str,
+    name: str,
+    description: str,
+    arguments: Optional[List[Dict]],
 ):
     if not arguments:
         return []
@@ -187,7 +235,10 @@ def get_argument_descriptions(
     prompt_msg = MessageDict(role="user", content=prompt)
 
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg]
+        model=CHAT_GPT_MODEL,
+        temperature=0.2,
+        messages=[prompt_msg],
+        api_key=api_key,
     )
 
     message: MessageDict = resp["choices"][0]["message"]
@@ -202,7 +253,10 @@ def _get_code_prompt(code: Optional[str]) -> str:
 
 
 def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto]:
-    # contexts = _get_context_and_names()
+    trace_id = uuid.uuid4().hex
+
+    tenant_id = data.get("tenantId")
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     short = data.get("short_description", "")
     short = f"User given name: {short}" if short else ""
     prompt = NAME_CONTEXT_DESCRIPTION_PROMPT.format(
@@ -222,36 +276,33 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
     }
     prompt_msg = {"role": "user", "content": prompt}
     resp = openai.ChatCompletion.create(
-        model=CHAT_GPT_MODEL, temperature=0.2, messages=[prompt_msg, limitations]
+        model=CHAT_GPT_MODEL,
+        temperature=0.2,
+        messages=[prompt_msg, limitations],
+        api_key=openai_api_key,
     )
     completion = resp["choices"][0]["message"]["content"].strip()
     try:
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
-        log_error(data, completion, prompt)
-        return {"error": "Error parsing JSON from OpenAI: " + completion}
+        msg = "Error parsing JSON from OpenAI: "
+        rlog_desc_info(trace_id, msg, dict(data), completion)
+        return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
-        log_error(data, completion, prompt)
+        rlog_desc_info(
+            trace_id,
+            "Error getting context/name/description from OpenAI",
+            dict(data),
+            completion,
+        )
+        rv["trace_id"] = trace_id
     else:
         # for now log EVERYTHING
         rv["description"] = rv["description"][:DESCRIPTION_LENGTH_LIMIT]
         log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
-
-
-def log_error(data: DescInputDto, completion: str, prompt: str) -> None:
-    parts = [
-        "Error getting context/name/description from OpenAI",
-        "input:",
-        str(data),
-        "output:",
-        completion,
-        "prompt:",
-        prompt,
-    ]
-    log("\n".join(parts))
 
 
 def _parse_openai_response(completion: str) -> DescOutputDto:
@@ -273,10 +324,12 @@ def _parse_openai_response(completion: str) -> DescOutputDto:
 
 
 def get_variable_description(data: VarDescInputDto) -> Dict:
+    tenant_id = data.get("tenantId")
+    openai_api_key = get_tenant_openai_key(tenant_id=tenant_id)
     func_name = data["context"] + "." + data["name"]
     prompt = VARIABLE_DESCRIPTION_PROMPT % (func_name, data["secret"], data["value"])
     messages = [MessageDict(role="user", content=prompt)]
-    resp = get_chat_completion(messages)
+    resp = get_chat_completion(messages, api_key=openai_api_key)
     assert isinstance(resp, str)
     resp = resp.strip("```")
     rv = json.loads(resp)

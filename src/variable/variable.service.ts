@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { toCamelCase } from '@guanghechen/helper-string';
 import { ConflictException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Environment, Tenant, Variable } from '@prisma/client';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import {
   ConfigVariableName,
   ContextVariableValues,
@@ -222,7 +222,7 @@ export class VariableService {
       throw new ConflictException(`Variable with name '${name}' and context '${context}' already exists`);
     }
 
-    description = description || (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(this.getValueApproximation(value, secret)))).description;
+    description = description || (await this.aiService.getVariableDescription(environmentId, name, context, secret, JSON.stringify(this.getValueApproximation(value, secret)))).description;
 
     return await this.prisma.$transaction(async (tx) => {
       const variable = await tx.variable.create({
@@ -277,7 +277,7 @@ export class VariableService {
     }
 
     description = description === '' && value
-      ? (await this.aiService.getVariableDescription(name, context, secret, JSON.stringify(value))).description
+      ? (await this.aiService.getVariableDescription(environmentId, name, context, secret, JSON.stringify(value))).description
       : description;
 
     return this.prisma.$transaction(async (tx) => {
@@ -374,8 +374,8 @@ export class VariableService {
   }
 
   async toServerVariableSpecification(variable: Variable): Promise<ServerVariableSpecification> {
-    const value = await this.secretService.get(variable.environmentId, variable.id);
-    const [type, typeSchema] = await this.commonService.resolveType('ValueType', value);
+    const value = await this.secretService.get<any>(variable.environmentId, variable.id);
+    const [type, typeSchema] = await this.commonService.resolveType('ValueType', value, undefined, false);
 
     return {
       type: 'serverVariable',

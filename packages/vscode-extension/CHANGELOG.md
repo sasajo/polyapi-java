@@ -1,3 +1,24 @@
+### 0.6.1
+* Java support in poly assistant.
+
+### 0.6.0
+* Pass language option automatically to poly assistant.
+
+### 0.5.2
+* Relocate views and little adjustment on credentials start up.
+
+### 0.5.1
+* Little changes for dependency checking messages.
+
+### 0.5.0
+* Add context menu "get" and "inject" for variables, and make `inject()` as default when copying to clipboard.
+
+### 0.4.0
+* Add dependencies checking on setup.
+
+### 0.3.10
+* Fix `missingCredentials` state when user completes credentials step on project setup.
+
 ### 0.3.9
 * Add `async` to webhook handlers clipboard.
 

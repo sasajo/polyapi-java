@@ -16,7 +16,7 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, from, lastValueFrom, map } from 'rxjs';
 import mustache from 'mustache';
 import { ApiFunction, CustomFunction, Environment, Tenant } from '@prisma/client';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import {
   ApiFunctionDetailsDto,
   ApiFunctionPublicDetailsDto,
@@ -49,6 +49,7 @@ import {
   UpdateSourceNullableEntry,
   FormDataEntry,
   RawBody,
+  FunctionLog,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -57,12 +58,12 @@ import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
-import { FaasService } from 'function/faas/faas.service';
+import { FaasService, FaasLogsService } from 'function/faas/faas.service';
 import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
 import { ApiFunctionArguments } from './types';
-import { cloneDeep, isPlainObject, mergeWith, omit, uniqBy, mapValues } from 'lodash';
+import { isPlainObject, mergeWith, omit, uniqBy } from 'lodash';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import { VariableService } from 'variable/variable.service';
 import { IntrospectionQuery, VariableDefinitionNode } from 'graphql';
@@ -73,11 +74,11 @@ import {
   resolveGraphqlArgumentType,
 } from './graphql/utils';
 import { AuthService } from 'auth/auth.service';
-import crypto from 'crypto';
 import { AuthData, WithEnvironment, WithTenant } from 'common/types';
 import { LimitService } from 'limit/limit.service';
-
-const ARGUMENT_PATTERN = /(?<=\{\{)([^}]+)(?=\})/g;
+import { isTemplateArg, JsonTemplate, JsonTemplateProcessor, POLY_ARG_NAME_KEY } from './custom/json-template';
+import { ARGUMENT_PATTERN } from './custom/constants';
+import { LokiLogsService } from './faas/loki-logs/loki-logs.service';
 
 mustache.escape = (text) => {
   if (typeof text === 'string') {
@@ -91,6 +92,8 @@ mustache.escape = (text) => {
 export class FunctionService implements OnModuleInit {
   private readonly logger: Logger = new Logger(FunctionService.name);
   private readonly faasService: FaasService;
+  private readonly faasLogsService: FaasLogsService;
+  private readonly jsonTemplate: JsonTemplateProcessor;
 
   constructor(
     private readonly commonService: CommonService,
@@ -107,6 +110,8 @@ export class FunctionService implements OnModuleInit {
     private readonly limitService: LimitService,
   ) {
     this.faasService = new KNativeFaasService(config, httpService);
+    this.faasLogsService = new LokiLogsService(config, httpService);
+    this.jsonTemplate = new JsonTemplate();
   }
 
   async onModuleInit() {
@@ -223,11 +228,19 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  apiFunctionToTrainingDto(apiFunction: ApiFunction & { traceId?: string }) {
+    return {
+      ...this.apiFunctionToBasicDto(apiFunction),
+      traceId: apiFunction.traceId,
+    };
+  }
+
   apiFunctionToDetailsDto(apiFunction: ApiFunction): ApiFunctionDetailsDto {
     const argumentsList = this.getFunctionArguments(apiFunction)
       .map<Omit<FunctionArgument<Record<string, any>>, 'location'>>(arg => ({
         ...omit(arg, 'location'),
         typeSchema: arg.typeSchema && JSON.parse(arg.typeSchema),
+        removeIfNotPresentOnExecute: arg.removeIfNotPresentOnExecute || false,
       }));
 
     const parsedBody = JSON.parse(apiFunction.body || '{}');
@@ -236,15 +249,7 @@ export class FunctionService implements OnModuleInit {
 
     const parsedAuth = JSON.parse(apiFunction.auth || '{}');
 
-    // const bodyContentType = this.getContentTypeHeaders(parsedBody);
-    const authHeaders = this.getAuthorizationHeaders((apiFunction.auth && JSON.parse(apiFunction.auth)) || null);
-
-    for (const [key, value] of Object.entries(authHeaders)) {
-      headers.push({
-        key,
-        value,
-      });
-    }
+    const [returnType, returnTypeSchema] = this.getReturnTypeData(apiFunction.responseType);
 
     return {
       ...this.apiFunctionToBasicDto(apiFunction),
@@ -257,6 +262,8 @@ export class FunctionService implements OnModuleInit {
         auth: parsedAuth,
       },
       enabledRedirect: apiFunction.enableRedirect,
+      returnType,
+      returnTypeSchema,
     };
   }
 
@@ -299,7 +306,7 @@ export class FunctionService implements OnModuleInit {
     enableRedirect: boolean,
     templateAuth?: Auth,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
-  ): Promise<ApiFunction> {
+  ): Promise<ApiFunction & { traceId?: string }> {
     if (!(statusCode >= HttpStatus.OK && statusCode < HttpStatus.BAD_REQUEST)) {
       throw new BadRequestException(
         `Api response status code should be between ${HttpStatus.OK} and ${HttpStatus.AMBIGUOUS}.`,
@@ -420,6 +427,8 @@ export class FunctionService implements OnModuleInit {
       this.logger.debug('Creating new poly function...');
     }
 
+    let traceId: string | undefined;
+
     if ((!name || !context || !description) && !updating) {
       if (await this.isApiFunctionAITrainingEnabled(environment)) {
         try {
@@ -428,7 +437,9 @@ export class FunctionService implements OnModuleInit {
             description: aiDescription,
             arguments: aiArguments,
             context: aiContext,
+            trace_id: aiTraceId,
           } = await this.aiService.getFunctionDescription(
+            environment.tenantId,
             url,
             apiFunction?.method || method,
             description || apiFunction?.description || '',
@@ -436,6 +447,10 @@ export class FunctionService implements OnModuleInit {
             JSON.stringify(this.commonService.trimDownObject(this.getBodyData(body))),
             JSON.stringify(this.commonService.trimDownObject(response)),
           );
+
+          if (aiTraceId) {
+            traceId = aiTraceId;
+          }
 
           if (!name) {
             name = aiName
@@ -531,18 +546,21 @@ export class FunctionService implements OnModuleInit {
       });
     }
 
-    return this.prisma.apiFunction.create({
-      data: {
-        environment: {
-          connect: {
-            id: environment.id,
+    return {
+      ...(await this.prisma.apiFunction.create({
+        data: {
+          environment: {
+            connect: {
+              id: environment.id,
+            },
           },
+          ...upsertPayload,
+          name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true),
+          method,
         },
-        ...upsertPayload,
-        name: await this.resolveFunctionName(environment.id, finalName, finalContext, true, true),
-        method,
-      },
-    });
+      })),
+      traceId,
+    };
   }
 
   async updateApiFunction(
@@ -556,6 +574,9 @@ export class FunctionService implements OnModuleInit {
     visibility: Visibility | null,
     source: UpdateSourceFunctionDto | undefined,
     enableRedirect: boolean | undefined,
+    returnType: string | undefined,
+    returnTypeSchema: Record<string, any> | undefined,
+    templateBody: string | undefined,
   ) {
     if (name != null || context != null) {
       name = name ? await this.resolveFunctionName(apiFunction.environmentId, name, apiFunction.context, true) : null;
@@ -579,9 +600,13 @@ export class FunctionService implements OnModuleInit {
     let responseType: string | undefined;
     if (response !== undefined) {
       responseType = await this.getResponseType(response, payload ?? apiFunction.payload);
+    } else if (returnTypeSchema !== undefined) {
+      responseType = JSON.stringify(returnTypeSchema);
+    } else if (returnType !== undefined) {
+      responseType = returnType.trim();
     }
 
-    const newSourceData = this.processNewSourceData(apiFunction, source);
+    const newSourceData = this.processNewSourceData(apiFunction, source, templateBody);
 
     const patchSourceData = {
       ...(newSourceData?.body ? { body: newSourceData.body } : null),
@@ -636,33 +661,6 @@ export class FunctionService implements OnModuleInit {
       }
     }
 
-    if (source?.body?.mode === 'raw') {
-      const fakedData = mapValues(argumentsMetadata || {}, (arg) => {
-        switch (arg.type) {
-          case 'string':
-            return 'string';
-          case 'number':
-            return 0;
-          case 'boolean':
-            return true;
-          case 'object':
-            return JSON.stringify({});
-          default:
-            return 'string';
-        }
-      });
-
-      try {
-        this.getSanitizedRawBody(source.body, argumentsMetadata || {}, fakedData);
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          throw new BadRequestException('Invalid raw json.');
-        }
-
-        throw error;
-      }
-    }
-
     return this.prisma.apiFunction.update({
       where: {
         id: apiFunction.id,
@@ -681,13 +679,15 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  private processNewSourceData(apiFunction: ApiFunction, source: UpdateSourceFunctionDto | undefined): {
+  private processNewSourceData(apiFunction: ApiFunction, source: UpdateSourceFunctionDto | undefined, templateBody: string | undefined): {
     headers?: string;
     url?: string;
     body?: string;
     method?: string;
     auth?: string;
   } | null {
+    const jsonTemplateParser = new JsonTemplate();
+
     if (!source) {
       return null;
     }
@@ -761,9 +761,20 @@ export class FunctionService implements OnModuleInit {
       if (source.body.mode === 'empty') {
         currentBody = {};
       } else if (source.body.mode === 'raw') {
+        if (typeof templateBody === 'undefined') {
+          throw new BadRequestException('Could not process this operation. Did you forgot to add your poly-training-assistant.js pre-request script ?.');
+        }
+
+        const templateObj = jsonTemplateParser.parse(templateBody);
+
         currentBody = {
           mode: 'raw',
-          raw: source.body.raw,
+          raw: jsonTemplateParser.toTemplateString(templateObj['source']['body']['raw']),
+          options: {
+            raw: {
+              language: 'json',
+            },
+          },
         };
       } else {
         if (source.body.mode === 'urlencoded') {
@@ -818,6 +829,57 @@ export class FunctionService implements OnModuleInit {
     return sourceData;
   }
 
+  private processRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, args: Record<string, any>) {
+    const jsonTemplateObject = this.jsonTemplate.parse(body.raw);
+
+    const removeUndefinedValuesFromOptionalArgs = (value: any) => {
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          value[i] = removeUndefinedValuesFromOptionalArgs(value[i]);
+        }
+      }
+
+      if (!(isPlainObject as (value: unknown) => value is Record<string, any>)(value)) {
+        return value;
+      }
+
+      if (isPlainObject(value)) {
+        if (
+          isTemplateArg(value)
+        ) {
+          const argName = value[POLY_ARG_NAME_KEY];
+          const argValue = args[argName];
+          const argMetadata = argumentsMetadata[argName] as ArgumentsMetadata[string];
+
+          if (typeof argMetadata === 'undefined' || (argMetadata.required === false && argMetadata.removeIfNotPresentOnExecute === true && typeof argValue === 'undefined')) {
+            return undefined;
+          }
+
+          return value;
+        }
+
+        for (const key of Object.keys(value)) {
+          value[key] = removeUndefinedValuesFromOptionalArgs(value[key]);
+          if (typeof value[key] === 'undefined') {
+            delete value[key];
+          }
+        }
+      }
+
+      return value;
+    };
+
+    // Filter un-used optional args.
+    const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
+
+    const rawObj = this.jsonTemplate.render(filteredJsonTemplate, args);
+
+    return {
+      mode: 'raw',
+      raw: JSON.stringify(rawObj),
+    } as RawBody;
+  }
+
   async executeApiFunction(
     apiFunction: ApiFunction & { environment: Environment },
     args: Record<string, any>,
@@ -826,19 +888,52 @@ export class FunctionService implements OnModuleInit {
   ): Promise<ApiFunctionResponseDto | null> {
     this.logger.debug(`Executing function ${apiFunction.id}...`);
 
-    const argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
-    const url = mustache.render(apiFunction.url, argumentValueMap);
+    const argumentsMetadata = JSON.parse(apiFunction.argumentsMetadata || '{}') as ArgumentsMetadata;
+    let argumentValueMap: {[key: string]: any } = {};
     const method = apiFunction.method;
-    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
     const parsedBody = JSON.parse(apiFunction.body || '{}') as Body;
 
     let body: Body | null = null;
 
-    if (parsedBody.mode !== 'raw') {
-      body = JSON.parse(mustache.render(apiFunction.body || '{}', argumentValueMap)) as Body;
+    if (parsedBody.mode === 'urlencoded' || parsedBody.mode === 'formdata') {
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
+      const filterOptionalArgs = (entry: PostmanVariableEntry) => {
+        if (!entry.value.match(ARGUMENT_PATTERN)) {
+          return true;
+        }
+
+        const argName = entry.value.replace('{{', '').replace('}}', '');
+
+        if (argumentsMetadata[argName].required === false &&
+          argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
+          typeof argumentValueMap[argName] === 'undefined') {
+          return false;
+        }
+
+        return true;
+      };
+
+      const filteredBody = parsedBody.mode === 'formdata'
+        ? {
+            mode: parsedBody.mode,
+            formdata: parsedBody.formdata.filter(filterOptionalArgs),
+          }
+        : {
+            mode: parsedBody.mode,
+            urlencoded: parsedBody.urlencoded.filter(filterOptionalArgs),
+          };
+
+      body = JSON.parse(mustache.render(JSON.stringify(filteredBody), argumentValueMap)) as Body;
+    } else if (parsedBody.mode === 'raw' && parsedBody.raw) {
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args, false);
+      body = this.processRawBody(parsedBody, argumentsMetadata, argumentValueMap);
     } else {
-      body = this.getSanitizedRawBody(parsedBody, JSON.parse(apiFunction.argumentsMetadata || '{}'), argumentValueMap);
+      argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
+      body = JSON.parse(mustache.render(apiFunction.body || '', argumentValueMap)) as Body;
     }
+
+    const url = mustache.render(apiFunction.url, argumentValueMap);
+    const auth = apiFunction.auth ? JSON.parse(mustache.render(apiFunction.auth, argumentValueMap)) : null;
 
     const params = {
       ...this.getAuthorizationQueryParams(auth),
@@ -1058,10 +1153,13 @@ export class FunctionService implements OnModuleInit {
       context: customFunction.context,
       visibility: customFunction.visibility as Visibility,
       enabled: customFunction.enabled ? undefined : false,
+      logsEnabled: customFunction.logsEnabled,
     };
   }
 
   customFunctionToDetailsDto(customFunction: CustomFunction): FunctionDetailsDto {
+    const [returnType, returnTypeSchema] = this.getReturnTypeData(customFunction.returnType);
+
     return {
       ...this.customFunctionToBasicDto(customFunction),
       arguments: JSON.parse(customFunction.arguments).map((arg) => ({
@@ -1069,6 +1167,15 @@ export class FunctionService implements OnModuleInit {
         required: arg.required == null ? true : arg.required,
         secure: arg.secure == null ? false : arg.secure,
       })),
+      returnType,
+      returnTypeSchema,
+    };
+  }
+
+  customServerFunctionResponseDto(customFunction: CustomFunction & { traceId?: string }) {
+    return {
+      ...this.customFunctionToDetailsDto(customFunction),
+      traceId: customFunction.traceId,
     };
   }
 
@@ -1095,17 +1202,69 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  async createOrUpdateClientFunction(
+    environment: Environment,
+    context: string,
+    name: string,
+    description: string,
+    customCode: string,
+    typeSchemas: Record<string, any>,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
+  ) {
+    return this.createOrUpdateCustomFunction(
+      environment,
+      context,
+      name,
+      description,
+      customCode,
+      typeSchemas,
+      false,
+      null,
+      false,
+      checkBeforeCreate,
+    );
+  }
+
+  async createOrUpdateServerFunction(
+    environment: Environment,
+    context: string,
+    name: string,
+    description: string,
+    customCode: string,
+    typeSchemas: Record<string, any>,
+    apiKey: string,
+    logsEnabled: boolean,
+    checkBeforeCreate: () => Promise<void> = async () => undefined,
+    createFromScratch = false,
+  ) {
+    return this.createOrUpdateCustomFunction(
+      environment,
+      context,
+      name,
+      description,
+      customCode,
+      typeSchemas,
+      true,
+      apiKey,
+      logsEnabled,
+      checkBeforeCreate,
+      createFromScratch,
+    );
+  }
+
   async createOrUpdateCustomFunction(
     environment: Environment,
     context: string,
     name: string,
     description: string,
     customCode: string,
+    typeSchemas: Record<string, any>,
     serverFunction: boolean,
-    apiKey: string,
+    apiKey: string | null,
+    logsEnabled = false,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
     createFromScratch = false,
-  ): Promise<CustomFunction> {
+  ): Promise<CustomFunction & { traceId?: string }> {
     const {
       code,
       args,
@@ -1113,7 +1272,7 @@ export class FunctionService implements OnModuleInit {
       synchronous,
       contextChain,
       requirements,
-    } = await transpileCode(name, customCode);
+    } = await transpileCode(name, customCode, typeSchemas);
 
     context = context || contextChain.join('.');
 
@@ -1125,6 +1284,8 @@ export class FunctionService implements OnModuleInit {
       },
     });
 
+    let traceId: string | undefined;
+
     const argumentsNeedDescription = !customFunction || JSON.parse(customFunction.arguments).some((arg) => {
       const newArg = args.find((a) => a.key === arg.key);
       return !newArg || newArg.type !== arg.type || !arg.description;
@@ -1135,8 +1296,13 @@ export class FunctionService implements OnModuleInit {
         const {
           description: aiDescription,
           arguments: aiArguments,
-        } = await this.getCustomFunctionAIData(description, args, code);
+          traceId: aiTraceId,
+        } = await this.getCustomFunctionAIData(environment.tenantId, description, args, code);
         const existingArguments = JSON.parse(customFunction?.arguments || '[]') as FunctionArgument[];
+
+        if (aiTraceId) {
+          traceId = aiTraceId;
+        }
 
         description = description || customFunction?.description || aiDescription;
         aiArguments.forEach(aiArgument => {
@@ -1195,11 +1361,12 @@ export class FunctionService implements OnModuleInit {
           requirements: JSON.stringify(requirements),
           serverSide: serverFunction,
           apiKey: serverFunction ? apiKey : null,
+          logsEnabled,
         },
       });
     }
 
-    if (serverFunction) {
+    if (serverFunction && apiKey) {
       this.logger.debug(`Creating server side custom function ${name}`);
 
       const revertServerFunctionFlag = async () => {
@@ -1225,6 +1392,9 @@ export class FunctionService implements OnModuleInit {
           apiKey,
           await this.limitService.getTenantServerFunctionLimits(environment.tenantId),
           createFromScratch,
+          customFunction.sleep,
+          customFunction.sleepAfter,
+          logsEnabled,
         );
 
         return customFunction;
@@ -1237,7 +1407,10 @@ export class FunctionService implements OnModuleInit {
       }
     }
 
-    return customFunction;
+    return {
+      ...customFunction,
+      traceId,
+    };
   }
 
   async updateClientFunction(
@@ -1268,6 +1441,7 @@ export class FunctionService implements OnModuleInit {
     enabled?: boolean,
     sleep?: boolean,
     sleepAfter?: number,
+    logsEnabled?: boolean,
   ) {
     return this.updateCustomFunction(
       customFunction,
@@ -1279,6 +1453,7 @@ export class FunctionService implements OnModuleInit {
       enabled,
       sleep,
       sleepAfter,
+      logsEnabled,
     );
   }
 
@@ -1292,6 +1467,7 @@ export class FunctionService implements OnModuleInit {
     enabled?: boolean,
     sleep?: boolean,
     sleepAfter?: number,
+    logsEnabled?: boolean,
   ) {
     const { id, name: currentName, context: currentContext } = customFunction;
 
@@ -1308,7 +1484,7 @@ export class FunctionService implements OnModuleInit {
       `Updating custom function ${id} with name ${name}, context ${context}, description ${description}`,
     );
 
-    if (customFunction.serverSide && (sleepAfter != null || sleep != null)) {
+    if (customFunction.serverSide && (sleepAfter != null || sleep != null || logsEnabled != null)) {
       await this.faasService.updateFunction(
         customFunction.id,
         customFunction.environment.tenantId,
@@ -1320,6 +1496,7 @@ export class FunctionService implements OnModuleInit {
         await this.limitService.getTenantServerFunctionLimits(customFunction.environment.tenantId),
         sleep ?? customFunction.sleep,
         sleepAfter ?? customFunction.sleepAfter,
+        logsEnabled,
       );
     }
 
@@ -1336,6 +1513,7 @@ export class FunctionService implements OnModuleInit {
         arguments: argumentsMetadata ? JSON.stringify(argumentsMetadata) : undefined,
         sleep,
         sleepAfter,
+        logsEnabled,
       },
     });
   }
@@ -1553,7 +1731,8 @@ export class FunctionService implements OnModuleInit {
     this.logger.debug(`Executing server function ${customFunction.id}...`);
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
-    const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => args[arg.key]);
+
+    const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
 
     try {
       const result = await this.faasService.executeFunction(customFunction.id, executionEnvironment.tenantId, executionEnvironment.id, argumentsList, headers);
@@ -1618,6 +1797,7 @@ export class FunctionService implements OnModuleInit {
         JSON.parse(serverFunction.requirements || '[]'),
         apiKey,
         await this.limitService.getTenantServerFunctionLimits(serverFunction.environment.tenantId),
+        serverFunction.logsEnabled,
       );
     }
   }
@@ -1669,6 +1849,14 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
+  async getServerFunctionLogs(id: string, keyword: string, logsEnabled: boolean): Promise<{logsEnabled: boolean, logs: FunctionLog[]}> {
+    const logs = await this.faasLogsService.getLogs(id, keyword);
+    return {
+      logsEnabled,
+      logs,
+    };
+  }
+
   private isGraphQLBody(body: Body): body is GraphQLBody {
     return body.mode === 'graphql';
   }
@@ -1691,14 +1879,15 @@ export class FunctionService implements OnModuleInit {
       function ${functionName}(): void {};
     `;
 
-    const customFunction = await this.createOrUpdateCustomFunction(
+    const customFunction = await this.createOrUpdateServerFunction(
       user.environment,
       '',
       functionName,
       '',
       code,
-      true,
+      {},
       user.key,
+      false,
       () => Promise.resolve(),
       true,
     );
@@ -1716,7 +1905,7 @@ export class FunctionService implements OnModuleInit {
         if (body.options?.raw?.language === 'json') {
           return {
             ...body,
-            raw: this.commonService.filterJSONComments(body.raw),
+            raw: this.jsonTemplate.filterComments(body.raw),
           };
         }
         return body;
@@ -1799,11 +1988,12 @@ export class FunctionService implements OnModuleInit {
       required: argumentsMetadata[argument]?.required !== false,
       secure: argumentsMetadata[argument]?.secure || false,
       variable: argumentsMetadata[argument]?.variable || undefined,
+      removeIfNotPresentOnExecute: argumentsMetadata[argument]?.removeIfNotPresentOnExecute,
     };
   }
 
-  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>) {
-    const normalizeArg = (arg: any) => {
+  private async getArgumentValueMap(apiFunction: ApiFunction, args: Record<string, any>, normalizeArg = true) {
+    const normalizeArgFn = (arg: any) => {
       if (typeof arg === 'string') {
         return arg
           .replace(/\n/g, '\\n')
@@ -1837,9 +2027,9 @@ export class FunctionService implements OnModuleInit {
           this.logger.debug(`Expecting payload as object, but it is not: ${JSON.stringify(payload)}`);
           continue;
         }
-        argumentValueMap[arg.key] = normalizeArg(payload[arg.name]);
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(payload[arg.name]) : payload[arg.name];
       } else {
-        argumentValueMap[arg.key] = normalizeArg(args[arg.name]);
+        argumentValueMap[arg.key] = normalizeArg ? normalizeArgFn(args[arg.name]) : args[arg.name];
       }
     }
 
@@ -2327,11 +2517,13 @@ export class FunctionService implements OnModuleInit {
     return apiFunction;
   }
 
-  private async getCustomFunctionAIData(description: string, args: FunctionArgument[], code: string) {
+  private async getCustomFunctionAIData(tenantId: string, description: string, args: FunctionArgument[], code: string) {
     const {
       description: aiDescription,
       arguments: aiArguments,
+      trace_id: traceId,
     } = await this.aiService.getFunctionDescription(
+      tenantId,
       '',
       '',
       description,
@@ -2344,6 +2536,7 @@ export class FunctionService implements OnModuleInit {
     return {
       description: aiDescription,
       arguments: aiArguments || [],
+      traceId,
     };
   }
 
@@ -2368,130 +2561,6 @@ export class FunctionService implements OnModuleInit {
       : ['void'];
 
     return type === 'object' ? JSON.stringify(typeSchema) : type;
-  }
-
-  private getSanitizedRawBody(body: RawBody, argumentsMetadata: ArgumentsMetadata, argumentValueMap: Record<string, any>): RawBody {
-    const uuidRemovableKeyValue = crypto.randomUUID();
-
-    const parsedArgumentsMetadata = Object.entries(argumentsMetadata).reduce<Record<string, FunctionArgument>>((acum, [key]) => {
-      return {
-        ...acum,
-        [key]: this.toArgument(key, argumentsMetadata),
-      };
-    }, {});
-
-    const clonedArgumentValueMap = cloneDeep(argumentValueMap);
-
-    const sanitizeStringArgumentValue = (name: string, quoted: boolean) => {
-      const escapeRegularArgumentString = () => {
-        // Escape string values, we should  only escape double quotes to avoid breaking json syntax on mustache template.
-        const escapedString = (clonedArgumentValueMap[name] || uuidRemovableKeyValue).replace(/"/g, '\\"');
-
-        clonedArgumentValueMap[name] = quoted ? escapedString : `"${escapedString}"`;
-      };
-
-      try {
-        const parsedValue = JSON.parse(clonedArgumentValueMap[name]);
-
-        /*
-          If function argument string is an stringified JSON we should stringify it again since it will be included inside a key value in the
-          final rendered mustache template.
-        */
-        if (isPlainObject(parsedValue) || Array.isArray(parsedValue)) {
-          const doubleStringifiedValue = JSON.stringify(clonedArgumentValueMap[name]);
-
-          if (quoted) {
-            // Removed first and last double quotes since they are already present on mustache template.
-            clonedArgumentValueMap[name] = `${doubleStringifiedValue.replace(/^"/, '').replace(/"$/, '')}`;
-          } else {
-            clonedArgumentValueMap[name] = doubleStringifiedValue;
-          }
-        } else {
-          // Valid JSON string case, they are stringified strings, like JSON.stringify('foo') = '"foo"'
-          escapeRegularArgumentString();
-        }
-      } catch (err) {
-        // Invalid JSON but value it is still a string
-        escapeRegularArgumentString();
-      }
-    };
-
-    const sanitizeNonStringOptionalArgument = (name: string, quoted: boolean) => {
-      /*
-        We should set a "fake value" for optional arguments that are not strings and weren't provided on execution call from client side.
-        If not, since, non string arguments are specified on json raw as mustache syntax like `"data": {{data}}`, we would be building
-        an invalid json string since non string arguments are non enclosed by double quotes.
-        At the end of `getSanitizedRawBody`, before returning valid stringyfied object, we can remove this non provided arguments matching them
-        by our "fake value" in this function.
-      */
-      if (typeof clonedArgumentValueMap[name] === 'undefined') {
-        if (!quoted) {
-          clonedArgumentValueMap[name] = `"${uuidRemovableKeyValue}"`; // We should enclose fake value in double quotes since they are always unquoted.
-        }
-      }
-    };
-
-    const foundArgs: {
-      quoted: boolean,
-      name: string,
-    }[] = [];
-
-    const pushFoundArg = (arg: string, quoted: boolean) => {
-      foundArgs.push({
-        quoted,
-        name: arg.replace('{{', '').replace('}}', ''),
-      });
-    };
-
-    const unquotedArgsRegexp = /(?<!")\{\{.+?\}\}(?!")/ig;
-    const quotedArgsRegexp = /(?<=")\{\{.+?\}\}(?=")/ig;
-    const bodyString = body.raw || '';
-
-    const unquotedArgsMatchResult = bodyString.match(unquotedArgsRegexp) || [];
-    const quotedArgsMatchResult = bodyString.match(quotedArgsRegexp) || [];
-    this.logger.debug(`Api function body: ${JSON.stringify(body)}`);
-    this.logger.debug(`Arguments metadata for sanitization: ${JSON.stringify(argumentsMetadata)}`);
-    this.logger.debug(`Cloned arguments metadata for sanitization: ${JSON.stringify(parsedArgumentsMetadata)}`);
-    this.logger.debug(`Arguments value map for sanitization: ${JSON.stringify(argumentValueMap)}`);
-    this.logger.debug(`Sanitizing unquoted arguments: ${JSON.stringify(unquotedArgsMatchResult)}`);
-    this.logger.debug(`Sanitizing quoted arguments: ${JSON.stringify(quotedArgsMatchResult)}`);
-
-    for (const unquotedArg of unquotedArgsMatchResult) {
-      pushFoundArg(unquotedArg, false);
-    }
-
-    for (const quotedArg of quotedArgsMatchResult) {
-      pushFoundArg(quotedArg, true);
-    }
-
-    for (const arg of foundArgs) {
-      if (parsedArgumentsMetadata[arg.name]?.type === 'string') {
-        sanitizeStringArgumentValue(arg.name, arg.quoted);
-      } else {
-        sanitizeNonStringOptionalArgument(arg.name, arg.quoted);
-      }
-    }
-
-    const renderedContent = mustache.render(body.raw || '{}', clonedArgumentValueMap, {}, {
-      escape(text) {
-        return text;
-      },
-    });
-
-    this.logger.debug(`Rendered content after sanitization: ${renderedContent}`);
-
-    const parsedObjectFromRenderedContent = JSON.parse(renderedContent);
-
-    for (const [key, value] of Object.entries(parsedObjectFromRenderedContent)) {
-      if (value === uuidRemovableKeyValue) {
-        delete parsedObjectFromRenderedContent[key];
-      }
-    }
-
-    return {
-      ...body,
-      raw: JSON.stringify(parsedObjectFromRenderedContent),
-    };
   }
 
   private async resolveVisibility<T extends { environment: Environment & { tenant: Tenant }, context: string | null }>(
@@ -2571,5 +2640,14 @@ export class FunctionService implements OnModuleInit {
     }
 
     return result;
+  }
+
+  private getReturnTypeData(returnType: string | null): [string, Record<string, any> | undefined] {
+    try {
+      const typeSchema = returnType ? JSON.parse(returnType) : undefined;
+      return ['object', typeSchema];
+    } catch (e) {
+      return ['string', undefined];
+    }
   }
 }

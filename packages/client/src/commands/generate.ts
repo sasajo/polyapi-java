@@ -63,6 +63,7 @@ const generateJSFiles = async (specs: Specification[]) => {
   const serverVariables = specs.filter((spec) => spec.type === 'serverVariable') as ServerVariableSpecification[];
 
   await generateIndexJSFile();
+  await generatePolyCustomJSFile();
   await generateAxiosJSFile();
   await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
@@ -78,6 +79,17 @@ const generateIndexJSFile = async () => {
     `${POLY_LIB_PATH}/index.js`,
     indexJSTemplate({
       clientID: uuidv4(),
+      apiBaseUrl: getApiBaseUrl(),
+      apiKey: getApiKey(),
+    }),
+  );
+};
+
+const generatePolyCustomJSFile = async () => {
+  const polyCustomJSTemplate = handlebars.compile(await loadTemplate('poly-custom.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/poly-custom.js`,
+    polyCustomJSTemplate({
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
     }),
@@ -371,13 +383,36 @@ const getVariableValueTypeDeclarations = async (
 };
 
 const getSpecificationsTypeDeclarations = async (namespacePath: string, specifications: Specification[]): Promise<string> => {
+  const errors: Array<{declarationType: string; specData: string; stackTrace: string}> = [];
+  const getDeclarationOrHandleError = (
+    getDeclaration: () => Promise<string[] | string>,
+    specId: string,
+    specName: string,
+    declarationType: string,
+  ): Promise<string[] | string> => {
+    try {
+      return getDeclaration();
+    } catch (error) {
+      errors.push({
+        specData: `${[namespacePath, specName].join('.')} - id: ${specId}`,
+        declarationType,
+        stackTrace: error.stack,
+      });
+      return Promise.resolve('');
+    }
+  };
   const argumentsTypeDeclarations = (
     await Promise.all(
       specifications
         .filter((spec) => 'function' in spec)
         .map((spec) => spec as SpecificationWithFunction)
         .map((spec) =>
-          getArgumentsTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.function.arguments),
+          getDeclarationOrHandleError(
+            () => getArgumentsTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.function.arguments),
+            spec.id,
+            spec.name,
+            'function arguments',
+          ),
         ),
     )
   ).flat();
@@ -386,7 +421,12 @@ const getSpecificationsTypeDeclarations = async (namespacePath: string, specific
       .filter((spec) => 'function' in spec && spec.function.returnType.kind === 'object' && spec.function.returnType.schema)
       .map((spec) => spec as SpecificationWithFunction)
       .map((spec) =>
-        getReturnTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.function.returnType as ObjectPropertyType),
+        getDeclarationOrHandleError(
+          () => getReturnTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.function.returnType as ObjectPropertyType),
+          spec.id,
+          spec.name,
+          'return value',
+        ) as Promise<string>,
       ),
   );
   const variableValueDeclarations = await Promise.all(
@@ -394,9 +434,24 @@ const getSpecificationsTypeDeclarations = async (namespacePath: string, specific
       .filter((spec) => 'variable' in spec && spec.variable.valueType.kind === 'object' && spec.variable.valueType.schema)
       .map((spec) => spec as SpecificationWithVariable)
       .map((spec) =>
-        getVariableValueTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.variable.valueType as ObjectPropertyType),
+        getDeclarationOrHandleError(
+          () => getVariableValueTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.variable.valueType as ObjectPropertyType),
+          spec.id,
+          spec.name,
+          'variable value',
+        ) as Promise<string>,
       ),
   );
+
+  if (errors.length) {
+    shell.echo(chalk.yellow('\n\nWARNING!\n'));
+    shell.echo(chalk.yellow('The following errors were found when creating type declarations for some specifications.\n'));
+    errors.forEach((err) => {
+      shell.echo(`Specification: ${err.specData}`);
+      shell.echo(`Type declaration for: ${err.declarationType}`);
+      shell.echo(`Stack trace: ${err.stackTrace}\n`);
+    });
+  }
 
   return [...argumentsTypeDeclarations, ...returnTypeDeclarations, ...variableValueDeclarations].join('\n');
 };

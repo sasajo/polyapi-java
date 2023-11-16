@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import semver from 'semver';
 import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
 import jsonpath from 'jsonpath';
 import { validator } from '@exodus/schemasafe';
@@ -6,7 +7,7 @@ import axios from 'axios';
 import _ from 'lodash';
 import { toPascalCase } from '@guanghechen/helper-string';
 import { ConfigVariable, Environment, Prisma, Tenant } from '@prisma/client';
-import { CommentToken, parse, stringify } from 'comment-json';
+import { CommentToken, parse } from 'comment-json';
 import { ConfigService } from 'config/config.service';
 import { PathError } from './path-error';
 import {
@@ -21,18 +22,41 @@ import {
   Visibility,
   VisibilityQuery,
 } from '@poly/model';
+import { JsonTemplate, JsonTemplateProcessor } from 'function/custom/json-template';
 
-const ARGUMENT_TYPE_SUFFIX = '.Argument';
 const JSON_META_SCHEMA_CACHE = {};
 
 @Injectable()
 export class CommonService {
   private readonly logger = new Logger(CommonService.name);
+  private readonly jsonTemplate: JsonTemplateProcessor = new JsonTemplate();
 
   constructor(
     private readonly config: ConfigService,
   ) {
   }
+
+  checkPolyTrainingScriptVersion(clientVersion: string | undefined, serverVersion: string): void {
+    const throwUpdateScriptError = () => {
+      const scriptDownloadUrl = `${process.env.HOST_URL}/postman/scripts.zip`;
+      throw new BadRequestException(
+        `The Poly training code has been updated. Your training script needs to be upgraded to the latest version. Please download the latest script from ${scriptDownloadUrl} or contact support@polyapi.io if you need any assistance!`,
+      );
+    };
+    if (!clientVersion) {
+      throwUpdateScriptError();
+      return;
+    }
+    if (!semver.valid(clientVersion)) {
+      throw new BadRequestException(`Improper formatting of the script version, as sent by the client: ${clientVersion}. Should follow semantic versioning.`);
+    }
+    if (!semver.valid(serverVersion)) {
+      throw new InternalServerErrorException('Improper formatting of the script version on the server');
+    }
+    if (semver.major(clientVersion) !== semver.major(serverVersion) || semver.minor(clientVersion) !== semver.minor(serverVersion)) {
+      throwUpdateScriptError();
+    }
+  };
 
   async getJsonSchema(typeName: string, content: any): Promise<Record<string, any> | null> {
     if (!content) {
@@ -51,6 +75,7 @@ export class CommonService {
       lang: 'json-schema',
       inputData,
       indentation: '  ',
+      inferEnums: false,
     });
     const schema = JSON.parse(lines.join('\n'));
 
@@ -86,19 +111,24 @@ export class CommonService {
     }
   }
 
-  async resolveType(typeName: string, value: any, subpath?: string): Promise<[string, Record<string, any>?, Record<string, string>?]> {
+  async resolveType(typeName: string, value: any, subpath?: string, numericStringAsNumber = true): Promise<[string, Record<string, any>?, Record<string, string>?]> {
     const numberRegex = /^-?\d+\.?\d*$/;
     const booleanRegex = /^(true|false)$/;
 
-    if (numberRegex.test(value)) {
+    if (numericStringAsNumber) {
+      if (numberRegex.test(value)) {
+        return ['number'];
+      };
+    } else if (typeof value === 'number' && !Number.isNaN(value)) {
       return ['number'];
     }
+
     if (booleanRegex.test(value)) {
       return ['boolean'];
     }
     try {
       const isStringValue = typeof value === 'string';
-      let obj = isStringValue ? JSON.parse(this.filterJSONComments(value)) : value;
+      let obj = isStringValue ? JSON.parse(this.jsonTemplate.filterComments(value)) : value;
       if (obj && typeof obj === 'object') {
         if (subpath) {
           obj = this.getPathContent(obj, subpath);
@@ -131,10 +161,6 @@ export class CommonService {
         kind: 'array',
         items: await this.toPropertyType(name, type.substring(0, type.length - 2)),
       };
-    }
-    if (type.endsWith(ARGUMENT_TYPE_SUFFIX)) {
-      // backward compatibility (might be removed in the future)
-      type = 'object';
     }
 
     switch (type) {
@@ -353,36 +379,37 @@ export class CommonService {
     }
   }
 
-  filterJSONComments(jsonString: string) {
-    try {
-      return stringify(parse(jsonString, undefined, true));
-    } catch (e) {
-      // error while parsing json, return original string
-      return jsonString;
-    }
-  }
-
   private enhanceJSONSchemaWithComments(typeSchema: Record<string, any>, jsoncString: string, subpath?: string): Record<string, any> {
     const comments = this.extractComments(jsoncString, subpath);
 
-    const processObject = (obj: any, currentPath = '') => {
+    const processObject = (obj: any, currentPath = '', propertiesParent: Record<string, any> = typeSchema) => {
       if (obj.$ref) {
         processObject(_.get(typeSchema, obj.$ref.replace('#/', '').replace('/', '.')), currentPath);
         return;
       }
 
-      if (comments[currentPath]) {
-        obj.description = comments[currentPath];
+      let currentPathComment = comments[currentPath];
+      if (currentPathComment?.startsWith('?')) {
+        if (propertiesParent.required) {
+          propertiesParent.required = propertiesParent.required
+            .filter((requiredProp: string) => requiredProp !== currentPath.split('.').pop());
+        }
+
+        currentPathComment = currentPathComment.substring(1).trim();
+      }
+
+      if (currentPathComment) {
+        obj.description = currentPathComment;
       }
 
       if (obj.type === 'object' && obj.properties) {
         Object.keys(obj.properties).forEach((key) => {
           const propertyPath = currentPath ? `${currentPath}.${key}` : key;
 
-          processObject(obj.properties[key], propertyPath);
+          processObject(obj.properties[key], propertyPath, obj);
         });
       } else if (obj.type === 'array' && obj.items) {
-        processObject(obj.items, `${currentPath}.[]`);
+        processObject(obj.items, `${currentPath}.[]`, propertiesParent);
       }
     };
 

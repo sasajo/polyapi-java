@@ -26,7 +26,7 @@ export class SpecsController {
       specTenantId = tenantId;
     }
 
-    await this.authService.checkPermissions(req.user, Permission.Use);
+    await this.authService.checkPermissions(req.user, Permission.LibraryGenerate);
 
     this.logger.debug(`Getting all specs for environment ${environmentId} with contexts ${JSON.stringify(contexts)}, names ${JSON.stringify(names)}, ids ${JSON.stringify(ids)}`);
 

@@ -95,8 +95,20 @@ export class ConfigService {
     return this.get('POLY_CLIENT_NPM_VERSION', 'latest');
   }
 
+  get postmanScriptVersion(): string {
+    return '0.1.0';
+  }
+
+  get postmanTrainingAssistantScriptVersion(): string {
+    return '0.1.0';
+  }
+
   get faasPolyServerUrl(): string {
     return this.get('FAAS_POLY_SERVER_URL', this.hostUrl);
+  }
+
+  get faasPolyServerLogsUrl(): string {
+    return this.get('FAAS_POLY_SERVER_LOGS_URL');
   }
 
   get faasDockerContainerRegistry(): string {
@@ -157,6 +169,14 @@ export class ConfigService {
     } else {
       return 'redis://127.0.0.1:6379';
     }
+  }
+
+  get redisPassword(): string {
+    return this.get('REDIS_PASSWORD', '');
+  }
+
+  get redisUsername(): string {
+    return this.get('REDIS_USER');
   }
 
   get cacheTTL(): number {

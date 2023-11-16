@@ -4,7 +4,7 @@ import { VariableService } from 'variable/variable.service';
 import { AuthService } from 'auth/auth.service';
 import { Permission, CreateVariableDto, UpdateVariableDto, Visibility } from '@poly/model';
 import { AuthRequest } from 'common/types';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import {
   configServiceMock,
   limitServiceMock,
@@ -69,7 +69,7 @@ describe('VariableController', () => {
       } as AuthRequest;
 
       req.user.permissions = {
-        [Permission.Use]: true,
+        [Permission.Execute]: true,
       };
       await controller.getVariables(req);
 
@@ -84,7 +84,7 @@ describe('VariableController', () => {
       await controller.getVariables(req);
 
       req.user.permissions = {
-        [Permission.Use]: false,
+        [Permission.Execute]: false,
         [Permission.ManageNonSecretVariables]: false,
         [Permission.ManageSecretVariables]: false,
       };
@@ -171,12 +171,12 @@ describe('VariableController', () => {
       } as AuthRequest;
 
       req.user.permissions = {
-        [Permission.Use]: true,
+        [Permission.Execute]: true,
       };
       await controller.getVariable(req, 'test_variable_id');
 
       req.user.permissions = {
-        [Permission.Use]: false,
+        [Permission.Execute]: false,
       };
       await expect(controller.getVariable(req, 'test_variable_id')).rejects.toThrowError(ForbiddenException);
     });

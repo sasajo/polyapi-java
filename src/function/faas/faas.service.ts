@@ -1,8 +1,12 @@
-import { ServerFunctionLimits } from '@poly/model';
+import { ServerFunctionLimits, FunctionLog } from '@poly/model';
 
 export interface ExecuteFunctionResult {
   body: any;
   statusCode: number;
+}
+
+export interface FaasLogsService {
+  getLogs: (functionId: string, keyword: string) => Promise<FunctionLog[]>;
 }
 
 export interface FaasService {
@@ -19,6 +23,7 @@ export interface FaasService {
     createFromScratch?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
+    logsEnabled?: boolean,
   ) => Promise<void>;
   executeFunction: (id: string, tenantId: string, environmentId: string, args: any[], headers: Record<string, any>) => Promise<ExecuteFunctionResult>;
   updateFunction: (
@@ -32,6 +37,7 @@ export interface FaasService {
     limits: ServerFunctionLimits,
     sleep?: boolean | null,
     sleepAfter?: number | null,
+    logsEnabled?: boolean
   ) => Promise<void>;
   deleteFunction: (id: string, tenantId: string, environmentId: string) => Promise<void>;
 

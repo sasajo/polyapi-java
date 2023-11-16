@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Header,
   Headers,
@@ -20,6 +21,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiSecurity } from '@nestjs/swagger';
+import { ASSISTANCE_TRAINING_SCRIPT_VERSION_HEADER, TRAINING_SCRIPT_VERSION_HEADER } from '@poly/common/utils';
 import { FunctionService } from 'function/function.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
 import {
@@ -27,7 +29,9 @@ import {
   ApiFunctionResponseDto,
   ArgumentsMetadata,
   CreateApiFunctionDto,
-  CreateCustomFunctionDto,
+  CreateClientCustomFunctionDto,
+  CreateServerCustomFunctionDto,
+  CreateServerCustomFunctionResponseDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
   ExecuteCustomFunctionQueryParams,
@@ -37,6 +41,7 @@ import {
   FunctionPublicDetailsDto,
   Permission,
   Role,
+  TrainingFunctionDto,
   UpdateApiFunctionDto,
   UpdateClientCustomFunctionDto,
   UpdateServerCustomFunctionDto,
@@ -59,6 +64,7 @@ import { PerfLog } from 'statistics/perf-log.decorator';
 import { PerfLogType } from 'statistics/perf-log-type';
 import { PerfLogInterceptor } from 'statistics/perf-log-interceptor';
 import { PerfLogInfoProvider } from 'statistics/perf-log-info-provider';
+import { ConfigService } from 'config/config.service';
 
 @ApiSecurity('PolyApiKey')
 @Controller('functions')
@@ -75,6 +81,7 @@ export class FunctionController {
     private readonly commonService: CommonService,
     private readonly environmentService: EnvironmentService,
     private readonly perfLogInfoProvider: PerfLogInfoProvider,
+    private readonly configService: ConfigService,
   ) {
   }
 
@@ -87,7 +94,7 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/api')
-  async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<FunctionBasicDto> {
+  async createApiFunction(@Req() req: AuthRequest, @Body() data: CreateApiFunctionDto): Promise<TrainingFunctionDto> {
     const {
       url,
       body,
@@ -108,16 +115,20 @@ export class FunctionController {
       introspectionResponse = null,
       enableRedirect = false,
     } = data;
+
+    const clientScriptVersion = req.headers[TRAINING_SCRIPT_VERSION_HEADER] as string | undefined;
+    this.commonService.checkPolyTrainingScriptVersion(clientScriptVersion, this.configService.postmanScriptVersion);
+
     const environmentId = req.user.environment.id;
 
-    await this.authService.checkPermissions(req.user, Permission.Teach);
+    await this.authService.checkPermissions(req.user, Permission.ManageApiFunctions);
 
     this.logger.debug(`Creating or updating API function in environment ${environmentId}...`);
     this.logger.debug(
       `name: ${name}, context: ${context}, description: ${description}, payload: ${payload}, response: ${response}, statusCode: ${statusCode}`,
     );
 
-    return this.service.apiFunctionToBasicDto(
+    return this.service.apiFunctionToTrainingDto(
       await this.service.createOrUpdateApiFunction(
         id,
         req.user.environment,
@@ -191,7 +202,13 @@ export class FunctionController {
       visibility = null,
       source,
       enableRedirect,
+      returnType,
+      returnTypeSchema,
+      templateBody,
     } = data;
+
+    const clientScriptVersion = req.headers[ASSISTANCE_TRAINING_SCRIPT_VERSION_HEADER] as string | undefined;
+    this.commonService.checkPolyTrainingScriptVersion(clientScriptVersion, this.configService.postmanTrainingAssistantScriptVersion);
 
     const apiFunction = await this.service.findApiFunction(id);
     if (!apiFunction) {
@@ -202,14 +219,43 @@ export class FunctionController {
       throw new BadRequestException('`payload` cannot be updated without `response`');
     }
 
+    if (returnType === 'object' && !returnTypeSchema) {
+      throw new BadRequestException('returnTypeSchema is required if returnType is object');
+    }
+    if (returnTypeSchema && (returnType && returnType !== 'object')) {
+      throw new BadRequestException('returnTypeSchema is only allowed if returnType is object');
+    }
+    if (response && returnType) {
+      throw new BadRequestException('response and returnType cannot be set at the same time');
+    }
+    if (response && returnTypeSchema) {
+      throw new BadRequestException('response and returnTypeSchema cannot be set at the same time');
+    }
+
     this.checkSourceUpdateAuth(source);
 
     this.commonService.checkVisibilityAllowed(req.user.tenant, visibility);
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
+
+    const decodedTemplateBody = templateBody ? Buffer.from(templateBody, 'base64').toString() : templateBody;
 
     return this.service.apiFunctionToDetailsDto(
-      await this.service.updateApiFunction(apiFunction, name, context, description, argumentsMetadata, response, payload, visibility, source, enableRedirect),
+      await this.service.updateApiFunction(
+        apiFunction,
+        name,
+        context,
+        description,
+        argumentsMetadata,
+        response,
+        payload,
+        visibility,
+        source,
+        enableRedirect,
+        returnType,
+        returnTypeSchema,
+        decodedTemplateBody,
+      ),
     );
   }
 
@@ -226,7 +272,7 @@ export class FunctionController {
       throw new NotFoundException(`Function with id ${id} not found.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, true, Permission.Execute);
     data = await this.variableService.unwrapVariables(req.user, data);
 
     await this.statisticsService.trackFunctionCall(req.user, apiFunction.id, 'api');
@@ -247,7 +293,7 @@ export class FunctionController {
       throw new NotFoundException('Function not found');
     }
 
-    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.Teach);
+    await this.authService.checkEnvironmentEntityAccess(apiFunction, req.user, false, Permission.ManageApiFunctions);
     await this.service.deleteApiFunction(id);
   }
 
@@ -261,21 +307,20 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/client')
-  async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, description = '', code } = data;
+  async createClientFunction(@Req() req: AuthRequest, @Body() data: CreateClientCustomFunctionDto): Promise<FunctionDetailsDto> {
+    const { context = '', name, description = '', code, typeSchemas = {} } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     try {
       return this.service.customFunctionToDetailsDto(
-        await this.service.createOrUpdateCustomFunction(
+        await this.service.createOrUpdateClientFunction(
           req.user.environment,
           context,
           name,
           description,
           code,
-          false,
-          req.user.key,
+          typeSchemas,
           () => this.checkFunctionsLimit(req.user.tenant, 'creating custom client function'),
         ),
       );
@@ -371,25 +416,27 @@ export class FunctionController {
 
   @UseGuards(PolyAuthGuard)
   @Post('/server')
-  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateCustomFunctionDto): Promise<FunctionDetailsDto> {
-    const { context = '', name, description = '', code } = data;
+  async createServerFunction(@Req() req: AuthRequest, @Body() data: CreateServerCustomFunctionDto): Promise<CreateServerCustomFunctionResponseDto> {
+    const { environment } = req.user;
+    const { context = '', name, description = '', code, typeSchemas = {}, logsEnabled = environment.logsDefault } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
 
     await this.checkFunctionsLimit(req.user.tenant, 'creating custom server function');
 
     try {
-      const customFunction = await this.service.createOrUpdateCustomFunction(
-        req.user.environment,
+      const customFunction = await this.service.createOrUpdateServerFunction(
+        environment,
         context,
         name,
         description,
         code,
-        true,
+        typeSchemas,
         req.user.key,
+        logsEnabled,
         () => this.checkFunctionsLimit(req.user.tenant, 'creating custom server function'),
       );
-      return this.service.customFunctionToDetailsDto(customFunction);
+      return this.service.customServerFunctionResponseDto(customFunction);
     } catch (e) {
       throw new BadRequestException(e.message);
     }
@@ -441,6 +488,7 @@ export class FunctionController {
       arguments: argumentsMetadata,
       sleep,
       sleepAfter,
+      logsEnabled,
     } = data;
     const serverFunction = await this.service.findServerFunction(id, true);
     if (!serverFunction) {
@@ -465,7 +513,7 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     return this.service.customFunctionToDetailsDto(
-      await this.service.updateServerFunction(serverFunction, name, context, description, visibility, argumentsMetadata, enabled, sleep, sleepAfter),
+      await this.service.updateServerFunction(serverFunction, name, context, description, visibility, argumentsMetadata, enabled, sleep, sleepAfter, logsEnabled),
     );
   }
 
@@ -480,6 +528,27 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user, false, Permission.CustomDev);
 
     await this.service.deleteCustomFunction(id, req.user.environment);
+  }
+
+  @UseGuards(PolyAuthGuard)
+  @Get('/server/:id/logs')
+  async getServerFunctionLogs(@Req() req: AuthRequest, @Param('id') id: string, @Query('keyword') keyword): Promise<any> {
+    const serverFunction = await this.service.findServerFunction(id);
+    if (!serverFunction) {
+      throw new NotFoundException(`Function with ID ${id} not found.`);
+    }
+
+    if (req.user.environment.id !== serverFunction.environmentId) {
+      throw new ForbiddenException(`You do not have access to the logs of the function with ID ${id}.`);
+    }
+
+    if (!serverFunction.logsEnabled) {
+      throw new BadRequestException(`The function with ID ${id} does not have logging enabled. You can enable the logs by updating the function through the API (PATCH) or re-deploying the function through the Poly CLI.`);
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user);
+
+    return await this.service.getServerFunctionLogs(id, keyword, serverFunction.logsEnabled);
   }
 
   @PerfLog(PerfLogType.ServerFunctionExecution)
@@ -506,11 +575,9 @@ export class FunctionController {
       throw new BadRequestException(`Function with id ${id} has been disabled by System Administrator and cannot be used.`);
     }
 
-    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Use);
+    await this.authService.checkEnvironmentEntityAccess(customFunction, req.user, true, Permission.Execute);
 
-    console.log('Data before unwrap', JSON.stringify(data));
     data = await this.variableService.unwrapVariables(req.user, data);
-    console.log('Data after unwrap', data);
 
     await this.statisticsService.trackFunctionCall(req.user, customFunction.id, 'server');
 

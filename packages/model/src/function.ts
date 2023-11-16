@@ -59,5 +59,12 @@ export type ArgumentsMetadata = {
     typeObject?: object;
     payload?: boolean;
     variable?: string | null;
+    removeIfNotPresentOnExecute?: boolean;
   };
+};
+
+export type FunctionLog = {
+  timestamp: bigint | Date;
+  value: string;
+  level: string;
 };

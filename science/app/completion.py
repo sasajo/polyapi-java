@@ -6,10 +6,7 @@ from prisma import get_client
 from prisma.models import SystemPrompt, ConversationMessage
 from app.constants import QUESTION_TEMPLATE, MessageType
 from app.conversation import insert_prev_msgs
-
-# TODO change to relative imports
 from app.typedefs import (
-    # ChatGptStreamChoice,  TODO
     ExtractKeywordDto,
     StatsDict,
 )
@@ -18,11 +15,12 @@ from app.typedefs import (
     SpecificationDto,
     MessageDict,
 )
+from app.log import log
 from app.utils import (
     filter_to_real_public_ids,
     get_return_type_properties,
+    get_tenant_openai_key,
     insert_internal_step_info,
-    log,
     func_path_with_args,
     msgs_to_msg_dicts,
     public_ids_to_specs,
@@ -45,14 +43,26 @@ def insert_system_prompt(messages: List[MessageDict], environment_id: str) -> No
         messages.insert(0, p)
 
 
+def _rewrite_and_generate_id_map(specs: List[SpecificationDto]) -> Dict[int, str]:
+    """this generates an id_map from matches AND rewrites specs to have different, shorter ids
+    (the goal of this is to streamline Step 2 and make it faster)
+    """
+    rv: Dict[int, str] = {}
+    for idx, spec in enumerate(specs, start=1):
+        rv[idx] = spec["id"]
+        # HACK this is technically making spec.id have the wrong type (int not str) but practically it doesn't matter and int is shorter in json than str
+        spec["id"] = idx  # type: ignore
+    return rv
+
+
 def get_function_options_prompt(
     user_id: str,
     environment_id: str,
     keywords: Optional[ExtractKeywordDto],
-) -> Tuple[Optional[MessageDict], StatsDict]:
+) -> Tuple[Optional[MessageDict], Dict[int, str], StatsDict]:
     """get all matching functions that need to be injected into the prompt"""
     if not keywords:
-        return None, {"match_count": 0}
+        return None, {}, {"match_count": 0}
 
     specs_resp = query_node_server(user_id, environment_id, "specs")
     specs: List[SpecificationDto] = specs_resp.json()
@@ -62,6 +72,9 @@ def get_function_options_prompt(
     function_parts: List[str] = []
     webhook_parts: List[str] = []
     variable_parts: List[str] = []
+
+    id_map: Dict[int, str] = _rewrite_and_generate_id_map(top_matches)
+
     for match in top_matches:
         if match["type"] == "webhookHandle":
             webhook_parts.append(spec_prompt(match, include_argument_schema=False))
@@ -73,12 +86,16 @@ def get_function_options_prompt(
     content = _join_content(function_parts, webhook_parts, variable_parts)
 
     if content:
-        return {
-            "role": "assistant",
-            "content": content,
-        }, stats
+        return (
+            {
+                "role": "assistant",
+                "content": content,
+            },
+            id_map,
+            stats,
+        )
     else:
-        return None, stats
+        return None, {}, stats
 
 
 def _join_content(
@@ -105,20 +122,29 @@ def _join_content(
 
 def _has_double_data(return_props: Dict) -> bool:
     try:
-        return bool(return_props.get("data", {}).get("schema", {}).get("properties", {}).get("data"))
+        return bool(
+            return_props.get("data", {})
+            .get("schema", {})
+            .get("properties", {})
+            .get("data")
+        )
     except:
         # if there's some data type, just let it go
         # we are catching an edge case here
         return False
 
 
-def spec_prompt(spec: SpecificationDto, *, include_argument_schema=True, include_return_type=False) -> str:
+def spec_prompt(
+    spec: SpecificationDto, *, include_argument_schema=True, include_return_type=False
+) -> str:
     desc = spec.get("description", "")
     if spec["type"] == "serverVariable":
         path = f"// secret: {spec['variable']['secret']}\n"  # type: ignore
         path += f"vari.{spec['context']}.{spec['name']}"
     else:
-        path = func_path_with_args(spec, include_argument_schema=include_argument_schema)
+        path = func_path_with_args(
+            spec, include_argument_schema=include_argument_schema
+        )
 
     parts = [
         f"// id: {spec['id']}",
@@ -149,8 +175,10 @@ Which functions or variables could be invoked as is, if any, to implement this u
 Please return only the ids of the functions or variables and their confidence scores, on a scale of 1-3, in this format:
 
 ```
-[ {"id": "111111-1111-1111-1111-1111111111", "score": 3}, {"id": "222222-2222-2222-2222-222222222", "score": 1} ]
+[ {"id": 1, "score": 3}, {"id": 2, "score": 1} ]
 ```
+
+Do not explain your reasoning.
 
 If no function or variable is suitable, please return the following:
 
@@ -171,20 +199,22 @@ def get_best_function_messages(
     conversation_id: str,
     environment_id: str,
     question: str,
-) -> Tuple[List[MessageDict], StatsDict]:
+) -> Tuple[List[MessageDict], Dict[int, str], StatsDict]:
     keywords = extract_keywords(user_id, conversation_id, question)
-    options, stats = get_function_options_prompt(user_id, environment_id, keywords)
+    options, id_map, stats = get_function_options_prompt(
+        user_id, environment_id, keywords
+    )
     stats["prompt"] = question
 
     if not options:
-        return [], stats
+        return [], {}, stats
 
     messages = [
         options,
         MessageDict(role="user", content=BEST_FUNCTION_CHOICE_TEMPLATE % question),
     ]
     insert_system_prompt(messages, environment_id)
-    return messages, stats
+    return messages, id_map, stats
 
 
 def get_system_prompt() -> Optional[SystemPrompt]:
@@ -198,14 +228,15 @@ def get_system_prompt() -> Optional[SystemPrompt]:
 def get_best_functions(
     user_id: str, conversation_id: str, environment_id: str, question: str
 ) -> Tuple[List[str], StatsDict]:
-    messages, stats = get_best_function_messages(
+    messages, id_map, stats = get_best_function_messages(
         user_id, conversation_id, environment_id, question
     )
     if not messages:
         # we have no candidate functions whatsoever, abort!
         return [], stats
 
-    answer_msg = get_chat_completion(messages, temperature=0.2)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    answer_msg = get_chat_completion(messages, temperature=0.2, api_key=openai_api_key)
     assert isinstance(answer_msg, str)
 
     # store conversation
@@ -214,7 +245,7 @@ def get_best_functions(
     store_messages(conversation_id, messages)
 
     # continue
-    public_ids = _extract_ids_from_completion(answer_msg)
+    public_ids = _extract_ids_from_completion(answer_msg, id_map)
     if public_ids:
         # valid public id, send it back!
         rv = filter_to_real_public_ids(public_ids)
@@ -224,7 +255,7 @@ def get_best_functions(
         return [], stats
 
 
-def _extract_ids_from_completion(content: str) -> List[str]:
+def _extract_ids_from_completion(content: str, id_map: Dict[int, str]) -> List[str]:
     """sometimes OpenAI returns straight JSON, sometimes it gets chatty
     this extracts just the code snippet wrapped in ``` if it is valid JSON
     """
@@ -237,46 +268,54 @@ def _extract_ids_from_completion(content: str) -> List[str]:
             continue
 
         try:
-            if isinstance(data, dict) and data["score"] != 1:
+            if isinstance(data, dict):
                 # sometimes OpenAI messes up and doesn't put it in a List when there's a single item
-                public_ids = [data["id"]]
+                public_ids = [data["id"]] if data["score"] != 1 else []
             else:
                 public_ids = [d["id"] for d in data if d["score"] != 1]
+            public_ids = _rehydrate_public_ids(public_ids, id_map)
             return public_ids
-        except Exception as e:
-            # OpenAI has returned weird JSON, lets try something else!
-            log(f"invalid function ids returned, setting public_id to none: {e}")
-            continue
-
-    public_ids = _id_extraction_fallback(content)
-    if public_ids:
-        return public_ids
-    else:
-        log("invalid function ids returned, setting public_id to none")
-        return []
+        except Exception:
+            # OpenAI has returned weird JSON, lets log it and move on!
+            log("invalid function ids returned, setting public_ids to []")
+            return []
+    return []
 
 
-def _id_extraction_fallback(content: str) -> List[str]:
-    return UUID_REGEX.findall(content)
+def _rehydrate_public_ids(short_ids: List, id_map: Dict[int, str]) -> List[str]:
+    """we shorten to short ids"""
+    rv = []
+    for short_id in short_ids:
+        public_id = id_map.get(short_id)
+        if public_id:
+            rv.append(public_id)
+        else:
+            log(
+                f"ERROR: we got the short_id {short_id} back but it doesn't map to any uuid. Did OpenAI screw up or did we?"
+            )
+    return rv
 
 
 BEST_FUNCTION_DETAILS_TEMPLATE = """To import the Poly API Library:
-`import poly from 'polyapi'`
+
+{import_prompt}
 
 Consider the comments when generating example data.
 
 Use any combination of only the following functions to answer my question:
 
 {spec_str}
+
+{language_prompt}
 """
 
 BEST_FUNCTION_VARIABLES_TEMPLATE = """Use any combination of the following variables as arguments to those functions:
 
-%s
+{spec_str}
 
-To import vari:
+To import Vari:
 
-`import {vari} from 'polyapi'`
+{import_prompt}
 
 Each variable has the following methods:
 
@@ -298,6 +337,7 @@ def get_best_function_example(
     public_ids: List[str],
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
+    language: str = "",
 ) -> Union[Generator, str]:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
@@ -307,16 +347,35 @@ def get_best_function_example(
     variables = [s for s in specs if s["type"] == "serverVariable"]
     specs = [s for s in specs if s["type"] != "serverVariable"]
 
+    language_prompt = ""
+    if language:
+        language_prompt = f"Please provide all code examples in {language}"
+
     best_functions_prompt = BEST_FUNCTION_DETAILS_TEMPLATE.format(
+        import_prompt=_get_function_import_prompt(language),
         spec_str="\n\n".join(
             spec_prompt(spec, include_return_type=True) for spec in specs
-        )
+        ),
+        language_prompt=language_prompt,
     )
-    messages = [MessageDict(role="user", content=best_functions_prompt, type=MessageType.context.value)]
+    messages = [
+        MessageDict(
+            role="user", content=best_functions_prompt, type=MessageType.context.value
+        )
+    ]
 
     if variables:
-        best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE % "\n\n".join(spec_prompt(v) for v in variables)
-        messages.append(MessageDict(role="user", content=best_variables_prompt, type=MessageType.context.value))
+        best_variables_prompt = BEST_FUNCTION_VARIABLES_TEMPLATE.format(
+            spec_str="\n\n".join(spec_prompt(v) for v in variables),
+            import_prompt=_get_variable_import_prompt(language),
+        )
+        messages.append(
+            MessageDict(
+                role="user",
+                content=best_variables_prompt,
+                type=MessageType.context.value,
+            )
+        )
 
     question_msg = MessageDict(
         role="user", content=QUESTION_TEMPLATE.format(question), type=MessageType.user
@@ -326,14 +385,25 @@ def get_best_function_example(
     insert_prev_msgs(messages, prev_msgs)
     insert_system_prompt(messages, environment_id)
 
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
     try:
-        resp = get_chat_completion(messages, temperature=0.5, stream=True)
+        resp = get_chat_completion(
+            messages, temperature=0.5, stream=True, api_key=openai_api_key
+        )
     except InvalidRequestError as e:
         if "maximum content length" in str(e) and prev_msgs:
-            log(f"InvalidRequestError due to maximum content length: {e}\ntrying again without prev_msgs")
-            messages = messages[len(prev_msgs) + 1:]  # let's trim off prev messages and system prompt
-            insert_system_prompt(messages, environment_id)  # let's reinsert system prompt
-            resp = get_chat_completion(messages, temperature=0.5, stream=True)  # try again!
+            log(
+                f"InvalidRequestError due to maximum content length: {e}\ntrying again without prev_msgs"
+            )
+            messages = messages[
+                len(prev_msgs) + 1 :
+            ]  # let's trim off prev messages and system prompt
+            insert_system_prompt(
+                messages, environment_id
+            )  # let's reinsert system prompt
+            resp = get_chat_completion(
+                messages, temperature=0.5, stream=True, api_key=openai_api_key
+            )  # try again!
         else:
             # cant recover from this error, just move on!
             raise
@@ -345,12 +415,27 @@ def get_best_function_example(
     return resp
 
 
+def _get_function_import_prompt(language: str) -> str:
+    if language and language.lower() == "java":
+        return "`import io.polyapi.Poly`"
+    else:
+        return "`import poly from 'polyapi'`"
+
+
+def _get_variable_import_prompt(language: str) -> str:
+    if language and language.lower() == "java":
+        return "`import io.polyapi.Vari`"
+    else:
+        return "`import {vari} from 'polyapi'`"
+
+
 def get_completion_answer(
     user_id: str,
     conversation_id: str,
     environment_id: str,
     question: str,
     prev_msgs: List[ConversationMessage],
+    language: str = "",
 ) -> Union[Generator, str]:
     best_function_ids, stats = get_best_functions(
         user_id, conversation_id, environment_id, question
@@ -366,16 +451,10 @@ def get_completion_answer(
             best_function_ids,
             question,
             prev_msgs,
+            language,
         )
     else:
         return general_question(user_id, conversation_id, question, prev_msgs)  # type: ignore
-
-
-def simple_chatgpt_question(question: str) -> str:
-    messages = [MessageDict(role="user", content=question)]
-    content = get_chat_completion(messages)
-    assert isinstance(content, str)
-    return content
 
 
 def general_question(
@@ -389,6 +468,7 @@ def general_question(
         MessageDict(role="user", content=question, type=MessageType.user)
     ]
 
-    resp = get_chat_completion(messages, stream=True)
+    openai_api_key = get_tenant_openai_key(user_id=user_id)
+    resp = get_chat_completion(messages, stream=True, api_key=openai_api_key)
     store_messages(conversation_id, messages)
     return resp

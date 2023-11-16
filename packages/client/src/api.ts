@@ -3,7 +3,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import https from 'https';
 import dotenv from 'dotenv';
-import { FunctionDetailsDto, SignUpDto, SignUpVerificationResultDto, Specification, TosDto } from '@poly/model';
+import { CreateServerCustomFunctionResponseDto, FunctionDetailsDto, SignUpDto, SignUpVerificationResultDto, Specification, TosDto } from '@poly/model';
 import { getInstanceUrl } from '@poly/common/utils';
 
 dotenv.config();
@@ -55,15 +55,17 @@ export const createOrUpdateServerFunction = async (
   name: string,
   description: string | null,
   code: string,
+  typeSchemas: Record<string, any>,
 ) => {
   return (
-    await axios.post<any, AxiosResponse<FunctionDetailsDto>>(
+    await axios.post<any, AxiosResponse<CreateServerCustomFunctionResponseDto>>(
       `${getApiBaseURL()}/functions/server`,
       {
         context,
         name,
         description,
         code,
+        typeSchemas,
       },
       {
         headers: {
@@ -80,6 +82,7 @@ export const createOrUpdateClientFunction = async (
   name: string,
   description: string | null,
   code: string,
+  typeSchemas: Record<string, any>,
 ) => {
   return (
     await axios.post<any, AxiosResponse<FunctionDetailsDto>>(
@@ -89,6 +92,7 @@ export const createOrUpdateClientFunction = async (
         name,
         description,
         code,
+        typeSchemas,
       },
       {
         headers: {

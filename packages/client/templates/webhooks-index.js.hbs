@@ -11,12 +11,12 @@ const webhookHandles = [
 {{/each}}
 ];
 
-const registerWebhookEventListener = (clientID, getSocket, webhookHandleID, callback) => {
+const registerWebhookEventListener = (clientID, getSocket, getApiKey, webhookHandleID, callback) => {
   const socket = getSocket();
   socket.emit('registerWebhookEventHandler', {
     clientID,
     webhookHandleID,
-    apiKey: '{{apiKey}}'
+    apiKey: getApiKey(),
   }, registered => {
     if (registered) {
       socket.on(
@@ -32,15 +32,15 @@ const registerWebhookEventListener = (clientID, getSocket, webhookHandleID, call
     socket.emit('unregisterWebhookEventHandler', {
       clientID,
       webhookHandleID,
-      apiKey: '{{apiKey}}'
+      apiKey: getApiKey(),
     });
   }
 };
 
-module.exports = (clientID, getSocket) => merge(
+module.exports = (clientID, getSocket, getApiKey) => merge(
   {},
   webhookHandles.reduce(
-    (acc, [path, id]) => set(acc, path, (callback) => registerWebhookEventListener(clientID, getSocket, id, callback)),
+    (acc, [path, id]) => set(acc, path, (callback) => registerWebhookEventListener(clientID, getSocket, getApiKey, id, callback)),
     {}
   ),
 );

@@ -48,9 +48,9 @@ class RawBody extends Body {
     })
     mode: 'raw';
 
-    @IsString()
+    @IsObject()
     @ApiModelProperty()
-    raw: string;
+    raw: Record<string, any>;
 }
 
 class UrlEncodedBody extends Body {

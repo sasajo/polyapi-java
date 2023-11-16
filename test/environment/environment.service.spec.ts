@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { Environment } from '@prisma/client';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import { EnvironmentService } from 'environment/environment.service';
 import { configServiceMock, prismaServiceMock, secretServiceMock } from '../mocks';
 import { resetMocks } from '../mocks/utils';
@@ -14,6 +14,7 @@ describe('EnvironmentService', () => {
     tenantId: 'tenantId12345',
     subdomain: 'subdomain12345',
     createdAt: new Date(),
+    logsDefault: false,
   };
 
   let service: EnvironmentService;
@@ -55,6 +56,7 @@ describe('EnvironmentService', () => {
         id: testEnvironment.id,
         name: testEnvironment.name,
         subdomain: testEnvironment.subdomain,
+        logsDefault: testEnvironment.logsDefault,
       });
     });
   });

@@ -3,7 +3,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import { SystemPrompt, DocSection } from '@prisma/client';
 import {
   FunctionDescriptionDto,
@@ -21,10 +21,14 @@ export class AiService {
     private readonly prisma: PrismaService,
   ) {}
 
-  getFunctionCompletion(environmentId: string, userId: string, uuid: string, workspaceFolder = '') {
+  getFunctionCompletion(environmentId: string, userId: string, uuid: string, workspaceFolder = '', language = '') {
     let scienceUrl = `${this.config.scienceServerBaseUrl}/function-completion?user_id=${userId}&environment_id=${environmentId}&question_uuid=${uuid}`;
     if (workspaceFolder) {
       scienceUrl += `&workspace_folder=${workspaceFolder}`;
+    }
+
+    if (language) {
+      scienceUrl += `&language=${language}`;
     }
 
     return new EventSource(scienceUrl);
@@ -60,6 +64,7 @@ export class AiService {
   }
 
   async getFunctionDescription(
+    tenantId: string,
     url: string,
     method: string,
     description: string,
@@ -72,6 +77,7 @@ export class AiService {
     return await lastValueFrom(
       this.httpService
         .post(`${this.config.scienceServerBaseUrl}/function-description`, {
+          tenantId,
           url,
           method,
           short_description: description,
@@ -85,12 +91,13 @@ export class AiService {
     );
   }
 
-  async getWebhookDescription(url: string, description: string, payload: string): Promise<FunctionDescriptionDto> {
+  async getWebhookDescription(tenantId: string, url: string, description: string, payload: string): Promise<FunctionDescriptionDto> {
     this.logger.debug(`Getting description for webhook: ${url} POST`);
 
     return await lastValueFrom(
       this.httpService
         .post(`${this.config.scienceServerBaseUrl}/webhook-description`, {
+          tenantId,
           url,
           method: 'POST',
           short_description: description,
@@ -102,6 +109,7 @@ export class AiService {
   }
 
   async getVariableDescription(
+    environmentId: string,
     name: string,
     context: string,
     secret: boolean,
@@ -109,9 +117,13 @@ export class AiService {
   ): Promise<VariableDescriptionDto> {
     this.logger.debug(`Getting description for variable: ${name}`);
 
+    const environment = await this.prisma.environment.findUniqueOrThrow({ where: { id: environmentId } });
+    const tenantId = environment.tenantId;
+
     return await lastValueFrom(
       this.httpService
         .post(`${this.config.scienceServerBaseUrl}/variable-description`, {
+          tenantId,
           name,
           context,
           secret,

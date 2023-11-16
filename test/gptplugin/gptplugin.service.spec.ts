@@ -1,5 +1,5 @@
 import { GptPluginService, PluginFunction } from 'gptplugin/gptplugin.service';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Environment } from '@prisma/client';
 import { Request } from 'express';
@@ -340,21 +340,48 @@ describe('GptPluginService', () => {
   });
 
   describe('chat', () => {
-    xit('hit the AI servers', async () => {
+    it('hit the AI servers', async () => {
       const chatMock = aiServiceMock.pluginChat;
       if (!chatMock) {
         throw new Error('should be defined');
       }
       chatMock.mockReturnValue(new Promise((resolve) => resolve('Pong')));
 
+      const apiKey = await prisma.apiKey.findFirst();
+      if (!apiKey) {
+        throw new Error('need an api key');
+      }
+
+      const hashMock = authServiceMock.hashApiKey;
+      if (!hashMock) {
+        throw new Error('should be defined!');
+      }
+      hashMock.mockReturnValue(new Promise((resolve) => resolve(apiKey.key)));
+
       const environment = await createTestEnvironment(prisma);
       const plugin = await createPlugin(prisma);
       const authData = {
-        key: '123', // TODO make this a real api key so test passes?
+        key: apiKey.key,
+        user: { id: apiKey.userId },
+        applicationId: { id: apiKey.applicationId },
         environment,
       };
-      const resp = await service.chat(authData, plugin.slug, 'foobar', 'hello world');
+      const convoSlug = 'foobar123';
+      // ignore the type for authData, we have all we need in the mock
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const resp = await service.chat(authData, plugin.slug, convoSlug, 'hello world');
+
       expect(chatMock).toHaveBeenCalledTimes(1);
+      expect(hashMock).toHaveBeenCalledTimes(1);
+
+      const newConvo = await prisma.conversation.findFirst({ where: { slug: convoSlug } });
+      if (!newConvo) {
+        throw new Error('no new convo, test fail');
+      }
+      expect(newConvo.applicationId).toBe(apiKey.applicationId);
+      expect(newConvo.userId).toBe(apiKey.userId);
+      expect(newConvo.slug).toBe(convoSlug);
       expect(resp).toBe('Pong');
     });
   });

@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import unittest
 from prisma import Prisma
 from app import create_app
@@ -29,3 +30,13 @@ class DbTestCase(unittest.TestCase):
 
     def assertStatus(self, resp: TestResponse, status: int) -> None:
         self.assertEqual(resp.status_code, status, resp.data)
+
+    @contextmanager
+    def override_config(self, **kwargs):
+        original = {}
+        for key, val in kwargs.items():
+            original[key] = original.get(key)
+
+        self.app.config.update(**kwargs)
+        yield
+        self.app.config.update(**original)

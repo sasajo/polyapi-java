@@ -6,6 +6,9 @@ export const INSTANCE_URL_MAP = {
   local: 'localhost:8000',
 };
 
+export const ASSISTANCE_TRAINING_SCRIPT_VERSION_HEADER = 'x-poly-training-assistant-version';
+export const TRAINING_SCRIPT_VERSION_HEADER = 'x-poly-training-script-version';
+
 export const getInstanceUrl = (instance = 'local') => {
   if (typeof INSTANCE_URL_MAP[instance] === 'undefined') {
     return instance;
@@ -88,3 +91,12 @@ export const getOneDayLaterDate = () => {
 };
 
 export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const getDateFromNanoseconds = (nanoSecondsTime: bigint): Date => new Date(Number(nanoSecondsTime) / 1000000);
+
+export const getNanosecondsFromDate = (date: Date): string => `${date.getTime() * 1000000}`;
+
+export const getDateMinusXHours = (date: Date, hours: number): Date => {
+  date.setHours(date.getHours() - hours);
+  return date;
+};

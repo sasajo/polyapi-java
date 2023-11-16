@@ -2,7 +2,7 @@
 import json
 from typing import Any, Dict, Generator, Optional, Union
 from flask import Blueprint, Response, request, jsonify
-from openai.error import OpenAIError, RateLimitError
+from openai.error import OpenAIError, RateLimitError, APIError
 from app.completion import general_question, get_completion_answer
 from app.constants import MessageType, PerfLogType
 from app.conversation import get_chat_conversation_lookback, get_recent_messages
@@ -20,7 +20,6 @@ from app.utils import (
     create_new_conversation,
     get_last_conversation,
     get_user,
-    log,
     redis_get,
     store_messages,
     verify_required_fields,
@@ -85,24 +84,54 @@ def function_completion() -> Response:
     route, question = split_route_and_question(question)
     stats["route"] = route
 
-    resp: Union[Generator, str] = ""  # either str or streaming completion type
-    if route == "function":
-        resp = get_completion_answer(
-            user_id, conversation.id, environment_id, question, prev_msgs
-        )
-    elif route == "general":
-        resp = general_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
-    elif route == "help":
-        resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
-    elif route == "tenant_documentation":
-        resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenantId=user.tenantId)
-    elif route == "poly_documentation":
-        resp = documentation_question(user_id, conversation.id, question, prev_msgs, tenantId=None)
-    else:
-        resp = "unexpected category: {route}"
+    language = data.get("language", "")
 
-    if user.vip:
-        log(f"VIP USER {user_id}", resp, sep="\n")
+    try:
+        resp: Union[Generator, str] = ""  # either str or streaming completion type
+        if route == "function":
+            resp = get_completion_answer(
+                user_id, conversation.id, environment_id, question, prev_msgs, language
+            )
+        elif route == "general":
+            resp = general_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
+        elif route == "help":
+            resp = help_question(user_id, conversation.id, question, prev_msgs)  # type: ignore
+        elif route == "tenant_documentation":
+            resp = documentation_question(
+                user_id,
+                conversation.id,
+                question,
+                prev_msgs,
+                docs_tenant_id=user.tenantId,
+                openai_tenant_id=user.tenantId,
+            )
+        elif route == "poly_documentation":
+            resp = documentation_question(
+                user_id,
+                conversation.id,
+                question,
+                prev_msgs,
+                docs_tenant_id=None,
+                openai_tenant_id=user.tenantId,
+            )
+        elif route == "error":
+            # mock error for testing
+            raise RateLimitError("That model is currently overloaded...")
+        else:
+            resp = "unexpected category: {route}"
+    except Exception as e:
+        if isinstance(e, OpenAIError):
+            msg = handle_open_ai_error(e)
+        else:
+            msg = str(e)
+
+        err_data = {"message": msg}
+
+        return Response(
+            f"event:error\ndata:{json.dumps(err_data)}\n\n",
+            status=200,  # HACK arbitrary error code
+            mimetype="text/event-stream",
+        )
 
     def generate():
         if isinstance(resp, str):
@@ -174,9 +203,9 @@ def function_description() -> Response:
     resp = jsonify(desc)
 
     perf.set_data(
-        snippet=data['url'],
+        snippet=data["url"],
         input_length=len(request.data),
-        output_length=int(resp.headers['Content-Length']),
+        output_length=int(resp.headers["Content-Length"]),
         type=PerfLogType.science_generate_description.value,
         # TODO pass in userId so we can track that?
     )
@@ -202,17 +231,23 @@ def plugin_chat() -> Response:
 
     data = request.get_json(force=True)
 
-    verify_required_fields(data, ["apiKey", "apiKeyId", "pluginId", "conversationId", "message"])
+    verify_required_fields(
+        data, ["apiKey", "apiKeyId", "pluginId", "conversationId", "message"]
+    )
     messages = get_plugin_chat(
-        data["apiKey"], data["apiKeyId"], data["pluginId"], data["conversationId"], data["message"]
+        data["apiKey"],
+        data["apiKeyId"],
+        data["pluginId"],
+        data["conversationId"],
+        data["message"],
     )
 
     resp = jsonify(messages)
     perf.set_data(
-        apiKey=data['apiKey'],
-        snippet=data['message'],
-        input_length=len(data['message']),
-        output_length=int(resp.headers['Content-Length']),
+        apiKey=data["apiKey"],
+        snippet=data["message"],
+        input_length=len(data["message"]),
+        output_length=int(resp.headers["Content-Length"]),
         type=PerfLogType.science_api_execute.value,
     )
     perf.stop_and_save()
@@ -238,6 +273,13 @@ def error():
     raise NotImplementedError("Intentional error successfully triggered!")
 
 
+@bp.route("/error-api")
+def error_api():
+    raise APIError(
+        "That model is currently overloaded with other requests. You can retry your request, or contact us through our help center at help.openai.com if the error persists. (Please include the request ID 1a63543dd9855ee708b9020f73d50a38 in your message."
+    )
+
+
 @bp.route("/error-rate-limit")
 def error_rate_limit():
     raise RateLimitError(
@@ -246,7 +288,13 @@ def error_rate_limit():
 
 
 @bp.errorhandler(OpenAIError)
-def handle_open_ai_error(e):
+def openai_error_view(e):
+    # now you're handling non-HTTP exceptions only
+    msg = handle_open_ai_error(e)
+    return msg, 500
+
+
+def handle_open_ai_error(e: OpenAIError) -> str:
     # now you're handling non-HTTP exceptions only
     from flask import current_app
 
@@ -259,11 +307,12 @@ def handle_open_ai_error(e):
         # just pass along whatever
         msg = "OpenAI Error: {}".format(str(e))
     current_app.log_exception(msg)
-    return msg, 500
+    return msg
 
 
 @bp.errorhandler(400)
 def handle_400(e):
+    print(f"400 error desc from science server: {e.description}")
     return e.description, 400
 
 

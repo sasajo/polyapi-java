@@ -1,0 +1,1 @@
+export const ARGUMENT_PATTERN = /(?<=\{\{)([^}{]+)(?=\}\})/g;

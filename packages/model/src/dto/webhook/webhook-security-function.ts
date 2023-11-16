@@ -1,10 +1,10 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class WebhookSecurityFunction {
   @IsString()
   id: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   message?: string;
 }

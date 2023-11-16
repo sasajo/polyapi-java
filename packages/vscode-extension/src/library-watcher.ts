@@ -2,7 +2,8 @@ import vscode from 'vscode';
 import fs, { Stats } from 'fs';
 
 import { polySpecsChanged } from './events';
-import { getCredentialsFromExtension, isPolyLibraryInstalled, saveCredentialsInExtension, saveCredentialsOnClientLibrary } from './common';
+import { getCredentialsFromExtension, isPolyLibraryInstalled, saveCredentialsInExtension, saveLibraryConfig } from './common';
+import { saveLastOpenedFileName } from './chat/language';
 
 const CHECK_INTERVAL = 5000;
 
@@ -24,7 +25,10 @@ const checkForLibraryInstalled = () => {
   if (installed && !prevPolyLibraryInstalledState) {
     const extensionCredentials = getCredentialsFromExtension();
     if (extensionCredentials.apiBaseUrl && extensionCredentials.apiKey) {
-      saveCredentialsOnClientLibrary(extensionCredentials.apiBaseUrl, extensionCredentials.apiKey);
+      saveLibraryConfig({
+        POLY_API_BASE_URL: extensionCredentials.apiBaseUrl,
+        POLY_API_KEY: extensionCredentials.apiKey,
+      });
     } else {
       vscode.commands.executeCommand('setContext', 'missingCredentials', false);
     }
@@ -36,30 +40,59 @@ const checkForLibraryInstalled = () => {
   vscode.commands.executeCommand('setContext', 'polyLibraryInstalled', installed);
 };
 
+const updateMissingCredentialsContext = (credentials: ReturnType<typeof getCredentialsFromExtension>) => {
+  if (!credentials.apiBaseUrl || !credentials.apiKey) {
+    vscode.commands.executeCommand('setContext', 'missingCredentials', true);
+  } else {
+    vscode.commands.executeCommand('setContext', 'missingCredentials', false);
+  }
+};
+
 const watchCredentials = () => {
   return vscode.workspace.onDidChangeConfiguration(event => {
     if (event.affectsConfiguration('poly.apiBaseUrl') || event.affectsConfiguration('poly.apiKey')) {
       const credentials = getCredentialsFromExtension();
-      if (!credentials.apiBaseUrl || !credentials.apiKey) {
-        vscode.commands.executeCommand('setContext', 'missingCredentials', true);
-      } else if (isPolyLibraryInstalled()) {
-        saveCredentialsOnClientLibrary(credentials.apiBaseUrl, credentials.apiKey);
-        vscode.commands.executeCommand('setContext', 'missingCredentials', false);
+
+      updateMissingCredentialsContext(credentials);
+
+      if (isPolyLibraryInstalled()) {
+        saveLibraryConfig({
+          POLY_API_BASE_URL: credentials.apiBaseUrl,
+          POLY_API_KEY: credentials.apiKey,
+        });
       }
     }
   });
 };
 
-export const start = () => {
+const trackLastOpenedFile = (context: vscode.ExtensionContext) => {
+  const activeTextEditor = vscode.window.activeTextEditor;
+
+  if (activeTextEditor) {
+    saveLastOpenedFileName(context, activeTextEditor.document.fileName);
+  }
+
+  return vscode.window.onDidChangeActiveTextEditor((event) => {
+    if (typeof event !== 'undefined') {
+      saveLastOpenedFileName(context, event.document.fileName);
+    }
+  });
+};
+
+export const start = (context: vscode.ExtensionContext) => {
   polySpecsChanged({});
 
-  vscode.workspace.onDidChangeWorkspaceFolders((event) => {
+  const onDidChangeWorkspaceFoldersDisposable = vscode.workspace.onDidChangeWorkspaceFolders((event) => {
     event.added.forEach(watchWorkspace);
     event.removed.forEach(unwatchWorkspace);
   });
   vscode.workspace.workspaceFolders?.forEach(watchWorkspace);
 
+  const trackOpenedFileDisposable = trackLastOpenedFile(context);
+
   checkForLibraryInstalled();
+
+  updateMissingCredentialsContext(getCredentialsFromExtension());
 
   const credentialsWatcherDisposable = watchCredentials();
 
@@ -70,6 +103,8 @@ export const start = () => {
     }
     prevPolyLibraryInstalledState = false;
     credentialsWatcherDisposable.dispose();
+    onDidChangeWorkspaceFoldersDisposable.dispose();
+    trackOpenedFileDisposable.dispose();
   };
 };
 

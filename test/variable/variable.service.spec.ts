@@ -4,7 +4,7 @@ import { ConflictException } from '@nestjs/common';
 import { VariableService } from 'variable/variable.service';
 import { Variable } from '@prisma/client';
 import { Visibility } from '@poly/model';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import { SecretService } from 'secret/secret.service';
 import {
   aiServiceMock,
@@ -527,7 +527,7 @@ describe('VariableService', () => {
       });
 
       expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
-      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value);
+      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value, undefined, false);
       expect(commonServiceMock.toPropertyType).toHaveBeenCalledWith(variable.name, resolvedType[0], value, resolvedType[1]);
     });
 
@@ -621,7 +621,7 @@ describe('VariableService', () => {
       });
 
       expect(secretServiceMock.get).toHaveBeenCalledWith(variable.environmentId, variable.id);
-      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value);
+      expect(commonServiceMock.resolveType).toHaveBeenCalledWith('ValueType', value, undefined, false);
       expect(commonServiceMock.toPropertyType).toHaveBeenCalledWith(variable.name, resolvedType[0], value, resolvedType[1]);
     });
 

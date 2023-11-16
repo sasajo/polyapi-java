@@ -2,7 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { AuthProviderController } from './auth-provider.controller';
 import { AuthProviderService } from './auth-provider.service';
-import { PrismaModule } from 'prisma/prisma.module';
+import { PrismaModule } from 'prisma-module/prisma.module';
 import { EventModule } from 'event/event.module';
 import { SpecsModule } from 'specs/specs.module';
 import { AuthModule } from 'auth/auth.module';
@@ -11,6 +11,7 @@ import { VariableModule } from 'variable/variable.module';
 import { LimitModule } from 'limit/limit.module';
 import { StatisticsModule } from 'statistics/statistics.module';
 import { ConfigVariableModule } from 'config-variable/config-variable.module';
+import { SecretModule } from 'secret/secret.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ConfigVariableModule } from 'config-variable/config-variable.module';
     LimitModule,
     StatisticsModule,
     ConfigVariableModule,
+    SecretModule,
   ],
   controllers: [AuthProviderController],
   providers: [AuthProviderService],

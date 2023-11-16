@@ -1,11 +1,11 @@
 import { BadRequestException, CACHE_MANAGER, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma-module/prisma.service';
 import { AiService } from 'ai/ai.service';
 import { Observable } from 'rxjs';
 import { Cache } from 'cache-manager';
 import crypto from 'crypto';
 import { Permission, Role } from '@poly/model';
-import { Conversation, User, Prisma } from '@prisma/client';
+import { Conversation, ConversationMessage, User, Prisma } from '@prisma/client';
 import { AuthData } from 'common/types';
 
 @Injectable()
@@ -39,6 +39,7 @@ export class ChatService {
     message: string | null,
     uuid: string | null,
     workspaceFolder = '',
+    language = '',
   ): Promise<Observable<string>> {
     let eventSource: any;
 
@@ -53,14 +54,14 @@ export class ChatService {
 
       this.logger.debug(`Sending question to science server with key ${messageKey}`);
 
-      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder);
+      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder, language);
     } else if (message) {
       const { uuid } = await this.storeMessage(message);
       const messageKey = this.getMessageKey(uuid);
 
       this.logger.debug(`Sending question to science server with uuid ${messageKey}`);
 
-      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder);
+      eventSource = this.aiService.getFunctionCompletion(environmentId, userId, messageKey, workspaceFolder, language);
     } else {
       throw new Error('At least one of `message` or `uuid` must be provided.');
     }
@@ -107,7 +108,11 @@ export class ChatService {
       });
 
       eventSource.onerror = (error) => {
-        if (error.message) {
+        if (error.data) {
+          this.logger.debug(`Error from Science server for function completion: ${error.data}`);
+          const msg = JSON.parse(error.data).message;
+          subscriber.error(msg);
+        } else if (error.message) {
           this.logger.debug(`Error from Science server for function completion: ${error.message}`);
           subscriber.error(error.message);
         }
@@ -201,7 +206,7 @@ export class ChatService {
     return this.getConversationIdsForUser(auth.user, userId, workspaceFolder);
   }
 
-  async getConversationDetail(auth: AuthData, userId: string, conversationId: string): Promise<string> {
+  async getConversationDetail(auth: AuthData, userId: string, conversationId: string): Promise<unknown> {
     // user is the user for permissions purposes whereas userId is which userId to see last convo for
     let conversation: Conversation;
     let where: Prisma.ConversationWhereInput;
@@ -222,8 +227,34 @@ export class ChatService {
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
-    const parts = messages.map((m) => `${m.role.toUpperCase()}\n\n${m.content}`);
-    return parts.join('\n\n');
+    const serialized = this._serialize(messages);
+    return { conversationGuid: conversation.id, messages: serialized };
+  }
+
+  async getConversationDetailBySlug(authData: AuthData, conversationSlug: string): Promise<unknown> {
+    // user is the user for permissions purposes whereas userId is which userId to see last convo for
+    let conversation: Conversation;
+    const where = this._getConversationWhereInput(authData, conversationSlug);
+    try {
+      conversation = await this.prisma.conversation.findFirstOrThrow({ where, orderBy: { createdAt: 'desc' } });
+    } catch {
+      return new Promise((resolve) => resolve('Conversation not found.'));
+    }
+
+    const messages = await this.prisma.conversationMessage.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    const serialized = this._serialize(messages);
+    return { conversationGuid: conversation.id, messages: serialized };
+  }
+
+  _serialize(messages: ConversationMessage[]) {
+    const rv: unknown[] = [];
+    for (const message of messages) {
+      rv.push({ role: message.role, content: message.content, createdAt: message.createdAt });
+    }
+    return rv;
   }
 
   async checkConversationDetailPermissions(auth: AuthData, conversation: Conversation) {
@@ -256,7 +287,7 @@ export class ChatService {
       }
     }
 
-    if (auth.user.role === Role.User && auth.user.id === conversation.userId && auth.permissions[Permission.Use]) {
+    if (auth.user.role === Role.User && auth.user.id === conversation.userId && auth.permissions[Permission.Execute]) {
       // user is user, is in the right environment and has use permission
       return null;
     }
@@ -276,14 +307,31 @@ export class ChatService {
     }
   }
 
-  async deleteConversation(conversationId: string): Promise<string> {
+  async deleteConversation(authData: AuthData, conversationSlug: string): Promise<string> {
+    if (!conversationSlug) {
+      throw new BadRequestException('Conversation slug is required');
+    }
+
+    const where = this._getConversationWhereInput(authData, conversationSlug);
     try {
-      await this.prisma.conversation.delete({ where: { id: conversationId } });
+      await this.prisma.conversation.deleteMany({ where });
     } catch {
       return new Promise((resolve) => resolve('Conversation not found.'));
     }
 
     return new Promise((resolve) => resolve('Conversation deleted!'));
+  }
+
+  _getConversationWhereInput(authData: AuthData, conversationSlug: string): Prisma.ConversationWhereInput {
+    let where: Prisma.ConversationWhereInput = {};
+    if (authData.user) {
+      where = { userId: authData.user.id, slug: conversationSlug };
+    } else if (authData.application) {
+      where = { applicationId: authData.application.id, slug: conversationSlug };
+    } else {
+      throw new BadRequestException('user or application is required');
+    }
+    return where;
   }
 
   async getHistory(
@@ -296,7 +344,10 @@ export class ChatService {
       return [];
     }
 
-    const conversation = await this.prisma.conversation.findFirst({ where: { userId } });
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { userId, workspaceFolder },
+      orderBy: { createdAt: 'desc' },
+    });
     if (!conversation) {
       return [];
     }

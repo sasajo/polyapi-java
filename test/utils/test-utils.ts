@@ -41,6 +41,7 @@ export const mockedAuthData: AuthData = {
     name: '',
     subdomain: '',
     tenantId: '',
+    logsDefault: false,
   },
   tenant: {
     createdAt: currentDate,
@@ -62,7 +63,7 @@ export const mockedAuthData: AuthData = {
   },
   permissions: {
     [Permission.CustomDev]: true,
-    [Permission.Teach]: true,
+    [Permission.ManageApiFunctions]: true,
   },
 };
 

@@ -13,8 +13,9 @@ from prisma.models import ConversationMessage, ApiKey
 
 from app.constants import CHAT_GPT_MODEL, MessageType
 from app.typedefs import ChatGptChoice, MessageDict
+from app.log import log
 from app.utils import (
-    log,
+    get_tenant_openai_key,
     msgs_to_msg_dicts,
     store_messages,
     strip_type_and_info,
@@ -106,7 +107,7 @@ def get_plugin_chat(
     plugin_id: int,
     conversation_id: str,
     message: str,
-) -> List[MessageDict]:
+) -> Dict:
     """chat with a plugin"""
     db = get_client()
     db_api_key = db.apikey.find_unique(where={"id": api_key_id})
@@ -120,7 +121,9 @@ def get_plugin_chat(
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
     ]
+    openai_api_key = get_tenant_openai_key(user_id=db_api_key.userId, application_id=db_api_key.applicationId)
     resp = openai.ChatCompletion.create(
+        api_key=openai_api_key,
         model=CHAT_GPT_MODEL,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),
         functions=functions,
@@ -156,7 +159,17 @@ def get_plugin_chat(
             break
 
     store_messages(conversation_id, messages)
-    return messages
+    return {"conversationGuid": conversation_id, "messages": _serialize(messages)}
+
+
+def _serialize(messages: List[MessageDict]) -> List[Dict]:
+    rv = []
+    for message in messages:
+        rv.append({
+            'role': message['role'],
+            'content': message['content'],
+        })
+    return rv
 
 
 def _get_name_path_map(openapi: Dict) -> Dict:
@@ -175,7 +188,8 @@ def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> Messag
     # domain = "https://megatronical.pagekite.me"
     domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
     headers = {"Authorization": f"Bearer {api_key}"}
-    print("right before we send to execute", function_call)
+    # NOTE: we need to figure out how to handle utf8 before we re-enable this log, otherwise we will get UnicodeEncodeErrors
+    # print("right before we send to execute", function_call)
     resp = requests.post(
         domain + path, json=json.loads(function_call["arguments"]), headers=headers
     )

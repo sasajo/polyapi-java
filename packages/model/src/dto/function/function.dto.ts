@@ -35,6 +35,7 @@ export interface FunctionArgument<T extends string | Record<string, any> = strin
   payload?: boolean;
   variable?: string;
   location?: 'url' | 'body' | 'headers' | 'auth';
+  removeIfNotPresentOnExecute?: boolean;
 }
 
 export interface FunctionBasicDto {
@@ -44,11 +45,18 @@ export interface FunctionBasicDto {
   description: string;
   visibility: Visibility;
   enabled?: boolean;
+  logsEnabled?: boolean;
+}
+
+export interface TrainingFunctionDto extends FunctionBasicDto{
+  traceId?: string;
 }
 
 export interface FunctionDetailsDto extends FunctionBasicDto {
   arguments: Omit<FunctionArgument<Record<string, any>>, 'location'>[];
   source?: ApiFunctionSource
+  returnType: string | null;
+  returnTypeSchema?: Record<string, any>;
 }
 
 export interface ApiFunctionDetailsDto extends FunctionDetailsDto {
@@ -67,4 +75,8 @@ export interface FunctionPublicDetailsDto extends FunctionDetailsDto {
 
 export interface ApiFunctionPublicDetailsDto extends FunctionPublicDetailsDto {
   enabledRedirect: boolean;
+}
+
+export interface CreateServerCustomFunctionResponseDto extends FunctionDetailsDto {
+  traceId?: string;
 }

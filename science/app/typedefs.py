@@ -7,6 +7,7 @@ AnyFunction = Union[ApiFunction, CustomFunction, AuthProvider, WebhookHandle, Va
 
 
 class DescInputDto(TypedDict):
+    tenantId: str
     url: str
     method: str
     short_description: str
@@ -22,9 +23,11 @@ class DescOutputDto(TypedDict):
     description: str
     arguments: Optional[List[Dict]]
     openai_response: str
+    trace_id: NotRequired[str]
 
 
 class VarDescInputDto(TypedDict):
+    tenantId: str
     name: str
     context: str
     secret: bool
