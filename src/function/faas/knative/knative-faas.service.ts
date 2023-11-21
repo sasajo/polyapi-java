@@ -428,8 +428,9 @@ export class KNativeFaasService implements FaasService {
 
       while (attempts <= 2 && !namespacedCustomObjectReady) {
         try {
+          const response = await this.k8sApi.getNamespacedCustomObject(SERVING_GROUP, SERVING_VERSION, this.config.faasNamespace, SERVICES_NAME, this.getFunctionName(id));
 
-          const response = await this.k8sApi.getNamespacedCustomObjectStatus(SERVING_GROUP, SERVING_VERSION, this.config.faasNamespace, SERVICES_NAME, this.getFunctionName(id));
+          const responseBody = response.body as NamespaceCondition;
 
           try {
             console.log('reponse: ', response);
@@ -437,8 +438,6 @@ export class KNativeFaasService implements FaasService {
           } catch (err) {
             console.log(err);
           }
-
-          const responseBody = response.body as NamespaceCondition;
 
           const readinessCondition = responseBody.conditions.find(cond => cond.type === 'Ready');
 
