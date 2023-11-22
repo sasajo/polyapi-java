@@ -442,7 +442,7 @@ export class FunctionController {
       returnType,
       returnTypeSchema,
       arguments: args,
-      logsEnabled = environment.logsDefault,
+      logsEnabled,
     } = data;
 
     await this.authService.checkPermissions(req.user, Permission.CustomDev);
