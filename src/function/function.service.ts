@@ -1237,7 +1237,7 @@ export class FunctionService implements OnModuleInit {
     customCode: string,
     typeSchemas: Record<string, any>,
     apiKey: string,
-    logsEnabled: boolean,
+    logsEnabled?: boolean,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
     createFromScratch = false,
   ) {
@@ -1265,7 +1265,7 @@ export class FunctionService implements OnModuleInit {
     typeSchemas: Record<string, any>,
     serverFunction: boolean,
     apiKey: string | null,
-    logsEnabled = false,
+    logsEnabled?: boolean,
     checkBeforeCreate: () => Promise<void> = async () => undefined,
     createFromScratch = false,
   ): Promise<CustomFunction & { traceId?: string }> {
@@ -1287,6 +1287,10 @@ export class FunctionService implements OnModuleInit {
         context,
       },
     });
+
+    if (logsEnabled == null) {
+      logsEnabled = customFunction?.logsEnabled ?? environment.logsDefault;
+    }
 
     let traceId: string | undefined;
 
@@ -1739,7 +1743,14 @@ export class FunctionService implements OnModuleInit {
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
 
     try {
-      const result = await this.faasService.executeFunction(customFunction.id, executionEnvironment.tenantId, executionEnvironment.id, argumentsList, headers);
+      const result = await this.faasService.executeFunction(
+        customFunction.id,
+        customFunction.environmentId,
+        executionEnvironment.tenantId,
+        executionEnvironment.id,
+        argumentsList,
+        headers,
+      );
       this.logger.debug(
         `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
       );
