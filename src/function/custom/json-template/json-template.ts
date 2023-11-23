@@ -1,4 +1,4 @@
-import { ArgumentsMetadata } from "@poly/model";
+import { ArgumentsMetadata } from '@poly/model';
 
 export const POLY_ARG_NAME_KEY = '$polyArgName';
 
