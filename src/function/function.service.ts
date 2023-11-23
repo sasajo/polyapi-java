@@ -876,7 +876,7 @@ export class FunctionService implements OnModuleInit {
     // Filter un-used optional args.
     const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
 
-    const rawObj = this.jsonTemplate.render(filteredJsonTemplate, args);
+    const rawObj = this.jsonTemplate.render(filteredJsonTemplate, args, argumentsMetadata);
 
     return {
       mode: 'raw',
@@ -902,19 +902,21 @@ export class FunctionService implements OnModuleInit {
     if (parsedBody.mode === 'urlencoded' || parsedBody.mode === 'formdata') {
       argumentValueMap = await this.getArgumentValueMap(apiFunction, args);
       const filterOptionalArgs = (entry: PostmanVariableEntry) => {
-        if (!entry.value.match(ARGUMENT_PATTERN)) {
+        const args = entry.value.match(ARGUMENT_PATTERN);
+
+        if (!args) {
           return true;
         }
 
-        const argName = entry.value.replace('{{', '').replace('}}', '');
+        return args.some(argName => {
+          if (argumentsMetadata[argName].required === false &&
+            argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
+            typeof argumentValueMap[argName] === 'undefined') {
+            return false;
+          }
 
-        if (argumentsMetadata[argName].required === false &&
-          argumentsMetadata[argName].removeIfNotPresentOnExecute === true &&
-          typeof argumentValueMap[argName] === 'undefined') {
-          return false;
-        }
-
-        return true;
+          return true;
+        });
       };
 
       const filteredBody = parsedBody.mode === 'formdata'

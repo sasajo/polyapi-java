@@ -110,6 +110,7 @@ describe('json-template', () => {
           name: 'foo',
           firstTag: 'typescript',
         },
+        {},
       );
 
       expect(result).toStrictEqual({
@@ -138,6 +139,7 @@ describe('json-template', () => {
           name: 'foo',
           firstTag: 'typescript',
         },
+        {},
       );
 
       expect(result).toStrictEqual({
@@ -166,6 +168,7 @@ describe('json-template', () => {
           name: '"foo"',
           firstTag: '"typescript"',
         },
+        {},
       );
 
       expect(result).toStrictEqual({
@@ -194,6 +197,7 @@ describe('json-template', () => {
           name: { foo: 'bar' },
           firstTag: { foo: 'bar' },
         },
+        {},
       );
 
       expect(result).toStrictEqual({
@@ -224,6 +228,7 @@ describe('json-template', () => {
           name: { foo: 'bar' },
           firstTag: { foo: 'bar' },
         },
+        {},
       );
 
       expect(result).toStrictEqual(templateObject);
@@ -247,6 +252,7 @@ describe('json-template', () => {
           age: 27,
           vip: true,
         },
+        {},
       );
 
       expect(result).toStrictEqual({
@@ -279,6 +285,7 @@ describe('json-template', () => {
         {
           age,
         },
+        {},
       );
 
       expect(result).toStrictEqual({

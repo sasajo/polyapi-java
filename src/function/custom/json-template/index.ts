@@ -5,6 +5,7 @@ import { ARGUMENT_PATTERN } from '../constants';
 import { cloneDeep, isPlainObject } from 'lodash';
 import { JsonTemplateProcessor, TemplateValue, POLY_ARG_NAME_KEY, ArgMetadata } from './json-template';
 import hljs from 'highlight.js';
+import { ArgumentsMetadata } from '@poly/model';
 
 hls.registerLanguage(LANGUAGE_NAME, getExtendedJsonLanguage);
 
@@ -44,7 +45,7 @@ export class JsonTemplate implements JsonTemplateProcessor {
     return JSON.parse(dom.textContent);
   }
 
-  render(template: string | Record<string, TemplateValue> | TemplateValue[], args: Record<string, any>): any[] | Record<string, any> {
+  render(template: string | Record<string, TemplateValue> | TemplateValue[], args: Record<string, any>, argumentsMetadata: ArgumentsMetadata): any[] | Record<string, any> {
     const result = typeof template === 'string' ? this.parse(template) : cloneDeep<ReturnType<typeof this.parse>>(template);
 
     if (typeof result[POLY_ARG_NAME_KEY] !== 'undefined') {
@@ -71,9 +72,14 @@ export class JsonTemplate implements JsonTemplateProcessor {
             return `${argValue}`;
           }
 
+          if (argumentsMetadata[value.$polyArgName]?.required === false && argumentsMetadata[value.$polyArgName]?.removeIfNotPresentOnExecute === false) {
+            // In this case, argument is quoted in json template and user sent `undefined`, we should send an empty string to respect user decision.
+            return '';
+          }
+
           /*
           If user sends an object or an array (because it patched the argument after training)
-          we should return it here as native object/array
+          we should return it here as native object/array.
         */
           return argValue;
         }
@@ -99,6 +105,8 @@ export class JsonTemplate implements JsonTemplateProcessor {
 
             if (typeof args[argName] !== 'undefined') {
               newValue = newValue.replace(`{{${argName}}}`, argValue);
+            } else {
+              newValue = newValue.replace(`{{${argName}}}`, '');
             }
           }
 
