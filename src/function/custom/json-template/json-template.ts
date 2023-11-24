@@ -1,5 +1,3 @@
-import { ArgumentsMetadata } from '@poly/model';
-
 export const POLY_ARG_NAME_KEY = '$polyArgName';
 
 export type ArgMetadata = {
@@ -19,7 +17,7 @@ export interface JsonTemplateProcessor {
    */
     parse(template: string): Record<string, TemplateValue> | TemplateValue[];
 
-    render(template: string | ReturnType<JsonTemplateProcessor['parse']>, args: Record<string, any>, argumentsMetadata: ArgumentsMetadata): Record<string, any> | any[];
+    render(template: string | ReturnType<JsonTemplateProcessor['parse']>, args: Record<string, any>): Record<string, any> | any[];
 
     /**
    * Converts a parsed template to its string version.

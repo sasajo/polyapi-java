@@ -952,7 +952,7 @@ describe('FunctionService', () => {
           },
           1
         ]
-      }, args, argumentsMetadata);
+      }, args);
 
       expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
         data: {

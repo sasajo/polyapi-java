@@ -87,6 +87,15 @@ describe('json-template', () => {
         name: 'The name is {{name}}',
       });
     });
+
+    it(`Should return ${POLY_ARG_NAME_KEY} object in root level.`, () => {
+      const result = jsonTemplate.parse('{{data}}');
+
+      expect(result).toStrictEqual({
+        [POLY_ARG_NAME_KEY]: 'data',
+        quoted: false,
+      });
+    });
   });
 
   describe('render', () => {
@@ -110,7 +119,6 @@ describe('json-template', () => {
           name: 'foo',
           firstTag: 'typescript',
         },
-        {},
       );
 
       expect(result).toStrictEqual({
@@ -139,7 +147,6 @@ describe('json-template', () => {
           name: 'foo',
           firstTag: 'typescript',
         },
-        {},
       );
 
       expect(result).toStrictEqual({
@@ -168,7 +175,6 @@ describe('json-template', () => {
           name: '"foo"',
           firstTag: '"typescript"',
         },
-        {},
       );
 
       expect(result).toStrictEqual({
@@ -197,7 +203,6 @@ describe('json-template', () => {
           name: { foo: 'bar' },
           firstTag: { foo: 'bar' },
         },
-        {},
       );
 
       expect(result).toStrictEqual({
@@ -228,7 +233,6 @@ describe('json-template', () => {
           name: { foo: 'bar' },
           firstTag: { foo: 'bar' },
         },
-        {},
       );
 
       expect(result).toStrictEqual(templateObject);
@@ -252,7 +256,6 @@ describe('json-template', () => {
           age: 27,
           vip: true,
         },
-        {},
       );
 
       expect(result).toStrictEqual({
@@ -263,8 +266,9 @@ describe('json-template', () => {
 
     it('Should be able to replace arguments inside strings with content.', () => {
       const age = 27;
+      const name = 'Foo';
       const templateObject = {
-        ageDescription: 'My age is {{age}}.',
+        ageDescription: 'My age is {{age}} and my name is {{name}}.',
         ageDescription2: 'My age is {{{{age}}}}',
         age: {
           [POLY_ARG_NAME_KEY]: 'age',
@@ -284,12 +288,12 @@ describe('json-template', () => {
         templateObject,
         {
           age,
+          name,
         },
-        {},
       );
 
       expect(result).toStrictEqual({
-        ageDescription: `My age is ${age}.`,
+        ageDescription: `My age is ${age} and my name is ${name}.`,
         ageDescription2: `My age is {{${age}}}`,
         age,
         list: [
@@ -297,6 +301,41 @@ describe('json-template', () => {
           `My age is ${age}.`,
         ],
       });
+    });
+
+    it('Should be able to process a root level argument.', () => {
+      const templateObject = {
+        [POLY_ARG_NAME_KEY]: 'data',
+        quoted: false,
+      };
+
+      const result = jsonTemplate.render(templateObject, { data: { foo: 'bar' } });
+
+      expect(result).toStrictEqual({ foo: 'bar' });
+    });
+
+    it('Should replace argument with en empty string if value is `undefined`.', () => {
+      const templateObject = {
+        otherTitle: 'This is {{title}}',
+        title: '{{title}}',
+      };
+
+      const result = jsonTemplate.render(templateObject, {});
+
+      expect(result).toStrictEqual({ title: '', otherTitle: 'This is ' });
+    });
+
+    it('Should return an empty string on quoted arguments if arg value is undefined.', () => {
+      const templateObject = {
+        name: {
+          [POLY_ARG_NAME_KEY]: 'name',
+          quoted: true,
+        },
+      };
+
+      const result = jsonTemplate.render(templateObject, {});
+
+      expect(result).toStrictEqual({ name: '' });
     });
   });
 

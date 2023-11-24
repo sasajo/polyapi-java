@@ -876,7 +876,7 @@ export class FunctionService implements OnModuleInit {
     // Filter un-used optional args.
     const filteredJsonTemplate = removeUndefinedValuesFromOptionalArgs(jsonTemplateObject);
 
-    const rawObj = this.jsonTemplate.render(filteredJsonTemplate, args, argumentsMetadata);
+    const rawObj = this.jsonTemplate.render(filteredJsonTemplate, args);
 
     return {
       mode: 'raw',
