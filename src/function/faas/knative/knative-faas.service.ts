@@ -8,6 +8,7 @@ import { Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
+import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 import { ConfigService } from 'config/config.service';
 import { ExecuteFunctionResult, FaasService } from '../faas.service';
 import { CoreV1Api, CustomObjectsApi } from '@kubernetes/client-node';
@@ -32,10 +33,13 @@ const SERVICES_NAME = 'services';
 const ROUTES_NAME = 'routes';
 const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id', 'openai-conversation-id'];
 
+// this needs to be updated whenever the java client library version is updated
+const JAVA_CLIENT_LIBRARY_VERSION = '0.1.7';
+
 interface KNativeRouteDef {
   status: {
     url: string;
-  }
+  };
 }
 
 export class KNativeFaasService implements FaasService {
@@ -85,15 +89,50 @@ export class KNativeFaasService implements FaasService {
     environmentId: string,
     name: string,
     code: string,
+    language: string,
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
     createFromScratch?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled = false,
+    logsEnabled?: boolean,
   ): Promise<void> {
-    this.logger.debug(`Creating function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
+    if (language === 'javascript') {
+      return this.createJSFunction(
+        id,
+        tenantId,
+        environmentId,
+        name,
+        code,
+        requirements,
+        apiKey,
+        limits,
+        createFromScratch,
+        sleep,
+        sleepAfter,
+        logsEnabled,
+      );
+    } else if (language === 'java') {
+      return this.createJavaFunction(id, tenantId, environmentId, code, apiKey);
+    }
+  }
+
+  async createJSFunction(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    name: string,
+    code: string,
+    requirements: string[],
+    apiKey: string,
+    limits: ServerFunctionLimits,
+    createFromScratch?: boolean,
+    sleep?: boolean | null,
+    sleepAfter?: number | null,
+    logsEnabled?: boolean,
+  ): Promise<void> {
+    this.logger.debug(`Creating JS function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     const prepareAndDeploy = async (imageName: string) => {
@@ -101,7 +140,7 @@ export class KNativeFaasService implements FaasService {
         await mkdir(`${functionPath}/function`, { recursive: true });
       }
 
-      const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/function/index.js.hbs`, 'utf8');
+      const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/node/function/index.js.hbs`, 'utf8');
       const content = handlebars.compile(template)({
         name,
         code,
@@ -119,12 +158,35 @@ export class KNativeFaasService implements FaasService {
       // not awaiting on purpose, so it returns immediately with the message
       this.logger.debug(`Additional requirements found for function '${id}'. Building custom image ${customImageName}...`);
 
-      await this.buildCustomImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey, name, code);
+      await this.buildCustomNodeImage(id, tenantId, environmentId, customImageName, additionalRequirements, apiKey, name, code);
 
       await prepareAndDeploy(customImageName);
     } else {
       await prepareAndDeploy(`${this.config.faasDockerImageFunctionNode}`);
     }
+  }
+
+  async createJavaFunction(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    code: string,
+    apiKey: string,
+  ): Promise<void> {
+    this.logger.debug(`Creating Java function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
+
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+    const customImageName = `${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)}`;
+
+    this.logger.debug(`Building custom image ${customImageName} for Java server function '${id}'...`);
+
+    await this.buildCustomJavaImage(id, tenantId, environmentId, customImageName, apiKey, code);
+
+    this.logger.debug(`Deploying custom image ${customImageName} for Java server function '${id}'...`);
+
+    await exec(`${this.config.knativeFuncExecFile} deploy --image ${customImageName} --build false`, {
+      cwd: functionPath,
+    });
   }
 
   async executeFunction(
@@ -193,16 +255,16 @@ export class KNativeFaasService implements FaasService {
     environmentId: string,
     name: string,
     code: string,
+    language: string,
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled = false,
-  ): Promise<void> {
+    logsEnabled?: boolean): Promise<void> {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    return this.createFunction(id, tenantId, environmentId, name, code, requirements, apiKey, limits, undefined, sleep, sleepAfter, logsEnabled);
+    return this.createFunction(id, tenantId, environmentId, name, code, language, requirements, apiKey, limits, undefined, sleep, sleepAfter, logsEnabled);
   }
 
   async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {
@@ -240,7 +302,9 @@ export class KNativeFaasService implements FaasService {
   }
 
   private getFunctionPath(id: string, tenantId: string, environmentId: string, relative = false): string {
-    return `${relative ? '' : `${this.config.faasFunctionsBasePath}/`}${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+    return `${relative
+      ? ''
+      : `${this.config.faasFunctionsBasePath}/`}${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
   }
 
   public getFunctionName(id: string) {
@@ -491,7 +555,7 @@ export class KNativeFaasService implements FaasService {
     return pick(headers, PASS_THROUGH_HEADERS);
   }
 
-  private async buildCustomImage(id: string, tenantId: string, environmentId: string, imageName: string, additionalRequirements: string[], apiKey: string, name: string, code: string) {
+  private async buildCustomNodeImage(id: string, tenantId: string, environmentId: string, imageName: string, additionalRequirements: string[], apiKey: string, name: string, code: string) {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
     const allRequirements = [...this.config.faasPreinstalledNpmPackages, ...additionalRequirements];
 
@@ -506,7 +570,7 @@ export class KNativeFaasService implements FaasService {
     await this.preparePolyLib(functionPath, apiKey);
     await this.prepareRequirements(functionPath, allRequirements);
 
-    const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/function/index.js.hbs`, 'utf8');
+    const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/node/function/index.js.hbs`, 'utf8');
     const content = handlebars.compile(template)({
       name,
       code,
@@ -517,5 +581,97 @@ export class KNativeFaasService implements FaasService {
     await exec(`${this.config.knativeFuncExecFile} build --image ${imageName} --push`, {
       cwd: functionPath,
     });
+  }
+
+  private async buildCustomJavaImage(id: string, tenantId: string, environmentId: string, imageName: string, apiKey: string, code: string) {
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+
+    try {
+      await rm(functionPath, { recursive: true });
+    } catch (err) {
+      this.logger.debug(`Err removing previous function path ${functionPath}, creating new folder...`, err);
+    }
+    await mkdir(`${functionPath}`, { recursive: true });
+    await exec(`${this.config.knativeFuncExecFile} create ${functionPath} -l springboot`);
+
+    await this.preparePomFile(functionPath, apiKey);
+
+    const cloudFunctionApplicationTemplate = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/java/CloudFunctionApplication.java.hbs`, 'utf8');
+    await writeFile(`${functionPath}/src/main/java/functions/CloudFunctionApplication.java`, handlebars.compile(cloudFunctionApplicationTemplate)({}));
+
+    const polyCustomFunctionTemplate = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/java/PolyCustomFunction.java.hbs`, 'utf8');
+    const polyCustomFunction = handlebars.compile(polyCustomFunctionTemplate)({
+      code,
+    });
+    await writeFile(`${functionPath}/src/main/java/functions/PolyCustomFunction.java`, polyCustomFunction);
+
+    this.logger.debug(`Building custom server function image '${imageName}'...`);
+    await exec(`${this.config.knativeFuncExecFile} build --image ${imageName} --push`, {
+      cwd: functionPath,
+    });
+  }
+
+  private async preparePomFile(functionPath: string, apiKey: string) {
+    const pomFile = `${functionPath}/pom.xml`;
+    const pomJson = new XMLParser().parse(await readFile(pomFile, 'utf8'));
+
+    pomJson.project.dependencies.dependency.push(
+      {
+        groupId: 'io.polyapi.client',
+        artifactId: 'library',
+        version: JAVA_CLIENT_LIBRARY_VERSION,
+      },
+      {
+        groupId: 'org.projectlombok',
+        artifactId: 'lombok',
+        version: '1.18.30',
+      },
+      {
+        groupId: 'com.fasterxml.jackson.core',
+        artifactId: 'jackson-core',
+        version: '2.16.0',
+      },
+    );
+    pomJson.project.build.plugins.plugin.push(
+      {
+        groupId: 'io.polyapi.client',
+        artifactId: 'library',
+        version: JAVA_CLIENT_LIBRARY_VERSION,
+        executions: {
+          execution: {
+            phase: 'generate-sources',
+            goals: {
+              goal: 'generate-sources',
+            },
+            configuration: {
+              apiBaseUrl: this.config.faasPolyServerUrl,
+              apiKey,
+            },
+          },
+        },
+      },
+      {
+        groupId: 'org.codehaus.mojo',
+        artifactId: 'build-helper-maven-plugin',
+        version: '3.2.0',
+        executions: {
+          execution: {
+            id: 'add-source',
+            phase: 'generate-sources',
+            goals: {
+              goal: 'add-source',
+            },
+            configuration: {
+              sources: {
+                source: 'target/generated-sources',
+              },
+            },
+          },
+        },
+      },
+    );
+
+    const xml = new XMLBuilder().build(pomJson);
+    await writeFile(pomFile, xml);
   }
 }

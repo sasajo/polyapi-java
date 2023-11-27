@@ -1437,6 +1437,7 @@ export class FunctionService implements OnModuleInit {
           environment.id,
           name,
           code,
+          language,
           requirements,
           apiKey,
           await this.limitService.getTenantServerFunctionLimits(environment.tenantId),
@@ -1540,6 +1541,7 @@ export class FunctionService implements OnModuleInit {
         customFunction.environment.id,
         customFunction.name,
         customFunction.code,
+        customFunction.language,
         JSON.parse(customFunction.requirements || '[]'),
         customFunction.apiKey!,
         await this.limitService.getTenantServerFunctionLimits(customFunction.environment.tenantId),
@@ -1850,10 +1852,13 @@ export class FunctionService implements OnModuleInit {
         serverFunction.environment.id,
         serverFunction.name,
         serverFunction.code,
+        serverFunction.language,
         JSON.parse(serverFunction.requirements || '[]'),
         apiKey,
         await this.limitService.getTenantServerFunctionLimits(serverFunction.environment.tenantId),
         serverFunction.logsEnabled,
+        undefined,
+        undefined,
       );
     }
   }
