@@ -8,7 +8,7 @@ import redis
 import numpy as np
 from requests import Response
 from flask import current_app, abort
-import jsonref
+import jsonref  # type: ignore[import-untyped]
 from typing import Any, Dict, Generator, List, Optional, Union
 from app.constants import CHAT_GPT_MODEL, MessageType, VarName
 from app.log import log
@@ -473,7 +473,10 @@ def get_return_type_properties(spec: SpecificationDto) -> Union[Dict, None]:
 
     if "title" in return_type:
         return_type["title"] = "data"
-    return {"data": return_type}
+    if spec["type"] == "apiFunction":
+        return {"data": return_type}
+    else:
+        return return_type
 
 
 # HACK technically there might be MessageDict in the List, buy mypy does poorly with that
