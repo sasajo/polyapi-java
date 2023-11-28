@@ -309,8 +309,6 @@ export class WebhookController {
       });
     }
 
-    console.log('webhookResponse: ', JSON.stringify(webhookResponse));
-
     let response: unknown;
 
     if (webhookResponse?.data) {
