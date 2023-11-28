@@ -309,6 +309,14 @@ export class WebhookController {
       });
     }
 
+    if (!webhookResponse?.data && webhookHandle.responsePayload) {
+      const parsedResponsePayload = JSON.parse(webhookHandle.responsePayload);
+
+      if (typeof parsedResponsePayload === 'string' || typeof parsedResponsePayload === 'number' || typeof parsedResponsePayload === 'boolean') {
+        res.setHeader('Content-Type', 'text/plain');
+      }
+    }
+
     res.status(webhookHandle.responseStatus || webhookResponse?.statusCode || 200)
       .send(webhookResponse?.data || (webhookHandle.responsePayload ? JSON.parse(webhookHandle.responsePayload) : undefined));
   }
