@@ -12,7 +12,7 @@ from openai.types.chat.chat_completion import Choice
 from prisma import get_client
 from prisma.models import ConversationMessage, ApiKey
 
-from app.constants import MessageType
+from app.constants import CHAT_GPT_MODEL, MessageType
 from app.typedefs import MessageDict
 from app.log import log
 from app.utils import (
@@ -111,7 +111,7 @@ def _get_previous_messages(
 
 def _function_call(openai_api_key: str | None, **kwargs):
     client = OpenAI(api_key=openai_api_key)
-    return client.chat.completions.create(**kwargs)
+    return client.chat.completions.create(model=CHAT_GPT_MODEL, **kwargs)
 
 
 def get_plugin_chat(
