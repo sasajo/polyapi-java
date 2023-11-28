@@ -1,7 +1,7 @@
 import re
 import json
-from typing import Generator, List, Optional, Tuple, Union, Dict
-from openai import BadRequestError
+from typing import List, Optional, Tuple, Dict
+from openai import BadRequestError, Stream
 from prisma import get_client
 from prisma.models import SystemPrompt, ConversationMessage
 from app.constants import QUESTION_TEMPLATE, MessageType
@@ -338,7 +338,7 @@ def get_best_function_example(
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
     language: str = "",
-) -> Union[Generator, str]:
+) -> str | Stream:
     """take in the best function and get OpenAI to return an example of how to use that function"""
 
     specs = public_ids_to_specs(user_id, environment_id, public_ids)
@@ -436,7 +436,7 @@ def get_completion_answer(
     question: str,
     prev_msgs: List[ConversationMessage],
     language: str = "",
-) -> Union[Generator, str]:
+) -> str | Stream:
     best_function_ids, stats = get_best_functions(
         user_id, conversation_id, environment_id, question
     )
@@ -462,7 +462,7 @@ def general_question(
     conversation_id: str,
     question: str,
     prev_msgs: Optional[List[ConversationMessage]] = None,
-) -> Union[Generator, str]:
+) -> str | Stream:
     """ask a general question not related to any Poly-specific functionality"""
     messages = msgs_to_msg_dicts(prev_msgs) + [
         MessageDict(role="user", content=question, type=MessageType.user)
