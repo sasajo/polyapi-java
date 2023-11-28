@@ -1,11 +1,18 @@
 package io.polyapi.client;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.polyapi.client.processor.CodeParser;
+import io.polyapi.client.processor.FunctionData;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -14,21 +21,18 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import io.polyapi.client.api.ObjectMapper;
-import io.polyapi.client.processor.CodeParser;
-import io.polyapi.client.processor.FunctionData;
-import lombok.Getter;
-import lombok.Setter;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Mojo(name = "addFunction", requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME)
 public class AddFunctionMojo extends AbstractMojo {
+  private ObjectMapper objectMapper = new ObjectMapper();
   @Parameter(defaultValue = "${project}", readonly = true)
   private MavenProject project;
 
@@ -61,7 +65,33 @@ public class AddFunctionMojo extends AbstractMojo {
 
   public void execute() throws MojoExecutionException {
     if (apiBaseUrl == null || apiKey == null) {
-      var apiData = getApiData();
+      var apiData = new ApiData();
+
+      try {
+        project.getBuild().getPlugins().stream()
+          .filter(plugin -> "io.polyapi.client".equals(plugin.getGroupId()))
+          .filter(plugin -> "library".equals(plugin.getArtifactId()))
+          .findFirst()
+          .ifPresent(plugin -> {
+            Xpp3Dom configuration = Xpp3Dom.class.cast(plugin.getConfiguration());
+            if (configuration == null && !plugin.getExecutions().isEmpty()) {
+              configuration = Xpp3Dom.class.cast(plugin.getExecutions().get(0).getConfiguration());
+            }
+
+            if (configuration != null) {
+              Optional.ofNullable(configuration.getChild("apiBaseUrl"))
+                .filter(Objects::nonNull)
+                .map(Xpp3Dom::getValue)
+                .ifPresent(apiBaseUrlNode -> apiData.apiBaseUrl = apiBaseUrlNode);
+              Optional.ofNullable(configuration.getChild("apiKey"))
+                .filter(Objects::nonNull)
+                .map(Xpp3Dom::getValue)
+                .ifPresent(apiKeyNode -> apiData.apiKey = apiKeyNode);
+            }
+          });
+      } catch (RuntimeException e) {
+        throw new MojoExecutionException("Error building project", e);
+      }
       apiBaseUrl = apiBaseUrl != null ? apiBaseUrl : apiData.apiBaseUrl;
       apiKey = apiKey != null ? apiKey : apiData.apiKey;
     }
@@ -87,14 +117,14 @@ public class AddFunctionMojo extends AbstractMojo {
 
       var function = functionData.get(0);
       if (Boolean.TRUE.equals(client)) {
-        System.out.println("Deploying client function...");
+        getLog().info("Deploying client function...");
         var response = postCustomFunction(function, false);
-        System.out.println("Function deployed successfully: " + response.getId());
+        getLog().info("Function deployed successfully: " + response.getId());
       }
       if (Boolean.TRUE.equals(server)) {
-        System.out.println("Deploying server function...");
+        getLog().info("Deploying server function...");
         var response = postCustomFunction(function, true);
-        System.out.println("Function deployed successfully: " + response.getId());
+        getLog().info("Function deployed successfully: " + response.getId());
       }
     } catch (Exception e) {
       throw new MojoExecutionException("Error parsing file", e);
@@ -102,57 +132,18 @@ public class AddFunctionMojo extends AbstractMojo {
   }
 
   private PostCustomFunctionResponse postCustomFunction(FunctionData function, boolean server) throws IOException, MojoExecutionException {
-    var client = new OkHttpClient.Builder()
-      .connectTimeout(10, TimeUnit.MINUTES)
-      .readTimeout(10, TimeUnit.MINUTES)
-      .writeTimeout(10, TimeUnit.MINUTES)
-      .build();
+    var client = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.MINUTES).readTimeout(10, TimeUnit.MINUTES).writeTimeout(10, TimeUnit.MINUTES).build();
 
-    var bodyString = new PostCustomFunctionBody(function).toString();
-    var request = new Request.Builder()
-      .url(apiBaseUrl + "/functions/" + (server ? "server" : "client"))
-      .header("Authorization", "Bearer " + apiKey)
-      .post(RequestBody.create(bodyString, MediaType.parse("application/json; charset=utf-8")))
-      .build();
+    var bodyString = objectMapper.writeValueAsString(new PostCustomFunctionBody(function));
+    var request = new Request.Builder().url(apiBaseUrl + "/functions/" + (server ? "server" : "client")).header("Authorization", "Bearer " + apiKey).post(RequestBody.create(bodyString, MediaType.parse("application/json; charset=utf-8"))).build();
 
     try (Response response = client.newCall(request).execute()) {
       if (!response.isSuccessful()) {
         throw new MojoExecutionException("Error while setting Poly specifications: " + response.code() + " " + response.message() + (response.body() != null ? response.body().string() : ""));
       }
 
-      return ObjectMapper.getInstance().readValue(response.body().string(), PostCustomFunctionResponse.class);
+      return objectMapper.readValue(response.body().string(), PostCustomFunctionResponse.class);
     }
-  }
-
-  private ApiData getApiData() throws MojoExecutionException {
-    var apiData = new ApiData();
-
-    try {
-      project.getBuild().getPlugins().stream()
-        .filter(plugin -> "io.polyapi.client".equals(plugin.getGroupId()) && "library".equals(plugin.getArtifactId()))
-        .findFirst()
-        .ifPresent(plugin -> {
-          Xpp3Dom configuration = (Xpp3Dom) plugin.getConfiguration();
-          if (configuration == null && !plugin.getExecutions().isEmpty()) {
-            configuration = (Xpp3Dom) plugin.getExecutions().get(0).getConfiguration();
-          }
-
-          if (configuration != null) {
-            var apiBaseUrlNode = configuration.getChild("apiBaseUrl");
-            var apiKeyNode = configuration.getChild("apiKey");
-            if (apiBaseUrlNode != null) {
-              apiData.apiBaseUrl = apiBaseUrlNode.getValue();
-            }
-            if (apiKeyNode != null) {
-              apiData.apiKey = apiKeyNode.getValue();
-            }
-          }
-        });
-    } catch (Exception e) {
-      throw new MojoExecutionException("Error building project", e);
-    }
-
-    return apiData;
   }
 
   private static class ApiData {
@@ -174,7 +165,7 @@ public class AddFunctionMojo extends AbstractMojo {
     private final String code;
     private final String language = "java";
     private final String returnType;
-    private final HashMap<String, Object> returnTypeSchema;
+    private final Map<String, Object> returnTypeSchema;
     private final List<FunctionArgument> arguments;
 
     public PostCustomFunctionBody(FunctionData function) throws JsonProcessingException {
@@ -186,32 +177,22 @@ public class AddFunctionMojo extends AbstractMojo {
 
       var typeRef = new TypeReference<HashMap<String, Object>>() {
       };
-      returnTypeSchema = ObjectMapper.getInstance().readValue(function.getReturnTypeSchema(), typeRef);
+      returnTypeSchema = objectMapper.readValue(function.getReturnTypeSchema(), typeRef);
 
       arguments = function.getArguments().stream()
-        .map(argumentData -> {
-          var argument = new FunctionArgument();
-          argument.setKey(argumentData.getName());
-          argument.setName(argumentData.getName());
-          argument.setType(argumentData.getType());
-          argument.setTypeSchema(argumentData.getTypeSchema());
-          return argument;
-        })
+        .map(argumentData -> FunctionArgument.builder()
+          .key(argumentData.getName())
+          .name(argumentData.getName())
+          .type(argumentData.getType())
+          .typeSchema(argumentData.getTypeSchema())
+          .build())
         .toList();
-    }
-
-    @Override
-    public String toString() {
-      try {
-        return ObjectMapper.getInstance().writeValueAsString(this);
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
-      }
     }
   }
 
   @Getter
   @Setter
+  @Builder
   private static class FunctionArgument {
     private String key;
     private String name;

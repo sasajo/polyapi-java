@@ -30,7 +30,7 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
 
   private void generateClassesFromTree(LibraryTreeNode<Specification> node, String currentPackage) throws IOException {
     var context = new HashMap<String, Object>();
-    var template = handlebars.compile("polyContextClass");
+    var template = getHandlebars().compile("polyContextClass");
     var className = StringUtils.toPascalCase(node.getContext());
 
     context.put("packageName", node.isRoot() ? PACKAGE_NAME_BASE : currentPackage);

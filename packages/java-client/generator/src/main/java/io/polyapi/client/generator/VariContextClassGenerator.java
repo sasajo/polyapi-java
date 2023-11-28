@@ -23,7 +23,7 @@ public class VariContextClassGenerator extends SpecificationClassGenerator<Serve
 
   private void generateClassesFromTree(LibraryTreeNode<ServerVariableSpecification> node, String currentPackage) throws IOException {
     var context = new HashMap<String, Object>();
-    var template = handlebars.compile("variContextClass");
+    var template = getHandlebars().compile("variContextClass");
     var className = StringUtils.toPascalCase(node.getContext());
 
     context.put("packageName", node.isRoot() ? PACKAGE_NAME_BASE : currentPackage);
@@ -55,7 +55,7 @@ public class VariContextClassGenerator extends SpecificationClassGenerator<Serve
 
   private void generateVariableClass(ServerVariableSpecification specification, String currentPackage) throws IOException {
     var context = new HashMap<String, Object>();
-    var template = handlebars.compile("variableClass");
+    var template = getHandlebars().compile("variableClass");
     var className = specification.getClassName();
 
     context.put("className", className);

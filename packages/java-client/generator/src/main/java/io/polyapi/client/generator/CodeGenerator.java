@@ -12,54 +12,45 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class CodeGenerator {
-  public void generate(String apiBaseUrl, String apiKey) throws IOException {
-    var specsParser = new SpecsParser();
-    var clientInfoClassGenerator = new ClientInfoClassGenerator();
-    var polyContextClassGenerator = new PolyContextClassGenerator();
-    var variContextClassGenerator = new VariContextClassGenerator();
-    var specsJSON = getSpecs(apiBaseUrl, apiKey);
-    var specifications = specsParser.parseSpecs(specsJSON);
+  private OkHttpClient client = new OkHttpClient();
+  private ClientInfoClassGenerator clientInfoClassGenerator = new ClientInfoClassGenerator();
+  private PolyContextClassGenerator polyContextClassGenerator = new PolyContextClassGenerator();
+  private VariContextClassGenerator variContextClassGenerator = new VariContextClassGenerator();
+
+  // FIXME: This should not throw IOException.
+  public void generate(String apiBaseUrl, String apiKey) throws FileNotFoundException, IOException {
+    String specsJSON;
+    try (Response response = client.newCall(new Request.Builder()
+      .url(apiBaseUrl + "/specs")
+      .header("Authorization", "Bearer " + apiKey)
+      .build()).execute()) {
+      if (!response.isSuccessful()) {
+
+        // FIXME: This should be a specific exception.
+        throw new RuntimeException("Error while setting Poly specifications: " + response.code() + " " + response.message());
+      }
+      specsJSON = response.body().string();
+    }
+
+    var specifications = new SpecsParser().parseSpecs(specsJSON);
 
     clientInfoClassGenerator.generate(apiBaseUrl, apiKey);
     polyContextClassGenerator.generate(specifications);
     variContextClassGenerator.generate(
       specifications.stream()
-        .filter(specification -> specification instanceof ServerVariableSpecification)
-        .map(specification -> (ServerVariableSpecification) specification)
+        .filter(ServerVariableSpecification.class::isInstance)
+        .map(ServerVariableSpecification.class::cast)
         .toList()
     );
-    saveSpecsToFile(specsJSON);
-  }
-
-  private static String getSpecs(String apiBaseUrl, String apiKey) throws IOException {
-    var client = new OkHttpClient();
-    var request = new Request.Builder()
-      .url(apiBaseUrl + "/specs")
-      .header("Authorization", "Bearer " + apiKey)
-      .build();
-
-    try (Response response = client.newCall(request).execute()) {
-      if (!response.isSuccessful()) {
-        throw new RuntimeException("Error while setting Poly specifications: " + response.code() + " " + response.message());
-      }
-
-      return response.body().string();
-    }
-  }
-
-  private void saveSpecsToFile(String specsJSON) throws IOException {
     var targetDir = new File("target/.poly");
     if (!targetDir.exists()) {
-      boolean wasSuccessful = targetDir.mkdirs();
-      if (!wasSuccessful) {
+      if (!targetDir.mkdirs()) {
+        // FIXME: This should be a specific IO Exception.
         throw new IOException("Could not create directory: " + targetDir.getAbsolutePath());
       }
     }
-    var file = new File(targetDir, "specs.json");
-    try (PrintWriter out = new PrintWriter(file)) {
+    try (PrintWriter out = new PrintWriter(new File(targetDir, "specs.json"))) {
       out.println(specsJSON);
-    } catch (FileNotFoundException e) {
-      throw new RuntimeException(e);
     }
   }
 }

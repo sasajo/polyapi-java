@@ -2,12 +2,14 @@ package io.polyapi.client.generator;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.codemodel.JCodeModel;
 import io.polyapi.client.model.property.ObjectPropertyType;
 import io.polyapi.client.model.specification.Specification;
+import org.apache.commons.lang3.stream.Streams;
 
 abstract class SpecificationClassGenerator<T extends Specification> extends AbstractClassGenerator {
 
@@ -18,19 +20,8 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
     return schema.get("type").textValue().equals("array");
   }
 
-  protected void saveCodeModelToFiles(JCodeModel codeModel) {
-    var directory = getClassDirectory("");
-
-    try {
-      codeModel.build(directory);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   protected void insertIntoTree(LibraryTreeNode<T> currentNode, T spec) {
     var contextParts = spec.getContext().split("\\.");
-
     for (int i = 0; i < contextParts.length; i++) {
       var subContext = contextParts[i];
 
@@ -46,7 +37,6 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
         }
       }
 
-
       // If we're at the last part of the context, add the specification to the node
       if (i == contextParts.length - 1) {
         currentNode.addSpecification(spec);
@@ -55,26 +45,37 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
   }
 
   protected void generateObjectPropertyType(String packageName, ObjectPropertyType objectPropertyType, String defaultTypeName) {
-    var typeName = findTypeName(objectPropertyType, defaultTypeName);
+
+    var typeName = Optional.ofNullable(objectPropertyType.getSchema())
+      .map(schema -> findTypeName(schema, defaultTypeName))
+      .orElse(defaultTypeName);
     var schema = normalizeObjectSchema(objectPropertyType.getSchema(), objectPropertyType.getSchema());
 
     if (schema != null) {
       var codeModel = jsonSchemaToTypeGenerator.generateObjectCodeModel(schema, typeName, packageName);
-      saveCodeModelToFiles(codeModel);
-    } else if (objectPropertyType.getProperties() != null) {
-      var result = new StringBuilder();
-      result.append("package ").append(packageName).append(";\n\n");
-
-      result.append("@lombok.Getter\n");
-      result.append("@lombok.Setter\n");
-      result.append("public class ").append(typeName).append(" {\n");
-      for (var property : objectPropertyType.getProperties()) {
-        result.append("  public ").append(property.getType().getInCodeType()).append(" ").append(property.getInCodeName()).append(";\n");
+      try {
+        codeModel.build(getClassDirectory(""));
+      } catch (IOException e) {
+        // FIXME: This should either throw the IOException or the appropriate RuntimeException.
+        throw new RuntimeException(e);
       }
-      result.append("}");
-      saveClassToFile(result.toString(), packageName, typeName);
-    } else if (objectPropertyType.getSchema() == null) {
-      return;
+    } else {
+      if (objectPropertyType.getProperties() != null) {
+        var result = new StringBuilder();
+        result.append("package ").append(packageName).append(";\n\n");
+        result.append("@lombok.Getter\n");
+        result.append("@lombok.Setter\n");
+        result.append("public class ").append(typeName).append(" {\n");
+        for (var property : objectPropertyType.getProperties()) {
+          result.append("  public ").append(property.getType().getInCodeType()).append(" ").append(property.getInCodeName()).append(";\n");
+        }
+        result.append("}");
+        saveClassToFile(result.toString(), packageName, typeName);
+      } else {
+        if (objectPropertyType.getSchema() == null) {
+          return;
+        }
+      }
     }
 
     objectPropertyType.setTypeName(
@@ -82,26 +83,17 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
     );
   }
 
-  String findTypeName(ObjectPropertyType propertyType, String defaultTypeName) {
-    if (propertyType.getSchema() != null) {
-      return findTypeName(propertyType.getSchema(), defaultTypeName);
-    }
-    return defaultTypeName;
-  }
-
   private String findTypeName(JsonNode schema, String defaultTypeName) {
-    if (schema.get("type") == null) {
-      return defaultTypeName;
-    }
-
-    var type = schema.get("type").textValue();
-    return switch (type) {
-      case "array" -> findTypeName(schema.get("items"), defaultTypeName);
-      case "string" -> "String";
-      case "number" -> "Double";
-      case "integer" -> "Long";
-      default -> defaultTypeName;
-    };
+    return Optional.ofNullable(schema.get("type"))
+      .map(JsonNode::textValue)
+      .map(type -> switch (type) {
+        case "array" -> findTypeName(schema.get("items"), defaultTypeName);
+        case "string" -> "String";
+        case "number" -> "Double";
+        case "integer" -> "Long";
+        default -> defaultTypeName;
+      })
+      .orElse(defaultTypeName);
   }
 
   private JsonNode normalizeObjectSchema(JsonNode rootSchema, JsonNode schema) {
@@ -123,10 +115,14 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
       }
       var referencedSchema = getReferencedSchema(node, parts);
       normalizedSchema = normalizeObjectSchema(rootSchema, referencedSchema);
-    } else if (schema.get("type").textValue().equals("object")) {
-      normalizedSchema = schema;
-    } else if (SpecificationClassGenerator.isArray(schema)) {
-      normalizedSchema = normalizeObjectSchema(rootSchema, schema.get("items"));
+    } else {
+      if (schema.get("type").textValue().equals("object")) {
+        normalizedSchema = schema;
+      } else {
+        if (SpecificationClassGenerator.isArray(schema)) {
+          normalizedSchema = normalizeObjectSchema(rootSchema, schema.get("items"));
+        }
+      }
     }
 
     if (normalizedSchema instanceof ObjectNode objectNode && rootSchema.get("definitions") != null) {
