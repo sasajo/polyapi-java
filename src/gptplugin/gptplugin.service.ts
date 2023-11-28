@@ -346,10 +346,10 @@ export class GptPluginService {
   }
 
   async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
-    const [, subdomain] = getSlugSubdomain(hostname);
-    if (!subdomain) {
+    const [hostSlug, subdomain] = getSlugSubdomain(hostname);
+    if (!subdomain || hostSlug !== slug) {
       throw new BadRequestException(
-        'You must use the plugin subdomain to access the OpenAI spec. The format is like this: `https://{slug}-{envSubDomain}.{instanceUrl}/plugins/{slug}/openai`. Go to /plugins to get your `plugin_url` then append "/plugins/{slug}/openapi" to it.',
+        'You must use the plugin subdomain to access the OpenAPI spec. The format is like this: `https://{slug}-{envSubDomain}.{instanceUrl}/plugins/{slug}/openapi`. Go to /plugins to get your `plugin_url` then append "/plugins/{slug}/openapi" to it.',
       );
     }
     const environment = await this.prisma.environment.findUniqueOrThrow({ where: { subdomain } });
