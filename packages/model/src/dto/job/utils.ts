@@ -1,7 +1,7 @@
 import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
 import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Validate, ValidationArguments } from 'class-validator';
-import { CronExpression } from '../validators';
+import { CronExpression, Record } from '../validators';
 import { ScheduleType } from '../../job';
 import { ApiExtraModels } from '@nestjs/swagger';
 
@@ -66,6 +66,10 @@ export class CreateFunctionJob {
 
     @ApiModelProperty({
       required: false,
+      type: 'object',
+      additionalProperties: {
+        description: 'Can be anything'
+      }
     })
     @IsOptional()
     @IsObject()
@@ -73,15 +77,23 @@ export class CreateFunctionJob {
 
     @ApiModelProperty({
       required: false,
+      type: 'object',
+      additionalProperties: {
+        type: 'string'
+      }
     })
     @IsOptional()
-    @IsObject()
+    @Record()
     headersPayload?: object;
-
+    
     @ApiModelProperty({
       required: false,
+      type: 'object',
+      additionalProperties: {
+        type: 'string'
+      }
     })
     @IsOptional()
-    @IsObject()
+    @Record()
     paramsPayload?: object;
 }
