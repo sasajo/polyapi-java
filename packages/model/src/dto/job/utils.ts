@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Validate, ValidationArguments } from 'class-validator';
 import { CronExpression } from '../validators';
 import { ScheduleType } from '../../job';
+import { ApiExtraModels } from '@nestjs/swagger';
 
 const dateErrMsg = (validationArgs: ValidationArguments) => `${validationArgs.property} must be a valid ISO 8601 date string`;
 
@@ -47,6 +48,7 @@ export class Periodical extends ScheduleBase {
 export class Interval extends ScheduleBase {
     @IsString()
     @ApiModelProperty({
+      name: 'type',
       enum: [ScheduleType.INTERVAL],
     })
     type: ScheduleType.INTERVAL;
@@ -57,18 +59,28 @@ export class Interval extends ScheduleBase {
 }
 
 export class CreateFunctionJob {
+    @ApiModelProperty()
     @IsString()
     @IsNotEmpty()
     id: string;
 
+    @ApiModelProperty({
+      required: false,
+    })
     @IsOptional()
     @IsObject()
     eventPayload?: object;
 
+    @ApiModelProperty({
+      required: false,
+    })
     @IsOptional()
     @IsObject()
     headersPayload?: object;
 
+    @ApiModelProperty({
+      required: false,
+    })
     @IsOptional()
     @IsObject()
     paramsPayload?: object;
