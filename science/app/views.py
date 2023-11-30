@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import json
-from typing import Any, Dict, Generator, Optional, Union
+from typing import Any, Dict, Optional, Union
 from flask import Blueprint, Response, request, jsonify
-from openai import OpenAIError, RateLimitError, APIError
+from openai import OpenAIError, RateLimitError, APIError, Stream
 from app.completion import general_question, get_completion_answer
 from app.constants import MessageType, PerfLogType
 from app.conversation import get_chat_conversation_lookback, get_recent_messages
@@ -88,7 +88,7 @@ def function_completion() -> Response:
     language = data.get("language", "")
 
     try:
-        resp: Union[Generator, str] = ""  # either str or streaming completion type
+        resp: Union[Stream, str] = ""  # either str or streaming completion type
         if route == "function":
             resp = get_completion_answer(
                 user_id, conversation.id, environment_id, question, prev_msgs, language

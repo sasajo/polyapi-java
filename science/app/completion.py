@@ -213,7 +213,6 @@ def get_best_function_messages(
         options,
         MessageDict(role="user", content=BEST_FUNCTION_CHOICE_TEMPLATE % question),
     ]
-    insert_system_prompt(messages, environment_id)
     return messages, id_map, stats
 
 

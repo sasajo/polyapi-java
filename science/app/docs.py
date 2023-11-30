@@ -4,9 +4,9 @@ then return the response
 """
 import os
 import json
-from typing import Dict, Generator, List, Optional, Union
+from typing import Dict, List, Optional, Union
 from flask import abort
-from openai import OpenAI
+from openai import OpenAI, Stream
 
 client = OpenAI()
 from prisma import get_client
@@ -62,11 +62,11 @@ def documentation_question(
     *,
     docs_tenant_id: Optional[str],  # which tenantid to use for docs search?
     openai_tenant_id: Optional[str],  # which tenantid to use for openai key?
-) -> Union[Generator, str]:
+) -> Union[Stream, str]:
     query_embed = client.embeddings.create(
         input=question, model="text-embedding-ada-002"
     )
-    query_vector = query_embed["data"][0]["embedding"]
+    query_vector = query_embed.data[0].embedding
 
     db = get_client()
     where: DocSectionWhereInput = {"tenantId": docs_tenant_id}
@@ -112,7 +112,7 @@ def update_vector(doc_id: str) -> str:
     doc = db.docsection.find_unique(where={"id": doc_id})
     assert doc
     resp = client.embeddings.create(input=doc.text, model="text-embedding-ada-002")
-    vector = resp["data"][0]["embedding"]
+    vector = resp.data[0].embedding
     db.docsection.update(where={"id": doc_id}, data={"vector": json.dumps(vector)})
     return "updated!"
 
