@@ -1,11 +1,13 @@
-package io.polyapi.client.generator;
+package io.polyapi.client.generator.generator;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.polyapi.client.generator.LibraryTreeNode;
 import io.polyapi.client.model.property.FunctionPropertyType;
 import io.polyapi.client.model.property.ObjectPropertyType;
 import io.polyapi.client.model.specification.ApiFunctionSpecification;
@@ -35,44 +37,44 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
 
     context.put("packageName", node.isRoot() ? PACKAGE_NAME_BASE : currentPackage);
     context.put("className", className);
-    context.put("subContexts", getSubContexts(node, currentPackage));
+
+    context.put("subContexts", node.getSubContexts().values().stream()
+      .map(subContext -> {
+        Map<String, Object> result = new HashMap<>();
+        var subcontextClassName = StringUtils.toPascalCase(subContext.getContext());
+        result.put("name", subContext.getContext());
+        result.put("className", node.isRoot() ? currentPackage + "." + subcontextClassName : currentPackage + "." + subcontextClassName.toLowerCase() + "." + subcontextClassName);
+        result.put("useStatic", node.isRoot());
+        return result;
+      })
+      .toList());
+
     context.put("specifications", node.getSpecifications());
     context.put("useStatic", node.isRoot());
 
-    generateTypeClasses(node, currentPackage);
-    saveClassToFile(template.apply(context), node.isRoot() ? PACKAGE_NAME_BASE : currentPackage, className);
-
-    for (Map.Entry<String, LibraryTreeNode<Specification>> entry : node.getSubContexts().entrySet()) {
-      var subContextPackage = node.isRoot() ? currentPackage : currentPackage + "." + entry.getKey().toLowerCase();
-      generateClassesFromTree(entry.getValue(), subContextPackage);
-    }
-  }
-
-  private void generateTypeClasses(LibraryTreeNode<Specification> node, String currentPackage) {
     var specifications = node.getSpecifications();
     for (var specification : specifications) {
       if (specification instanceof ApiFunctionSpecification apiFunctionSpecification) {
         generateFunctionTypeClasses(specification, apiFunctionSpecification.getFunction(), currentPackage);
       }
       if (specification instanceof CustomFunctionSpecification customFunctionSpecification && customFunctionSpecification.isJava()) {
-        var className = customFunctionSpecification.getClassName();
-        var classContent = "package " + currentPackage + ";\n\n" +
-          customFunctionSpecification.getCode();
-
-        saveClassToFile(
-          classContent
-            .replace("class PolyCustomFunction", "class " + className),
-          currentPackage,
-          className
-        );
+        var customFunctionSpecificationClassName = customFunctionSpecification.getClassName();
+        var classContent = "package " + currentPackage + ";\n\n" + customFunctionSpecification.getCode();
+        getFileService().createClassFile(currentPackage, customFunctionSpecificationClassName, classContent.replace("class PolyCustomFunction", "class " + customFunctionSpecificationClassName));
         generateFunctionTypeClasses(specification, customFunctionSpecification.getFunction(), currentPackage);
       }
       if (specification instanceof WebhookHandleSpecification webhookHandleSpecification) {
-        var type = ((FunctionPropertyType) webhookHandleSpecification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).getType();
+        var type = (FunctionPropertyType.class.cast(webhookHandleSpecification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).getType());
         if (type instanceof ObjectPropertyType) {
           generateObjectPropertyType(currentPackage, (ObjectPropertyType) type, StringUtils.toPascalCase(specification.getName()) + "$EventType");
         }
       }
+    }
+    getFileService().createClassFile(node.isRoot() ? PACKAGE_NAME_BASE : currentPackage, className, template.apply(context));
+
+    for (Map.Entry<String, LibraryTreeNode<Specification>> entry : node.getSubContexts().entrySet()) {
+      var subContextPackage = node.isRoot() ? currentPackage : currentPackage + "." + entry.getKey().toLowerCase();
+      generateClassesFromTree(entry.getValue(), subContextPackage);
     }
   }
 
@@ -86,18 +88,5 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
         generateObjectPropertyType(packageName, argumentType, StringUtils.toPascalCase(specification.getName()) + "$" + StringUtils.toPascalCase(argument.getName()));
       }
     }
-  }
-
-  private List<Map<String, Object>> getSubContexts(LibraryTreeNode<Specification> node, String currentPackage) {
-    return node.getSubContexts().values().stream()
-      .map(subContext -> {
-        Map<String, Object> result = new HashMap<>();
-        var className = StringUtils.toPascalCase(subContext.getContext());
-        result.put("name", subContext.getContext());
-        result.put("className", node.isRoot() ? currentPackage + "." + className : currentPackage + "." + className.toLowerCase() + "." + className);
-        result.put("useStatic", node.isRoot());
-        return result;
-      })
-      .toList();
   }
 }

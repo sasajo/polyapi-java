@@ -1,7 +1,7 @@
-package io.polyapi.client.generator;
+package io.polyapi.client.generator.generator.transformer;
 
-import java.io.IOException;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JCodeModel;
 import org.jsonschema2pojo.DefaultGenerationConfig;
 import org.jsonschema2pojo.Jackson2Annotator;
 import org.jsonschema2pojo.SchemaGenerator;
@@ -9,8 +9,7 @@ import org.jsonschema2pojo.SchemaMapper;
 import org.jsonschema2pojo.SchemaStore;
 import org.jsonschema2pojo.rules.RuleFactory;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.sun.codemodel.JCodeModel;
+import java.io.IOException;
 
 public class JsonSchemaToTypeGenerator {
   public JCodeModel generateObjectCodeModel(JsonNode schema, String typeName, String packageName) {
@@ -46,14 +45,12 @@ public class JsonSchemaToTypeGenerator {
       }
     };
 
-    var schemaMapper = new SchemaMapper(
-      new RuleFactory(config, new Jackson2Annotator(config), new SchemaStore()),
-      new SchemaGenerator()
-    );
-
     try {
       var codeModel = new JCodeModel();
-      schemaMapper.generate(codeModel, "", packageName, schema.toString());
+      new SchemaMapper(
+        new RuleFactory(config, new Jackson2Annotator(config), new SchemaStore()),
+        new SchemaGenerator()
+      ).generate(codeModel, "", packageName, schema.toString());
       return codeModel;
     } catch (IOException e) {
       throw new RuntimeException(e);

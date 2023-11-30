@@ -11,40 +11,22 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SpecsParserTest {
 
-  private SpecsParser parser;
-
-  @BeforeEach
-  public void setUp() {
-    parser = new SpecsParser();
-  }
-
   @Test
-  public void testParseSpecs() {
-    String jsonSpec;
+  public void testParseSpecs() throws IOException {
     try (InputStream is = getClass().getClassLoader().getResourceAsStream("specs.json")) {
-      if (is == null) {
-        throw new RuntimeException("Failed to read specs.json");
-      }
-      jsonSpec = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to read specs.json", e);
-    }
 
-    // Parse the spec and perform assertions
-    try {
-      List<Specification> specifications = parser.parseSpecs(jsonSpec);
+      // Parse the spec and perform assertions
+      List<Specification> specifications = new SpecsParser().parseSpecs(new String(is.readAllBytes(), UTF_8));
 
       // Perform your assertions here based on expected values
       // Example:
       assertFalse(specifications.isEmpty(), "Specifications should not be empty");
-      // More assertions...
-
-    } catch (IOException e) {
-      fail("Failed to parse spec", e);
+      // TODO: More assertions...
     }
   }
 }

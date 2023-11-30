@@ -1,18 +1,18 @@
-package io.polyapi.client.generator;
+package io.polyapi.client.generator.generator;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.polyapi.client.generator.LibraryTreeNode;
+import io.polyapi.client.generator.generator.transformer.JsonSchemaToTypeGenerator;
+import io.polyapi.client.model.property.ObjectPropertyType;
+import io.polyapi.client.model.specification.Specification;
+
+import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.codemodel.JCodeModel;
-import io.polyapi.client.model.property.ObjectPropertyType;
-import io.polyapi.client.model.specification.Specification;
-import org.apache.commons.lang3.stream.Streams;
-
 abstract class SpecificationClassGenerator<T extends Specification> extends AbstractClassGenerator {
-
 
   private final JsonSchemaToTypeGenerator jsonSchemaToTypeGenerator = new JsonSchemaToTypeGenerator();
 
@@ -54,7 +54,9 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
     if (schema != null) {
       var codeModel = jsonSchemaToTypeGenerator.generateObjectCodeModel(schema, typeName, packageName);
       try {
-        codeModel.build(getClassDirectory(""));
+        var directory = new File("target/generated-sources/");
+        directory.mkdirs();
+        codeModel.build(directory);
       } catch (IOException e) {
         // FIXME: This should either throw the IOException or the appropriate RuntimeException.
         throw new RuntimeException(e);
@@ -70,7 +72,7 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
           result.append("  public ").append(property.getType().getInCodeType()).append(" ").append(property.getInCodeName()).append(";\n");
         }
         result.append("}");
-        saveClassToFile(result.toString(), packageName, typeName);
+        getFileService().createClassFile(packageName, typeName, result.toString());
       } else {
         if (objectPropertyType.getSchema() == null) {
           return;
@@ -78,9 +80,12 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
       }
     }
 
-    objectPropertyType.setTypeName(
-      getWrappedType(objectPropertyType, typeName.equals(defaultTypeName) ? packageName + "." + typeName : typeName)
-    );
+    if (objectPropertyType.getSchema() != null) {
+      if (SpecificationClassGenerator.isArray(objectPropertyType.getSchema())) {
+        objectPropertyType.setTypeName(("java.util.List<" + typeName + ">").equals(defaultTypeName) ? packageName + "." + typeName : typeName + ">");
+      }
+    }
+    objectPropertyType.setTypeName(typeName.equals(defaultTypeName) ? packageName + "." + typeName : typeName);
   }
 
   private String findTypeName(JsonNode schema, String defaultTypeName) {
@@ -138,24 +143,5 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
       return node;
     }
     return getReferencedSchema(node.get(pathParts[0]), Arrays.copyOfRange(pathParts, 1, pathParts.length));
-  }
-
-  private String getWrappedType(ObjectPropertyType propertyType, String typeName) {
-    if (propertyType.getSchema() != null) {
-      if (SpecificationClassGenerator.isArray(propertyType.getSchema())) {
-        return "java.util.List<" + typeName + ">";
-      }
-    }
-    return typeName;
-  }
-
-  protected String getParentPackage(String currentPackage) {
-    String[] components = currentPackage.split("\\.");
-    if (components.length <= 1) {
-      // This means we are at a root package or no package at all.
-      return ""; // or return null or some default package as per your setup.
-    }
-    String[] parentComponents = Arrays.copyOf(components, components.length - 1);
-    return String.join(".", parentComponents);
   }
 }
