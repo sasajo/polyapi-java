@@ -2,17 +2,14 @@ package io.polyapi.client;
 
 import io.polyapi.client.model.specification.Specification;
 import io.polyapi.client.parser.SpecsParser;
-
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class SpecsParserTest {
 

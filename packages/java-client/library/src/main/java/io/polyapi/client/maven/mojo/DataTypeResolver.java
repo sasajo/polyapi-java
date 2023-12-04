@@ -1,54 +1,40 @@
 package io.polyapi.client.maven.mojo;
 
 import com.github.javaparser.ast.type.Type;
-import com.kjetland.jackson.jsonSchema.JsonSchemaGenerator;
 import io.polyapi.client.TypeData;
 import io.polyapi.client.internal.parse.JsonParser;
-import io.polyapi.client.processor.QualifiedNameNotFoundException;
+import io.polyapi.client.error.classloader.QualifiedNameNotFoundException;
+
+import java.util.stream.Stream;
+
+import static java.lang.String.format;
 
 public class DataTypeResolver {
-  private final JsonSchemaGenerator jsonSchemaGenerator;
-  private JsonParser jsonParser;
-
+  private final JsonParser jsonParser;
   private final ClassLoader classLoader;
 
-  public DataTypeResolver(ClassLoader classLoader, JsonParser jsonParser, JsonSchemaGenerator jsonSchemaGenerator) {
+  public DataTypeResolver(ClassLoader classLoader, JsonParser jsonParser) {
     this.classLoader = classLoader;
     this.jsonParser = jsonParser;
-    this.jsonSchemaGenerator = jsonSchemaGenerator;
   }
 
   public TypeData resolve(Type type) {
-    if (type.isVoidType()) {
-      return new TypeData("void", null);
+    TypeData result = new TypeData("void", null);
+    if (!type.isVoidType()) {
+      String qualifiedName = (type.isArrayType() ? type.getElementType().resolve() : type.resolve()).asReferenceType().getQualifiedName();
+      try {
+        Class<?> clazz = classLoader.loadClass(qualifiedName);
+        result = new TypeData("object", format(type.isArrayType() ? "{\"type\": \"array\", \"items\": %s}" : "%s", Stream.of(String.class, Integer.class, Number.class, Boolean.class)
+          .filter(expectedClass -> expectedClass.isAssignableFrom(clazz))
+          .findFirst()
+          .map(Class::getSimpleName)
+          .map(String::toLowerCase)
+          .map(expectedClass -> format("{\"type\": \"%s\"}", expectedClass))
+          .orElseGet(() -> jsonParser.toJsonSchema(clazz))));
+      } catch (ClassNotFoundException e) {
+        throw new QualifiedNameNotFoundException(qualifiedName, e);
+      }
     }
-    var isArray = type.isArrayType();
-    var resolvedType = isArray ? type.getElementType().resolve() : type.resolve();
-    var qualifiedName = resolvedType.asReferenceType().getQualifiedName();
-    Class<?> clazz;
-    try {
-      clazz = classLoader.loadClass(qualifiedName);
-    } catch (ClassNotFoundException e) {
-      throw new QualifiedNameNotFoundException(qualifiedName, e);
-    }
-
-    if (String.class.isAssignableFrom(clazz)) {
-      return new TypeData("object", wrapInArrayConditionally("{\"type\": \"string\"}", isArray));
-    }
-    if (Integer.class.isAssignableFrom(clazz)) {
-      return new TypeData("object", wrapInArrayConditionally("{\"type\": \"integer\"}", isArray));
-    }
-    if (Number.class.isAssignableFrom(clazz)) {
-      return new TypeData("object", wrapInArrayConditionally("{\"type\": \"number\"}", isArray));
-    }
-    if (Boolean.class.isAssignableFrom(clazz)) {
-      return new TypeData("object", wrapInArrayConditionally("{\"type\": \"boolean\"}", isArray));
-    }
-
-    return new TypeData("object", wrapInArrayConditionally(jsonParser.toJsonString(jsonSchemaGenerator.generateJsonSchema(clazz)), isArray));
-  }
-
-  private String wrapInArrayConditionally(String schema, boolean wrap) {
-    return wrap ? "{\"type\": \"array\", \"items\": " + schema + "}" : schema;
+    return result;
   }
 }

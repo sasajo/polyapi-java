@@ -2,8 +2,11 @@ package io.polyapi.client.generator.generator;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.jknack.handlebars.Handlebars;
+import io.polyapi.client.error.PolyApiClientException;
 import io.polyapi.client.generator.LibraryTreeNode;
 import io.polyapi.client.generator.generator.transformer.JsonSchemaToTypeGenerator;
+import io.polyapi.client.internal.file.FileService;
 import io.polyapi.client.model.property.ObjectPropertyType;
 import io.polyapi.client.model.specification.Specification;
 
@@ -12,9 +15,15 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static java.lang.String.format;
+
 abstract class SpecificationClassGenerator<T extends Specification> extends AbstractClassGenerator {
 
   private final JsonSchemaToTypeGenerator jsonSchemaToTypeGenerator = new JsonSchemaToTypeGenerator();
+
+  public SpecificationClassGenerator(Handlebars handlebars, FileService fileService) {
+    super(handlebars, fileService);
+  }
 
   static boolean isArray(JsonNode schema) {
     return schema.get("type").textValue().equals("array");
@@ -55,7 +64,12 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
       var codeModel = jsonSchemaToTypeGenerator.generateObjectCodeModel(schema, typeName, packageName);
       try {
         var directory = new File("target/generated-sources/");
-        directory.mkdirs();
+        if (!directory.mkdirs()) {
+          throw new PolyApiClientException(format("Parent file not created of file %s.", Optional.of(directory)
+            .map(File::getParentFile)
+            .map(File::getAbsolutePath)
+            .orElse("null")));
+        }
         codeModel.build(directory);
       } catch (IOException e) {
         // FIXME: This should either throw the IOException or the appropriate RuntimeException.

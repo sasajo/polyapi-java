@@ -1,12 +1,11 @@
 package io.polyapi.client.model.property;
 
-import java.util.List;
-import java.util.Map;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import io.polyapi.client.model.specification.PropertySpecification;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 @Getter
 @Setter

@@ -15,16 +15,19 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import com.kjetland.jackson.jsonSchema.JsonSchemaGenerator;
 import io.polyapi.client.TypeResolver;
+import io.polyapi.client.error.PolyApiClientException;
 import io.polyapi.client.internal.http.DefaultHttpClient;
 import io.polyapi.client.internal.http.HardcodedTokenProvider;
+import io.polyapi.client.internal.parse.JacksonJsonParser;
 import io.polyapi.client.internal.parse.JsonParser;
 import io.polyapi.client.internal.service.FunctionApiService;
 import io.polyapi.client.internal.service.FunctionApiServiceImpl;
 import io.polyapi.client.model.function.PolyFunction;
 import io.polyapi.client.model.function.PolyFunctionArgument;
+import lombok.Setter;
 import okhttp3.OkHttpClient;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -34,31 +37,30 @@ import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
+import static io.polyapi.client.maven.mojo.validation.Validator.validateFileExistence;
+import static io.polyapi.client.maven.mojo.validation.Validator.validateNotEmpty;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+@Setter
 @Mojo(name = "addFunction", requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME)
 public class AddFunctionMojo extends AbstractMojo {
-  private final ObjectMapper objectMapper = new ObjectMapper();
-  private JsonParser jsonParser = new JsonParser(objectMapper);
 
-  private FunctionApiService functionApiService;
+  private final JsonParser jsonParser = new JacksonJsonParser(new ObjectMapper());
+
   @Parameter(defaultValue = "${project}", readonly = true)
   private MavenProject project;
-
-  @Parameter(defaultValue = "${project.build.sourceDirectory}", readonly = true, required = true)
-  private String sourceDirectory;
 
   @Parameter(property = "name", required = true)
   private String name;
@@ -84,51 +86,9 @@ public class AddFunctionMojo extends AbstractMojo {
   @Parameter(property = "server")
   private Boolean server;
 
-  private DataTypeResolver dataTypeResolver;
 
   public void execute() throws MojoExecutionException {
-    if (apiBaseUrl == null || apiKey == null) {
-      var apiData = new ApiData();
-
-      try {
-        project.getBuild().getPlugins().stream().findFirst().ifPresent(plugin -> plugin.getConfiguration());
-        project.getBuild().getPlugins().stream()
-          .filter(plugin -> "io.polyapi.client".equals(plugin.getGroupId()))
-          .filter(plugin -> "library".equals(plugin.getArtifactId()))
-          .findFirst()
-          .ifPresent(plugin -> {
-            Xpp3Dom configuration = Xpp3Dom.class.cast(plugin.getConfiguration());
-            if (configuration == null && !plugin.getExecutions().isEmpty()) {
-              configuration = Xpp3Dom.class.cast(plugin.getExecutions().get(0).getConfiguration());
-            }
-
-            if (configuration != null) {
-              Optional.ofNullable(configuration.getChild("apiBaseUrl"))
-                .filter(Objects::nonNull)
-                .map(Xpp3Dom::getValue)
-                .ifPresent(apiBaseUrlNode -> apiData.apiBaseUrl = apiBaseUrlNode);
-              Optional.ofNullable(configuration.getChild("apiKey"))
-                .filter(Objects::nonNull)
-                .map(Xpp3Dom::getValue)
-                .ifPresent(apiKeyNode -> apiData.apiKey = apiKeyNode);
-            }
-          });
-      } catch (RuntimeException e) {
-        throw new MojoExecutionException("Error building project", e);
-      }
-      apiBaseUrl = apiBaseUrl != null ? apiBaseUrl : apiData.apiBaseUrl;
-      apiKey = apiKey != null ? apiKey : apiData.apiKey;
-    }
-    if (apiBaseUrl == null) {
-      throw new MojoExecutionException("apiBaseUrl is required");
-    }
-    if (apiKey == null) {
-      throw new MojoExecutionException("apiKey is required");
-    }
-    if (!file.exists()) {
-      throw new MojoExecutionException("File does not exist: " + file.getAbsolutePath());
-    }
-    functionApiService = new FunctionApiServiceImpl(apiBaseUrl,
+    FunctionApiService functionApiService = new FunctionApiServiceImpl(apiBaseUrl,
       80,
       new DefaultHttpClient(new OkHttpClient.Builder()
         .connectTimeout(10, MINUTES)
@@ -137,6 +97,32 @@ public class AddFunctionMojo extends AbstractMojo {
         .build(),
         new HardcodedTokenProvider(apiKey)),
       jsonParser);
+
+    // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
+    if (apiBaseUrl == null || apiKey == null) {
+      project.getBuild().getPlugins().stream()
+        .filter(plugin -> "io.polyapi.client".equals(plugin.getGroupId()))
+        .filter(plugin -> "library".equals(plugin.getArtifactId()))
+        .findFirst()
+        .ifPresent(plugin -> {
+          var configuration = Xpp3Dom.class.cast(plugin.getConfiguration());
+          if (configuration == null && !plugin.getExecutions().isEmpty()) {
+            configuration = Xpp3Dom.class.cast(plugin.getExecutions().get(0).getConfiguration());
+          }
+
+          if (configuration != null) {
+            Optional.ofNullable(configuration.getChild("apiBaseUrl"))
+              .map(Xpp3Dom::getValue)
+              .ifPresent(apiBaseUrlNode -> apiBaseUrl = Optional.ofNullable(apiBaseUrl).orElse(apiBaseUrlNode));
+            Optional.ofNullable(configuration.getChild("apiKey"))
+              .map(Xpp3Dom::getValue)
+              .ifPresent(apiKeyNode -> apiKey = Optional.ofNullable(apiKey).orElse(apiKeyNode));
+          }
+        });
+    }
+    validateNotEmpty("apiBaseUrl", apiBaseUrl);
+    validateNotEmpty("apiKey", apiKey);
+    validateFileExistence("file", file);
     try {
 
       // Start copied code
@@ -156,7 +142,7 @@ public class AddFunctionMojo extends AbstractMojo {
           }
         })
         .toArray(URL[]::new), getClass().getClassLoader());
-      DataTypeResolver dataTypeResolver = new DataTypeResolver(classLoader, jsonParser, new JsonSchemaGenerator(objectMapper));
+      DataTypeResolver dataTypeResolver = new DataTypeResolver(classLoader, jsonParser);
 
       var functions = new ArrayList<PolyFunction>();
 
@@ -186,6 +172,8 @@ public class AddFunctionMojo extends AbstractMojo {
         if (methodDeclaration.getNameAsString().equals(name)) {
 
           var function = new PolyFunction();
+          function.setDescription(description);
+          function.setContext(context);
           var typeData = dataTypeResolver.resolve(methodDeclaration.getType());
 
           function.setName(methodDeclaration.getNameAsString());
@@ -216,22 +204,20 @@ public class AddFunctionMojo extends AbstractMojo {
             .forEach(param -> executeMethod.addParameter(Object.class, param));
 
           // TODO: Use a template generator tool for this.
-          var body = new StringBuilder();
-          body.append("{\n");
-          body.append("  try {\n");
-          body.append("    return executeInternal(\n");
-          body.append(methodDeclaration.getParameters().stream()
-            .map(param -> format("      ObjectMapper.getInstance().convertValue(%s\", \"%s.class)", param.getNameAsString(), param.getTypeAsString()))
-            .collect(Collectors.joining(",\n", "", "\n")));
-          body.append("    );\n");
-          body.append("  } catch (Exception e) {\n");
-          body.append("    throw new PolyRuntimeException(e);\n");
-          body.append("  }\n");
-          body.append("}");
-          executeMethod.setBody(parser.parseBlock(body.toString()).getResult().get());
+          String body = "{\n" +
+            "  try {\n" +
+            "    return executeInternal(\n" +
+            methodDeclaration.getParameters().stream()
+              .map(param -> format("      ObjectMapper.getInstance().convertValue(%s\", \"%s.class)", param.getNameAsString(), param.getTypeAsString()))
+              .collect(Collectors.joining(",\n", "", "\n")) +
+            "    );\n" +
+            "  } catch (Exception e) {\n" +
+            "    throw new PolyRuntimeException(e);\n" +
+            "  }\n" +
+            "}";
+          executeMethod.setBody(parser.parseBlock(body).getResult().get());
           generatedCode.addType(customFunctionClass);
           methodDeclaration.accept(new TypeResolver(compilationUnit, parser), generatedCode);
-
           compilationUnit.getImports().stream()
             .filter(importDeclaration ->
               generatedCode.getTypes().stream()
@@ -241,16 +227,12 @@ public class AddFunctionMojo extends AbstractMojo {
                 })
             )
             .forEach(generatedCode::addImport);
-
           var executeInternal = generatedCode.getType(0).asClassOrInterfaceDeclaration().addMethod("executeInternal", Modifier.Keyword.PRIVATE)
             .setType(methodDeclaration.getType())
             .setBody(methodDeclaration.getBody().orElse(new BlockStmt(NodeList.nodeList())));
           methodDeclaration.getParameters()
-            .forEach(param -> {
-              executeInternal.addParameter(param.getType(), param.getNameAsString());
-            });
+            .forEach(param -> executeInternal.addParameter(param.getType(), param.getNameAsString()));
           function.setCode(generatedCode.toString());
-
           functions.add(function);
         }
       }
@@ -274,13 +256,10 @@ public class AddFunctionMojo extends AbstractMojo {
         var response = functionApiService.postCustomServerFunction(function);
         getLog().info("Function deployed successfully: " + response.getId());
       }
-    } catch (Exception e) {
+    } catch (DependencyResolutionRequiredException | FileNotFoundException e) {
       throw new MojoExecutionException("Error parsing file", e);
+    } catch (PolyApiClientException e) {
+      throw new MojoExecutionException(e);
     }
-  }
-
-  private static class ApiData {
-    private String apiBaseUrl;
-    private String apiKey;
   }
 }

@@ -11,7 +11,7 @@ import lombok.Getter;
 @Getter
 public class HttpResponseException extends PolyApiClientException {
 
-  private Response response;
+  private final Response response;
 
   /**
    * Constructor that takes a message and the response returned.

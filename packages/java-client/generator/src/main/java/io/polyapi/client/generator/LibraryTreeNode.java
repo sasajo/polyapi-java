@@ -1,13 +1,13 @@
 package io.polyapi.client.generator;
 
+import io.polyapi.client.model.specification.Specification;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import io.polyapi.client.model.specification.Specification;
-import lombok.Getter;
-import lombok.Setter;
 
 @Getter
 @Setter

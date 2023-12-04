@@ -27,8 +27,8 @@ public class PolyApiService {
 
   private final String host;
   private final Integer port;
-  private HttpClient client;
-  private JsonParser jsonParser;
+  private final HttpClient client;
+  private final JsonParser jsonParser;
 
   public PolyApiService(String host, Integer port, HttpClient client, JsonParser jsonParser) {
     this.client = client;
@@ -72,10 +72,5 @@ public class PolyApiService {
       .build();
     logger.debug("Executing authenticated GET request with target {}", request.getUrl());
     return client.send(request);
-  }
-
-  @Deprecated
-  public HttpClient getClient() {
-    return client;
   }
 }

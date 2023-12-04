@@ -1,6 +1,5 @@
 package io.polyapi.client.utils;
 
-import org.apache.commons.text.CaseUtils;
 import org.apache.commons.text.WordUtils;
 
 public class StringUtils {

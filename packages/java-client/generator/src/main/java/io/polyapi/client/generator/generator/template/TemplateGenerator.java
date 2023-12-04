@@ -1,10 +1,8 @@
 package io.polyapi.client.generator.generator.template;
 
 import com.github.jknack.handlebars.Handlebars;
-import com.github.jknack.handlebars.Helper;
 import com.github.jknack.handlebars.Options;
 import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
-import com.github.jknack.handlebars.io.TemplateLoader;
 import io.polyapi.client.generator.generator.template.helper.ConditionHelper;
 import io.polyapi.client.model.specification.PropertySpecification;
 

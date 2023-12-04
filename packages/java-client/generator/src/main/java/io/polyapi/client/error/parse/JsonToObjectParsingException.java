@@ -1,15 +1,12 @@
 package io.polyapi.client.error.parse;
 
 import lombok.Getter;
-import org.apache.commons.io.IOUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.nio.charset.Charset;
 import java.util.Optional;
 
-import static java.io.InputStream.nullInputStream;
 import static java.lang.String.format;
 import static java.nio.charset.Charset.defaultCharset;
 
@@ -40,6 +37,6 @@ public class JsonToObjectParsingException extends ParsingException {
    * @param cause The cause of the error.
    */
   public JsonToObjectParsingException(String json, Type type, Throwable cause) {
-    this(new ByteArrayInputStream(Optional.ofNullable(json).orElse("null").getBytes(defaultCharset())), type, cause);
+    this(new ByteArrayInputStream(String.valueOf(json).getBytes(defaultCharset())), type, cause);
   }
 }

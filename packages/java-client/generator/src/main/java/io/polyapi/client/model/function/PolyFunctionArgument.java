@@ -1,6 +1,5 @@
 package io.polyapi.client.model.function;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 

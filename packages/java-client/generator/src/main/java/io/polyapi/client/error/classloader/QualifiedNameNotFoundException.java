@@ -1,4 +1,4 @@
-package io.polyapi.client.processor;
+package io.polyapi.client.error.classloader;
 
 import io.polyapi.client.error.PolyApiClientException;
 import lombok.Getter;

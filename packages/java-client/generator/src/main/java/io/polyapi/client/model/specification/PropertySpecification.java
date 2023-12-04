@@ -1,7 +1,6 @@
 package io.polyapi.client.model.specification;
 
 import io.polyapi.client.model.property.PropertyType;
-import io.polyapi.client.utils.StringUtils;
 import lombok.Getter;
 import lombok.Setter;
 

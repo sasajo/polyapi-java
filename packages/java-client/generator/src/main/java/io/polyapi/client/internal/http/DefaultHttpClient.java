@@ -9,9 +9,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.nio.charset.Charset.defaultCharset;
 import static java.util.stream.Collectors.joining;
 
@@ -19,8 +19,7 @@ public class DefaultHttpClient implements HttpClient {
   private static final Logger logger = LoggerFactory.getLogger(DefaultHttpClient.class);
 
   private final OkHttpClient client;
-
-  private TokenProvider tokenProvider;
+  private final TokenProvider tokenProvider;
 
   public DefaultHttpClient(OkHttpClient client, TokenProvider tokenProvider) {
     this.client = client;
@@ -52,8 +51,9 @@ public class DefaultHttpClient implements HttpClient {
           requestId,
           request.getUrl(),
           request.headers().entrySet().stream()
-            .map(entry -> format("'%s'='%s'", entry.getKey(), entry.getValue().stream().collect(joining(", "))))
+            .map(entry -> format("'%s'='%s'", entry.getKey(), join(", ", entry.getValue())))
             .collect(joining(";")),
+          request.method(),
           IOUtils.toString(request.body(), defaultCharset())
         );
       }
@@ -62,11 +62,14 @@ public class DefaultHttpClient implements HttpClient {
         .method(request.method().name(), RequestBody.create(IOUtils.toString(request.body(), defaultCharset()).getBytes(defaultCharset())));
 
       // This block of code is created because the Headers class doesn't have a way of including the headers all together.
-      request.headers().entrySet().forEach(entry -> entry.getValue().forEach(value -> builder.header(entry.getKey(), value)));
-      okhttp3.Response response = client.newCall(builder.build())
-        .execute();
-      logger.debug("Request with ID {} complete. Status code is {}", requestId, response.code());
-      return new ResponseRecord(response.headers().toMultimap(), response.body().byteStream(), response.code());
+      request.headers().forEach((key, list) -> list.forEach(value -> builder.header(key, value)));
+      try (okhttp3.Response response = client.newCall(builder.build()).execute()) {
+        logger.debug("Request with ID {} complete. Status code is {}", requestId, response.code());
+        return new ResponseRecord(response.headers().toMultimap(), response.body().byteStream(), response.code());
+      } catch (IOException e) {
+        // FIXME: Throw the appropriate exception.
+        throw new RuntimeException(e);
+      }
     } catch (IOException e) {
       // FIXME: Throw the appropriate exception.
       throw new PolyApiClientException(e);

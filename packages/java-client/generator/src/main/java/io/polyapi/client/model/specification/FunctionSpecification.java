@@ -1,10 +1,10 @@
 package io.polyapi.client.model.specification;
 
-import java.util.List;
-
 import io.polyapi.client.model.property.PropertyType;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 @Getter
 @Setter

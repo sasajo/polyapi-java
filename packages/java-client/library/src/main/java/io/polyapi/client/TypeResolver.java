@@ -57,7 +57,7 @@ public class TypeResolver extends VoidVisitorAdapter<CompilationUnit> {
         var resolvedType = type.resolve();
         if (resolvedType.isReferenceType()) {
           var typeDeclaration = resolvedType.asReferenceType().getTypeDeclaration().get();
-          if (!Stream.of("java.lang.", "io.polyapi.").anyMatch(typeDeclaration.getQualifiedName()::startsWith)
+          if (Stream.of("java.lang.", "io.polyapi.").noneMatch(typeDeclaration.getQualifiedName()::startsWith)
             && typeDeclaration instanceof JavaParserClassDeclaration) {
             var classCompilationUnit = parser.parse(JavaParserClassDeclaration.class.cast(typeDeclaration).getWrappedNode().getParentNode().get().toString()).getResult().get();
             classCompilationUnit.accept(new TypeResolver(compilationUnit, parser), generatedCode);
