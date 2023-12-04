@@ -1,4 +1,8 @@
-package io.polyapi.client.internal.http;
+package io.polyapi.client.internal.service;
+
+import io.polyapi.client.model.specification.Specification;
+
+import java.util.List;
 
 /**
  * Service dedicated to operations with Specifications on the Poly API webservice.
@@ -8,9 +12,7 @@ public interface SpecificationApiService {
   /**
    * Retrieve all the JSON specifications in Poly.
    *
-   * @param baseUrl     The base URL where the Poly API instance is.
-   * @param bearerToken The authentication bearer token.
    * @return String A JSON containing the specifications.
    */
-  String getJsonSpecs(String baseUrl, String bearerToken);
+  List<Specification> getJsonSpecs();
 }
