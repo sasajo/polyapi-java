@@ -34,7 +34,6 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.util.xml.Xpp3Dom;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -46,12 +45,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static io.polyapi.client.maven.mojo.validation.Validator.validateFileExistence;
 import static io.polyapi.client.maven.mojo.validation.Validator.validateNotEmpty;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Stream.concat;
 
 @Setter
 @Mojo(name = "addFunction", requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME)
@@ -88,6 +89,7 @@ public class AddFunctionMojo extends AbstractMojo {
 
 
   public void execute() throws MojoExecutionException {
+    MavenService extractor = new MavenService(project);
     FunctionApiService functionApiService = new FunctionApiServiceImpl(apiBaseUrl,
       80,
       new DefaultHttpClient(new OkHttpClient.Builder()
@@ -99,38 +101,18 @@ public class AddFunctionMojo extends AbstractMojo {
       jsonParser);
 
     // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
-    if (apiBaseUrl == null || apiKey == null) {
-      project.getBuild().getPlugins().stream()
-        .filter(plugin -> "io.polyapi.client".equals(plugin.getGroupId()))
-        .filter(plugin -> "library".equals(plugin.getArtifactId()))
-        .findFirst()
-        .ifPresent(plugin -> {
-          var configuration = Xpp3Dom.class.cast(plugin.getConfiguration());
-          if (configuration == null && !plugin.getExecutions().isEmpty()) {
-            configuration = Xpp3Dom.class.cast(plugin.getExecutions().get(0).getConfiguration());
-          }
+    apiBaseUrl = Optional.ofNullable(apiBaseUrl).orElseGet(() -> extractor.getPropertyFromPlugin("apiBaseUrl"));
+    apiKey = Optional.ofNullable(apiKey).orElseGet(() -> extractor.getPropertyFromPlugin("apiKey"));
 
-          if (configuration != null) {
-            Optional.ofNullable(configuration.getChild("apiBaseUrl"))
-              .map(Xpp3Dom::getValue)
-              .ifPresent(apiBaseUrlNode -> apiBaseUrl = Optional.ofNullable(apiBaseUrl).orElse(apiBaseUrlNode));
-            Optional.ofNullable(configuration.getChild("apiKey"))
-              .map(Xpp3Dom::getValue)
-              .ifPresent(apiKeyNode -> apiKey = Optional.ofNullable(apiKey).orElse(apiKeyNode));
-          }
-        });
-    }
     validateNotEmpty("apiBaseUrl", apiBaseUrl);
     validateNotEmpty("apiKey", apiKey);
     validateFileExistence("file", file);
     try {
 
-      // Start copied code
       // Create a Classloader with all the elements in the project.
-      var classpathElements = new ArrayList<>(project.getCompileClasspathElements());
-      classpathElements.addAll(project.getRuntimeClasspathElements());
-      classpathElements.add(project.getBuild().getOutputDirectory());
-      var classLoader = new URLClassLoader(classpathElements.stream()
+      var classLoader = new URLClassLoader(concat(concat(project.getCompileClasspathElements().stream(),
+            project.getRuntimeClasspathElements().stream()),
+          Stream.of(project.getBuild().getOutputDirectory()))
         .map(File::new)
         .map(File::toURI)
         .map(uri -> {
@@ -142,10 +124,8 @@ public class AddFunctionMojo extends AbstractMojo {
           }
         })
         .toArray(URL[]::new), getClass().getClassLoader());
+
       DataTypeResolver dataTypeResolver = new DataTypeResolver(classLoader, jsonParser);
-
-      var functions = new ArrayList<PolyFunction>();
-
       var combinedTypeSolver = new CombinedTypeSolver();
       project.getCompileSourceRoots().stream()
         .map(File::new)
@@ -168,18 +148,17 @@ public class AddFunctionMojo extends AbstractMojo {
       var parser = new JavaParser(new ParserConfiguration().setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver)));
       var compilationUnit = parser.parse(file).getResult().get();
 
-      for (MethodDeclaration methodDeclaration : compilationUnit.findAll(MethodDeclaration.class)) {
-        if (methodDeclaration.getNameAsString().equals(name)) {
-
+      var functions = new ArrayList<PolyFunction>();
+      compilationUnit.findAll(MethodDeclaration.class).stream()
+        .filter(methodDeclaration -> methodDeclaration.getNameAsString().equals(name))
+        .forEach(methodDeclaration -> {
           var function = new PolyFunction();
           function.setDescription(description);
           function.setContext(context);
           var typeData = dataTypeResolver.resolve(methodDeclaration.getType());
-
           function.setName(methodDeclaration.getNameAsString());
           function.setReturnType(typeData.name());
           function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
-
           methodDeclaration.getParameters().stream()
             .map(param -> {
               var argument = new PolyFunctionArgument();
@@ -190,7 +169,6 @@ public class AddFunctionMojo extends AbstractMojo {
               return argument;
             })
             .forEach(function.getArguments()::add);
-
 
           var generatedCode = new CompilationUnit();
           generatedCode.addImport("io.polyapi.client.api.*");
@@ -234,10 +212,7 @@ public class AddFunctionMojo extends AbstractMojo {
             .forEach(param -> executeInternal.addParameter(param.getType(), param.getNameAsString()));
           function.setCode(generatedCode.toString());
           functions.add(function);
-        }
-      }
-
-      // End copied code
+        });
 
       if (functions.isEmpty()) {
         throw new MojoExecutionException("No function with name " + name + " found in file: " + file.getAbsolutePath());
