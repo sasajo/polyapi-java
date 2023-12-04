@@ -66,6 +66,7 @@ const generateJSFiles = async (specs: Specification[]) => {
   await generateIndexJSFile();
   await generatePolyCustomJSFile();
   await generateAxiosJSFile();
+  await generateErrorHandlerFile();
   await generateApiFunctionJSFiles(apiFunctions);
   await generateCustomFunctionJSFiles(customFunctions);
   await generateWebhooksJSFiles(webhookHandles);
@@ -104,6 +105,15 @@ const generateAxiosJSFile = async () => {
     axiosJSTemplate({
       apiBaseUrl: getApiBaseUrl(),
       apiKey: getApiKey(),
+    }),
+  );
+};
+
+const generateErrorHandlerFile = async () => {
+  const errorHandlerJSTemplate = handlebars.compile(await loadTemplate('error-handler.js.hbs'));
+  fs.writeFileSync(
+    `${POLY_LIB_PATH}/error-handler.js`,
+    errorHandlerJSTemplate({
     }),
   );
 };
