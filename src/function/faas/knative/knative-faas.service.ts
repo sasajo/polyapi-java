@@ -42,6 +42,18 @@ interface KNativeRouteDef {
   };
 }
 
+interface VolumeMount {
+  mountPath: string;
+  name: string;
+  subPath: string;
+  readOnly: boolean;
+}
+
+interface ContainerEnv {
+  name: string;
+  value: string;
+}
+
 export class KNativeFaasService implements FaasService {
   private logger = new Logger(KNativeFaasService.name);
   private customObjectsApi: CustomObjectsApi;
@@ -93,7 +105,7 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-    createFromScratch?: boolean,
+    forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
     logsEnabled?: boolean,
@@ -108,13 +120,24 @@ export class KNativeFaasService implements FaasService {
         requirements,
         apiKey,
         limits,
-        createFromScratch,
+        forceCustomImage,
         sleep,
         sleepAfter,
         logsEnabled,
       );
     } else if (language === 'java') {
-      return this.createJavaFunction(id, tenantId, environmentId, code, apiKey);
+      return this.createJavaFunction(
+        id,
+        tenantId,
+        environmentId,
+        code,
+        apiKey,
+        limits,
+        forceCustomImage,
+        sleep,
+        sleepAfter,
+        logsEnabled,
+      );
     }
   }
 
@@ -127,7 +150,7 @@ export class KNativeFaasService implements FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-    createFromScratch?: boolean,
+    forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
     logsEnabled?: boolean,
@@ -148,11 +171,11 @@ export class KNativeFaasService implements FaasService {
       this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
       await writeFile(`${functionPath}/function/index.js`, content);
 
-      await this.deploy(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter, logsEnabled);
+      await this.deployNodeFunction(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter, logsEnabled);
     };
 
     const additionalRequirements = this.filterPreinstalledNpmPackages(requirements);
-    if (additionalRequirements.length > 0 || createFromScratch) {
+    if (additionalRequirements.length > 0 || forceCustomImage) {
       const customImageName = `${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)}`;
 
       // not awaiting on purpose, so it returns immediately with the message
@@ -172,21 +195,26 @@ export class KNativeFaasService implements FaasService {
     environmentId: string,
     code: string,
     apiKey: string,
+    limits: ServerFunctionLimits,
+    forceCustomImage?: boolean,
+    sleep?: boolean | null,
+    sleepAfter?: number | null,
+    logsEnabled?: boolean,
   ): Promise<void> {
     this.logger.debug(`Creating Java function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
-    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
-    const customImageName = `${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)}`;
-
-    this.logger.debug(`Building custom image ${customImageName} for Java server function '${id}'...`);
-
-    await this.buildCustomJavaImage(id, tenantId, environmentId, customImageName, apiKey, code);
-
-    this.logger.debug(`Deploying custom image ${customImageName} for Java server function '${id}'...`);
-
-    await exec(`${this.config.knativeFuncExecFile} deploy --image ${customImageName} --build false`, {
-      cwd: functionPath,
-    });
+    await this.prepareJavaFunction(id, tenantId, environmentId, apiKey, code);
+    if (forceCustomImage) {
+      const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+      const imageName = `${this.config.faasDockerContainerRegistry}/${this.getFunctionName(id)}`;
+      this.logger.debug(`Deploying custom Java server function image '${imageName}'...`);
+      await exec(`${this.config.knativeFuncExecFile} deploy --image ${imageName} --push`, {
+        cwd: functionPath,
+      });
+      this.logger.debug(`Deployment of custom Java server function '${imageName}' finished.`);
+    } else {
+      await this.deployJavaFunction(id, tenantId, environmentId, this.config.faasDockerImageFunctionJava, limits, sleep, sleepAfter, logsEnabled);
+    }
   }
 
   async executeFunction(
@@ -331,7 +359,7 @@ export class KNativeFaasService implements FaasService {
     }
   }
 
-  private async deploy(
+  private async deployNodeFunction(
     id: string,
     tenantId: string,
     environmentId: string,
@@ -342,12 +370,119 @@ export class KNativeFaasService implements FaasService {
     sleepAfter?: number | null,
     logsEnabled = false,
   ) {
+    const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+    const volumeMounts: VolumeMount[] = [
+      {
+        mountPath: '/workspace/function',
+        name: 'functions-volume',
+        subPath: `${functionPath}`,
+        readOnly: false,
+      },
+    ];
+    const env: ContainerEnv[] = [
+      {
+        name: 'ENVIRONMENT_SETUP_COMPLETE',
+        value: 'true',
+      },
+      {
+        name: 'POLY_API_BASE_URL',
+        value: this.config.faasPolyServerUrl,
+      },
+      {
+        name: 'POLY_API_KEY',
+        value: apiKey,
+      },
+    ];
+    const command = ['/bin/sh', '-c'];
+    const cachedPolyGenerateCommand = `if [ -d "/workspace/function/.poly/lib" ];
+    then echo 'Cached Poly library found, reusing...' && cp -r /workspace/function/.poly /workspace/node_modules/;
+    else npx poly generate && cp -r /workspace/node_modules/.poly /workspace/function/; fi`;
+
+    const startUpCommand = `if [ -f "/workspace/function/function/index.js" ]; 
+    then /cnb/lifecycle/launcher "cp -f /workspace/function/function/index.js /workspace/ && ${cachedPolyGenerateCommand} && npm start"; 
+    else /cnb/lifecycle/launcher "npx poly generate"; fi`;
+
+    const args = [startUpCommand];
+
+    return this.deployFunction(
+      id,
+      tenantId,
+      environmentId,
+      imageName,
+      limits,
+      sleepFn,
+      sleepAfter,
+      logsEnabled,
+      volumeMounts,
+      env,
+      command,
+      args,
+    );
+  }
+
+  private async deployJavaFunction(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    imageName: string,
+    limits: ServerFunctionLimits,
+    sleepFn?: boolean | null,
+    sleepAfter?: number | null,
+    logsEnabled = false,
+  ) {
+    this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
+    await this.deleteFunction(id, tenantId, environmentId, false);
+
+    this.logger.debug(`Creating KNative service for Java function '${id}'...`);
+
+    const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+    const volumeMounts: VolumeMount[] = [
+      {
+        mountPath: '/workspace/BOOT-INF/classes/functions',
+        name: 'functions-volume',
+        subPath: `${functionPath}/target/classes/functions`,
+        readOnly: false,
+      },
+      {
+        mountPath: '/workspace/BOOT-INF/classes/io/polyapi',
+        name: 'functions-volume',
+        subPath: `${functionPath}/target/classes/io/polyapi`,
+        readOnly: false,
+      },
+    ];
+
+    return this.deployFunction(
+      id,
+      tenantId,
+      environmentId,
+      imageName,
+      limits,
+      sleepFn,
+      sleepAfter,
+      logsEnabled,
+      volumeMounts,
+    );
+  }
+
+  private async deployFunction(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    imageName: string,
+    limits: ServerFunctionLimits,
+    sleepFn?: boolean | null,
+    sleepAfter?: number | null,
+    logsEnabled = false,
+    volumeMounts?: VolumeMount[],
+    env?: ContainerEnv[],
+    command?: string[],
+    args?: string[],
+  ) {
     this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
     await this.deleteFunction(id, tenantId, environmentId, false);
 
     this.logger.debug(`Creating KNative service for function '${id}'...`);
 
-    const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
     const getAnnotations = () => {
       const annotations = {};
       if (sleepFn == null) {
@@ -366,14 +501,6 @@ export class KNativeFaasService implements FaasService {
 
       return annotations;
     };
-
-    const cachedPolyGenerateCommand = `if [ -d "/workspace/function/.poly/lib" ];
-    then echo 'Cached Poly library found, reusing...' && cp -r /workspace/function/.poly /workspace/node_modules/;
-    else npx poly generate && cp -r /workspace/node_modules/.poly /workspace/function/; fi`;
-
-    const startUpCommand = `if [ -f "/workspace/function/function/index.js" ]; 
-    then /cnb/lifecycle/launcher "cp -f /workspace/function/function/index.js /workspace/ && ${cachedPolyGenerateCommand} && npm start"; 
-    else /cnb/lifecycle/launcher "npx poly generate"; fi`;
 
     const options = {
       apiVersion: 'serving.knative.dev/v1',
@@ -409,30 +536,10 @@ export class KNativeFaasService implements FaasService {
                   periodSeconds: 23,
                 },
                 image: `${imageName}`,
-                volumeMounts: [
-                  {
-                    mountPath: '/workspace/function',
-                    name: 'functions-volume',
-                    subPath: `${functionPath}`,
-                    readOnly: false,
-                  },
-                ],
-                env: [
-                  {
-                    name: 'ENVIRONMENT_SETUP_COMPLETE',
-                    value: 'true',
-                  },
-                  {
-                    name: 'POLY_API_BASE_URL',
-                    value: this.config.faasPolyServerUrl,
-                  },
-                  {
-                    name: 'POLY_API_KEY',
-                    value: apiKey,
-                  },
-                ],
-                command: ['/bin/sh', '-c'],
-                args: [startUpCommand],
+                volumeMounts,
+                env,
+                command,
+                args,
                 workingDir: '/workspace/function',
                 resources: {
                   limits: {
@@ -583,7 +690,7 @@ export class KNativeFaasService implements FaasService {
     });
   }
 
-  private async buildCustomJavaImage(id: string, tenantId: string, environmentId: string, imageName: string, apiKey: string, code: string) {
+  private async prepareJavaFunction(id: string, tenantId: string, environmentId: string, apiKey: string, code: string) {
     const functionPath = this.getFunctionPath(id, tenantId, environmentId);
 
     try {
@@ -605,10 +712,12 @@ export class KNativeFaasService implements FaasService {
     });
     await writeFile(`${functionPath}/src/main/java/functions/PolyCustomFunction.java`, polyCustomFunction);
 
-    this.logger.debug(`Building custom server function image '${imageName}'...`);
-    await exec(`${this.config.knativeFuncExecFile} build --image ${imageName} --push`, {
+    const time = Date.now();
+    this.logger.debug(`Compiling Java function ${id}...`);
+    await exec(`MAVEN_OPTS="-Dmaven.repo.local=${this.config.faasFunctionsBasePath}/.m2" ./mvnw clean compile`, {
       cwd: functionPath,
     });
+    this.logger.debug(`Java function ${id} compiled in ${Date.now() - time}ms`);
   }
 
   private async preparePomFile(functionPath: string, apiKey: string) {

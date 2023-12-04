@@ -40,6 +40,7 @@ import {
   FunctionPublicBasicDto,
   FunctionPublicDetailsDto,
   Permission,
+  PrebuiltBaseImageOptions,
   Role,
   TrainingFunctionDto,
   UpdateApiFunctionDto,
@@ -424,8 +425,10 @@ export class FunctionController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('/server/prebuilt-base-image')
   @Header('Content-Type', 'text/plain')
-  async createOrUpdatePrebuiltBaseImage(@Req() req: AuthRequest) {
-    return this.service.createOrUpdatePrebuiltBaseImage(req.user);
+  async createOrUpdatePrebuiltBaseImage(@Req() req: AuthRequest, @Body() data: PrebuiltBaseImageOptions) {
+    const { language = 'javascript' } = data;
+
+    return this.service.createOrUpdatePrebuiltBaseImage(req.user, language);
   }
 
   @UseGuards(PolyAuthGuard)

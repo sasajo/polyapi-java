@@ -21,7 +21,7 @@ export interface FaasService {
     requirements: string[],
     apiKey: string,
     limits: ServerFunctionLimits,
-    createFromScratch?: boolean,
+    forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
     logsEnabled?: boolean,

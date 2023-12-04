@@ -1132,7 +1132,7 @@ export class FunctionService implements OnModuleInit {
           {
             name: {
               not: {
-                equals: this.config.prebuiltBaseImageName,
+                equals: this.config.prebuiltBaseNodeImageName,
               },
             },
           },
@@ -1690,7 +1690,7 @@ export class FunctionService implements OnModuleInit {
           {
             name: {
               not: {
-                equals: this.config.prebuiltBaseImageName,
+                equals: this.config.prebuiltBaseNodeImageName,
               },
             },
           },
@@ -1934,31 +1934,47 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async createOrUpdatePrebuiltBaseImage(user: AuthData) {
-    const functionName = this.config.prebuiltBaseImageName;
+  async createOrUpdatePrebuiltBaseImage(user: AuthData, language: string) {
+    switch (language) {
+      case 'javascript': {
+        // TODO: we might try to refactor this, so it does not store the function in the database
+        const functionName = this.config.prebuiltBaseNodeImageName;
+        const code = `function ${functionName}(): void {};`;
+        const customFunction = await this.createOrUpdateServerFunction(
+          user.environment,
+          '',
+          functionName,
+          '',
+          code,
+          'javascript',
+          {},
+          undefined,
+          undefined,
+          undefined,
+          user.key,
+          false,
+          () => Promise.resolve(),
+          true,
+        );
 
-    const code = `
-      function ${functionName}(): void {};
-    `;
-
-    const customFunction = await this.createOrUpdateServerFunction(
-      user.environment,
-      '',
-      functionName,
-      '',
-      code,
-      'javascript',
-      {},
-      undefined,
-      undefined,
-      undefined,
-      user.key,
-      false,
-      () => Promise.resolve(),
-      true,
-    );
-
-    return this.faasService.getFunctionName(customFunction.id);
+        return this.faasService.getFunctionName(customFunction.id);
+      }
+      case 'java': {
+        await this.faasService.createFunction(
+          this.config.prebuiltBaseJavaImageName,
+          user.tenant.id,
+          user.environment.id,
+          this.config.prebuiltBaseJavaImageName,
+          'public class PolyCustomFunction {}',
+          'java',
+          [],
+          user.key,
+          {},
+          true,
+        );
+        return this.faasService.getFunctionName(this.config.prebuiltBaseJavaImageName);
+      }
+    }
   }
 
   /**
