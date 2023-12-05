@@ -18,13 +18,13 @@ import static io.polyapi.client.maven.mojo.validation.Validator.validateNotEmpty
 @Mojo(name = "generate-sources")
 @Setter
 public class CodeGenerationMojo extends AbstractMojo {
-  @Parameter(property = "polyapi.apiBaseUrl", required = true)
+  @Parameter(property = "polyapi.host", required = true)
   private String apiBaseUrl;
 
   @Parameter(property = "polyapi.port", defaultValue = "80")
   private String port;
 
-  @Parameter(property = "polyapi.apiKey", required = true)
+  @Parameter(property = "polyapi.api.key", required = true)
   private String apiKey;
 
   public void execute() throws MojoExecutionException {

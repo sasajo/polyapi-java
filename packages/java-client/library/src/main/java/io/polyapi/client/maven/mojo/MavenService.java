@@ -1,7 +1,6 @@
 package io.polyapi.client.maven.mojo;
 
 import io.polyapi.client.error.validation.PropertyNotFoundException;
-import org.apache.maven.model.ConfigurationContainer;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
@@ -12,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class MavenService {

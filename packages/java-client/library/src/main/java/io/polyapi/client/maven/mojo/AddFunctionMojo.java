@@ -8,6 +8,7 @@ import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ClassLoaderTypeSolver;
@@ -30,7 +31,6 @@ import okhttp3.OkHttpClient;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
@@ -44,6 +44,8 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -53,11 +55,9 @@ import static io.polyapi.client.maven.mojo.validation.Validator.validateNotEmpty
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Stream.concat;
-import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 @Setter
-@Mojo(name = "addFunction", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
-public class AddFunctionMojo extends AbstractMojo {
+public abstract class AddFunctionMojo extends AbstractMojo {
   private static final Logger logger = LoggerFactory.getLogger(AddFunctionMojo.class);
 
   private final JsonParser jsonParser = new JacksonJsonParser(new ObjectMapper());
@@ -65,37 +65,33 @@ public class AddFunctionMojo extends AbstractMojo {
   @Parameter(defaultValue = "${project}", readonly = true)
   private MavenProject project;
 
-  @Parameter(property = "name", required = true)
+  @Parameter(property = "function.name", required = true)
   private String name;
 
   @Parameter(property = "file", required = true)
   private File file;
 
-  @Parameter(property = "apiBaseUrl")
-  private String apiBaseUrl;
+  @Parameter(property = "polyapi.host")
+  private String host;
 
-  @Parameter(property = "apiKey")
+  @Parameter(property = "polyapi.port", defaultValue = "80")
+  private String port;
+
+  @Parameter(property = "polyapi.api.key")
   private String apiKey;
 
-  @Parameter(property = "context")
+  @Parameter(property = "polyapi.function.context")
   private String context;
 
-  @Parameter(property = "description")
+  @Parameter(property = "polyapi.function.description")
   private String description;
-
-  @Parameter(property = "client")
-  private Boolean client;
-
-  @Parameter(property = "server")
-  private Boolean server;
-
 
   public void execute() throws MojoExecutionException {
     logger.debug("Setting up Maven service.");
     MavenService extractor = new MavenService(project);
     logger.debug("Setting up HTTP service to access the Function API in Poly.");
-    FunctionApiService functionApiService = new FunctionApiServiceImpl(apiBaseUrl,
-      80,
+    FunctionApiService functionApiService = new FunctionApiServiceImpl(host,
+      Integer.valueOf(port),
       new DefaultHttpClient(new OkHttpClient.Builder()
         .connectTimeout(10, MINUTES)
         .readTimeout(10, MINUTES)
@@ -106,8 +102,8 @@ public class AddFunctionMojo extends AbstractMojo {
 
     // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
     logger.debug("Retrieving property 'apiBaseUrl'.");
-    extractor.getPropertyFromPlugin("apiBaseUrl", apiBaseUrl, this::setApiBaseUrl);
-    validateNotEmpty("apiBaseUrl", apiBaseUrl);
+    extractor.getPropertyFromPlugin("apiBaseUrl", host, this::setHost);
+    validateNotEmpty("apiBaseUrl", host);
 
     logger.debug("Retrieving property 'apiKey'.");
     extractor.getPropertyFromPlugin("apiKey", apiKey, this::setApiKey);
@@ -160,24 +156,34 @@ public class AddFunctionMojo extends AbstractMojo {
       combinedTypeSolver.add(new ReflectionTypeSolver());
       logger.debug("    Adding ClassLoaderTypeSolver for classloader defined above.");
       combinedTypeSolver.add(new ClassLoaderTypeSolver(classLoader));
-      logger.debug("CombinedTypeSolver complete.\n Setting up Java Parser.");
+      logger.debug("CombinedTypeSolver complete.");
+      logger.debug("Setting up Java Parser.");
       var parser = new JavaParser(new ParserConfiguration().setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver)));
-      logger.debug("Parser complete.\n Proceeding with parsing of file in path '{}'.", file.getAbsolutePath());
+      logger.debug("Parser complete.");
+      logger.info("Proceeding with parsing of file in path '{}'.", file.getAbsolutePath());
       DataTypeResolver dataTypeResolver = new DataTypeResolver(classLoader, jsonParser);
       var compilationUnit = parser.parse(file).getResult().get();
       var functions = new ArrayList<PolyFunction>();
       compilationUnit.findAll(MethodDeclaration.class).stream()
         .filter(methodDeclaration -> methodDeclaration.getNameAsString().equals(name))
+        .peek(methodDeclaration -> logger.debug("Found matching method declaration: {}", methodDeclaration.getDeclarationAsString()))
         .forEach(methodDeclaration -> {
+          logger.debug("Creating PolyFunction from method declaration: {}", methodDeclaration.getNameAsString());
           var function = new PolyFunction();
           function.setDescription(description);
           function.setContext(context);
+          function.setArguments(new ArrayList<>());
+          logger.trace("Parsing return type for {}.", methodDeclaration.getNameAsString());
           var typeData = dataTypeResolver.resolve(methodDeclaration.getType());
           function.setName(methodDeclaration.getNameAsString());
           function.setReturnType(typeData.name());
+          logger.trace("Adding JSon schema to return type.");
           function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
-          methodDeclaration.getParameters().stream()
+          logger.trace("Parsing parameters.");
+          Optional.<List<com.github.javaparser.ast.body.Parameter>>ofNullable(methodDeclaration.getParameters()).orElseGet(ArrayList::new).stream()
+            .peek(param -> logger.trace("    Parsing parameter {}.", param.getName()))
             .map(param -> {
+              logger.trace("Converting to PolyFunctionArgument.");
               var argument = new PolyFunctionArgument();
               argument.setName(param.getNameAsString());
               var argumentTypeData = dataTypeResolver.resolve(param.getType());
@@ -186,41 +192,42 @@ public class AddFunctionMojo extends AbstractMojo {
               return argument;
             })
             .forEach(function.getArguments()::add);
+          logger.trace("Parsed {} parameters.", function.getArguments().size());
 
+          logger.trace("Generating a CompilationUnit.");
           var generatedCode = new CompilationUnit();
           generatedCode.addImport("io.polyapi.client.api.*");
-
           var customFunctionClass = new ClassOrInterfaceDeclaration();
           customFunctionClass.setName("PolyCustomFunction");
-          var executeMethod = customFunctionClass.addMethod("execute");
-          executeMethod.setType(Object.class);
+          var executeMethod = customFunctionClass.addMethod("execute")
+            .setType(Object.class);
           methodDeclaration.getParameters()
-            .stream().map(com.github.javaparser.ast.body.Parameter::getNameAsString)
-            .forEach(param -> executeMethod.addParameter(Object.class, param));
+            .stream()
+            .peek(parameter -> parameter.setType(Object.class))
+            .forEach(executeMethod::addParameter);
 
           // TODO: Use a template generator tool for this.
-          String body = "{\n" +
-            "  try {\n" +
-            "    return executeInternal(\n" +
-            methodDeclaration.getParameters().stream()
-              .map(param -> format("      ObjectMapper.getInstance().convertValue(%s\", \"%s.class)", param.getNameAsString(), param.getTypeAsString()))
-              .collect(Collectors.joining(",\n", "", "\n")) +
-            "    );\n" +
-            "  } catch (Exception e) {\n" +
-            "    throw new PolyRuntimeException(e);\n" +
-            "  }\n" +
-            "}";
-          executeMethod.setBody(parser.parseBlock(body).getResult().get());
+          parser.parseBlock("{\n" +
+              "  try {\n" +
+              "    return executeInternal(\n" +
+              methodDeclaration.getParameters().stream()
+                .map(param -> format("      ObjectMapper.getInstance().convertValue(%s\", \"%s.class)", param.getNameAsString(), param.getTypeAsString()))
+                .collect(Collectors.joining(",\n", "", "\n")) +
+              "    );\n" +
+              "  } catch (Exception e) {\n" +
+              "    throw new PolyRuntimeException(e);\n" +
+              "  }\n" +
+              "}")
+            .getResult()
+            .ifPresent(executeMethod::setBody);
           generatedCode.addType(customFunctionClass);
           methodDeclaration.accept(new TypeResolver(compilationUnit, parser), generatedCode);
           compilationUnit.getImports().stream()
             .filter(importDeclaration ->
               generatedCode.getTypes().stream()
-                .noneMatch(typeDeclaration -> {
-                  var type = typeDeclaration.asClassOrInterfaceDeclaration();
-                  return importDeclaration.getNameAsString().endsWith(type.getNameAsString());
-                })
-            )
+                .map(TypeDeclaration::asClassOrInterfaceDeclaration)
+                .map(ClassOrInterfaceDeclaration::getNameAsString)
+                .noneMatch(importDeclaration.getNameAsString()::endsWith))
             .forEach(generatedCode::addImport);
           var executeInternal = generatedCode.getType(0).asClassOrInterfaceDeclaration().addMethod("executeInternal", Modifier.Keyword.PRIVATE)
             .setType(methodDeclaration.getType())
@@ -230,28 +237,23 @@ public class AddFunctionMojo extends AbstractMojo {
           function.setCode(generatedCode.toString());
           functions.add(function);
         });
-
       if (functions.isEmpty()) {
         throw new MojoExecutionException("No function with name " + name + " found in file: " + file.getAbsolutePath());
       } else if (functions.size() > 1) {
         throw new MojoExecutionException("More than one function with name " + name + " found in file: " + file.getAbsolutePath());
       }
-
-      var function = functions.get(0);
-      if (client) {
-        logger.info("Deploying client function...");
-        var response = functionApiService.postCustomClientFunction(function);
-        logger.info("Function deployed successfully: " + response.getId());
-      }
-      if (server) {
-        logger.info("Deploying server function...");
-        var response = functionApiService.postCustomServerFunction(function);
-        logger.info("Function deployed successfully: " + response.getId());
-      }
+      deployFunction(functions.get(0), functionApiService);
     } catch (DependencyResolutionRequiredException | FileNotFoundException e) {
+      logger.error("Error parsing file.", e);
       throw new MojoExecutionException("Error parsing file", e);
     } catch (PolyApiClientException e) {
+      logger.error("Poly API client error.", e);
+      throw new MojoExecutionException(e);
+    } catch (RuntimeException e) {
+      logger.error("Unexpected error.", e);
       throw new MojoExecutionException(e);
     }
   }
+
+  protected abstract void deployFunction(PolyFunction function, FunctionApiService functionApiService);
 }
