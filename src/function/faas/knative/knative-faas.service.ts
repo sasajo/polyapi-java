@@ -167,6 +167,7 @@ export class KNativeFaasService implements FaasService {
       const content = handlebars.compile(template)({
         name,
         code,
+        environmentId,
       });
       this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
       await writeFile(`${functionPath}/function/index.js`, content);
