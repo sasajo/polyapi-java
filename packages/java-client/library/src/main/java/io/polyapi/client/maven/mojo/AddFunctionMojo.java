@@ -65,25 +65,25 @@ public abstract class AddFunctionMojo extends AbstractMojo {
   @Parameter(defaultValue = "${project}", readonly = true)
   private MavenProject project;
 
-  @Parameter(property = "function.name", required = true)
-  private String name;
+  @Parameter(property = "functionName", required = true)
+  private String functionName;
 
   @Parameter(property = "file", required = true)
   private File file;
 
-  @Parameter(property = "polyapi.host")
+  @Parameter(property = "host")
   private String host;
 
-  @Parameter(property = "polyapi.port", defaultValue = "80")
+  @Parameter(property = "port", defaultValue = "80")
   private String port;
 
-  @Parameter(property = "polyapi.api.key")
+  @Parameter(property = "api.key")
   private String apiKey;
 
-  @Parameter(property = "polyapi.function.context")
+  @Parameter(property = "context")
   private String context;
 
-  @Parameter(property = "polyapi.function.description")
+  @Parameter(property = "description")
   private String description;
 
   public void execute() throws MojoExecutionException {
@@ -101,13 +101,17 @@ public abstract class AddFunctionMojo extends AbstractMojo {
       jsonParser);
 
     // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
-    logger.debug("Retrieving property 'apiBaseUrl'.");
-    extractor.getPropertyFromPlugin("apiBaseUrl", host, this::setHost);
-    validateNotEmpty("apiBaseUrl", host);
+    logger.debug("Retrieving property 'polyapi.host'.");
+    extractor.getPropertyFromPlugin("polyapi.host", host, this::setHost);
+    validateNotEmpty("polyapi.host", host);
 
-    logger.debug("Retrieving property 'apiKey'.");
-    extractor.getPropertyFromPlugin("apiKey", apiKey, this::setApiKey);
-    validateNotEmpty("apiKey", apiKey);
+    logger.debug("Retrieving property 'polyapi.port'.");
+    extractor.getPropertyFromPlugin("polyapi.port", port, this::setHost);
+    validateNotEmpty("polyapi.port", port);
+
+    logger.debug("Retrieving property 'polyapi.api.key'.");
+    extractor.getPropertyFromPlugin("polyapi.api.key", apiKey, this::setApiKey);
+    validateNotEmpty("polyapi.api.key", apiKey);
 
     logger.debug("Validating existence of file in path {}}.", file.getAbsolutePath());
     validateFileExistence("file", file);
@@ -165,7 +169,7 @@ public abstract class AddFunctionMojo extends AbstractMojo {
       var compilationUnit = parser.parse(file).getResult().get();
       var functions = new ArrayList<PolyFunction>();
       compilationUnit.findAll(MethodDeclaration.class).stream()
-        .filter(methodDeclaration -> methodDeclaration.getNameAsString().equals(name))
+        .filter(methodDeclaration -> methodDeclaration.getNameAsString().equals(functionName))
         .peek(methodDeclaration -> logger.debug("Found matching method declaration: {}", methodDeclaration.getDeclarationAsString()))
         .forEach(methodDeclaration -> {
           logger.debug("Creating PolyFunction from method declaration: {}", methodDeclaration.getNameAsString());
@@ -205,19 +209,21 @@ public abstract class AddFunctionMojo extends AbstractMojo {
             .stream()
             .peek(parameter -> parameter.setType(Object.class))
             .forEach(executeMethod::addParameter);
+          String body = "{\n" +
+            "  try {\n" +
+            "    return executeInternal(\n" +
+            methodDeclaration.getParameters().stream()
+              .map(param -> format("      ObjectMapper.getInstance().convertValue(%s\", \"%s.class)", param.getNameAsString(), param.getTypeAsString()))
+              .collect(Collectors.joining(",\n", "", "\n")) +
+            "    );\n" +
+            "  } catch (Exception e) {\n" +
+            "    throw new PolyRuntimeException(e);\n" +
+            "  }\n" +
+            "}";
+          logger.trace("Setting body for function to:\n{}", body);
 
           // TODO: Use a template generator tool for this.
-          parser.parseBlock("{\n" +
-              "  try {\n" +
-              "    return executeInternal(\n" +
-              methodDeclaration.getParameters().stream()
-                .map(param -> format("      ObjectMapper.getInstance().convertValue(%s\", \"%s.class)", param.getNameAsString(), param.getTypeAsString()))
-                .collect(Collectors.joining(",\n", "", "\n")) +
-              "    );\n" +
-              "  } catch (Exception e) {\n" +
-              "    throw new PolyRuntimeException(e);\n" +
-              "  }\n" +
-              "}")
+          parser.parseBlock(body)
             .getResult()
             .ifPresent(executeMethod::setBody);
           generatedCode.addType(customFunctionClass);
@@ -238,9 +244,9 @@ public abstract class AddFunctionMojo extends AbstractMojo {
           functions.add(function);
         });
       if (functions.isEmpty()) {
-        throw new MojoExecutionException("No function with name " + name + " found in file: " + file.getAbsolutePath());
+        throw new MojoExecutionException("No function with name " + functionName + " found in file: " + file.getAbsolutePath());
       } else if (functions.size() > 1) {
-        throw new MojoExecutionException("More than one function with name " + name + " found in file: " + file.getAbsolutePath());
+        throw new MojoExecutionException("More than one function with name " + functionName + " found in file: " + file.getAbsolutePath());
       }
       deployFunction(functions.get(0), functionApiService);
     } catch (DependencyResolutionRequiredException | FileNotFoundException e) {

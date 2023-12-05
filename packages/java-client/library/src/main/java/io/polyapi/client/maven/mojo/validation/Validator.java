@@ -34,4 +34,13 @@ public class Validator {
       .filter(File::exists)
       .orElseThrow(() -> new InexistentFileException(propertyName, file));
   }
+
+  public static void validatePortFormat(String propertyName, String property) {
+    validateNotEmpty(propertyName, property);
+    try {
+      Integer.valueOf(property);
+    } catch (NumberFormatException e) {
+
+    }
+  }
 }
