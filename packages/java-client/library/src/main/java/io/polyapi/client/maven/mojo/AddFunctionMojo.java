@@ -32,8 +32,9 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -43,7 +44,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -53,10 +53,12 @@ import static io.polyapi.client.maven.mojo.validation.Validator.validateNotEmpty
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Stream.concat;
+import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 @Setter
-@Mojo(name = "addFunction", requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME)
+@Mojo(name = "addFunction", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
 public class AddFunctionMojo extends AbstractMojo {
+  private static final Logger logger = LoggerFactory.getLogger(AddFunctionMojo.class);
 
   private final JsonParser jsonParser = new JacksonJsonParser(new ObjectMapper());
 
@@ -89,7 +91,9 @@ public class AddFunctionMojo extends AbstractMojo {
 
 
   public void execute() throws MojoExecutionException {
+    logger.debug("Setting up Maven service.");
     MavenService extractor = new MavenService(project);
+    logger.debug("Setting up HTTP service to access the Function API in Poly.");
     FunctionApiService functionApiService = new FunctionApiServiceImpl(apiBaseUrl,
       80,
       new DefaultHttpClient(new OkHttpClient.Builder()
@@ -101,18 +105,25 @@ public class AddFunctionMojo extends AbstractMojo {
       jsonParser);
 
     // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
-    apiBaseUrl = Optional.ofNullable(apiBaseUrl).orElseGet(() -> extractor.getPropertyFromPlugin("apiBaseUrl"));
-    apiKey = Optional.ofNullable(apiKey).orElseGet(() -> extractor.getPropertyFromPlugin("apiKey"));
-
+    logger.debug("Retrieving property 'apiBaseUrl'.");
+    extractor.getPropertyFromPlugin("apiBaseUrl", apiBaseUrl, this::setApiBaseUrl);
     validateNotEmpty("apiBaseUrl", apiBaseUrl);
+
+    logger.debug("Retrieving property 'apiKey'.");
+    extractor.getPropertyFromPlugin("apiKey", apiKey, this::setApiKey);
     validateNotEmpty("apiKey", apiKey);
+
+    logger.debug("Validating existence of file in path {}}.", file.getAbsolutePath());
     validateFileExistence("file", file);
+    logger.debug("File present.");
     try {
 
       // Create a Classloader with all the elements in the project.
+      logger.debug("Setting up class loader for all relevant places in the project.");
       var classLoader = new URLClassLoader(concat(concat(project.getCompileClasspathElements().stream(),
-            project.getRuntimeClasspathElements().stream()),
-          Stream.of(project.getBuild().getOutputDirectory()))
+          project.getRuntimeClasspathElements().stream()),
+        Stream.of(project.getBuild().getOutputDirectory()))
+        .peek(classLoadingPath -> logger.debug("    Adding classloading path '{}'.", classLoadingPath))
         .map(File::new)
         .map(File::toURI)
         .map(uri -> {
@@ -123,31 +134,37 @@ public class AddFunctionMojo extends AbstractMojo {
             throw new RuntimeException(e);
           }
         })
-        .toArray(URL[]::new), getClass().getClassLoader());
+        .toArray(URL[]::new),
+        getClass().getClassLoader());
 
-      DataTypeResolver dataTypeResolver = new DataTypeResolver(classLoader, jsonParser);
+      logger.debug("Setting up a combined type type solvers.");
       var combinedTypeSolver = new CombinedTypeSolver();
-      project.getCompileSourceRoots().stream()
+      Stream.concat(project.getCompileSourceRoots().stream(), Stream.of(project.getBasedir() + "/target/generated-sources"))
+        .peek(sourceRoot -> logger.debug("    Adding JavaParserTypeSolver for source root '{}'", sourceRoot))
         .map(File::new)
         .map(JavaParserTypeSolver::new)
         .forEach(combinedTypeSolver::add);
-      combinedTypeSolver.add(new JavaParserTypeSolver(project.getBasedir() + "/target/generated-sources"));
       project.getCompileClasspathElements().stream()
         .filter(path -> path.endsWith(".jar"))
-        .forEach(path -> {
+        .peek(path -> logger.debug("    Adding JarTypeSolver for path '{}'.", path))
+        .map(path -> {
           try {
-            combinedTypeSolver.add(new JarTypeSolver(path));
+            return new JarTypeSolver(path);
           } catch (IOException e) {
             // FIXME Throw an appropriate exception.
             throw new RuntimeException(e);
           }
-        });
+        })
+        .forEach(combinedTypeSolver::add);
+      logger.debug("    Adding ReflectionTypeSolver.");
       combinedTypeSolver.add(new ReflectionTypeSolver());
+      logger.debug("    Adding ClassLoaderTypeSolver for classloader defined above.");
       combinedTypeSolver.add(new ClassLoaderTypeSolver(classLoader));
-
+      logger.debug("CombinedTypeSolver complete.\n Setting up Java Parser.");
       var parser = new JavaParser(new ParserConfiguration().setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver)));
+      logger.debug("Parser complete.\n Proceeding with parsing of file in path '{}'.", file.getAbsolutePath());
+      DataTypeResolver dataTypeResolver = new DataTypeResolver(classLoader, jsonParser);
       var compilationUnit = parser.parse(file).getResult().get();
-
       var functions = new ArrayList<PolyFunction>();
       compilationUnit.findAll(MethodDeclaration.class).stream()
         .filter(methodDeclaration -> methodDeclaration.getNameAsString().equals(name))
@@ -222,14 +239,14 @@ public class AddFunctionMojo extends AbstractMojo {
 
       var function = functions.get(0);
       if (client) {
-        getLog().info("Deploying client function...");
+        logger.info("Deploying client function...");
         var response = functionApiService.postCustomClientFunction(function);
-        getLog().info("Function deployed successfully: " + response.getId());
+        logger.info("Function deployed successfully: " + response.getId());
       }
       if (server) {
-        getLog().info("Deploying server function...");
+        logger.info("Deploying server function...");
         var response = functionApiService.postCustomServerFunction(function);
-        getLog().info("Function deployed successfully: " + response.getId());
+        logger.info("Function deployed successfully: " + response.getId());
       }
     } catch (DependencyResolutionRequiredException | FileNotFoundException e) {
       throw new MojoExecutionException("Error parsing file", e);
