@@ -27,9 +27,11 @@ import {
   Body,
   ConfigVariableName,
   CustomFunctionSpecification,
+  FormDataEntry,
   FunctionArgument,
   FunctionBasicDto,
   FunctionDetailsDto,
+  FunctionLog,
   FunctionPublicBasicDto,
   FunctionPublicDetailsDto,
   GraphQLBody,
@@ -39,17 +41,15 @@ import {
   PropertySpecification,
   PropertyType,
   PublicVisibilityValue,
+  RawBody,
   Role,
   ServerFunctionSpecification,
   TrainingDataGeneration,
+  UpdateSourceFunctionDto,
+  UpdateSourceNullableEntry,
   Variables,
   Visibility,
   VisibilityQuery,
-  UpdateSourceFunctionDto,
-  UpdateSourceNullableEntry,
-  FormDataEntry,
-  RawBody,
-  FunctionLog,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -58,7 +58,7 @@ import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
-import { FaasService, FaasLogsService } from 'function/faas/faas.service';
+import { FaasLogsService, FaasService } from 'function/faas/faas.service';
 import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
@@ -1911,12 +1911,29 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async getServerFunctionLogs(id: string, keyword: string, logsEnabled: boolean): Promise<{ logsEnabled: boolean, logs: FunctionLog[] }> {
-    const logs = await this.faasLogsService.getLogs(id, keyword);
-    return {
-      logsEnabled,
-      logs,
-    };
+  async getServerFunctionLogs(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    keyword: string | undefined,
+    hours: number | undefined,
+    limit: number | undefined,
+  ): Promise<FunctionLog[]> {
+    const logRetentionDays = await this.configVariableService.getEffectiveValue<number>(
+      ConfigVariableName.LogRetentionDays,
+      tenantId,
+      environmentId,
+    );
+    if (logRetentionDays != null) {
+      hours = hours ? Math.min(hours, logRetentionDays * 24) : logRetentionDays * 24;
+    }
+
+    return await this.faasLogsService.getLogs(
+      id,
+      keyword,
+      hours,
+      limit,
+    );
   }
 
   private isGraphQLBody(body: Body): body is GraphQLBody {
