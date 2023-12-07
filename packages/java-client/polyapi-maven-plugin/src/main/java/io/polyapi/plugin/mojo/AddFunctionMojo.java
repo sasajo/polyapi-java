@@ -102,17 +102,17 @@ public abstract class AddFunctionMojo extends AbstractMojo {
       jsonParser);
 
     // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
-    logger.debug("Retrieving property 'polyapi.host'.");
-    mavenService.getPropertyFromPlugin("polyapi.host", host, this::setHost);
-    Validator.validateNotEmpty("polyapi.host", host);
+    logger.debug("Retrieving property 'host'.");
+    mavenService.getPropertyFromPlugin("host", host, this::setHost);
+    Validator.validateNotEmpty("host", host);
 
-    logger.debug("Retrieving property 'polyapi.port'.");
-    mavenService.getPropertyFromPlugin("polyapi.port", port, this::setHost);
-    Validator.validateNotEmpty("polyapi.port", port);
+    logger.debug("Retrieving property 'port'.");
+    mavenService.getPropertyFromPlugin("port", port, this::setHost);
+    Validator.validatePortFormat("port", port);
 
-    logger.debug("Retrieving property 'polyapi.api.key'.");
-    mavenService.getPropertyFromPlugin("polyapi.api.key", apiKey, this::setApiKey);
-    Validator.validateNotEmpty("polyapi.api.key", apiKey);
+    logger.debug("Retrieving property 'apiKey'.");
+    mavenService.getPropertyFromPlugin("apiKey", apiKey, this::setApiKey);
+    Validator.validateNotEmpty("apiKey", apiKey);
 
     logger.debug("Validating existence of file in path {}.", file.getAbsolutePath());
     Validator.validateFileExistence("file", file);

@@ -27,7 +27,7 @@ public class CodeGenerationMojo extends AbstractMojo {
     try {
       Validator.validateNotEmpty("host", host);
       Validator.validateNotEmpty("apiKey", apiKey);
-      Validator.validateNotEmpty("port", port);
+      Validator.validatePortFormat("port", port);
       new CodeGenerator(host, Integer.valueOf(port), new HardcodedTokenProvider(apiKey)).generate();
     } catch (PolyApiException e) {
       throw new MojoExecutionException(e);

@@ -41,9 +41,6 @@ public class Validator {
   public static void validatePortFormat(String propertyName, String property) {
     validateNotEmpty(propertyName, property);
     try {
-      Optional.of(property)
-        .map(Integer::valueOf)
-        .filter()
       Integer value = Integer.valueOf(property);
       if (value > 0xFFFF || value < 0) { // 0xFFFF is the maximum port number (65535)
         throw new InvalidPortNumberException(propertyName, property);
