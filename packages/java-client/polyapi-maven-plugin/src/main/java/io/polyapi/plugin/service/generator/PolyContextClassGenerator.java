@@ -1,7 +1,7 @@
 package io.polyapi.plugin.service.generator;
 
 import com.github.jknack.handlebars.Handlebars;
-import io.polyapi.commons.api.file.FileService;
+import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.LibraryTreeNode;
 import io.polyapi.plugin.model.property.FunctionPropertyType;
 import io.polyapi.plugin.model.property.ObjectPropertyType;

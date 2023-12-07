@@ -22,6 +22,18 @@ public class ValidationException extends PolyAPIMavenPluginException {
     this.propertyName = propertyName;
   }
 
+  /**
+   * Constructor that takes the propertyName and a message template and generates the message with them. It also includes the cause of the exception.
+   *
+   * @param propertyName    The name of the property being validated.
+   * @param messageTemplate The message template.
+   * @param cause           The cause of the exception.
+   */
+  public ValidationException(String propertyName, String messageTemplate, Throwable cause) {
+    super(format(messageTemplate, propertyName), cause);
+    this.propertyName = propertyName;
+  }
+
   public String getPropertyName() {
     return propertyName;
   }

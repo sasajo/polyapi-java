@@ -2,7 +2,7 @@ package io.polyapi.plugin.service.generator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.jknack.handlebars.Handlebars;
-import io.polyapi.commons.api.file.FileService;
+import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.commons.api.http.TokenProvider;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.internal.file.FileServiceImpl;

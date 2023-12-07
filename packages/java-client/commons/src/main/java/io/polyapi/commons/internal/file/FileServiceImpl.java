@@ -1,7 +1,7 @@
 package io.polyapi.commons.internal.file;
 
 import io.polyapi.commons.api.error.PolyApiException;
-import io.polyapi.commons.api.file.FileService;
+import io.polyapi.commons.api.service.file.FileService;
 
 import java.io.File;
 import java.io.FileNotFoundException;

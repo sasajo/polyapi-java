@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.jknack.handlebars.Handlebars;
 import io.polyapi.commons.api.error.PolyApiException;
-import io.polyapi.commons.api.file.FileService;
+import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.LibraryTreeNode;
 import io.polyapi.plugin.model.property.ObjectPropertyType;
 import io.polyapi.plugin.model.specification.Specification;

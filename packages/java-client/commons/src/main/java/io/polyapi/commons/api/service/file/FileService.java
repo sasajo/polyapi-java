@@ -1,4 +1,4 @@
-package io.polyapi.commons.api.file;
+package io.polyapi.commons.api.service.file;
 
 import java.io.File;
 

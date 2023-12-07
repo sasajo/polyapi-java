@@ -1,7 +1,7 @@
 package io.polyapi.plugin.service.generator;
 
 import com.github.jknack.handlebars.Handlebars;
-import io.polyapi.commons.api.file.FileService;
+import io.polyapi.commons.api.service.file.FileService;
 
 import java.io.IOException;
 import java.util.HashMap;

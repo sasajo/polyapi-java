@@ -14,8 +14,8 @@ import org.apache.maven.plugins.annotations.Parameter;
 @Mojo(name = "generate-sources")
 @Setter
 public class CodeGenerationMojo extends AbstractMojo {
-  @Parameter(property = "polyapi.host", required = true)
-  private String apiBaseUrl;
+  @Parameter(property = "host", required = true)
+  private String host;
 
   @Parameter(property = "polyapi.port", defaultValue = "80")
   private String port;
@@ -25,10 +25,10 @@ public class CodeGenerationMojo extends AbstractMojo {
 
   public void execute() throws MojoExecutionException {
     try {
-      Validator.validateNotEmpty("apiBaseUrl", apiBaseUrl);
+      Validator.validateNotEmpty("host", host);
       Validator.validateNotEmpty("apiKey", apiKey);
       Validator.validateNotEmpty("port", port);
-      new CodeGenerator(apiBaseUrl, Integer.valueOf(port), new HardcodedTokenProvider(apiKey)).generate();
+      new CodeGenerator(host, Integer.valueOf(port), new HardcodedTokenProvider(apiKey)).generate();
     } catch (PolyApiException e) {
       throw new MojoExecutionException(e);
     }
