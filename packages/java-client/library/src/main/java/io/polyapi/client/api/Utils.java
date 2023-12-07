@@ -3,11 +3,10 @@ package io.polyapi.client.api;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.gson.JsonArray;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import com.google.gson.JsonArray;
 
 public class Utils {
   public static <T> Map<String, T> jsonObjectToMap(JSONObject jsonObject) throws JSONException {

@@ -5,15 +5,16 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.polyapi</groupId>
-  <artifactId>client</artifactId>
+  <artifactId>parent-pom</artifactId>
   <version>0.1.8-SNAPSHOT</version>
   <packaging>pom</packaging>
   <modules>
-    <module>generator</module>
+    <module>commons</module>
     <module>library</module>
+    <module>polyapi-maven-plugin</module>
   </modules>
 
-  <name>Poly Java Client Library</name>
+  <name>Poly API Java parent POM</name>
   <url>https://polyapi.io</url>
   <description>Java client library for Poly API</description>
   <scm>

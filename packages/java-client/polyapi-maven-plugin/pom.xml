@@ -9,11 +9,11 @@
     <version>0.1.8-SNAPSHOT</version>
   </parent>
 
-  <artifactId>client</artifactId>
-  <packaging>jar</packaging>
-  <name>Poly API client library</name>
+  <artifactId>polyapi-maven-plugin</artifactId>
+  <packaging>maven-plugin</packaging>
+  <name>Poly API Maven plugin</name>
   <url>https://polyapi.io</url>
-  <description>Java client library for Poly API</description>
+  <description>Maven plugin to run handle Poly API functions.</description>
   <scm>
     <url>https://github.com/polyapi/poly-alpha</url>
   </scm>
@@ -37,11 +37,6 @@
   </licenses>
 
   <dependencies>
-    <dependency>
-      <groupId>io.polyapi</groupId>
-      <artifactId>commons</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-plugin-api</artifactId>
@@ -92,9 +87,9 @@
       <version>3.25.6</version>
     </dependency>
     <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.10.1</version>
+      <groupId>io.polyapi</groupId>
+      <artifactId>commons</artifactId>
+      <version>${project.version}</version>
     </dependency>
   </dependencies>
 

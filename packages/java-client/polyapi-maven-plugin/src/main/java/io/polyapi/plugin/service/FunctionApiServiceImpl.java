@@ -1,0 +1,25 @@
+package io.polyapi.plugin.service;
+
+import io.polyapi.commons.api.http.HttpClient;
+import io.polyapi.commons.api.json.JsonParser;
+import io.polyapi.commons.api.model.function.PolyFunction;
+import io.polyapi.commons.api.service.PolyApiService;
+
+import java.util.HashMap;
+
+public class FunctionApiServiceImpl extends PolyApiService implements FunctionApiService {
+
+  public FunctionApiServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
+    super(host, port, client, jsonParser);
+  }
+
+  @Override
+  public PolyFunction postCustomServerFunction(PolyFunction polyFunction) {
+    return post("functions/server", new HashMap<>(), new HashMap<>(), polyFunction, PolyFunction.class);
+  }
+
+  @Override
+  public PolyFunction postCustomClientFunction(PolyFunction polyFunction) {
+    return post("functions/client", new HashMap<>(), new HashMap<>(), polyFunction, PolyFunction.class);
+  }
+}

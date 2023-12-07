@@ -1,4 +1,4 @@
-package io.polyapi.client;
+package io.polyapi.plugin.service;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
