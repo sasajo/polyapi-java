@@ -91,7 +91,7 @@ public abstract class AddFunctionMojo extends AbstractMojo {
     logger.debug("Setting up class loader for all relevant places in the project.");
     JavaParserServiceImpl javaParserServiceImpl = new JavaParserServiceImpl(classLoader, jsonParser);
     logger.debug("Setting up HTTP service to access the Function API in Poly.");
-    FunctionApiService functionApiService = new FunctionApiServiceImpl(host,
+    var functionApiService = new FunctionApiServiceImpl(host,
       Integer.valueOf(port),
       new DefaultHttpClient(new OkHttpClient.Builder()
         .connectTimeout(10, MINUTES)
@@ -114,16 +114,17 @@ public abstract class AddFunctionMojo extends AbstractMojo {
     mavenService.getPropertyFromPlugin("polyapi.api.key", apiKey, this::setApiKey);
     Validator.validateNotEmpty("polyapi.api.key", apiKey);
 
-    logger.debug("Validating existence of file in path {}}.", file.getAbsolutePath());
+    logger.debug("Validating existence of file in path {}.", file.getAbsolutePath());
     Validator.validateFileExistence("file", file);
     logger.debug("File present.");
     try {
 
-      logger.debug("Setting up a combined type type solvers.");
+      logger.debug("Setting up a combined type solvers.");
       var combinedTypeSolver = new CombinedTypeSolver();
       Stream.concat(project.getCompileSourceRoots().stream(), Stream.of(project.getBasedir() + "/target/generated-sources"))
         .peek(sourceRoot -> logger.debug("    Adding JavaParserTypeSolver for source root '{}'", sourceRoot))
         .map(File::new)
+        .filter(File::exists)
         .map(JavaParserTypeSolver::new)
         .forEach(combinedTypeSolver::add);
       project.getCompileClasspathElements().stream()

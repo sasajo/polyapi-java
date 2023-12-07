@@ -1,9 +1,10 @@
 package io.polyapi.client.api;
 
-import java.util.Map;
-
+import io.polyapi.commons.api.model.Visibility;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.Map;
 
 @Setter
 @Getter

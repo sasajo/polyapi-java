@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.lang.reflect.Type;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +47,12 @@ public class PolyApiService {
   }
 
   private <I, O> O parsedCall(HttpMethod method, String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body, Type expectedResponseType) {
-    Response response = callApi(method, relativePath, headers, queryParams, jsonParser.toJsonInputStream(body));
+    Map<String, List<String>> allHeaders = new HashMap<>();
+    allHeaders.put("Accept", List.of("application/json"));
+    allHeaders.put("Content-type", List.of("application/json"));
+    headers.forEach((key, value) -> allHeaders.put(key, value.stream().toList()));
+
+    Response response = callApi(method, relativePath, allHeaders, queryParams, jsonParser.toJsonInputStream(body));
     if (response.statusCode() < 200) {
       throw new UnexpectedInformationalResponseException(response);
     }

@@ -17,6 +17,6 @@ public class AddClientFunctionMojo extends AddFunctionMojo {
   protected void deployFunction(PolyFunction function, FunctionApiService functionApiService) {
     logger.info("Deploying client function...");
     var response = functionApiService.postCustomClientFunction(function);
-    logger.info("Function deployed successfully: " + response.getId());
+    logger.info("Function deployed successfully: " + response.getName());
   }
 }
