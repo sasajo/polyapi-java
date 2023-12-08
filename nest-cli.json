@@ -4,7 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": ["**/*.hbs"],
+    "assets": ["**/*.hbs", "function/faas/knative/templates/python/*"],
     "plugins": [
       {
         "name": "@nestjs/swagger",

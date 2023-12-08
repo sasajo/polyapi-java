@@ -1,0 +1,25 @@
+{{!-- TODO figure out how to inject poly ahead of time --}}
+{{!-- from polyapi import poly --}}
+
+FUNCTION_ENVIRONMENT_ID = "{{environmentId}}"
+
+{{code}}
+
+def main(context):
+    """
+    Function template
+    The context parameter contains the Flask request object and any
+    CloudEvent received with the request.
+    """
+
+    # TODO handle args like we do with NodeJS
+    # const args = context.cloudevent ? (Array.isArray(body.data) ? body.data : [body.data]) : body.args;
+    # const processedArgs = args.map(arg => arg === '$poly-undefined-value' ? undefined : arg);
+
+    # Add your business logic here
+    try:
+        result = {{name}}()
+    except Exception as e:
+        return str(e), 500
+
+    return result, 200

@@ -138,6 +138,21 @@ export class KNativeFaasService implements FaasService {
         sleepAfter,
         logsEnabled,
       );
+    } else if (language === 'python') {
+      return this.createPythonFunction(
+        id,
+        tenantId,
+        environmentId,
+        name,
+        code,
+        requirements,
+        apiKey,
+        limits,
+        forceCustomImage,
+        sleep,
+        sleepAfter,
+        logsEnabled,
+      );
     }
   }
 
@@ -216,6 +231,56 @@ export class KNativeFaasService implements FaasService {
     } else {
       await this.deployJavaFunction(id, tenantId, environmentId, this.config.faasDockerImageFunctionJava, limits, sleep, sleepAfter, logsEnabled);
     }
+  }
+
+  async createPythonFunction(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    name: string,
+    code: string,
+    requirements: string[],
+    apiKey: string,
+    limits: ServerFunctionLimits,
+    forceCustomImage?: boolean,
+    sleep?: boolean | null,
+    sleepAfter?: number | null,
+    logsEnabled?: boolean,
+  ): Promise<void> {
+    this.logger.debug(`Creating Python function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
+
+    const functionPath = this.getFunctionPath(id, tenantId, environmentId);
+    const prepareAndDeploy = async (imageName: string) => {
+      if (!await exists(functionPath)) {
+        await mkdir(functionPath, { recursive: true });
+      }
+      const template = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/python/func.py.hbs`, 'utf8');
+      const content = handlebars.compile(template)({
+        name,
+        code,
+        environmentId,
+      });
+      this.logger.debug(`Writing function code to ${functionPath}/func.py`);
+      await writeFile(`${functionPath}/func.py`, content);
+
+      const functionName = this.getFunctionName(id);
+      const now = new Date().toISOString(); // Get current time in ISO format
+      const template2 = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/python/func.yaml.hbs`, 'utf8');
+      const content2 = handlebars.compile(template2)({
+        functionName, now,
+      });
+      this.logger.debug(`Writing function code to ${functionPath}/func.yaml`);
+      await writeFile(`${functionPath}/func.yaml`, content2);
+
+      fs.copyFileSync(`${process.cwd()}/dist/function/faas/knative/templates/python/requirements.txt`, `${functionPath}/requirements.txt`);
+      fs.copyFileSync(`${process.cwd()}/dist/function/faas/knative/templates/python/Procfile`, `${functionPath}/Procfile`);
+      fs.copyFileSync(`${process.cwd()}/dist/function/faas/knative/templates/python/app.sh`, `${functionPath}/app.sh`);
+
+      await this.deployPythonFunction(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter, logsEnabled);
+    };
+
+    // TODO handle extra requirements and forceCustomImage
+    await prepareAndDeploy(`${this.config.faasDockerImageFunctionNode}`);
   }
 
   async executeFunction(
@@ -399,8 +464,8 @@ export class KNativeFaasService implements FaasService {
     then echo 'Cached Poly library found, reusing...' && cp -r /workspace/function/.poly /workspace/node_modules/;
     else npx poly generate && cp -r /workspace/node_modules/.poly /workspace/function/; fi`;
 
-    const startUpCommand = `if [ -f "/workspace/function/function/index.js" ]; 
-    then /cnb/lifecycle/launcher "cp -f /workspace/function/function/index.js /workspace/ && ${cachedPolyGenerateCommand} && npm start"; 
+    const startUpCommand = `if [ -f "/workspace/function/function/index.js" ];
+    then /cnb/lifecycle/launcher "cp -f /workspace/function/function/index.js /workspace/ && ${cachedPolyGenerateCommand} && npm start";
     else /cnb/lifecycle/launcher "npx poly generate"; fi`;
 
     const args = [startUpCommand];
@@ -462,6 +527,70 @@ export class KNativeFaasService implements FaasService {
       sleepAfter,
       logsEnabled,
       volumeMounts,
+    );
+  }
+
+  private async deployPythonFunction(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    imageName: string,
+    apiKey: string,
+    limits: ServerFunctionLimits,
+    sleepFn?: boolean | null,
+    sleepAfter?: number | null,
+    logsEnabled = false,
+  ) {
+    const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
+    const volumeMounts: VolumeMount[] = [
+      {
+        mountPath: '/workspace/function',
+        name: 'functions-volume',
+        subPath: `${functionPath}`,
+        readOnly: false,
+      },
+    ];
+    const env: ContainerEnv[] = [
+      {
+        name: 'ENVIRONMENT_SETUP_COMPLETE',
+        value: 'true',
+      },
+      {
+        name: 'POLY_API_BASE_URL',
+        value: this.config.faasPolyServerUrl,
+      },
+      {
+        name: 'POLY_API_KEY',
+        value: apiKey,
+      },
+    ];
+    const command = ['/bin/sh', '-c'];
+
+    // TODO cache Python
+    // const cachedPolyGenerateCommand = `if [ -d "/workspace/function/.poly/lib" ];
+    // then echo 'Cached Poly library found, reusing...' && cp -r /workspace/function/.poly /workspace/node_modules/;
+    // else npx poly generate && cp -r /workspace/node_modules/.poly /workspace/function/; fi`;
+
+    // TODO convert to Python
+    const startUpCommand = `if [ -f "/workspace/function/func.py" ];
+      then /cnb/lifecycle/launcher "cp -f /workspace/function/func.py /workspace/ && pip3 install git+https://github.com/polyapi/polyapi-python.git
+      else /cnb/lifecycle/launcher "python3 -m polyapi generate"; fi`;
+
+    const args = [startUpCommand];
+
+    return this.deployFunction(
+      id,
+      tenantId,
+      environmentId,
+      imageName,
+      limits,
+      sleepFn,
+      sleepAfter,
+      logsEnabled,
+      volumeMounts,
+      env,
+      command,
+      args,
     );
   }
 
