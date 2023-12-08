@@ -119,6 +119,10 @@ export class ConfigService {
     return this.get('FAAS_DOCKER_IMAGE_FUNCTION_NODE');
   }
 
+  get faasDockerImageFunctionPython(): string {
+    return this.get('FAAS_DOCKER_IMAGE_FUNCTION_PYTHON', 'python:3.11-bookworm');
+  }
+
   get faasDockerImageFunctionJava(): string {
     return this.get('FAAS_DOCKER_IMAGE_FUNCTION_JAVA');
   }
