@@ -1,36 +1,35 @@
 package io.polyapi.plugin.mojo;
 
 
-import io.polyapi.commons.api.error.PolyApiException;
-import io.polyapi.commons.internal.http.HardcodedTokenProvider;
-import io.polyapi.plugin.mojo.validation.Validator;
-import io.polyapi.plugin.service.generator.CodeGenerator;
+import com.github.jknack.handlebars.Handlebars;
+import io.polyapi.commons.api.http.HttpClient;
+import io.polyapi.commons.api.http.TokenProvider;
+import io.polyapi.commons.api.json.JsonParser;
+import io.polyapi.commons.api.service.file.FileService;
+import io.polyapi.commons.internal.file.FileServiceImpl;
+import io.polyapi.plugin.service.MavenService;
+import io.polyapi.plugin.service.SpecificationApiServiceImpl;
+import io.polyapi.plugin.service.generator.ClientInfoClassGenerator;
+import io.polyapi.plugin.service.generator.PolyContextClassGenerator;
+import io.polyapi.plugin.service.generator.VariContextClassGenerator;
+import io.polyapi.plugin.service.generator.template.TemplateGenerator;
 import lombok.Setter;
-import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
+
+import java.io.File;
 
 @Mojo(name = "generate-sources")
 @Setter
-public class CodeGenerationMojo extends AbstractMojo {
-  @Parameter(property = "host", required = true)
-  private String host;
+public class CodeGenerationMojo extends PolyApiMojo {
 
-  @Parameter(property = "polyapi.port", defaultValue = "80")
-  private String port;
-
-  @Parameter(property = "polyapi.api.key", required = true)
-  private String apiKey;
-
-  public void execute() throws MojoExecutionException {
-    try {
-      Validator.validateNotEmpty("host", host);
-      Validator.validateNotEmpty("apiKey", apiKey);
-      Validator.validatePortFormat("port", port);
-      new CodeGenerator(host, Integer.valueOf(port), new HardcodedTokenProvider(apiKey)).generate();
-    } catch (PolyApiException e) {
-      throw new MojoExecutionException(e);
-    }
+  @Override
+  public void execute(String host, Integer port, TokenProvider tokenProvider, HttpClient httpClient, JsonParser jsonParser, MavenService mavenService) {
+    FileService fileService = new FileServiceImpl();
+    Handlebars handlebars = new TemplateGenerator();
+    var specifications = new SpecificationApiServiceImpl(host, port, httpClient, jsonParser).getJsonSpecs();
+    new ClientInfoClassGenerator(handlebars, fileService).generate(host, port, tokenProvider.getToken());
+    fileService.createFileWithContent(new File(new File("target/.poly"), "specs.json"), jsonParser.toJsonString(specifications));
+    new PolyContextClassGenerator(handlebars, fileService).generate(specifications);
+    new VariContextClassGenerator(handlebars, fileService).generate(specifications);
   }
 }

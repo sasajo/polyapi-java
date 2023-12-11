@@ -16,6 +16,6 @@ public class ObjectToJsonParsingException extends ParsingException {
    * @param cause  The cause of the error.
    */
   public ObjectToJsonParsingException(Object object, Throwable cause) {
-    super(format("An error ocurred while parsing %s to JSon.", Optional.ofNullable(object).map(Object::getClass).map(Class::getSimpleName).orElse("null")), cause);
+    super(format("An error occurred while parsing %s to JSon.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null")), cause);
   }
 }

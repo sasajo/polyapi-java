@@ -23,7 +23,7 @@ public class JsonToObjectParsingException extends ParsingException {
    * @param cause The cause of the error.
    */
   public JsonToObjectParsingException(InputStream json, Type type, Throwable cause) {
-    super(format("An error ocurred while parsing JSon to %s.", type.getTypeName()), cause);
+    super(format("An error occurred while parsing JSon to %s.", type.getTypeName()), cause);
     this.type = type;
     this.json = json;
   }

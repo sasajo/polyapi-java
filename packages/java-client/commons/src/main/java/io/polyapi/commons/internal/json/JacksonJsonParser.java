@@ -10,13 +10,17 @@ import io.polyapi.commons.api.json.JsonParser;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Array;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
+import static java.io.InputStream.nullInputStream;
 import static java.nio.charset.Charset.defaultCharset;
 
 /**
@@ -61,8 +65,8 @@ public class JacksonJsonParser implements JsonParser {
   @Override
   public InputStream toJsonInputStream(Object object) {
     try {
-      logger.debug("Parsing object of type {} to InputStream.", object.getClass().getSimpleName());
-      InputStream result = new ByteArrayInputStream(objectMapper.writeValueAsBytes(object));
+      logger.debug("Parsing object of type {} to InputStream.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null"));
+      InputStream result = new ByteArrayInputStream(object == null ? new byte[]{} : objectMapper.writeValueAsBytes(object));
       logger.debug("Parsing successful.");
       if (logger.isTraceEnabled()) {
         logger.trace("Parsed result is:\n{}", IOUtils.toString(result, defaultCharset()));

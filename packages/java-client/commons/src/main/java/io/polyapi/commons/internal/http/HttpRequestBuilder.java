@@ -1,15 +1,18 @@
 package io.polyapi.commons.internal.http;
 
+import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.http.HttpMethod;
 import io.polyapi.commons.api.http.Request;
 import io.polyapi.commons.api.http.RequestRecord;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static java.nio.charset.Charset.defaultCharset;
@@ -29,7 +32,7 @@ public class HttpRequestBuilder {
   }
 
   public HttpRequestBuilder(String host, Integer port, HttpMethod method, String relativePath) {
-    this(new RequestRecord(host, relativePath, port, new HashMap<>(), method, new HashMap<>(), InputStream.nullInputStream()));
+    this(new RequestRecord(host, relativePath, port, new HashMap<>(), method, new HashMap<>(), null));
   }
 
 

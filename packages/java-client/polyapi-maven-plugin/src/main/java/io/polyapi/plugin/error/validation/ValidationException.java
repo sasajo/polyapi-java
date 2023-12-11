@@ -1,13 +1,13 @@
 package io.polyapi.plugin.error.validation;
 
-import io.polyapi.plugin.error.PolyAPIMavenPluginException;
+import io.polyapi.plugin.error.PolyApiMavenPluginException;
 
 import static java.lang.String.format;
 
 /**
  * Parent class for exceptions thrown for validation purposes. Stores the name of the property being validated and injects it into the message.
  */
-public class ValidationException extends PolyAPIMavenPluginException {
+public class ValidationException extends PolyApiMavenPluginException {
 
   private final String propertyName;
 

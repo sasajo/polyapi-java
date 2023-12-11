@@ -2,32 +2,32 @@ package io.polyapi.plugin.error;
 
 import io.polyapi.commons.api.error.PolyApiException;
 
-public class PolyAPIMavenPluginException extends PolyApiException {
+public class PolyApiMavenPluginException extends PolyApiException {
   /**
    * @see PolyApiException#PolyApiException()
    */
-  public PolyAPIMavenPluginException() {
+  public PolyApiMavenPluginException() {
     super();
   }
 
   /**
    * @see PolyApiException#PolyApiException(String)
    */
-  public PolyAPIMavenPluginException(String message) {
+  public PolyApiMavenPluginException(String message) {
     super(message);
   }
 
   /**
    * @see PolyApiException#PolyApiException(String, Throwable)
    */
-  public PolyAPIMavenPluginException(String message, Throwable cause) {
+  public PolyApiMavenPluginException(String message, Throwable cause) {
     super(message, cause);
   }
 
   /**
    * @see PolyApiException#PolyApiException(Throwable)
    */
-  public PolyAPIMavenPluginException(Throwable cause) {
+  public PolyApiMavenPluginException(Throwable cause) {
     super(cause);
   }
 

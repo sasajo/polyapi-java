@@ -1,6 +1,5 @@
 package io.polyapi.plugin.mojo;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
@@ -16,26 +15,20 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import io.polyapi.commons.api.error.PolyApiException;
+import io.polyapi.commons.api.http.HttpClient;
+import io.polyapi.commons.api.http.TokenProvider;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.model.function.PolyFunction;
 import io.polyapi.commons.api.model.function.PolyFunctionArgument;
-import io.polyapi.commons.internal.http.DefaultHttpClient;
-import io.polyapi.commons.internal.http.HardcodedTokenProvider;
-import io.polyapi.commons.internal.json.JacksonJsonParser;
-import io.polyapi.plugin.mojo.validation.Validator;
+import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.service.FunctionApiService;
 import io.polyapi.plugin.service.FunctionApiServiceImpl;
+import io.polyapi.plugin.service.JavaParserService;
 import io.polyapi.plugin.service.JavaParserServiceImpl;
 import io.polyapi.plugin.service.MavenService;
 import io.polyapi.plugin.service.TypeResolver;
 import lombok.Setter;
-import okhttp3.OkHttpClient;
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,20 +40,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Setter
-public abstract class AddFunctionMojo extends AbstractMojo {
+public abstract class AddFunctionMojo extends PolyApiMojo {
   private static final Logger logger = LoggerFactory.getLogger(AddFunctionMojo.class);
-
-  private final JsonParser jsonParser = new JacksonJsonParser(new ObjectMapper());
-
-  @Parameter(defaultValue = "${project}", readonly = true)
-  private MavenProject project;
 
   @Parameter(property = "functionName", required = true)
   private String functionName;
@@ -68,74 +54,35 @@ public abstract class AddFunctionMojo extends AbstractMojo {
   @Parameter(property = "file", required = true)
   private File file;
 
-  @Parameter(property = "host")
-  private String host;
-
-  @Parameter(property = "port", defaultValue = "80")
-  private String port;
-
-  @Parameter(property = "apiKey")
-  private String apiKey;
-
   @Parameter(property = "context")
   private String context;
 
   @Parameter(property = "description")
   private String description;
 
-  public void execute() throws MojoExecutionException {
-    logger.debug("Setting up Maven service.");
-    MavenService mavenService = new MavenService(project);
-    var classLoader = mavenService.getProjectClassLoader();
-    logger.debug("Setting up the Java parser service.");
-    logger.debug("Setting up class loader for all relevant places in the project.");
-    JavaParserServiceImpl javaParserServiceImpl = new JavaParserServiceImpl(classLoader, jsonParser);
-    logger.debug("Setting up HTTP service to access the Function API in Poly.");
-    var functionApiService = new FunctionApiServiceImpl(host,
-      Integer.valueOf(port),
-      new DefaultHttpClient(new OkHttpClient.Builder()
-        .connectTimeout(10, MINUTES)
-        .readTimeout(10, MINUTES)
-        .writeTimeout(10, MINUTES)
-        .build(),
-        new HardcodedTokenProvider(apiKey)),
-      jsonParser);
-
-    // Parsing the maven configuration to extract apiBaseUrl and apiKey from it.
-    logger.debug("Retrieving property 'host'.");
-    mavenService.getPropertyFromPlugin("host", host, this::setHost);
-    Validator.validateNotEmpty("host", host);
-
-    logger.debug("Retrieving property 'port'.");
-    mavenService.getPropertyFromPlugin("port", port, this::setHost);
-    Validator.validatePortFormat("port", port);
-
-    logger.debug("Retrieving property 'apiKey'.");
-    mavenService.getPropertyFromPlugin("apiKey", apiKey, this::setApiKey);
-    Validator.validateNotEmpty("apiKey", apiKey);
-
-    logger.debug("Validating existence of file in path {}.", file.getAbsolutePath());
-    Validator.validateFileExistence("file", file);
-    logger.debug("File present.");
+  public void execute(String host, Integer port, TokenProvider tokenProvider, HttpClient httpClient, JsonParser jsonParser, MavenService mavenService) {
     try {
+      var classLoader = mavenService.getProjectClassLoader();
+      logger.debug("Setting up the Java parser service.");
+      logger.debug("Setting up class loader for all relevant places in the project.");
+      JavaParserService javaParserService = new JavaParserServiceImpl(classLoader, jsonParser);
+      logger.debug("Setting up HTTP service to access the Function API in Poly.");
+      var functionApiService = new FunctionApiServiceImpl(host, port, httpClient, jsonParser);
 
       logger.debug("Setting up a combined type solvers.");
       var combinedTypeSolver = new CombinedTypeSolver();
-      Stream.concat(project.getCompileSourceRoots().stream(), Stream.of(project.getBasedir() + "/target/generated-sources"))
-        .peek(sourceRoot -> logger.debug("    Adding JavaParserTypeSolver for source root '{}'", sourceRoot))
-        .map(File::new)
-        .filter(File::exists)
+      mavenService.getSourceFolders().stream()
+        .peek(sourceRoot -> logger.debug("    Adding JavaParserTypeSolver."))
         .map(JavaParserTypeSolver::new)
         .forEach(combinedTypeSolver::add);
-      project.getCompileClasspathElements().stream()
-        .filter(path -> path.endsWith(".jar"))
-        .peek(path -> logger.debug("    Adding JarTypeSolver for path '{}'.", path))
+      mavenService.getJarSources().stream()
+        .peek(path -> logger.debug("    Adding JarTypeSolver."))
         .map(path -> {
           try {
             return new JarTypeSolver(path);
           } catch (IOException e) {
             // FIXME Throw an appropriate exception.
-            throw new RuntimeException(e);
+            throw new PolyApiMavenPluginException(e);
           }
         })
         .forEach(combinedTypeSolver::add);
@@ -160,7 +107,7 @@ public abstract class AddFunctionMojo extends AbstractMojo {
           function.setContext(context);
           function.setArguments(new ArrayList<>());
           logger.trace("Parsing return type for {}.", methodDeclaration.getNameAsString());
-          var typeData = javaParserServiceImpl.parse(methodDeclaration.getType());
+          var typeData = javaParserService.parse(methodDeclaration.getType());
           function.setName(methodDeclaration.getNameAsString());
           function.setReturnType(typeData.name());
           logger.trace("Adding JSon schema to return type.");
@@ -172,7 +119,7 @@ public abstract class AddFunctionMojo extends AbstractMojo {
               logger.trace("Converting to PolyFunctionArgument.");
               var argument = new PolyFunctionArgument();
               argument.setName(param.getNameAsString());
-              var argumentTypeData = javaParserServiceImpl.parse(param.getType());
+              var argumentTypeData = javaParserService.parse(param.getType());
               argument.setType(argumentTypeData.name());
               argument.setTypeSchema(argumentTypeData.jsonSchema());
               return argument;
@@ -226,20 +173,13 @@ public abstract class AddFunctionMojo extends AbstractMojo {
           functions.add(function);
         });
       if (functions.isEmpty()) {
-        throw new MojoExecutionException("No function with name " + functionName + " found in file: " + file.getAbsolutePath());
+        throw new PolyApiMavenPluginException("No function with name " + functionName + " found in file: " + file.getAbsolutePath());
       } else if (functions.size() > 1) {
-        throw new MojoExecutionException("More than one function with name " + functionName + " found in file: " + file.getAbsolutePath());
+        throw new PolyApiMavenPluginException("More than one function with name " + functionName + " found in file: " + file.getAbsolutePath());
       }
       deployFunction(functions.get(0), functionApiService);
-    } catch (DependencyResolutionRequiredException | FileNotFoundException e) {
-      logger.error("Error parsing file.", e);
-      throw new MojoExecutionException("Error parsing file", e);
-    } catch (PolyApiException e) {
-      logger.error("Poly API client error.", e);
-      throw new MojoExecutionException(e);
-    } catch (RuntimeException e) {
-      logger.error("Unexpected error.", e);
-      throw new MojoExecutionException(e);
+    } catch (FileNotFoundException e) {
+      throw new PolyApiMavenPluginException("Error parsing file", e);
     }
   }
 

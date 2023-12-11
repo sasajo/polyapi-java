@@ -69,15 +69,15 @@ public class DefaultHttpClient implements HttpClient {
       }
       okhttp3.Request.Builder builder = new okhttp3.Request.Builder()
         .url(request.getUrl())
-        .method(request.method().name(), RequestBody.create(IOUtils.toString(request.body(), defaultCharset()).getBytes(defaultCharset())));
+        .method(request.method().name(), request.body().available() > 0 ? RequestBody.create(IOUtils.toString(request.body(), defaultCharset()).getBytes(defaultCharset())) : null);
 
       // This block of code is created because the Headers class doesn't have a way of including the headers all together.
       request.headers().forEach((key, list) -> list.forEach(value -> builder.header(key, value)));
       try (okhttp3.Response response = client.newCall(builder.build()).execute()) {
         logger.debug("Request with ID {} complete. Status code is {}", requestId, response.code());
         var result = new ResponseRecord(response.headers().toMultimap(), logger.isTraceEnabled() ? new ByteArrayInputStream(IOUtils.toString(response.body().byteStream(), defaultCharset()).getBytes(defaultCharset())) : response.body().byteStream(), response.code());
-        if (true || logger.isTraceEnabled()) {
-          logger.debug("Response to request with ID {} contents:\n{\n    'status':{};\n    headers': {\n{}\n};\n    'body':{}",
+        if (logger.isTraceEnabled()) {
+          logger.trace("Response to request with ID {} contents:\n{\n    'status':{};\n    headers': {\n{}\n};\n    'body':{}",
             requestId,
             result.statusCode(),
             result.headers().entrySet().stream()

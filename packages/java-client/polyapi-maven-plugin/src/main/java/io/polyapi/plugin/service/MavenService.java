@@ -1,5 +1,6 @@
 package io.polyapi.plugin.service;
 
+import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.error.validation.PropertyNotFoundException;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.model.Plugin;
@@ -84,6 +85,26 @@ public class MavenService {
         getClass().getClassLoader());
     } catch (DependencyResolutionRequiredException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  public List<File> getSourceFolders() {
+    return Stream.concat(project.getCompileSourceRoots().stream(), Stream.of(project.getBasedir() + "/target/generated-sources"))
+      .peek(sourceRoot -> logger.debug("    Retrieving source root '{}'", sourceRoot))
+      .map(File::new)
+      .filter(File::exists)
+      .toList();
+  }
+
+  public List<String> getJarSources() {
+    try {
+      return project.getCompileClasspathElements().stream()
+        .filter(path -> path.endsWith(".jar"))
+        .peek(path -> logger.debug("    Retrieving jar sources from '{}'.", path))
+        .toList();
+    } catch (DependencyResolutionRequiredException e) {
+      // FIXME: Throw appropriate exception.
+      throw new PolyApiMavenPluginException(e);
     }
   }
 }

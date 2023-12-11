@@ -18,7 +18,6 @@ import java.util.Map;
 
 import static io.polyapi.commons.api.http.HttpMethod.GET;
 import static io.polyapi.commons.api.http.HttpMethod.POST;
-import static java.io.InputStream.nullInputStream;
 
 /**
  * Parent implementation class for all services that connecto the Poly API service.
@@ -39,7 +38,7 @@ public class PolyApiService {
   }
 
   public <O> O get(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, Type expectedResponseType) {
-    return parsedCall(GET, relativePath, headers, queryParams, nullInputStream(), expectedResponseType);
+    return parsedCall(GET, relativePath, headers, queryParams, null, expectedResponseType);
   }
 
   public <I, O> O post(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body, Type expectedResponseType) {
