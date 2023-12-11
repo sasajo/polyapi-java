@@ -39,7 +39,7 @@ export class GptPluginController {
   @Get('plugins/:slug/openapi')
   public async pluginOpenApi(@Req() req: Request, @Param('slug') slug: string): Promise<unknown> {
     const spec = await this.service.getOpenApiSpec(req.hostname, slug);
-    return spec;
+    return JSON.parse(spec);
   }
 
   @UseGuards(PolyAuthGuard)
