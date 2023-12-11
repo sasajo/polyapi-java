@@ -2,7 +2,12 @@ import { HttpException, HttpStatus, InternalServerErrorException, Logger } from 
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { catchError, lastValueFrom, map } from 'rxjs';
-import { getDateMinusXHours, getNanosecondsFromDate, getNanosecondsDateISOString } from '@poly/common/utils';
+import {
+  getDateMinusXHours,
+  getNanosecondsFromDate,
+  getNanosecondsDateISOString,
+  getSecondsFromDate,
+} from '@poly/common/utils';
 import { FunctionLog } from '@poly/model';
 import { FaasLogsService } from '../faas.service';
 
@@ -55,7 +60,8 @@ export class LokiLogsService implements FaasLogsService {
   async deleteLogs(functionId: string): Promise<void> {
     this.logger.debug(`Deleting logs for function with id ${functionId}`);
     const logQuery = this.constructQuery(functionId);
-    const url = `${this.config.faasPolyServerLogsUrl}/loki/api/v1/delete?query=${encodeURIComponent(logQuery)}`;
+    const startDate = new Date(2023, 1, 1); // all logs (for now)
+    const url = `${this.config.faasPolyServerLogsUrl}/loki/api/v1/delete?query=${encodeURIComponent(logQuery)}&start=${getSecondsFromDate(startDate)}`;
     this.logger.debug(`Sending request to ${url}`);
 
     await lastValueFrom(
