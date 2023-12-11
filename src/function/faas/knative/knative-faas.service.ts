@@ -837,6 +837,9 @@ export class KNativeFaasService implements FaasService {
     const cloudFunctionApplicationTemplate = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/java/CloudFunctionApplication.java.hbs`, 'utf8');
     await writeFile(`${functionPath}/src/main/java/functions/CloudFunctionApplication.java`, handlebars.compile(cloudFunctionApplicationTemplate)({}));
 
+    const polyLogStreamTemplate = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/java/PolyLogStream.java.hbs`, 'utf8');
+    await writeFile(`${functionPath}/src/main/java/functions/PolyLogStream.java`, handlebars.compile(polyLogStreamTemplate)({}));
+
     const polyCustomFunctionTemplate = await readFile(`${process.cwd()}/dist/function/faas/knative/templates/java/PolyCustomFunction.java.hbs`, 'utf8');
     const polyCustomFunction = handlebars.compile(polyCustomFunctionTemplate)({
       code,

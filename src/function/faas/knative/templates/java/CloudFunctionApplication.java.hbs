@@ -28,6 +28,11 @@ public class CloudFunctionApplication {
 
     return (inputMessage) -> {
       var payload = inputMessage.getPayload();
+      var doLog = inputMessage.getHeaders().get("x-poly-do-log");
+      var loggingEnabled = doLog != null && doLog.toString().equalsIgnoreCase("true");
+
+      System.setOut(new PolyLogStream(System.out, "INFO", loggingEnabled));
+      System.setErr(new PolyLogStream(System.err, "ERROR", loggingEnabled));
 
       try {
         var body = objectMapper.readValue(payload, Body.class);
