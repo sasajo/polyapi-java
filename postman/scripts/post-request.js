@@ -20,9 +20,12 @@ pm.environment.unset('templateUrl');
 
 let response;
 
-const contentType = pm.response.headers.get('content-type') || '';
+const responseContentType = pm.response.headers.get('content-type') || '';
+const responseStatusCode = pm.response.code;
 
-if (contentType.match(/application\/json/) !== null) {
+if(responseStatusCode === 204) {
+  response = null;
+} else if (responseContentType.match(/application\/json/) !== null) {
   response = pm.response.json();
 } else {
   response = pm.response.text();
