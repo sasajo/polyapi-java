@@ -1936,6 +1936,10 @@ export class FunctionService implements OnModuleInit {
     );
   }
 
+  async deleteServerFunctionLogs(id: string): Promise<void> {
+    await this.faasLogsService.deleteLogs(id);
+  }
+
   private isGraphQLBody(body: Body): body is GraphQLBody {
     return body.mode === 'graphql';
   }

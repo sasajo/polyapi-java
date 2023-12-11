@@ -596,6 +596,27 @@ export class FunctionController {
     };
   }
 
+  @UseGuards(PolyAuthGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @Delete('/server/:id/logs')
+  async deleteServerFunctionLogs(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+  ) {
+    const serverFunction = await this.service.findServerFunction(id);
+    if (!serverFunction) {
+      throw new NotFoundException(`Function with ID ${id} not found.`);
+    }
+
+    if (req.user.environment.id !== serverFunction.environmentId) {
+      throw new ForbiddenException(`You do not have access to the logs of the function with ID ${id}.`);
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user);
+
+    await this.service.deleteServerFunctionLogs(id);
+  }
+
   @PerfLog(PerfLogType.ServerFunctionExecution)
   @UseGuards(PolyAuthGuard, FunctionCallsLimitGuard)
   @Post('/server/:id/execute')

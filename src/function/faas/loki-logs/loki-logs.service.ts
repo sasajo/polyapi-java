@@ -52,6 +52,26 @@ export class LokiLogsService implements FaasLogsService {
     );
   }
 
+  async deleteLogs(functionId: string): Promise<void> {
+    this.logger.debug(`Deleting logs for function with id ${functionId}`);
+    const logQuery = this.constructQuery(functionId);
+    const url = `${this.config.faasPolyServerLogsUrl}/loki/api/v1/delete?query=${encodeURIComponent(logQuery)}`;
+    this.logger.debug(`Sending request to ${url}`);
+
+    await lastValueFrom(
+      this.httpService
+        .post(url)
+        .pipe(
+          map((response) => {
+            if (response.status !== 204) {
+              throw new InternalServerErrorException('Failed to delete logs.');
+            }
+          }),
+          catchError(this.processLogsRetrievalError()),
+        ),
+    );
+  }
+
   private processLogsRetrievalError() {
     return (error: any) => {
       this.logger.error(`Error while processing data from the FaaS logger service: ${error}`);
@@ -98,7 +118,7 @@ export class LokiLogsService implements FaasLogsService {
     );
   }
 
-  private constructQuery(functionId: string, keyword: string): string {
+  private constructQuery(functionId: string, keyword?: string): string {
     const getKeywordQuery = (keyword: string) => `|~ "(?i)${keyword}"`;
     const textContentQuery = keyword
       ? ` ${getKeywordQuery(keyword)}`

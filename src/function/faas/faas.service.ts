@@ -7,6 +7,7 @@ export interface ExecuteFunctionResult {
 
 export interface FaasLogsService {
   getLogs: (functionId: string, keyword: string | undefined, hours: number | undefined, limit: number | undefined) => Promise<FunctionLog[]>;
+  deleteLogs: (functionId: string) => Promise<void>;
 }
 
 export interface FaasService {
