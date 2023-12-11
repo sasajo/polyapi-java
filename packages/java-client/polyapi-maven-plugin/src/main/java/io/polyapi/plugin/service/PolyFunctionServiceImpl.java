@@ -7,9 +7,9 @@ import io.polyapi.commons.api.service.PolyApiService;
 
 import java.util.HashMap;
 
-public class FunctionApiServiceImpl extends PolyApiService implements FunctionApiService {
+public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunctionService {
 
-  public FunctionApiServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
+  public PolyFunctionServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
     super(host, port, client, jsonParser);
   }
 

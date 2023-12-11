@@ -75,7 +75,7 @@ public class DefaultHttpClient implements HttpClient {
       request.headers().forEach((key, list) -> list.forEach(value -> builder.header(key, value)));
       try (okhttp3.Response response = client.newCall(builder.build()).execute()) {
         logger.debug("Request with ID {} complete. Status code is {}", requestId, response.code());
-        var result = new ResponseRecord(response.headers().toMultimap(), logger.isTraceEnabled() ? new ByteArrayInputStream(IOUtils.toString(response.body().byteStream(), defaultCharset()).getBytes(defaultCharset())) : response.body().byteStream(), response.code());
+        var result = new ResponseRecord(response.headers().toMultimap(), new ByteArrayInputStream(response.body().bytes()), response.code());
         if (logger.isTraceEnabled()) {
           logger.trace("Response to request with ID {} contents:\n{\n    'status':{};\n    headers': {\n{}\n};\n    'body':{}",
             requestId,

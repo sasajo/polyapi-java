@@ -8,7 +8,7 @@ import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.commons.internal.file.FileServiceImpl;
 import io.polyapi.plugin.service.MavenService;
-import io.polyapi.plugin.service.SpecificationApiServiceImpl;
+import io.polyapi.plugin.service.SpecificationServiceImpl;
 import io.polyapi.plugin.service.generator.ClientInfoClassGenerator;
 import io.polyapi.plugin.service.generator.PolyContextClassGenerator;
 import io.polyapi.plugin.service.generator.VariContextClassGenerator;
@@ -20,13 +20,13 @@ import java.io.File;
 
 @Mojo(name = "generate-sources")
 @Setter
-public class CodeGenerationMojo extends PolyApiMojo {
+public class GenerateSourcesMojo extends PolyApiMojo {
 
   @Override
   public void execute(String host, Integer port, TokenProvider tokenProvider, HttpClient httpClient, JsonParser jsonParser, MavenService mavenService) {
     FileService fileService = new FileServiceImpl();
     Handlebars handlebars = new TemplateGenerator();
-    var specifications = new SpecificationApiServiceImpl(host, port, httpClient, jsonParser).getJsonSpecs();
+    var specifications = new SpecificationServiceImpl(host, port, httpClient, jsonParser).getJsonSpecs();
     new ClientInfoClassGenerator(handlebars, fileService).generate(host, port, tokenProvider.getToken());
     fileService.createFileWithContent(new File(new File("target/.poly"), "specs.json"), jsonParser.toJsonString(specifications));
     new PolyContextClassGenerator(handlebars, fileService).generate(specifications);

@@ -23,7 +23,7 @@ import static java.util.stream.Stream.concat;
 
 public class MavenService {
   private static final Logger logger = LoggerFactory.getLogger(MavenService.class);
-  private MavenProject project;
+  private final MavenProject project;
 
   public MavenService(MavenProject project) {
     this.project = project;

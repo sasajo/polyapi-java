@@ -1,6 +1,6 @@
 package io.polyapi.plugin.mojo;
 
-import io.polyapi.plugin.service.FunctionApiService;
+import io.polyapi.plugin.service.PolyFunctionService;
 import io.polyapi.commons.api.model.function.PolyFunction;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.slf4j.Logger;
@@ -14,9 +14,9 @@ public class AddClientFunctionMojo extends AddFunctionMojo {
   private static final Logger logger = LoggerFactory.getLogger(AddClientFunctionMojo.class);
 
   @Override
-  protected void deployFunction(PolyFunction function, FunctionApiService functionApiService) {
+  protected void deployFunction(PolyFunction function, PolyFunctionService polyFunctionService) {
     logger.info("Deploying client function...");
-    var response = functionApiService.postCustomClientFunction(function);
+    var response = polyFunctionService.postCustomClientFunction(function);
     logger.info("Function deployed successfully: " + response.getName());
   }
 }

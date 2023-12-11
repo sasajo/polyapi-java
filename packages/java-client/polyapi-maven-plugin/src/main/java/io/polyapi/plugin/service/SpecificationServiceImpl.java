@@ -13,10 +13,10 @@ import java.util.List;
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static java.util.stream.Collectors.joining;
 
-public class SpecificationApiServiceImpl extends PolyApiService implements SpecificationApiService {
-  private static final Logger logger = LoggerFactory.getLogger(SpecificationApiServiceImpl.class);
+public class SpecificationServiceImpl extends PolyApiService implements SpecificationService {
+  private static final Logger logger = LoggerFactory.getLogger(SpecificationServiceImpl.class);
 
-  public SpecificationApiServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
+  public SpecificationServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
     super(host, port, client, jsonParser);
   }
 

@@ -21,8 +21,8 @@ import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.model.function.PolyFunction;
 import io.polyapi.commons.api.model.function.PolyFunctionArgument;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
-import io.polyapi.plugin.service.FunctionApiService;
-import io.polyapi.plugin.service.FunctionApiServiceImpl;
+import io.polyapi.plugin.service.PolyFunctionService;
+import io.polyapi.plugin.service.PolyFunctionServiceImpl;
 import io.polyapi.plugin.service.JavaParserService;
 import io.polyapi.plugin.service.JavaParserServiceImpl;
 import io.polyapi.plugin.service.MavenService;
@@ -67,7 +67,7 @@ public abstract class AddFunctionMojo extends PolyApiMojo {
       logger.debug("Setting up class loader for all relevant places in the project.");
       JavaParserService javaParserService = new JavaParserServiceImpl(classLoader, jsonParser);
       logger.debug("Setting up HTTP service to access the Function API in Poly.");
-      var functionApiService = new FunctionApiServiceImpl(host, port, httpClient, jsonParser);
+      var functionApiService = new PolyFunctionServiceImpl(host, port, httpClient, jsonParser);
 
       logger.debug("Setting up a combined type solvers.");
       var combinedTypeSolver = new CombinedTypeSolver();
@@ -183,5 +183,5 @@ public abstract class AddFunctionMojo extends PolyApiMojo {
     }
   }
 
-  protected abstract void deployFunction(PolyFunction function, FunctionApiService functionApiService);
+  protected abstract void deployFunction(PolyFunction function, PolyFunctionService polyFunctionService);
 }
