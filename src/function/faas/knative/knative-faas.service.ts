@@ -260,6 +260,8 @@ export class KNativeFaasService implements FaasService {
         code,
         environmentId,
       });
+      // LET's make sure the new code is written right
+      console.log(content);
       this.logger.debug(`Writing function code to ${functionPath}/func.py`);
       await writeFile(`${functionPath}/func.py`, content);
 
