@@ -576,7 +576,7 @@ export class KNativeFaasService implements FaasService {
     // const startUpCommand = `if [ -f "/workspace/function/func.py" ];
     //    cp -f /workspace/function/func.py /workspace/ && pip3 install git+https://github.com/polyapi/polyapi-python.git && /workspace/app.sh
     //   else python3 -m polyapi generate; fi`;
-    const startUpCommand = '/cnb/lifecycle/launcher "cp /workspace/function/* /workspace/ && /workspace/app.sh"'; // 'cp -f /workspace/function/* /workspace/ && pip install -r requirements.txt && ls && /workspace/app.sh';
+    const startUpCommand = '/cnb/lifecycle/launcher "cd /workspace/function/ && ./app.sh"'; // 'cp -f /workspace/function/* /workspace/ && pip install -r requirements.txt && ls && /workspace/app.sh';
 
     const args = [startUpCommand];
 
