@@ -12,6 +12,7 @@ import io.polyapi.client.model.specification.ApiFunctionSpecification;
 import io.polyapi.client.model.specification.CustomFunctionSpecification;
 import io.polyapi.client.model.specification.FunctionSpecification;
 import io.polyapi.client.model.specification.PropertySpecification;
+import io.polyapi.client.model.specification.ServerFunctionSpecification;
 import io.polyapi.client.model.specification.Specification;
 import io.polyapi.client.model.specification.WebhookHandleSpecification;
 import io.polyapi.client.utils.StringUtils;
@@ -54,6 +55,9 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
       if (specification instanceof ApiFunctionSpecification apiFunctionSpecification) {
         generateFunctionTypeClasses(specification, apiFunctionSpecification.getFunction(), currentPackage);
       }
+      if (specification instanceof ServerFunctionSpecification serverFunctionSpecification) {
+        generateFunctionTypeClasses(specification, serverFunctionSpecification.getFunction(), currentPackage);
+      }
       if (specification instanceof CustomFunctionSpecification customFunctionSpecification && customFunctionSpecification.isJava()) {
         var className = customFunctionSpecification.getClassName();
         var classContent = "package " + currentPackage + ";\n\n" +
@@ -77,14 +81,18 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
   }
 
   private void generateFunctionTypeClasses(Specification specification, FunctionSpecification functionSpecification, String packageName) {
-    if (functionSpecification.getReturnType() instanceof ObjectPropertyType returnType) {
-      generateObjectPropertyType(packageName, returnType, StringUtils.toPascalCase(specification.getName()) + "$ReturnType");
-    }
-
-    for (PropertySpecification argument : functionSpecification.getArguments()) {
-      if (argument.getType() instanceof ObjectPropertyType argumentType) {
-        generateObjectPropertyType(packageName, argumentType, StringUtils.toPascalCase(specification.getName()) + "$" + StringUtils.toPascalCase(argument.getName()));
+    try {
+      if (functionSpecification.getReturnType() instanceof ObjectPropertyType returnType) {
+        generateObjectPropertyType(packageName, returnType, StringUtils.toPascalCase(specification.getName()) + "$ReturnType");
       }
+
+      for (PropertySpecification argument : functionSpecification.getArguments()) {
+        if (argument.getType() instanceof ObjectPropertyType argumentType) {
+          generateObjectPropertyType(packageName, argumentType, StringUtils.toPascalCase(specification.getName()) + "$" + StringUtils.toPascalCase(argument.getName()));
+        }
+      }
+    } catch (Exception e) {
+      System.err.println("Failed to generate type classes for " + specification.getName());
     }
   }
 

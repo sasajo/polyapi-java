@@ -1,5 +1,5 @@
-# Java Client Library (beta)
-### v0.1.7
+# Java Client Library
+### v0.1.8
 
 ## Introduction
 This is a Java client library for Poly API. It is generated from the [Poly specification](https://develop-k8s.polyapi.io/specs). It is based on its Typescript counterpart [polyapi](https://www.npmjs.com/package/polyapi)
@@ -134,7 +134,7 @@ public class CustomFunction {
 ```
 Then to add it to Poly, you need to add run the following Maven goal:
 ```bash
-mvn library:addFunction -Dname=sayHello -Dfile=src/main/java/custom/CustomFunction.java -Dcontext=test.client -Dclient -Ddescription="This says hello to you"
+mvn library:addFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.client" -Dclient -Ddescription="This says hello to you"
 ```
 Note the use of `-Dclient` flag. This is used to specify that the function is a client function.
 This will add the function with specified name and context to Poly, so it can be used in code:
@@ -148,7 +148,7 @@ System.out.println(result);
 Similar to Custom Functions, you can create Server Functions. To do so, you need to create a class with desired function same as with Custom Functions.
 Then to add it to Poly, you need to add run the following Maven goal:
 ```bash
-mvn library:addFunction -Dname=sayHello -Dfile=src/main/java/custom/CustomFunction.java -Dcontext=test.server -Dserver -Ddescription="This says hello to you from server"
+mvn library:addFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Dserver -Ddescription="This says hello to you from server"
 ```
 Note the use of `-Dserver` flag. This is used to specify that the function is a server function.
 
@@ -160,6 +160,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.1.8
+- Fixed type generation for Java server functions
 ### v0.1.7
 - Added support for Java server functions
 ### v0.1.6
