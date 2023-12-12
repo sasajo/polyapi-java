@@ -261,7 +261,6 @@ export class KNativeFaasService implements FaasService {
         environmentId,
       });
       // LET's make sure the new code is written right
-      console.log(content);
       this.logger.debug(`Writing function code to ${functionPath}/func.py`);
       await writeFile(`${functionPath}/func.py`, content);
 
@@ -577,7 +576,7 @@ export class KNativeFaasService implements FaasService {
     // const startUpCommand = `if [ -f "/workspace/function/func.py" ];
     //    cp -f /workspace/function/func.py /workspace/ && pip3 install git+https://github.com/polyapi/polyapi-python.git && /workspace/app.sh
     //   else python3 -m polyapi generate; fi`;
-    const startUpCommand = '/cnb/lifecycle/launcher "/workspace/function/app.sh"'; // 'cp -f /workspace/function/* /workspace/ && pip install -r requirements.txt && ls && /workspace/app.sh';
+    const startUpCommand = '/cnb/lifecycle/launcher "cat /workspace/function/func.py && /workspace/function/app.sh"'; // 'cp -f /workspace/function/* /workspace/ && pip install -r requirements.txt && ls && /workspace/app.sh';
 
     const args = [startUpCommand];
 
