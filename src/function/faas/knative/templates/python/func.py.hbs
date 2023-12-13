@@ -14,15 +14,14 @@ def main(context):
     The context parameter contains the Flask request object and any
     CloudEvent received with the request.
     """
-    return context.cloudevent.data, 200
-
     # TODO handle args like we do with NodeJS
     # const args = context.cloudevent ? (Array.isArray(body.data) ? body.data : [body.data]) : body.args;
     # const processedArgs = args.map(arg => arg === '$poly-undefined-value' ? undefined : arg);
 
     # Add your business logic here
+    # HACK for now, just pass the context to the code, then we can update the code and figure out how to manipulate!
     try:
-        result = {{name}}()
+        result = {{name}}(context)
     except Exception as e:
         return str(e), 500
 
