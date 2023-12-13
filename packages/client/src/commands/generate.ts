@@ -6,6 +6,7 @@ import { toCamelCase, toPascalCase } from '@guanghechen/helper-string';
 import prettier from 'prettier';
 import { compile } from 'json-schema-to-typescript';
 import { v4 as uuidv4 } from 'uuid';
+import jp from 'jsonpath';
 
 import {
   ApiFunctionSpecification,
@@ -21,6 +22,7 @@ import {
   SpecificationWithVariable,
   WebhookHandleSpecification,
 } from '@poly/model';
+import { isPlainObjectPredicate } from '@poly/common/utils';
 import { toTypeDeclaration, getContextData } from '@poly/common/specs';
 import { getSpecs } from '../api';
 import { POLY_USER_FOLDER_NAME } from '../constants';
@@ -174,12 +176,25 @@ const generateServerVariableJSFiles = async (specifications: ServerVariableSpeci
   const contextData = getContextData(specifications);
   const contextPaths = getContextPaths(contextData);
   const template = handlebars.compile(await loadTemplate('vari/index.js.hbs'));
+
+  const arrPaths = [];
+
+  for (const specification of specifications) {
+    if (isPlainObjectPredicate(specification.variable.value) || Array.isArray(specification.variable.value)) {
+      arrPaths.push({
+        context: specification.context || '',
+        paths: getStringPaths(specification.variable.value),
+      });
+    }
+  }
+
   fs.writeFileSync(
     `${POLY_LIB_PATH}/vari/index.js`,
     template({
       specifications,
       contextPaths,
       apiKey: getApiKey(),
+      arrPaths: JSON.stringify(arrPaths),
     }),
   );
 };
@@ -302,15 +317,48 @@ const generateTSIndexDeclarationFile = async (contexts: Context[], pathPrefix: s
   );
 };
 
-const schemaToDeclarations = async (namespace: string, typeName: string, schema: Record<string, any>) => {
+const getStringPaths = (data: Record<string, any> | any[]) => {
+  const paths = jp.paths(data, '$..*', 100);
+
+  const stringPaths: string[] = [];
+
+  for (let i = 0; i < paths.length; i++) {
+    let stringPath = '';
+    for (const part of paths[i]) {
+      const isString = typeof part === 'string';
+      const delimiter = (stringPath.length > 0 && isString) ? '.' : '';
+      if (isString) {
+        stringPath = `${stringPath}${delimiter}${part}`;
+      } else {
+        stringPath = `${stringPath}${delimiter}[${part}]`;
+      }
+    }
+    stringPaths.push(stringPath);
+  }
+
+  return stringPaths;
+};
+
+const schemaToDeclarations = async (namespace: string, typeName: string, schema: Record<string, any>, value?: any | undefined) => {
   const wrapToNamespace = (code: string) => `namespace ${namespace} {\n  ${code}\n}`;
+
+  const appendPathUnionType = (code: string, value: any) => {
+    if (Array.isArray(value) || isPlainObjectPredicate(value)) {
+      const unionPath = getStringPaths(value).map(value => `'${value}'`);
+
+      return `${code}\nexport type PathValue = ${unionPath.join(' | ')}`;
+    }
+
+    return code;
+  };
 
   schema.title = typeName;
   const result = await compile(schema, typeName, {
     format: false,
     bannerComment: '',
   });
-  return wrapToNamespace(result);
+
+  return wrapToNamespace(appendPathUnionType(result, value));
 };
 
 const getReturnTypeDeclarations = async (
@@ -386,8 +434,10 @@ const getVariableValueTypeDeclarations = async (
   namespacePath: string,
   namespace: string,
   objectProperty: ObjectPropertyType,
+  value: any,
 ): Promise<string> => {
-  const declarations = await schemaToDeclarations(namespace, 'ValueType', objectProperty.schema);
+  const declarations = await schemaToDeclarations(namespace, 'ValueType', objectProperty.schema, value);
+
   // setting typeName to be used when generating variable value type
   objectProperty.typeName = `${namespacePath ? `${namespacePath}.` : ''}${namespace}.ValueType`;
   return declarations;
@@ -446,7 +496,7 @@ const getSpecificationsTypeDeclarations = async (namespacePath: string, specific
       .map((spec) => spec as SpecificationWithVariable)
       .map((spec) =>
         getDeclarationOrHandleError(
-          () => getVariableValueTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.variable.valueType as ObjectPropertyType),
+          () => getVariableValueTypeDeclarations(namespacePath, toPascalCase(spec.name), spec.variable.valueType as ObjectPropertyType, spec.variable.value),
           spec.id,
           spec.name,
           'variable value',
@@ -495,13 +545,21 @@ const generateTSContextDeclarationFile = async (
     };
   };
 
-  const toVariableDeclaration = (specification: SpecificationWithVariable) => ({
-    name: specification.name.split('.').pop(),
-    comment: getSpecificationWithVariableComment(specification),
-    type: toTypeDeclaration(specification.variable.valueType),
-    secret: specification.variable.secret,
-    isObjectType: specification.variable.valueType.kind === 'object',
-  });
+  const toVariableDeclaration = (specification: SpecificationWithVariable) => {
+    const type = toTypeDeclaration(specification.variable.valueType);
+    const pathUnionType = type.split('.');
+
+    pathUnionType[pathUnionType.length - 1] = 'PathValue';
+
+    return {
+      name: specification.name.split('.').pop(),
+      comment: getSpecificationWithVariableComment(specification),
+      type,
+      secret: specification.variable.secret,
+      isObjectType: specification.variable.valueType.kind === 'object',
+      pathUnionType: pathUnionType.join('.'),
+    };
+  };
 
   fs.writeFileSync(
     `${POLY_LIB_PATH}/${pathPrefix}/${context.fileName}`,

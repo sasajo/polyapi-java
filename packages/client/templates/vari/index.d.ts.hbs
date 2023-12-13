@@ -51,5 +51,6 @@ declare module vari {
      * @param path context path to listen to (example: 'products' or 'products.shopId'). Can be '' to listen to all variables.
      */
     onUpdate: (path: string, callback: (event: VariableChangeEvent<any>) => void, options?: OnUpdateOptions) => UnregisterOnUpdateHandler;
+    injectValue: unique symbol;
   }
 }
