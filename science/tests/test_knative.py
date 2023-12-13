@@ -3,12 +3,11 @@ from unittest import TestCase
 from flask import Request
 
 
-# this
 def _get_args(request: Request) -> Dict:
-    print("foo")
-    return {}
+    return request.get_json()
 
 
 class T(TestCase):
     def test_get_args(self):
-        self.assertEqual(_get_args(None), None)
+        request = Request.from_values(json={"foo": "bar"})
+        self.assertEqual(_get_args(request), {})

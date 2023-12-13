@@ -5,13 +5,16 @@ FUNCTION_ENVIRONMENT_ID = "{{environmentId}}"
 
 {{{code}}}
 
+def _get_args(request: Request) -> Dict:
+    return request.get_json()
+
 def main(context):
     """
     Function template
     The context parameter contains the Flask request object and any
     CloudEvent received with the request.
     """
-    return str(context), 200
+    return _get_args(context.request), 200
 
     # TODO handle args like we do with NodeJS
     # const args = context.cloudevent ? (Array.isArray(body.data) ? body.data : [body.data]) : body.args;
