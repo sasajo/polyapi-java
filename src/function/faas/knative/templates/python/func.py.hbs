@@ -5,7 +5,7 @@ FUNCTION_ENVIRONMENT_ID = "{{environmentId}}"
 
 {{{code}}}
 
-def _get_args(request: Request) -> Dict:
+def _get_args(request) -> Dict:
     return request.get_json()
 
 def main(context):
