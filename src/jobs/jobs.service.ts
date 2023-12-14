@@ -379,7 +379,7 @@ export class JobsService implements OnModuleDestroy {
     return repeatableJobs.find(repeatableJob => this.matchRepeatableJob(repeatableJob, job));
   }
 
-  @Cron('0 */2 * * * *')
+  @Cron('0 */10 * * * *')
   private async restoreOrphanJobs() {
     try {
       this.logger.debug('Checking orphan jobs...');
