@@ -284,7 +284,7 @@ export class KNativeFaasService implements FaasService {
     args: any[],
     headers: Record<string, any>,
     logsEnabled: boolean,
-    maxRetryCount = 3,
+    maxRetryCount = 1,
   ): Promise<ExecuteFunctionResult> {
     let functionUrl = '';
     try {
@@ -314,7 +314,7 @@ export class KNativeFaasService implements FaasService {
         )))
         .pipe(
           catchError(async (error: AxiosError) => {
-            if (error.response?.status !== 500) {
+            if (error.response?.status && error.response.status !== 503) {
               return {
                 body: error.response?.data,
                 statusCode: error.response?.status || 500,
