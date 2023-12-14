@@ -37,7 +37,7 @@ public abstract class PolyApiMojo extends AbstractMojo {
   @Parameter(property = "host")
   private String host;
 
-  @Parameter(property = "port", defaultValue = "80")
+  @Parameter(property = "port")
   private String port;
 
   @Parameter(property = "apiKey")

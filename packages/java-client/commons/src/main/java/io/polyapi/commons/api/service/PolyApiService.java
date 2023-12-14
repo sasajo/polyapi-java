@@ -15,9 +15,12 @@ import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 import static io.polyapi.commons.api.http.HttpMethod.GET;
 import static io.polyapi.commons.api.http.HttpMethod.POST;
+import static java.util.function.Predicate.not;
 
 /**
  * Parent implementation class for all services that connecto the Poly API service.
@@ -64,7 +67,10 @@ public class PolyApiService {
     }
     logger.debug("Response is successful. Status code is {}.", response.statusCode());
     logger.debug("Parsing response.");
-    O result = jsonParser.parseInputStream(response.body(), expectedResponseType);
+    O result = Optional.of(expectedResponseType)
+      .filter(not(Void.TYPE::equals))
+      .map(type -> jsonParser.<O>parseInputStream(response.body(), type))
+      .orElse(null);
     logger.debug("Response parsed successfully.");
     return result;
   }

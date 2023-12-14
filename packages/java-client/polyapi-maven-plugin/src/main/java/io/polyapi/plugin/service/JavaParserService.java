@@ -1,7 +1,11 @@
 package io.polyapi.plugin.service;
 
 import com.github.javaparser.ast.type.Type;
+import io.polyapi.commons.api.model.function.PolyFunction;
 import io.polyapi.plugin.model.TypeData;
+
+import java.io.File;
+import java.util.List;
 
 public interface JavaParserService {
 
@@ -12,4 +16,6 @@ public interface JavaParserService {
    * @return TypeData The parsed type.
    */
   TypeData parse(Type type);
+
+  PolyFunction parseFunction(List<File> sourceRoots, List<String> jarPaths, File file, String functionName, String description, String context);
 }

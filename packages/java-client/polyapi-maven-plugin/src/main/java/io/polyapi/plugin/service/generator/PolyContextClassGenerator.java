@@ -27,10 +27,7 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
   }
 
   public void generate(Collection<Specification> specifications) {
-    for (Specification spec : specifications) {
-      insertIntoTree(root, spec);
-    }
-
+    specifications.forEach(this::insertIntoTree);
     generateClassesFromTree(root, PACKAGE_NAME_BASE + ".poly");
   }
 
@@ -39,10 +36,8 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
       var context = new HashMap<String, Object>();
       var template = getHandlebars().compile("polyContextClass");
       var className = StringUtils.toPascalCase(node.getContext());
-
       context.put("packageName", node.isRoot() ? PACKAGE_NAME_BASE : currentPackage);
       context.put("className", className);
-
       context.put("subContexts", node.getSubContexts().values().stream()
         .map(subContext -> {
           Map<String, Object> result = new HashMap<>();
@@ -53,10 +48,8 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
           return result;
         })
         .toList());
-
       context.put("specifications", node.getSpecifications());
       context.put("useStatic", node.isRoot());
-
       var specifications = node.getSpecifications();
       for (var specification : specifications) {
         if (specification instanceof ApiFunctionSpecification apiFunctionSpecification) {
@@ -97,5 +90,10 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
         generateObjectPropertyType(packageName, argumentType, StringUtils.toPascalCase(specification.getName()) + "$" + StringUtils.toPascalCase(argument.getName()));
       }
     }
+  }
+
+  @Override
+  public LibraryTreeNode<Specification> getRoot() {
+    return root;
   }
 }

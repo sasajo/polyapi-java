@@ -32,6 +32,13 @@ public class JacksonJsonParser implements JsonParser {
   private final JsonSchemaGenerator jsonSchemaGenerator;
 
   /**
+   * Utility constructor that uses a standard {@link ObjectMapper} instance.
+   */
+  public JacksonJsonParser() {
+    this(new ObjectMapper());
+  }
+
+  /**
    * Default constructor that receives an {@link ObjectMapper}.
    *
    * @param objectMapper The object mapper.

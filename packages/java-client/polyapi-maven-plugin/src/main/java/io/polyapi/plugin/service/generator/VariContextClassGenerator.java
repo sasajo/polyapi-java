@@ -25,7 +25,7 @@ public class VariContextClassGenerator extends SpecificationClassGenerator<Serve
     specifications.stream()
       .filter(ServerVariableSpecification.class::isInstance)
       .map(ServerVariableSpecification.class::cast)
-      .forEach(spec -> insertIntoTree(root, spec));
+      .forEach(this::insertIntoTree);
 
     generateClassesFromTree(root, PACKAGE_NAME_BASE + ".vari");
   }
@@ -76,6 +76,11 @@ public class VariContextClassGenerator extends SpecificationClassGenerator<Serve
       // FIXME: Add appropriate exception.
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public LibraryTreeNode<ServerVariableSpecification> getRoot() {
+    return root;
   }
 }
 

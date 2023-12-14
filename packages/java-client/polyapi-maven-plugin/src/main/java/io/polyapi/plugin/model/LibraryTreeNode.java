@@ -4,17 +4,16 @@ import io.polyapi.plugin.model.specification.Specification;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 @Getter
 @Setter
 public class LibraryTreeNode<T extends Specification> {
   private final String context;
   private final boolean root;
-  private final Map<String, LibraryTreeNode<T>> subContexts = new HashMap<>();
+  private final TreeMap<String, LibraryTreeNode<T>> subContexts = new TreeMap<>();
   private final Set<T> specifications = new HashSet<>();
 
   public LibraryTreeNode(String context, boolean root) {
@@ -27,8 +26,9 @@ public class LibraryTreeNode<T extends Specification> {
     this.root = false;
   }
 
-  public void addSubContext(String context, LibraryTreeNode<T> subContext) {
-    subContexts.put(context, subContext);
+  public LibraryTreeNode<T> getOrPutNew(String context) {
+    subContexts.putIfAbsent(context, new LibraryTreeNode<>(context));
+    return subContexts.get(context);
   }
 
   public LibraryTreeNode<T> getSubContext(String context) {

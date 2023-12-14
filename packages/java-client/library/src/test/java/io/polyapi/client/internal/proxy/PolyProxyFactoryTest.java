@@ -1,0 +1,39 @@
+package io.polyapi.client.internal.proxy;
+
+import io.polyapi.client.internal.service.PolyFunctionLibraryService;
+import io.polyapi.commons.api.model.PolyEntity;
+import org.junit.jupiter.api.Test;
+import org.powermock.api.mockito.PowerMockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+public class PolyProxyFactoryTest {
+  private static final Logger logger = LoggerFactory.getLogger(PolyProxyFactoryTest.class);
+  private static final String DEFAULT_STRING = "DEFAULT_STRING";
+
+  @Test
+  public void createProxyTest() throws Throwable {
+    String entityId = MockPolyObject.class.getAnnotation(PolyEntity.class).value();
+    logger.debug("Mock object ID: {}", entityId);
+    logger.debug("Mocking InvocationHandler.");
+    var serviceMock = PowerMockito.mock(PolyFunctionLibraryService.class);
+    when(serviceMock.invokeServerFunction(eq(entityId), anyMap(), eq(String.class))).thenReturn(DEFAULT_STRING);
+    logger.debug("Creating PolyProxyFactory with mock.");
+    var factory = new PolyProxyFactory(serviceMock);
+    logger.debug("Creating proxy for {}.", MockPolyObject.class.getSimpleName());
+    var proxy = factory.createServerFunctionProxy(MockPolyObject.class);
+    logger.debug("Proxy created.");
+    assertThat(proxy, instanceOf(MockPolyObject.class));
+    assertThat(proxy.doMagic(DEFAULT_STRING), equalTo(DEFAULT_STRING));
+    verify(serviceMock).invokeServerFunction(eq(entityId), eq(Map.of("parameter", DEFAULT_STRING)), eq(String.class));
+  }
+}

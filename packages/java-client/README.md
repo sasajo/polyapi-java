@@ -14,11 +14,11 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 2. Add the following to your project's `pom.xml` to add the dependencies:
 ```xml
 <properties>
-  <poly.version>0.1.7</poly.version>
+  <poly.version>0.1.8-SNAPSHOT</poly.version>
 </properties>
 <dependencies>
   <dependency>
-    <groupId>io.polyapi.client</groupId>
+    <groupId>io.polyapi</groupId>
     <artifactId>library</artifactId>
     <version>${poly.version}</version>
   </dependency>
@@ -26,8 +26,8 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 <build>
   <plugins>
     <plugin>
-      <groupId>io.polyapi.client</groupId>
-      <artifactId>library</artifactId>
+      <groupId>io.polyapi</groupId>
+      <artifactId>polyapi-maven-plugin</artifactId>
       <version>${poly.version}</version>
       <executions>
         <execution>

@@ -1,5 +1,6 @@
 package {{packageName}};
 
+import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -14,10 +15,14 @@ import io.polyapi.Vari;
 import static io.polyapi.client.api.Utils.*;
 
 public class {{className}} {
-  private final ApiClient apiClient = ApiClient.getInstance();
-  private final WebSocketClient webSocketClient = WebSocketClient.getInstance();
-  private final VariableInjectManager variableInjectManager = VariableInjectManager.getInstance();
-  private final ObjectMapper objectMapper = ObjectMapper.getInstance();
+  {{~#ifIsNotEmpty specifications }}
+  private static final PolyProxyFactory polyProxyFactory = new PolyProxyFactory();
+  {{~/ifIsNotEmpty}}
+  {{~#each specifications}}
+  {{~#ifIsType this "ServerFunctionSpecification"}}
+  private final {{className}} {{name}} = polyProxyFactory.createServerFunctionProxy({{className}}.class);
+  {{~/ifIsType}}
+  {{~/each}}
 
 {{#each subContexts}}
 {{~#if useStatic}}
@@ -71,20 +76,7 @@ public class {{className}} {
 
   {{~#ifIsType this "ServerFunctionSpecification"}}
   public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
-    try {
-      var payloadForThePolyServerFunction = new JSONObject();
-      {{#each function.arguments}}
-      payloadForThePolyServerFunction.put("{{name}}", objectMapper.toJSONValue(variableInjectManager.getInjectedValueOrOriginal({{inCodeName}})));
-      {{/each}}
-      var response = apiClient.post("/functions/server/{{id}}/execute", payloadForThePolyServerFunction.toString());
-      var responseBody = response.getBody();
-      if (responseBody == null) {
-        return null;
-      }
-      return objectMapper.readValue(responseBody, {{{function.returnType.getInCodeType}}}.class);
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
+    {{name}}.{{name}}({{{renderArguments function.arguments}}});
   }
   {{~/ifIsType}}
 

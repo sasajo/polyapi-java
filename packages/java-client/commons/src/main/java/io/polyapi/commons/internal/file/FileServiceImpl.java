@@ -20,10 +20,7 @@ public class FileServiceImpl implements FileService {
     logger.debug("Creating file with content for file {}.", file.getAbsolutePath());
     File parent = file.getParentFile();
     logger.debug("Creating parent folder at {}.", parent.getAbsolutePath());
-    if (!parent.exists() && !parent.mkdirs()) {
-      // FIXME: Throw appropriate exception.
-      throw new PolyApiException(format("Parent file of file '%s' not created .", file.getParentFile().getAbsolutePath()));
-    }
+    parent.mkdirs();
     try (PrintWriter out = new PrintWriter(file)) {
       out.println(content);
     } catch (FileNotFoundException e) {
