@@ -19,8 +19,7 @@ export enum ConfigVariableName {
   DefaultTier = 'DefaultTier',
   DefaultTos = 'DefaultTos',
   Jobs = 'Jobs',
-  AllowTenantSignup = 'AllowTenantSignup',
-  LogRetentionDays = 'LogRetentionDays',
+  AllowTenantSignup = 'AllowTenantSignup'
 }
 
 export class TrainingDataGeneration {

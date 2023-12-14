@@ -1916,15 +1916,6 @@ export class FunctionService implements OnModuleInit {
     hours: number | undefined,
     limit: number | undefined,
   ): Promise<FunctionLog[]> {
-    const logRetentionDays = await this.configVariableService.getEffectiveValue<number>(
-      ConfigVariableName.LogRetentionDays,
-      tenantId,
-      environmentId,
-    );
-    if (logRetentionDays != null) {
-      hours = hours ? Math.min(hours, logRetentionDays * 24) : logRetentionDays * 24;
-    }
-
     return await this.faasLogsService.getLogs(
       id,
       keyword,
