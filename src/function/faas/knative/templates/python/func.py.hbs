@@ -6,22 +6,17 @@ FUNCTION_ENVIRONMENT_ID = "{{environmentId}}"
 {{{code}}}
 
 def _get_args(request):
-    return request.get_json()
+    return request.json.get("args", [])
 
 def main(context):
     """
-    Function template
     The context parameter contains the Flask request object and any
     CloudEvent received with the request.
     """
-    # TODO handle args like we do with NodeJS
-    # const args = context.cloudevent ? (Array.isArray(body.data) ? body.data : [body.data]) : body.args;
-    # const processedArgs = args.map(arg => arg === '$poly-undefined-value' ? undefined : arg);
-
-    # Add your business logic here
-    # HACK for now, just pass the context to the code, then we can update the code and figure out how to manipulate!
+    # TODO there might be a context.cloudevent we need to handle here sometimes?
+    args = _get_args(context.request)
     try:
-        result = {{name}}(context)
+        result = {{name}}(*args)
     except Exception as e:
         return str(e), 500
 
