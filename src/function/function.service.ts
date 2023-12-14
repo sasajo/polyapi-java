@@ -1781,7 +1781,12 @@ export class FunctionService implements OnModuleInit {
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
 
-    const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
+    let argumentsList: any[] = [];
+    if (customFunction.language === 'python') {
+      argumentsList = Array.isArray(args) ? args : Object.values(args);
+    } else {
+      argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
+    }
 
     const logsEnabled = customFunction.logsEnabled && customFunction.environmentId === executionEnvironment.id;
 
