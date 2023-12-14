@@ -32,6 +32,7 @@ const SERVING_VERSION = 'v1';
 const SERVICES_NAME = 'services';
 const ROUTES_NAME = 'routes';
 const PASS_THROUGH_HEADERS = ['openai-ephemeral-user-id', 'openai-conversation-id'];
+const HEADER_POLY_DO_LOG = 'x-poly-do-log';
 
 // this needs to be updated whenever the java client library version is updated
 const JAVA_CLIENT_LIBRARY_VERSION = '0.1.7';
@@ -108,7 +109,6 @@ export class KNativeFaasService implements FaasService {
     forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled?: boolean,
   ): Promise<void> {
     if (language === 'javascript') {
       return this.createJSFunction(
@@ -123,7 +123,6 @@ export class KNativeFaasService implements FaasService {
         forceCustomImage,
         sleep,
         sleepAfter,
-        logsEnabled,
       );
     } else if (language === 'java') {
       return this.createJavaFunction(
@@ -136,7 +135,6 @@ export class KNativeFaasService implements FaasService {
         forceCustomImage,
         sleep,
         sleepAfter,
-        logsEnabled,
       );
     } else if (language === 'python') {
       return this.createPythonFunction(
@@ -151,7 +149,6 @@ export class KNativeFaasService implements FaasService {
         forceCustomImage,
         sleep,
         sleepAfter,
-        logsEnabled,
       );
     }
   }
@@ -168,7 +165,6 @@ export class KNativeFaasService implements FaasService {
     forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled?: boolean,
   ): Promise<void> {
     this.logger.debug(`Creating JS function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -187,7 +183,7 @@ export class KNativeFaasService implements FaasService {
       this.logger.debug(`Writing function code to ${functionPath}/function/index.js`);
       await writeFile(`${functionPath}/function/index.js`, content);
 
-      await this.deployNodeFunction(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter, logsEnabled);
+      await this.deployNodeFunction(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter);
     };
 
     const additionalRequirements = this.filterPreinstalledNpmPackages(requirements);
@@ -215,7 +211,6 @@ export class KNativeFaasService implements FaasService {
     forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled?: boolean,
   ): Promise<void> {
     this.logger.debug(`Creating Java function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -229,7 +224,7 @@ export class KNativeFaasService implements FaasService {
       });
       this.logger.debug(`Deployment of custom Java server function '${imageName}' finished.`);
     } else {
-      await this.deployJavaFunction(id, tenantId, environmentId, this.config.faasDockerImageFunctionJava, limits, sleep, sleepAfter, logsEnabled);
+      await this.deployJavaFunction(id, tenantId, environmentId, this.config.faasDockerImageFunctionJava, limits, sleep, sleepAfter);
     }
   }
 
@@ -245,7 +240,6 @@ export class KNativeFaasService implements FaasService {
     forceCustomImage?: boolean,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled?: boolean,
   ): Promise<void> {
     this.logger.debug(`Creating Python function ${id} for tenant ${tenantId} in environment ${environmentId}...`);
 
@@ -277,7 +271,7 @@ export class KNativeFaasService implements FaasService {
       fs.copyFileSync(`${process.cwd()}/dist/function/faas/knative/templates/python/Procfile`, `${functionPath}/Procfile`);
       fs.copyFileSync(`${process.cwd()}/dist/function/faas/knative/templates/python/app.sh`, `${functionPath}/app.sh`);
 
-      await this.deployPythonFunction(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter, logsEnabled);
+      await this.deployPythonFunction(id, tenantId, environmentId, imageName, apiKey, limits, sleep, sleepAfter);
     };
 
     // TODO handle extra requirements and forceCustomImage
@@ -286,11 +280,10 @@ export class KNativeFaasService implements FaasService {
 
   async executeFunction(
     id: string,
-    functionEnvironmentId: string,
     tenantId: string,
-    executionEnvironmentId: string,
     args: any[],
-    headers = {},
+    headers: Record<string, any>,
+    logsEnabled: boolean,
     maxRetryCount = 3,
   ): Promise<ExecuteFunctionResult> {
     let functionUrl = '';
@@ -308,7 +301,7 @@ export class KNativeFaasService implements FaasService {
     this.logger.verbose({ args: JSON.stringify(args) });
     const sanitizedHeaders = {
       ...(this.filterPassThroughHeaders(headers) || {}),
-      'x-poly-do-log': functionEnvironmentId === executionEnvironmentId,
+      [HEADER_POLY_DO_LOG]: logsEnabled,
     };
     return await lastValueFrom(
       this.http
@@ -335,7 +328,7 @@ export class KNativeFaasService implements FaasService {
             );
             if (maxRetryCount > 0) {
               await sleep(2000);
-              return this.executeFunction(id, functionEnvironmentId, tenantId, executionEnvironmentId, args, headers, 0);
+              return this.executeFunction(id, tenantId, args, headers, logsEnabled, maxRetryCount - 1);
             }
 
             throw error;
@@ -356,10 +349,10 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleep?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled?: boolean): Promise<void> {
+  ): Promise<void> {
     this.logger.debug(`Updating server function '${id}'...`);
 
-    return this.createFunction(id, tenantId, environmentId, name, code, language, requirements, apiKey, limits, undefined, sleep, sleepAfter, logsEnabled);
+    return this.createFunction(id, tenantId, environmentId, name, code, language, requirements, apiKey, limits, undefined, sleep, sleepAfter);
   }
 
   async deleteFunction(id: string, tenantId: string, environmentId: string, cleanPath = true): Promise<void> {
@@ -435,7 +428,6 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleepFn?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled = false,
   ) {
     const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
     const volumeMounts: VolumeMount[] = [
@@ -479,7 +471,6 @@ export class KNativeFaasService implements FaasService {
       limits,
       sleepFn,
       sleepAfter,
-      logsEnabled,
       volumeMounts,
       env,
       command,
@@ -495,7 +486,6 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleepFn?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled = false,
   ) {
     this.logger.debug(`Deleting function '${id}' before deploying to avoid conflicts...`);
     await this.deleteFunction(id, tenantId, environmentId, false);
@@ -526,7 +516,6 @@ export class KNativeFaasService implements FaasService {
       limits,
       sleepFn,
       sleepAfter,
-      logsEnabled,
       volumeMounts,
     );
   }
@@ -540,7 +529,6 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleepFn?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled = false,
   ) {
     const functionPath = `${tenantId}/${environmentId}/${this.getFunctionName(id)}`;
     const volumeMounts: VolumeMount[] = [
@@ -588,7 +576,6 @@ export class KNativeFaasService implements FaasService {
       limits,
       sleepFn,
       sleepAfter,
-      logsEnabled,
       volumeMounts,
       env,
       command,
@@ -604,7 +591,6 @@ export class KNativeFaasService implements FaasService {
     limits: ServerFunctionLimits,
     sleepFn?: boolean | null,
     sleepAfter?: number | null,
-    logsEnabled = false,
     volumeMounts?: VolumeMount[],
     env?: ContainerEnv[],
     command?: string[],
@@ -645,9 +631,6 @@ export class KNativeFaasService implements FaasService {
         template: {
           metadata: {
             annotations: getAnnotations(),
-            labels: {
-              logging: logsEnabled ? 'enabled' : 'disabled',
-            },
           },
           spec: {
             timeoutSeconds: limits.time,
