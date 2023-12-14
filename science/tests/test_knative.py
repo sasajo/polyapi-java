@@ -10,4 +10,4 @@ def _get_args(request: Request) -> Dict:
 class T(TestCase):
     def test_get_args(self):
         request = Request.from_values(json={"foo": "bar"})
-        self.assertEqual(_get_args(request), {})
+        self.assertEqual(_get_args(request), {"foo": "bar"})
