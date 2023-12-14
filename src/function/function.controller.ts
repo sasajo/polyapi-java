@@ -602,6 +602,7 @@ export class FunctionController {
   async deleteServerFunctionLogs(
     @Req() req: AuthRequest,
     @Param('id') id: string,
+    @Res() res: Response,
   ) {
     const serverFunction = await this.service.findServerFunction(id);
     if (!serverFunction) {
@@ -615,6 +616,8 @@ export class FunctionController {
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user);
 
     await this.service.deleteServerFunctionLogs(id);
+
+    res.status(HttpStatus.NO_CONTENT).send();
   }
 
   @PerfLog(PerfLogType.ServerFunctionExecution)
