@@ -1,2 +1,3 @@
 parliament-functions==0.1.0
+requests
 git+https://github.com/polyapi/polyapi-python.git
