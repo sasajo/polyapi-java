@@ -72,7 +72,7 @@
     "passport": "^0.6.0",
     "passport-http-bearer": "^1.0.1",
     "prom-client": "^14.2.0",
-    "quicktype-core": "^23.0.7",
+    "quicktype-core": "^23.0.80",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
     "semver": "^7.5.4",
