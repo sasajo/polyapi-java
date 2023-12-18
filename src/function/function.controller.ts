@@ -34,7 +34,6 @@ import {
   CreateServerCustomFunctionResponseDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
-  ExecuteCustomFunctionQueryParams,
   FunctionBasicDto,
   FunctionDetailsDto,
   FunctionPublicBasicDto,
@@ -629,7 +628,6 @@ export class FunctionController {
     @Param('id') id: string,
     @Body() data: ExecuteCustomFunctionDto,
     @Headers() headers: Record<string, any>,
-    @Query() { clientId }: ExecuteCustomFunctionQueryParams,
   ): Promise<any> {
     this.logger.debug(`Headers: ${JSON.stringify(headers)}`);
 
@@ -656,7 +654,14 @@ export class FunctionController {
       id: customFunction.id,
     };
 
-    const { body, statusCode = 200 } = await this.service.executeServerFunction(customFunction, executionEnvironment, data, headers, clientId) || {};
+    const { body, statusCode = 200 } = await this.service.executeServerFunction(
+      customFunction,
+      executionEnvironment,
+      data,
+      headers,
+      req.user.user?.id,
+      req.user.application?.id,
+    ) || {};
     return res.status(statusCode).send(body);
   }
 
