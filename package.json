@@ -46,7 +46,7 @@
     "@openapi-contrib/json-schema-to-openapi-schema": "^2.2.5",
     "@prisma/client": "4.10.1",
     "@types/mailchimp__mailchimp_transactional": "^1.0.5",
-    "axios": "^1.6.0",
+    "axios": "^1.6.2",
     "bull": "^4.11.4",
     "cache-manager": "^5.3.1",
     "cache-manager-redis-store": "^3.0.1",
