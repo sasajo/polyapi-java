@@ -10,7 +10,7 @@ from app.typedefs import (
     SpecificationDto,
     VarDescInputDto,
 )
-from app.log import log, rlog_desc_info
+from app.log import log
 from app.utils import (
     camel_case,
     extract_code,
@@ -156,22 +156,18 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
         msg = "Error parsing JSON from OpenAI: "
-        rlog_desc_info(trace_id, msg, dict(data), completion)
+        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
         return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
-        rlog_desc_info(
-            trace_id,
-            "Error getting context/name/description from OpenAI",
-            dict(data),
-            completion,
-        )
+        msg = "Error getting context/name/description from OpenAI"
+        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
         rv["trace_id"] = trace_id
         return rv
 
     # for now log EVERYTHING
     rv["description"] = rv["description"][:300]
-    log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+    log("[verbose] input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     rv["arguments"] = get_argument_descriptions(
         openai_api_key,
@@ -180,15 +176,11 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         rv["description"],
         data.get("arguments", []),
     )
-    log("argument descriptions generated:", json.dumps(rv["arguments"]))
+    log("[verbose] argument descriptions generated:", json.dumps(rv["arguments"]))
 
     if _arguments_missing_descriptions(rv["arguments"]):
-        rlog_desc_info(
-            trace_id,
-            "Some arguments did not get descriptions from OpenAI!",
-            dict(data),
-            json.dumps(rv["arguments"]),
-        )
+        msg = "Some arguments did not get descriptions from OpenAI!"
+        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
         rv["trace_id"] = trace_id
 
     return rv
@@ -281,21 +273,17 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
         msg = "Error parsing JSON from OpenAI: "
-        rlog_desc_info(trace_id, msg, dict(data), completion)
+        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
         return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
-        rlog_desc_info(
-            trace_id,
-            "Error getting context/name/description from OpenAI",
-            dict(data),
-            completion,
-        )
+        msg = "Error getting context/name/description from OpenAI"
+        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
         rv["trace_id"] = trace_id
     else:
         # for now log EVERYTHING
         rv["description"] = rv["description"][:DESCRIPTION_LENGTH_LIMIT]
-        log("input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+        log("[verbose] input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
 
     return rv
 
