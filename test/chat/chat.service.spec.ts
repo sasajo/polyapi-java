@@ -3,7 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ChatService } from 'chat/chat.service';
 import { aiServiceMock, cacheManagerMock } from '../mocks';
 import { AiService } from 'ai/ai.service';
-import { BadRequestException, CACHE_MANAGER } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { MessageDto, Role } from '@poly/model';
 import { AuthData } from 'common/types';
 
