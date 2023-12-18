@@ -4,15 +4,15 @@ import { Type } from 'class-transformer';
 import { ScheduleBase, Interval, Periodical, OnTime, CreateFunctionJob } from './utils';
 import { FunctionsExecutionType, JobStatus, ScheduleType } from '../../job';
 import { ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
-import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
+import { ApiProperty } from '@nestjs/swagger';
 
 @ApiExtraModels(Interval, Periodical, OnTime)
 export class UpdateJobDto {
     @IsString()
     @IsOptional()
     name?: string;
-    
-    @ApiModelProperty({
+
+    @ApiProperty({
       name: 'schedule',
       required: false,
       oneOf: [

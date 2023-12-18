@@ -1,4 +1,5 @@
-import { BadRequestException, CACHE_MANAGER, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { PrismaService } from 'prisma-module/prisma.service';
 import { AiService } from 'ai/ai.service';
 import { Observable } from 'rxjs';

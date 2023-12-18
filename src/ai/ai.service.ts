@@ -1,6 +1,6 @@
 import EventSource from 'eventsource';
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { catchError, lastValueFrom, map } from 'rxjs';
+import { Injectable, Logger } from '@nestjs/common';
+import { catchError, lastValueFrom, map, of } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { PrismaService } from 'prisma-module/prisma.service';
@@ -146,10 +146,12 @@ export class AiService {
   private processScienceServerError() {
     return (error) => {
       this.logger.error(`Error while communicating with Science server: ${error}`);
-      throw new HttpException(
-        error.response?.data || error.message,
-        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // throw new HttpException(
+      //   error.response?.data || error.message,
+      //   error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      // );
+
+      return of({});
     };
   }
 

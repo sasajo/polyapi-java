@@ -2,15 +2,14 @@ import { IsString, IsIn, ValidateIf, IsOptional, ValidateNested, IsArray, ArrayM
 import { Type } from 'class-transformer';
 import { Record } from '../../validators';
 import { HTTP_METHODS } from '../../utils';
-import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
 import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
 
 class UpdateSourceEntry {
-    @ApiModelProperty()
+    @ApiProperty()
     @IsString()
     key: string;
 
-    @ApiModelProperty()
+    @ApiProperty()
     @IsString()
     value: string;
 }
@@ -25,7 +24,7 @@ export class UpdateSourceNullableEntry {
 }
 
 class Body {
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'mode',
     })
     @IsString()
@@ -34,7 +33,7 @@ class Body {
 }
 
 class EmptyBody extends Body {
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['empty'],
     })
     @IsString()
@@ -43,19 +42,19 @@ class EmptyBody extends Body {
 
 class RawBody extends Body {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['raw'],
     })
     mode: 'raw';
 
     @IsObject()
-    @ApiModelProperty()
+    @ApiProperty()
     raw: Record<string, any>;
 }
 
 class UrlEncodedBody extends Body {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['urlencoded'],
     })
     mode: 'urlencoded';
@@ -76,7 +75,7 @@ class UrlEncodedBody extends Body {
 
 class FormDataBody extends Body {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['formdata'],
     })
     mode: 'formdata';
@@ -102,20 +101,20 @@ export class UpdateAuth {
 }
 
 class BasicAuthEntries {
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['username', 'password'],
     })
     @IsString()
     @IsIn(['username', 'password'])
     key: 'username' | 'password';
 
-    @ApiModelProperty()
+    @ApiProperty()
     @IsString()
     value: string;
 }
 
 class BasicAuth extends UpdateAuth {
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['basic'],
     })
     @IsString()
@@ -140,7 +139,7 @@ class BasicAuth extends UpdateAuth {
 }
 
 class ApiKeyAuth extends UpdateAuth {
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['apikey'],
     })
     @IsString()
@@ -163,19 +162,19 @@ class ApiKeyAuth extends UpdateAuth {
 }
 
 class BearerAuth extends UpdateAuth {
-    @ApiModelProperty({
+    @ApiProperty({
       enum: ['bearer'],
     })
     @IsString()
     type: 'bearer';
 
-    @ApiModelProperty()
+    @ApiProperty()
     @IsString()
     bearer: string;
 }
 
 class NoAuth extends UpdateAuth {
-  @ApiModelProperty({
+  @ApiProperty({
     enum: ['noauth'],
   })
   @IsString()
@@ -184,7 +183,7 @@ class NoAuth extends UpdateAuth {
 
 @ApiExtraModels(UrlEncodedBody, FormDataBody, RawBody, EmptyBody, BasicAuth, BearerAuth, ApiKeyAuth, NoAuth, BasicAuthEntries, UpdateSourceEntry)
 export class UpdateSourceFunctionDto {
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'url',
       required: false,
     })
@@ -192,7 +191,7 @@ export class UpdateSourceFunctionDto {
     @IsString()
     url?: string;
 
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'method',
       enum: HTTP_METHODS,
       required: false,
@@ -201,7 +200,7 @@ export class UpdateSourceFunctionDto {
     @IsIn(HTTP_METHODS)
     method?: string;
 
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'headers',
       description: 'Set headers values through strings. Provide `null` to remove a header.',
       type: 'object',
@@ -222,7 +221,7 @@ export class UpdateSourceFunctionDto {
     })
     headers?: Record<string, string | null>;
 
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'auth',
       required: false,
       oneOf: [
@@ -265,7 +264,7 @@ export class UpdateSourceFunctionDto {
     })
     auth?: BasicAuth | BearerAuth | ApiKeyAuth | NoAuth;
 
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'body',
       required: false,
       oneOf: [

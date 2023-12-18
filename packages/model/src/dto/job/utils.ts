@@ -1,4 +1,4 @@
-import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Validate, ValidationArguments } from 'class-validator';
 import { CronExpression, Record } from '../validators';
@@ -8,7 +8,7 @@ import { ApiExtraModels } from '@nestjs/swagger';
 const dateErrMsg = (validationArgs: ValidationArguments) => `${validationArgs.property} must be a valid ISO 8601 date string`;
 
 export class ScheduleBase {
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'type',
     })
     @IsString()
@@ -18,7 +18,7 @@ export class ScheduleBase {
 
 export class OnTime extends ScheduleBase {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: [ScheduleType.ON_TIME],
     })
     type: ScheduleType.ON_TIME;
@@ -26,14 +26,14 @@ export class OnTime extends ScheduleBase {
     @IsDate({
       message: dateErrMsg,
     })
-    @ApiModelProperty()
+    @ApiProperty()
     @Type(() => Date)
     value: Date;
 }
 
 export class Periodical extends ScheduleBase {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: [ScheduleType.PERIODICAL],
     })
     type: ScheduleType.PERIODICAL;
@@ -41,57 +41,57 @@ export class Periodical extends ScheduleBase {
     @IsString()
     @IsNotEmpty()
     @Validate(CronExpression)
-    @ApiModelProperty()
+    @ApiProperty()
     value: string;
 }
 
 export class Interval extends ScheduleBase {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       name: 'type',
       enum: [ScheduleType.INTERVAL],
     })
     type: ScheduleType.INTERVAL;
 
     @IsNumber()
-    @ApiModelProperty()
+    @ApiProperty()
     value: number;
 }
 
 export class CreateFunctionJob {
-    @ApiModelProperty()
+    @ApiProperty()
     @IsString()
     @IsNotEmpty()
     id: string;
 
-    @ApiModelProperty({
+    @ApiProperty({
       required: false,
       type: 'object',
       additionalProperties: {
-        description: 'Can be anything'
-      }
+        description: 'Can be anything',
+      },
     })
     @IsOptional()
     @IsObject()
     eventPayload?: object;
 
-    @ApiModelProperty({
+    @ApiProperty({
       required: false,
       type: 'object',
       additionalProperties: {
-        type: 'string'
-      }
+        type: 'string',
+      },
     })
     @IsOptional()
     @Record()
     headersPayload?: object;
-    
-    @ApiModelProperty({
+
+    @ApiProperty({
       required: false,
       type: 'object',
       additionalProperties: {
-        type: 'string'
-      }
+        type: 'string',
+      },
     })
     @IsOptional()
     @Record()

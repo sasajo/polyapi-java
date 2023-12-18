@@ -7,7 +7,7 @@ import { Visibility } from '../../specs';
 import {
   UpdateSourceFunctionDto,
 } from './types/update-source';
-import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export * from './types/update-source';
 
@@ -31,7 +31,7 @@ export class UpdateApiFunctionDto {
   @IsEnum(Visibility)
   visibility?: Visibility;
 
-  @ApiModelProperty({
+  @ApiProperty({
     type: () => UpdateSourceFunctionDto,
   })
   @IsOptional()
