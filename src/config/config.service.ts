@@ -120,7 +120,7 @@ export class ConfigService {
   }
 
   get faasDockerImageFunctionPython(): string {
-    return this.get('FAAS_DOCKER_IMAGE_FUNCTION_PYTHON', 'ghcr.io/polyapi/function-python-test3');
+    return this.get('FAAS_DOCKER_IMAGE_FUNCTION_PYTHON', 'ghcr.io/polyapi/function-python-dev');
   }
 
   get faasDockerImageFunctionJava(): string {
