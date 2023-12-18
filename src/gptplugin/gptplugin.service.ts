@@ -281,7 +281,7 @@ const SIMPLE_FIELD_VALIDATORS: { [key: string]: null | CallableFunction } = {
   descriptionForModel: _validateDescForModel,
   iconUrl: null,
   authType: null,
-  authToken: null,
+  verificationToken: null,
 };
 
 @Injectable()
@@ -515,7 +515,7 @@ export class GptPluginService {
       authorization_type: 'bearer',
     };
     if (plugin.authType === 'service_http') {
-      auth.verification_tokens = { openai: plugin.authToken };
+      auth.verification_tokens = { openai: plugin.verificationToken };
     }
     name = plugin.name;
     descMarket = plugin.descriptionForMarketplace;

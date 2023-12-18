@@ -302,9 +302,7 @@ model GptPlugin {
   functionIds               String      @map("functionids")
   environmentId             String      @map("environment_id")
   authType                  String      @default("service_http") @map("auth_type")
-  // "authToken" should really be called "verificationToken" see OpenAI docs for details:
-  // https://platform.openai.com/docs/plugins/authentication/service-level
-  authToken                 String      @default("") @map("authtoken")
+  verificationToken         String      @default("") @map("authtoken")
   environment               Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
 
   @@unique([slug, environmentId], map: "idx_25946_gpt_plugin_slug_environment_id_key")
