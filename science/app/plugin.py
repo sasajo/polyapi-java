@@ -205,6 +205,7 @@ def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> Messag
     headers = {"Authorization": f"Bearer {api_key}"}
     # NOTE: we need to figure out how to handle utf8 before we re-enable this log, otherwise we will get UnicodeEncodeErrors
     # print("right before we send to execute", function_call)
+    log("API EXECUTE", domain + path)
     resp = requests.post(
         domain + path, json=json.loads(function_call["arguments"]), headers=headers
     )
