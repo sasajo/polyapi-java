@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from flask import abort
 import requests
 
@@ -21,6 +22,8 @@ from app.utils import (
     store_messages,
     strip_type_and_info,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_openapi_url(plugin_id: int) -> str:
@@ -151,6 +154,11 @@ def get_plugin_chat(
             raise NotImplementedError(f"Got weird OpenAI response: {choice}")
 
         tool_calls = choice.message.tool_calls
+        logger.warning("TOOL CALLS" + str(choice.message.tool_calls))
+        try:
+            logger.warning("FUNCTION CALL" + str(choice.message.function_call))
+        except Exception as e:
+            logger.warning(str(e))
         if tool_calls:
             tool_call = tool_calls[0]
             # lets execute the function_call and return the results
@@ -179,12 +187,7 @@ def get_plugin_chat(
 def _serialize(messages: List[MessageDict]) -> List[Dict]:
     rv = []
     for message in messages:
-        rv.append(
-            {
-                "role": message["role"],
-                "content": message["content"],
-            }
-        )
+        rv.append(message)
     return rv
 
 
