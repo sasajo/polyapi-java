@@ -129,7 +129,7 @@ def get_plugin_chat(
     prev_msgs = _get_previous_messages(conversation_id, db_api_key)
 
     openapi = _get_openapi_spec(plugin_id)
-    tools = openapi_to_openai_functions(openapi)
+    functions = openapi_to_openai_functions(openapi)
 
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
@@ -140,7 +140,7 @@ def get_plugin_chat(
     resp = _tool_call(
         openai_api_key,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-        tools=tools,  # type: ignore
+        functions=functions,  # type: ignore
         temperature=0.2,
     )
 
@@ -160,7 +160,7 @@ def get_plugin_chat(
             resp2 = _tool_call(
                 openai_api_key,
                 messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-                tools=tools,  # type: ignore
+                functions=functions,  # type: ignore
                 temperature=0.2,
             )
             # lets line up response for possible function_call execution
