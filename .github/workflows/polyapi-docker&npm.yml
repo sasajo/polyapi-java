@@ -50,31 +50,6 @@ jobs:
         docker push ${{ env.IMAGE }}:${{ github.sha }}-${{ github.run_number }}
         docker push ${{ env.IMAGE }}:latest
 
-    - uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          client:
-            - 'packages/client/package.json'
-
-    - if: steps.changes.outputs.client == 'true'
-      name: Publish package
-      run: |
-        VERSION=$(node -p "require('./packages/client/package.json').version")
-        echo $VERSION
-        REMOTEVERSION=$(npm view polyapi --json | jq -r '.["dist-tags"].develop')
-        echo $REMOTEVERSION
-
-        if [[ "$VERSION" == "$REMOTEVERSION" ]]; then
-          echo "Local NPM version is the same as remote"
-        else
-          yarn install
-          npx prisma@4.11.0 generate --generator js
-          cd packages/client
-          npm install --include=dev
-          npm publish --tag develop
-        fi
-
   develop-package-upload:
     name: Job which uploads the NPM packages to registry.
     runs-on: ubuntu-latest
