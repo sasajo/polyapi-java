@@ -75,7 +75,53 @@ jobs:
           npm publish --tag develop
         fi
 
+develop-package-upload:
+    name: Job which uploads the NPM packages to registry.
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    needs: develop
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+      IMAGE: ghcr.io/polyapi/polyapi-dev
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    steps:
+    
+    - uses: actions/checkout@v3
 
+    - name: Setup Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          client:
+            - 'packages/client/package.json'
+
+
+    - if: steps.changes.outputs.client == 'true'
+      name: Publish package
+      run: |
+        VERSION=$(node -p "require('./packages/client/package.json').version")
+        echo $VERSION
+        REMOTEVERSION=$(npm view polyapi --json | jq -r '.["dist-tags"].develop')
+        echo $REMOTEVERSION
+
+        if [[ "$VERSION" == "$REMOTEVERSION" ]]; then
+          echo "Local NPM version is the same as remote"
+        else
+          yarn install
+          npx prisma@4.11.0 generate --generator js
+          cd packages/client
+          npm install --include=dev
+          npm publish --tag develop
+        fi
+        
   main:
     name: Main Docker build and push.
     runs-on: ubuntu-latest
