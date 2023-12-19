@@ -48,7 +48,7 @@ def create_app(testing=False):
             except:
                 print("ROLLBAR FAILED TO INITIALIZE. MOVING ON!")
 
-    log_level = getattr(logging, os.environ.get("PYTHON_LOG_LEVEL", "WARNING"))
+    log_level = getattr(logging, os.environ.get("PYTHON_LOG_LEVEL", "INFO"))
 
     if log_level == logging.DEBUG and not app.config["DEBUG"]:
         print("Debug is off so DEBUG log level cannot be enabled. Setting log level to INFO.")
@@ -56,7 +56,9 @@ def create_app(testing=False):
 
     app.logger.setLevel(log_level)
     werkzeug_log = logging.getLogger('werkzeug')
-    werkzeug_log.setLevel(log_level)
+
+    # override werkzeug log level to be warning because that better aligns with our notion of info
+    werkzeug_log.setLevel(logging.WARNING if log_level == logging.INFO else log_level)
 
     log_level_name = logging.getLevelName(log_level)
     print(f"Python Log Level set to {log_level_name}")

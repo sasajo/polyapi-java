@@ -117,6 +117,10 @@ def _tool_call(openai_api_key: str | None, **kwargs):
     return client.chat.completions.create(model=CHAT_GPT_MODEL, **kwargs)
 
 
+def _functions_to_tools(functions: List[Dict]) -> List[Dict]:
+    return [{"type": "function", "function": f} for f in functions]
+
+
 def get_plugin_chat(
     api_key: str,
     api_key_id: str,
@@ -133,6 +137,7 @@ def get_plugin_chat(
 
     openapi = _get_openapi_spec(plugin_id)
     functions = openapi_to_openai_functions(openapi)
+    tools = _functions_to_tools(functions)
 
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
@@ -143,7 +148,7 @@ def get_plugin_chat(
     resp = _tool_call(
         openai_api_key,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-        functions=functions,  # type: ignore
+        tools=tools,  # type: ignore
         temperature=0.2,
     )
 
@@ -154,11 +159,11 @@ def get_plugin_chat(
             raise NotImplementedError(f"Got weird OpenAI response: {choice}")
 
         tool_calls = choice.message.tool_calls
-        logger.warning("TOOL CALLS" + str(choice.message.tool_calls))
-        try:
-            logger.warning("FUNCTION CALL" + str(choice.message.function_call))
-        except Exception as e:
-            logger.warning(str(e))
+        # logger.warning("TOOL CALLS" + str(choice.message.tool_calls))
+        # try:
+        #     logger.warning("FUNCTION CALL" + str(choice.message.function_call))
+        # except Exception as e:
+        #     logger.warning(str(e))
         if tool_calls:
             tool_call = tool_calls[0]
             # lets execute the function_call and return the results
@@ -168,7 +173,7 @@ def get_plugin_chat(
             resp2 = _tool_call(
                 openai_api_key,
                 messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-                functions=functions,  # type: ignore
+                tools=tools,
                 temperature=0.2,
             )
             # lets line up response for possible function_call execution
@@ -184,7 +189,7 @@ def get_plugin_chat(
     return {"conversationGuid": conversation_id, "messages": _serialize(messages)}
 
 
-def _serialize(messages: List[MessageDict]) -> List[Dict]:
+def _serialize(messages: List[MessageDict]) -> List[MessageDict]:
     rv = []
     for message in messages:
         rv.append(message)
