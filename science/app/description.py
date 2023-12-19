@@ -1,5 +1,6 @@
 import uuid
 import json
+import logging
 
 from typing import Dict, List, Optional, Union
 from app.typedefs import (
@@ -10,7 +11,6 @@ from app.typedefs import (
     SpecificationDto,
     VarDescInputDto,
 )
-from app.log import log
 from app.utils import (
     camel_case,
     extract_code,
@@ -18,6 +18,9 @@ from app.utils import (
     get_chat_completion,
     get_tenant_openai_key,
 )
+
+logger = logging.getLogger(__name__)
+
 
 # this needs to be 300 or less for the OpenAPI spec
 # however, OpenAI counts characters slightly differently than us (html escaped entities like `&29;`)
@@ -156,18 +159,18 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
         msg = "Error parsing JSON from OpenAI: "
-        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
+        logger.debug(f'{trace_id}, {msg}, {data}, {completion}')
         return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
         msg = "Error getting context/name/description from OpenAI"
-        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
+        logger.debug(f'{trace_id}, {msg}, {data}, {completion}')
         rv["trace_id"] = trace_id
         return rv
 
-    # for now log EVERYTHING
+    # for now logger.debug EVERYTHING
     rv["description"] = rv["description"][:300]
-    log("[verbose] input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+    logger.debug("\n".join(["input:", str(data), "output:", completion, "prompt:", prompt]))
 
     rv["arguments"] = get_argument_descriptions(
         openai_api_key,
@@ -176,11 +179,11 @@ def get_function_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDt
         rv["description"],
         data.get("arguments", []),
     )
-    log("[verbose] argument descriptions generated:", json.dumps(rv["arguments"]))
+    logger.debug("argument descriptions generated:", json.dumps(rv["arguments"]))
 
     if _arguments_missing_descriptions(rv["arguments"]):
         msg = "Some arguments did not get descriptions from OpenAI!"
-        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
+        logger.debug(f'{trace_id}, {msg}, {data}, {completion}')
         rv["trace_id"] = trace_id
 
     return rv
@@ -273,17 +276,17 @@ def get_webhook_description(data: DescInputDto) -> Union[DescOutputDto, ErrorDto
         rv = _parse_openai_response(completion)
     except json.JSONDecodeError:
         msg = "Error parsing JSON from OpenAI: "
-        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
+        logger.debug(f'{trace_id}, {msg}, {data}, {completion}')
         return {"error": f"{trace_id}, {msg}, {completion}"}
 
     if not rv["context"] or not rv["name"] or not rv["description"]:
         msg = "Error getting context/name/description from OpenAI"
-        log(f'[verbose] {trace_id}, {msg}, {data}, {completion}')
+        logger.debug(f'{trace_id}, {msg}, {data}, {completion}')
         rv["trace_id"] = trace_id
     else:
-        # for now log EVERYTHING
+        # for now logger.debug EVERYTHING
         rv["description"] = rv["description"][:DESCRIPTION_LENGTH_LIMIT]
-        log("[verbose] input:", str(data), "output:", completion, "prompt:", prompt, sep="\n")
+        logger.debug("\n".join(["input:", str(data), "output:", completion, "prompt:", prompt]))
 
     return rv
 

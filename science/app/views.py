@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import logging
 from typing import Any, Dict, Optional, Union
 from flask import Blueprint, Response, request, jsonify
 from openai import OpenAIError, RateLimitError, APIError, Stream
@@ -27,6 +28,8 @@ from app.utils import (
 )
 from app.router import split_route_and_question
 from app.perf import PerfLogger
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("views", __name__)
 
@@ -268,6 +271,12 @@ def clear_conversations_view() -> str:
     user_id = request.get_json(force=True)["user_id"]
     clear_conversations(user_id)
     return "Conversation Cleared"
+
+
+@bp.route("/log-test")
+def log_test():
+    logger.debug("I am a debug log!")
+    return "Ok debug logged. Check the logs!"
 
 
 @bp.route("/error")
