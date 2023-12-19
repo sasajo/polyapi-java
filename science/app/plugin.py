@@ -109,7 +109,7 @@ def _get_previous_messages(
     return prev_msgs
 
 
-def _function_call(openai_api_key: str | None, **kwargs):
+def _tool_call(openai_api_key: str | None, **kwargs):
     client = OpenAI(api_key=openai_api_key)
     return client.chat.completions.create(model=CHAT_GPT_MODEL, **kwargs)
 
@@ -129,7 +129,7 @@ def get_plugin_chat(
     prev_msgs = _get_previous_messages(conversation_id, db_api_key)
 
     openapi = _get_openapi_spec(plugin_id)
-    functions = openapi_to_openai_functions(openapi)
+    tools = openapi_to_openai_functions(openapi)
 
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
@@ -137,10 +137,10 @@ def get_plugin_chat(
     openai_api_key = get_tenant_openai_key(
         user_id=db_api_key.userId, application_id=db_api_key.applicationId
     )
-    resp = _function_call(
+    resp = _tool_call(
         openai_api_key,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-        functions=functions,  # type: ignore
+        tools=tools,  # type: ignore
         temperature=0.2,
     )
 
@@ -150,16 +150,17 @@ def get_plugin_chat(
         if not choice.message:
             raise NotImplementedError(f"Got weird OpenAI response: {choice}")
 
-        function_call = choice.message.function_call
-        if function_call:
+        tool_calls = choice.message.tool_calls
+        if tool_calls:
+            tool_call = tool_calls[0]
             # lets execute the function_call and return the results
-            function_msg = execute_function(api_key, openapi, function_call.model_dump())
-            function_call_msg = choice.message.model_dump()
-            messages.extend([function_call_msg, function_msg])  # type: ignore
-            resp2 = _function_call(
+            execute_msg = execute_function(api_key, openapi, tool_call.model_dump())
+            tool_call_msg = choice.message.model_dump()
+            messages.extend([tool_call_msg, execute_msg])  # type: ignore
+            resp2 = _tool_call(
                 openai_api_key,
                 messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-                functions=functions,  # type: ignore
+                tools=tools,  # type: ignore
                 temperature=0.2,
             )
             # lets line up response for possible function_call execution
@@ -194,7 +195,9 @@ def _get_name_path_map(openapi: Dict) -> Dict:
     return rv
 
 
-def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> MessageDict:
+def execute_function(api_key: str, openapi: Dict, tool_call: Dict) -> MessageDict:
+    assert tool_call["type"] == "function"
+    function_call = tool_call["function"]
     func_name = function_call["name"]
     assert func_name
     name_path_map = _get_name_path_map(openapi)

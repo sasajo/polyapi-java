@@ -160,10 +160,14 @@ MOCK_STEP_1_RESP = ChatCompletion(**{
             "message": {
                 "role": "assistant",
                 "content": None,
-                "function_call": {
-                    "name": "commsMessagingTwilioSendSms",
-                    "arguments": '{\n"My_Phone_Number": "503-267-0612",\n"message": "tested"\n}',
-                },
+                "tool_calls": [{
+                    "id": "123",
+                    "type": "function",
+                    "function": {
+                        "name": "commsMessagingTwilioSendSms",
+                        "arguments": '{\n"My_Phone_Number": "503-267-0612",\n"message": "tested"\n}',
+                    }
+                }],
             },
             "finish_reason": "function_call",
         }
@@ -173,7 +177,7 @@ MOCK_STEP_1_RESP = ChatCompletion(**{
 
 
 class T(DbTestCase):
-    @patch("app.plugin._function_call")
+    @patch("app.plugin._tool_call")
     @patch("app.plugin.requests.post")
     @patch("app.plugin.requests.get")
     def test_get_plugin_chat(
@@ -205,7 +209,7 @@ class T(DbTestCase):
         convo = self.db.conversation.find_unique(where={"id": conversation_id})
         self.assertTrue(convo)
 
-    @patch("app.plugin._function_call")
+    @patch("app.plugin._tool_call")
     @patch("app.plugin.requests.post")
     @patch("app.plugin.requests.get")
     def test_get_plugin_chat_general(
