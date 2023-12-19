@@ -37,8 +37,8 @@ public class PolyProxyFactory {
   }
 
   /**
-   * Creates a proxy for a determined {@link PolyObject} that uses the invocationHandler of this class. This method only
-   * accepts interfaces. If something other is sent as an argument, a {@link PolyApiException} will be thrown.
+   * Creates a proxy for a determined {@link PolyObject} that uses the invocationHandler for server functions. This
+   * method only accepts interfaces. If something other is sent as an argument, a {@link IllegalArgumentException} will be thrown.
    *
    * @param polyInterface The interface to proxy.
    * @param <T>           The type of the interface.
@@ -47,6 +47,26 @@ public class PolyProxyFactory {
    * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
    */
   public <T extends PolyObject> T createServerFunctionProxy(Class<T> polyInterface) {
+    if (!polyInterface.isInterface()) {
+      throw new IllegalArgumentException(format("Poly object defined is not an interface. Only interfaces are expected. Input class is '%s'", polyInterface.getName()));
+    }
+    if (polyInterface.getAnnotation(PolyEntity.class) == null) {
+      throw new IllegalArgumentException(format("Poly object defined is not annotated by PolyEntity annotation. Input class is '%s'", polyInterface.getName()));
+    }
+    return polyInterface.cast(Proxy.newProxyInstance(polyInterface.getClassLoader(), new Class[]{polyInterface}, serverFunctionInvocationHandler));
+  }
+
+  /**
+   * Creates a proxy for a determined {@link PolyObject} that uses the invocationHandler for server functions. This
+   * method only accepts interfaces. If something other is sent as an argument, a {@link IllegalArgumentException} will be thrown.
+   *
+   * @param polyInterface The interface to proxy.
+   * @param <T>           The type of the interface.
+   * @return PolyObject A {@link Proxy} that implements of the expected interface.
+   * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
+   * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
+   */
+  public <T extends PolyObject> T createApiFunctionProxy(Class<T> polyInterface) {
     if (!polyInterface.isInterface()) {
       throw new IllegalArgumentException(format("Poly object defined is not an interface. Only interfaces are expected. Input class is '%s'", polyInterface.getName()));
     }

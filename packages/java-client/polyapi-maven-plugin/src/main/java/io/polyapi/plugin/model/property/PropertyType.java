@@ -20,4 +20,9 @@ public abstract class PropertyType {
   public String getInCodeType() {
     return "Object";
   }
+
+  @Override
+  public String toString() {
+    return getInCodeType();
+  }
 }

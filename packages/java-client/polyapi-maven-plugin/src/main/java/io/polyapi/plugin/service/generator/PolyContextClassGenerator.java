@@ -2,23 +2,34 @@ package io.polyapi.plugin.service.generator;
 
 import com.github.jknack.handlebars.Handlebars;
 import io.polyapi.commons.api.service.file.FileService;
+import io.polyapi.plugin.model.Generable;
 import io.polyapi.plugin.model.LibraryTreeNode;
 import io.polyapi.plugin.model.property.FunctionPropertyType;
 import io.polyapi.plugin.model.property.ObjectPropertyType;
 import io.polyapi.plugin.model.specification.ApiFunctionSpecification;
+import io.polyapi.plugin.model.specification.Context;
 import io.polyapi.plugin.model.specification.CustomFunctionSpecification;
 import io.polyapi.plugin.model.specification.FunctionSpecification;
 import io.polyapi.plugin.model.specification.PropertySpecification;
+import io.polyapi.plugin.model.specification.ServerFunctionSpecification;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.WebhookHandleSpecification;
-import io.polyapi.plugin.utils.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import static io.polyapi.plugin.utils.StringUtils.toPascalCase;
+import static java.util.function.Predicate.not;
 
 public class PolyContextClassGenerator extends SpecificationClassGenerator<Specification> {
+  private static final Logger logger = LoggerFactory.getLogger(PolyContextClassGenerator.class);
 
   private final LibraryTreeNode<Specification> root = new LibraryTreeNode<>("Poly", true);
 
@@ -27,21 +38,55 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
   }
 
   public void generate(Collection<Specification> specifications) {
-    specifications.forEach(this::insertIntoTree);
-    generateClassesFromTree(root, PACKAGE_NAME_BASE + ".poly");
+    logger.info("Generating files for {} specifications.", Optional.ofNullable(specifications).map(Collection::size).orElse(0));
+    var polyContext = new Context(null, "Poly");
+    logger.debug("Creating root context.");
+    specifications.stream()
+      .peek(specification -> logger.trace("Generating context for specification {}.", specification.getName()))
+      .forEach(specification -> createPolyContext(polyContext, Stream.of(specification.getContext().split("\\.")).filter(not(String::isEmpty)).toList(), specification));
+    polyContext.getSubcontexts().forEach(this::generateFiles);
+
+    writeContent("io.polyapi", "Poly", polyContext);
+//    specifications.forEach(this::insertIntoTree);
+//    generateClassesFromTree(root, PACKAGE_NAME_BASE + ".poly");
+
+
+  }
+
+  private void generateFiles(Context context) {
+    writeContent(context.getPackageName(), "contextClass", context);
+    context.getSpecifications().forEach(specification -> {
+      logger.info("Writing specification {}.", specification.getName());
+      writeContent(specification);
+    });
+    context.getSubcontexts().stream().forEach(this::generateFiles);
+  }
+
+  private Context createPolyContext(Context parent, List<String> contextList, Specification specification) {
+    if (contextList.isEmpty()) {
+      logger.debug("Adding specification to context {}.", parent.getName());
+      parent.getSpecifications().add(specification);
+      return parent;
+    } else {
+      var contextName = contextList.get(0);
+      logger.debug("Retrieving context {}.", contextName);
+      return createPolyContext(parent.put(new Context(parent, contextName)),
+        contextList.subList(1, contextList.size()),
+        specification);
+    }
   }
 
   private void generateClassesFromTree(LibraryTreeNode<Specification> node, String currentPackage) {
     try {
       var context = new HashMap<String, Object>();
       var template = getHandlebars().compile("polyContextClass");
-      var className = StringUtils.toPascalCase(node.getContext());
+      var className = toPascalCase(node.getContext());
       context.put("packageName", node.isRoot() ? PACKAGE_NAME_BASE : currentPackage);
       context.put("className", className);
       context.put("subContexts", node.getSubContexts().values().stream()
         .map(subContext -> {
           Map<String, Object> result = new HashMap<>();
-          var subcontextClassName = StringUtils.toPascalCase(subContext.getContext());
+          var subcontextClassName = toPascalCase(subContext.getContext());
           result.put("name", subContext.getContext());
           result.put("className", node.isRoot() ? currentPackage + "." + subcontextClassName : currentPackage + "." + subcontextClassName.toLowerCase() + "." + subcontextClassName);
           result.put("useStatic", node.isRoot());
@@ -56,16 +101,16 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
           generateFunctionTypeClasses(specification, apiFunctionSpecification.getFunction(), currentPackage);
         }
         if (specification instanceof CustomFunctionSpecification customFunctionSpecification && customFunctionSpecification.isJava()) {
-          var customFunctionSpecificationClassName = customFunctionSpecification.getClassName();
-          var classContent = "package " + currentPackage + ";\n\n" + customFunctionSpecification.getCode();
-          getFileService().createClassFile(currentPackage, customFunctionSpecificationClassName, classContent.replace("class PolyCustomFunction", "class " + customFunctionSpecificationClassName));
-          generateFunctionTypeClasses(specification, customFunctionSpecification.getFunction(), currentPackage);
+          writeContent(specification);
         }
         if (specification instanceof WebhookHandleSpecification webhookHandleSpecification) {
           var type = (FunctionPropertyType.class.cast(webhookHandleSpecification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).getType());
           if (type instanceof ObjectPropertyType) {
-            generateObjectPropertyType(currentPackage, (ObjectPropertyType) type, StringUtils.toPascalCase(specification.getName()) + "$EventType");
+            generateObjectPropertyType(currentPackage, (ObjectPropertyType) type, toPascalCase(specification.getName()) + "$EventType");
           }
+        }
+        if (specification instanceof ServerFunctionSpecification) {
+          writeContent(specification);
         }
       }
       getFileService().createClassFile(node.isRoot() ? PACKAGE_NAME_BASE : currentPackage, className, template.apply(context));
@@ -82,13 +127,26 @@ public class PolyContextClassGenerator extends SpecificationClassGenerator<Speci
 
   private void generateFunctionTypeClasses(Specification specification, FunctionSpecification functionSpecification, String packageName) {
     if (functionSpecification.getReturnType() instanceof ObjectPropertyType returnType) {
-      generateObjectPropertyType(packageName, returnType, StringUtils.toPascalCase(specification.getName()) + "$ReturnType");
+      generateObjectPropertyType(packageName, returnType, toPascalCase(specification.getName()) + "$ReturnType");
     }
 
     for (PropertySpecification argument : functionSpecification.getArguments()) {
       if (argument.getType() instanceof ObjectPropertyType argumentType) {
-        generateObjectPropertyType(packageName, argumentType, StringUtils.toPascalCase(specification.getName()) + "$" + StringUtils.toPascalCase(argument.getName()));
+        generateObjectPropertyType(packageName, argumentType, toPascalCase(specification.getName()) + "$" + toPascalCase(argument.getName()));
       }
+    }
+  }
+
+  private void writeContent(Generable generable) {
+    writeContent(generable.getPackageName(), generable.getClass().getSimpleName(), generable);
+  }
+
+  private void writeContent(String packageName, String template, Generable generable) {
+    try {
+      getFileService().createClassFile(packageName, generable.getClassName(), getHandlebars().compile(template).apply(generable));
+    } catch (IOException e) {
+      // FIXME: Throw appropriate exception.
+      throw new RuntimeException(e);
     }
   }
 

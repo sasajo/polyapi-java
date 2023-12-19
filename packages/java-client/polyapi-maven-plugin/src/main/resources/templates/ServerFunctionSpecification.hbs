@@ -1,0 +1,17 @@
+package {{packageName}};
+
+import io.polyapi.commons.api.model.PolyObject;
+import io.polyapi.commons.api.model.PolyEntity;
+import io.polyapi.commons.api.model.PolyMetadata;
+
+@PolyEntity("{{id}}")
+@PolyMetadata(paramNames = { {{~#each function.arguments}}"{{inCodeName}}"{{#unless @last}}, {{/unless}} {{~/each}} },
+        paramTypes = { {{~#each function.arguments}}"{{{type}}}"{{#unless @last}}, {{/unless}} {{~/each}} })
+public interface {{className}} extends PolyObject {
+
+{{~#if function.returnsValue}}
+  {{function.returnType}}
+{{~else}}
+  void
+{{~/if}} {{name}}({{{renderArguments function.arguments}}});
+}

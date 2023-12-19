@@ -8,4 +8,9 @@ import lombok.Setter;
 public class ApiFunctionSpecification extends Specification {
   private FunctionSpecification function;
   private ApiType apiType;
+
+  @Override
+  protected String getTypePackage() {
+    return "function.api";
+  }
 }

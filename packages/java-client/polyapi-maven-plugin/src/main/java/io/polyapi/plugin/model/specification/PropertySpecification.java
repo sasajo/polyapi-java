@@ -1,8 +1,13 @@
 package io.polyapi.plugin.model.specification;
 
 import io.polyapi.plugin.model.property.PropertyType;
+import io.polyapi.plugin.model.property.VoidPropertyType;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.Optional;
+
+import static java.lang.Boolean.TRUE;
 
 @Getter
 @Setter

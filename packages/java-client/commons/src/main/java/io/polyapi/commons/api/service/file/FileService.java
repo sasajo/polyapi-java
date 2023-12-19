@@ -9,13 +9,14 @@ public interface FileService {
     createClassFile(DEFAULT_PACKAGE_NAME_BASE, className, content);
   }
 
-    default void createClassFile(String classPackage, String className, String content) {
+  default void createClassFile(String classPackage, String className, String content) {
     createFileWithContent(new File(new File("target/generated-sources/" + classPackage.replace('.', '/')), className + ".java"), content);
   }
 
   /**
    * Creates a file, its parent directory and adds contents to it.
    * This method wraps all exceptions thrown into RuntimeExceptions.
+   *
    * @param file
    * @param content
    */

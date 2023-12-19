@@ -2,43 +2,48 @@ package {{packageName}};
 
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import org.json.JSONObject;
-import org.json.JSONException;
-import io.polyapi.client.api.*;
-import java.util.Timer;
-import java.util.TimerTask;
-import io.polyapi.Poly;
-import io.polyapi.Vari;
+{{~#each specifications}}
+  {{~#ifIsType this "CustomFunctionSpecification"}}
+import {{{packageName}}}.{{{className}}};
+  {{/ifIsType}}
+  {{~#ifIsType this "ServerFunctionSpecification"}}
+import {{{packageName}}}.{{{className}}};
+  {{/ifIsType}}
+{{~/each}}
+{{#each subcontexts}}
+import {{{packageName}}}.{{{className}}};
+{{~/each}}
+
 
 import static io.polyapi.client.api.Utils.*;
 
 public class {{className}} extends PolyContext {
-  {{~#each specifications}}
+{{~#each specifications}}
   {{~#ifIsType this "ServerFunctionSpecification"}}
-  private final {{className}} {{name}} = createServerFunctionProxy({{className}}.class);
+  private final {{className}} {{name}};
   {{~/ifIsType}}
-  {{~/each}}
-
-{{#each subContexts}}
-{{~#isNull parent}}
-  public static {{className}} {{name}} = new {{className}}();
-{{~else}}
-  public {{className}} {{name}} = new {{className}}();
-{{~/isNull}}
+  {{~#ifIsType this "CustomFunctionSpecification"}}
+  private final {{className}} {{name}};
+  {{~/ifIsType}}
+{{~/each}}
+{{#each subcontexts}}
+  public final {{className}} {{name}};
 {{~/each}}
 
-{{~#isNull parent}}
-  public {{className}}() {
-    super(new PolyProxyFactory());
-  }
-{{~else}}
   public {{className}}(PolyProxyFactory proxyFactory) {
-    super(service);
+    super(proxyFactory);
+{{~#each specifications}}
+  {{~#ifIsType this "ServerFunctionSpecification"}}
+    this.{{name}} = createServerFunctionProxy({{className}}.class);
+  {{~/ifIsType}}
+  {{~#ifIsType this "CustomFunctionSpecification"}}
+    this.{{name}} = new {{className}};
+  {{~/ifIsType}}
+{{~/each}}
+{{#each subcontexts}}
+    this.{{name}} = new {{className}}(proxyFactory);
+{{~/each}}
   }
-{{~/isNull}}
 
 {{~#each specifications}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
@@ -67,24 +72,20 @@ public class {{className}} extends PolyContext {
   {{~/ifIsType}}
 
   {{~#ifIsType this "CustomFunctionSpecification"}}
-  public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
     {{~#if this.isJava}}
-    var clientFunction = new {{className}}();
-    var result = clientFunction.execute(
-    {{~#each function.arguments}}
-      {{inCodeName}}{{#unless @last}},{{/unless}}
-    {{~/each}}
-    );
-    return objectMapper.convertValue(result, {{{function.returnType.getInCodeType}}}.class);
-    {{~else}}
-    throw new UnsupportedOperationException("Javascript client functions cannot be used in the Java client.");
-    {{~/if}}
+      {{~#if function.returnsValue}}
+  public {{function.returnType}}
+      {{~else}}
+  public void
+      {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
+    {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
+    {{~/if}}
   {{~/ifIsType}}
 
   {{~#ifIsType this "ServerFunctionSpecification"}}
   public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
-    return {{name}}.{{name}}({{{renderArguments function.arguments}}});
+    return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
   {{~/ifIsType}}
 

@@ -9,7 +9,8 @@ import lombok.Setter;
 public class ServerVariableSpecification extends Specification {
   private VariableSpecification variable;
 
-  public String getClassName() {
-    return StringUtils.toPascalCase(getName());
+  @Override
+  protected String getTypePackage() {
+    return "variable.server";
   }
 }

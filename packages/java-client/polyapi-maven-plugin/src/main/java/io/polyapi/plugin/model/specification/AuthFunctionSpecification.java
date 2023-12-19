@@ -12,5 +12,10 @@ public class AuthFunctionSpecification extends Specification {
   public boolean isAudienceRequired() {
     return function.getArguments().stream().anyMatch(argument -> argument.getName().equals("audience"));
   }
+
+  @Override
+  protected String getTypePackage() {
+    return "function.auth";
+  }
 }
 

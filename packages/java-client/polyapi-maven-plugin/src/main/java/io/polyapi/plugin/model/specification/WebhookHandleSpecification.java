@@ -7,4 +7,9 @@ import lombok.Setter;
 @Setter
 public class WebhookHandleSpecification extends Specification {
   private FunctionSpecification function;
+
+  @Override
+  protected String getTypePackage() {
+    return "webhook";
+  }
 }

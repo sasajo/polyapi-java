@@ -10,7 +10,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 public @interface PolyMetadata {
 
-  Class<?>[] paramTypes() default {};
+  String[] paramTypes() default {};
 
   String[] paramNames() default {};
 }
