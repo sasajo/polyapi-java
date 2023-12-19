@@ -50,9 +50,9 @@ def create_app(testing=False):
 
     log_level = getattr(logging, os.environ.get("PYTHON_LOG_LEVEL", "WARNING"))
 
-    if log_level in [logging.DEBUG, logging.INFO] and not app.config["DEBUG"]:
+    if log_level == logging.DEBUG and not app.config["DEBUG"]:
         print("Debug is off so DEBUG log level cannot be enabled. Setting log level to INFO.")
-        log_level = logging.WARNING
+        log_level = logging.INFO
 
     app.logger.setLevel(log_level)
     werkzeug_log = logging.getLogger('werkzeug')
