@@ -73,9 +73,6 @@ const getVariableHandlers = (clientID, getSocket, getApiKey) => {
               variableId: id,
               apiKey: getApiKey(),
           });
-          if (timeoutID) {
-            clearTimeout(timeoutID);
-          }
         };
         const handleEvent = (value) => {
           callback(value);
@@ -193,8 +190,8 @@ const getPathHandlers = () => {
   return pathHandlers;
 };
 
-module.exports = (clientID, getSocket) => merge(
-  getVariableHandlers(clientID, getSocket),
+module.exports = (clientID, getSocket, getApiKey) => merge(
+  getVariableHandlers(clientID, getSocket, getApiKey),
   getPathHandlers(),
   {
     onUpdate: (path, callback, options = {}) => {
@@ -205,6 +202,7 @@ module.exports = (clientID, getSocket) => merge(
             clientID,
             path,
             apiKey: getApiKey(),
+            options
         });
       }
 

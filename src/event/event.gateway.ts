@@ -65,7 +65,17 @@ export class EventGateway {
       return false;
     }
 
-    this.eventService.unregisterErrorHandler(client, errorHandler.id);
+    const authData = await this.authService.getAuthData(errorHandler.apiKey);
+
+    if (!authData) {
+      return false;
+    }
+
+    this.eventService.unregisterErrorHandler({
+      ...(errorHandler as Required<ErrorHandlerDto>),
+      authData,
+      socketID: client.id,
+    });
   }
 
   @SubscribeMessage('registerWebhookEventHandler')
@@ -87,7 +97,13 @@ export class EventGateway {
     if (!await this.checkWebhookEventHandler(handler, false)) {
       return false;
     }
-    this.eventService.unregisterWebhookEventHandler(client, handler.clientID, handler.webhookHandleID);
+
+    const authData = await this.authService.getAuthData(handler.apiKey);
+    if (!authData) {
+      return false;
+    }
+
+    this.eventService.unregisterWebhookEventHandler({ clientID: handler.clientID, authData, webhookHandleID: handler.webhookHandleID, socketID: client.id });
   }
 
   @SubscribeMessage('registerAuthFunctionEventHandler')
@@ -140,7 +156,13 @@ export class EventGateway {
     if (!await this.checkVariablesChangeEventHandler(handler)) {
       return false;
     }
-    this.eventService.unregisterVariablesChangeEventHandler(client, handler.clientID, handler.path);
+
+    const authData = await this.authService.getAuthData(handler.apiKey);
+    if (!authData) {
+      return false;
+    }
+
+    this.eventService.unregisterVariablesChangeEventHandler(client, handler.clientID, authData, handler.path, handler.options?.type, handler.options?.secret);
   }
 
   private async checkErrorHandler({ apiKey, path, applicationIds, environmentIds }: ErrorHandlerDto) {

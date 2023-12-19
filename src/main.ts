@@ -8,6 +8,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { API_TAG_INTERNAL } from 'common/constants';
 import { Request } from 'express';
+import { RedisIoAdapter } from 'event/adapter';
 
 const logger = new Logger('main');
 
@@ -83,6 +84,12 @@ async function bootstrap() {
       },
     }));
   }
+
+  const redisIoAdapter = new RedisIoAdapter(app);
+
+  await redisIoAdapter.connectToRedis(config.redisUrl, config.redisPassword);
+
+  app.useWebSocketAdapter(redisIoAdapter);
 
   await app.listen(config.port);
 }

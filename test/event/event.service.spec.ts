@@ -4,8 +4,14 @@ import { EventService } from 'event/event.service';
 import { Socket } from 'socket.io';
 import { AuthService } from 'auth/auth.service';
 import { authServiceMock } from '../mocks';
-import { Environment, Variable } from '@prisma/client';
 import { AuthData } from 'common/types';
+import { EMITTER } from 'event/emitter/emitter.provider';
+import emitterProviderMock from '../mocks/emitter.provider';
+import crypto from 'crypto';
+import { REDIS_CLIENT } from 'common/providers/redis-client.provider';
+import { SocketStorage } from 'event/socket-storage/socket-storage.provider';
+import { socketStorageMock, redisClientMock } from '../mocks';
+import { Environment, Variable } from '@prisma/client';
 import { Visibility } from '@poly/model';
 
 describe('EventService', () => {
@@ -21,6 +27,18 @@ describe('EventService', () => {
           provide: AuthService,
           useValue: authServiceMock,
         },
+        {
+          provide: EMITTER,
+          useValue: emitterProviderMock,
+        },
+        {
+          provide: REDIS_CLIENT,
+          useValue: redisClientMock,
+        },
+        {
+          provide: SocketStorage,
+          useValue: socketStorageMock,
+        },
       ],
     }).compile();
 
@@ -30,99 +48,164 @@ describe('EventService', () => {
       id: 'socket1',
       emit: jest.fn(),
       on: jest.fn(),
+      join: jest.fn(),
     } as any;
 
     socket2 = {
       id: 'socket2',
       emit: jest.fn(),
       on: jest.fn(),
+      join: jest.fn(),
     } as any;
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('registerErrorHandler', () => {
-    it('should register handler with auth data', () => {
-      const authData = {
-        key: 'key',
-      } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path');
-      // @ts-ignore
-      const handler = service.errorHandlers[0];
-      expect(handler.authData).toBe(authData);
+    beforeEach(() => {
+      jest.spyOn(crypto, 'randomUUID').mockReturnValue('foo');
     });
 
-    it('should register handler with applicationIds filter', () => {
+    it('should register handler with auth data', async () => {
       const authData = {
         key: 'key',
       } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path', ['app1']);
-      // @ts-ignore
-      const handler = service.errorHandlers[0];
-      expect(handler.applicationIds).toEqual(['app1']);
-      expect(handler.environmentIds).toEqual(undefined);
-      expect(handler.functionIds).toEqual(undefined);
-      expect(handler.tenant).toEqual(undefined);
+
+      // Action
+      await service.registerErrorHandler(socket1, authData, 'path');
+
+      // Expect
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+
+      expect(socketStorageMock.pushErrorHandler).toHaveBeenCalledWith({
+        id: 'foo',
+        path: 'path',
+        authData,
+        applicationIds: undefined,
+        environmentIds: undefined,
+        functionIds: undefined,
+        tenant: undefined,
+        socketID: socket1.id,
+      });
     });
 
-    it('should register handler with environmentsIds filter', () => {
+    it('should register handler with applicationIds filter', async () => {
       const authData = {
         key: 'key',
       } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path', undefined, ['env1']);
-      // @ts-ignore
-      const handler = service.errorHandlers[0];
-      expect(handler.applicationIds).toEqual(undefined);
-      expect(handler.environmentIds).toEqual(['env1']);
-      expect(handler.functionIds).toEqual(undefined);
-      expect(handler.tenant).toEqual(undefined);
+
+      // Action
+      await service.registerErrorHandler(socket1, authData, 'path', ['app1']);
+
+      // Expect
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+      expect(socketStorageMock.pushErrorHandler).toHaveBeenCalledWith({
+        id: 'foo',
+        path: 'path',
+        authData,
+        applicationIds: ['app1'],
+        environmentIds: undefined,
+        functionIds: undefined,
+        tenant: undefined,
+        socketID: socket1.id,
+      });
     });
 
-    it('should register handler with functionIds filter', () => {
+    it('should register handler with environmentsIds filter', async () => {
       const authData = {
         key: 'key',
       } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path', undefined, undefined, ['func1']);
-      // @ts-ignore
-      const handler = service.errorHandlers[0];
-      expect(handler.applicationIds).toEqual(undefined);
-      expect(handler.environmentIds).toEqual(undefined);
-      expect(handler.functionIds).toEqual(['func1']);
-      expect(handler.tenant).toEqual(undefined);
+
+      // Action
+      await service.registerErrorHandler(socket1, authData, 'path', undefined, ['env1']);
+
+      // Expect
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+      expect(socketStorageMock.pushErrorHandler).toHaveBeenCalledWith({
+        id: 'foo',
+        path: 'path',
+        authData,
+        applicationIds: undefined,
+        environmentIds: ['env1'],
+        socketID: socket1.id,
+      });
     });
 
-    it('should register handler with tenant filter', () => {
+    it('should register handler with functionIds filter', async () => {
       const authData = {
         key: 'key',
       } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path', undefined, undefined, undefined, true);
-      // @ts-ignore
-      const handler = service.errorHandlers[0];
-      expect(handler.applicationIds).toEqual(undefined);
-      expect(handler.environmentIds).toEqual(undefined);
-      expect(handler.functionIds).toEqual(undefined);
-      expect(handler.tenant).toEqual(true);
+
+      // Action
+      await service.registerErrorHandler(socket1, authData, 'path', undefined, undefined, ['func1']);
+
+      // Expect
+      expect(socketStorageMock.pushErrorHandler).toHaveBeenCalledWith({
+        id: 'foo',
+        path: 'path',
+        authData,
+        applicationIds: undefined,
+        environmentIds: undefined,
+        functionIds: ['func1'],
+        socketID: socket1.id,
+      });
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+    });
+
+    it('should register handler with tenant filter', async () => {
+      const authData = {
+        key: 'key',
+      } as AuthData;
+
+      // Action
+      await service.registerErrorHandler(socket1, authData, 'path', undefined, undefined, undefined, true);
+
+      // Expect
+      expect(socketStorageMock.pushErrorHandler).toHaveBeenCalledWith({
+        id: 'foo',
+        path: 'path',
+        authData,
+        applicationIds: undefined,
+        environmentIds: undefined,
+        functionIds: undefined,
+        tenant: true,
+        socketID: socket1.id,
+      });
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
     });
   });
 
   describe('unregisterErrorHandler', () => {
-    it('removes handler socket', () => {
+    it('removes handler socket', async () => {
       const authData = {
         key: 'key',
       } as AuthData;
 
-      // register handler
-      const id = service.registerErrorHandler(socket1, authData, 'path1');
+      // Action
+      await service.unregisterErrorHandler({
+        authData,
+        path: 'path1',
+        applicationIds: ['foo'],
+        environmentIds: ['foo'],
+        id: 'foo',
+        functionIds: ['foo'],
+        tenant: true,
+        socketID: socket1.id,
+      });
 
-      // unregister
-      service.unregisterErrorHandler(socket1, id);
-
-      // @ts-ignore
-      expect(service.errorHandlers).toEqual([]);
-    });
-
-    it('does not throw error if handler does not exist', () => {
-      expect(() => {
-        service.unregisterErrorHandler(socket1, 'handlerId');
-      }).not.toThrow();
+      // Expect
+      expect(socketStorageMock.removeErrorhandler).toHaveBeenCalledWith({
+        id: 'foo',
+        path: 'path1',
+        authData,
+        applicationIds: ['foo'],
+        environmentIds: ['foo'],
+        functionIds: ['foo'],
+        tenant: true,
+        socketID: socket1.id,
+      });
     });
   });
 
@@ -146,8 +229,41 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path1');
 
+      const handlers = [
+        {
+          authData,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        }, {
+          authData,
+          path: 'path2',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
       await service.sendErrorEvent(
         environmentEntity.id,
         environmentEntity.environmentId,
@@ -156,21 +272,61 @@ describe('EventService', () => {
         null,
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.emit).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.emit).toHaveBeenCalledWith(`handleError:${handlers[0].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: null,
+        userId: null,
+      });
     });
 
     it('should not send to handlers not matching path', async () => {
-      const authData = {} as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path2');
+      const authData = {
+        tenant: {
+          id: 'tenant1',
+        },
+      } as AuthData;
 
+      const handlers = [
+        {
+          authData,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        }, {
+          authData,
+          path: 'path2',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
       await service.sendErrorEvent(
         environmentEntity.id,
         environmentEntity.environmentId,
@@ -178,16 +334,12 @@ describe('EventService', () => {
         environmentEntity.visibility,
         null,
         null,
-        'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        'path3',
+        error);
 
-      expect(socket1.emit).not.toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).not.toHaveBeenCalled();
+      expect(emitterProviderMock.emit).not.toHaveBeenCalled();
     });
 
     it('should not send if no access based on auth data', async () => {
@@ -196,24 +348,44 @@ describe('EventService', () => {
           id: 'tenant2',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData, 'path1');
 
-      await service.sendErrorEvent(environmentEntity.id,
+      const handlers = [
+        {
+          authData,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
+      await service.sendErrorEvent(
+        environmentEntity.id,
         environmentEntity.environmentId,
         environmentEntity.environment.tenantId,
         environmentEntity.visibility,
         null,
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).not.toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).not.toHaveBeenCalled();
+      expect(emitterProviderMock.emit).not.toHaveBeenCalled();
     });
 
     it('should send only to specific application', async () => {
@@ -225,6 +397,7 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
+
       const authData2 = {
         application: {
           id: 'app2',
@@ -233,25 +406,63 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData1, 'path1');
-      service.registerErrorHandler(socket2, authData2, 'path1');
 
-      await service.sendErrorEvent(environmentEntity.id,
+      const handlers = [
+        {
+          authData: authData1,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+        {
+          authData: authData2,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
+      await service.sendErrorEvent(
+        environmentEntity.id,
         environmentEntity.environmentId,
         environmentEntity.environment.tenantId,
         environmentEntity.visibility,
         'app1',
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.emit).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.emit).toHaveBeenCalledWith(`handleError:${handlers[0].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
     });
 
     it('should send only to defined applications', async () => {
@@ -263,6 +474,7 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
+
       const authData2 = {
         application: {
           id: 'app2',
@@ -271,25 +483,67 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData1, 'path1', ['app1']);
-      service.registerErrorHandler(socket2, authData2, 'path1', ['app1']);
 
-      await service.sendErrorEvent(environmentEntity.id,
+      const handlers = [
+        {
+          authData: authData1,
+          path: 'path1',
+          applicationIds: ['app1'],
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+        {
+          authData: authData2,
+          path: 'path1',
+          applicationIds: ['app1'],
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket2.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
+      await service.sendErrorEvent(
+        environmentEntity.id,
         environmentEntity.environmentId,
         environmentEntity.environment.tenantId,
         environmentEntity.visibility,
         'app1',
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).toBeCalled();
-      expect(socket2.emit).toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(1, socket1.id);
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(2, socket2.id);
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(1, `handleError:${handlers[0].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(2, `handleError:${handlers[1].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
     });
 
     it('should send only to defined environments', async () => {
@@ -301,6 +555,7 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
+
       const authData2 = {
         application: {
           id: 'app2',
@@ -309,25 +564,67 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData1, 'path1', undefined, ['env1']);
-      service.registerErrorHandler(socket2, authData2, 'path1', undefined, ['env1']);
 
-      await service.sendErrorEvent(environmentEntity.id,
+      const handlers = [
+        {
+          authData: authData1,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: ['env1'],
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+        {
+          authData: authData2,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: ['env1'],
+          functionIds: undefined,
+          tenant: undefined,
+          id: 'id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket2.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
+      await service.sendErrorEvent(
+        environmentEntity.id,
         environmentEntity.environmentId,
         environmentEntity.environment.tenantId,
         environmentEntity.visibility,
         'app1',
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).toBeCalled();
-      expect(socket2.emit).toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(1, socket1.id);
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(2, socket2.id);
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(1, `handleError:${handlers[0].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(2, `handleError:${handlers[1].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
     });
 
     it('should send only to defined functions', async () => {
@@ -339,17 +636,51 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
+
       const authData2 = {
         application: {
-          id: 'app1',
+          id: 'app2',
         },
         tenant: {
           id: 'tenant1',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData1, 'path1', undefined, undefined, ['entity1']);
-      service.registerErrorHandler(socket2, authData2, 'path1', undefined, undefined, ['entity2']);
 
+      const handlers = [
+        {
+          authData: authData1,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: ['entity1'],
+          tenant: undefined,
+          id: 'room-id',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+        {
+          authData: authData2,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: ['entity2'],
+          tenant: undefined,
+          id: 'room-id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket2.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
       await service.sendErrorEvent(
         environmentEntity.id,
         environmentEntity.environmentId,
@@ -358,15 +689,18 @@ describe('EventService', () => {
         'app1',
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.emit).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.emit).toHaveBeenCalledWith(`handleError:${handlers[0].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
     });
 
     it('should send only to auth data tenant', async () => {
@@ -378,6 +712,7 @@ describe('EventService', () => {
           id: 'tenant1',
         },
       } as AuthData;
+
       const authData2 = {
         application: {
           id: 'app2',
@@ -386,9 +721,42 @@ describe('EventService', () => {
           id: 'tenant2',
         },
       } as AuthData;
-      service.registerErrorHandler(socket1, authData1, 'path1', undefined, undefined, undefined, true);
-      service.registerErrorHandler(socket2, authData2, 'path1', undefined, undefined, undefined, true);
 
+      const handlers = [
+        {
+          authData: authData1,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: true,
+          id: 'room-id',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+        {
+          authData: authData2,
+          path: 'path1',
+          applicationIds: undefined,
+          environmentIds: undefined,
+          functionIds: undefined,
+          tenant: true,
+          id: 'room-id-2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket2.id,
+        },
+      ];
+
+      socketStorageMock.getErrorHandlers?.mockResolvedValue(handlers);
+
+      const error = {
+        message: 'errorMessage',
+        data: {},
+        status: 69,
+        statusText: 'Test Error',
+      };
+
+      // Action
       await service.sendErrorEvent(
         environmentEntity.id,
         environmentEntity.environmentId,
@@ -397,15 +765,18 @@ describe('EventService', () => {
         'app1',
         null,
         'path1',
-        {
-          message: 'errorMessage',
-          data: {},
-          status: 69,
-          statusText: 'Test Error',
-        });
+        error);
 
-      expect(socket1.emit).toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.emit).toHaveBeenCalledTimes(1);
+      expect(emitterProviderMock.emit).toHaveBeenCalledWith(`handleError:${handlers[0].id}`, {
+        ...error,
+        functionId: environmentEntity.id,
+        applicationId: 'app1',
+        userId: null,
+      });
     });
   });
 
@@ -419,35 +790,44 @@ describe('EventService', () => {
       },
     } as AuthData;
 
-    it('registers new webhook handler', () => {
-      service.registerWebhookEventHandler(socket1, 'client1', 'webhook1', authData);
+    it('registers new webhook handler', async () => {
+      const webhookHandleID = 'webhook1';
 
-      // @ts-ignore
-      expect(service.webhookHandleListeners['webhook1']).toEqual([
-        {
-          socket: socket1,
-          authData,
-          clientID: 'client1',
-        },
-      ]);
+      // Action
+      await service.registerWebhookEventHandler(socket1, 'client1', webhookHandleID, authData);
+
+      // Expect
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+      expect(socketStorageMock.pushWebhookHandleListener).toHaveBeenCalledWith({
+        webhookHandleID,
+        clientID: 'client1',
+        authData,
+        socketID: socket1.id,
+      });
     });
 
-    it('adds socket to existing handler', () => {
-      service.registerWebhookEventHandler(socket1, 'client1', 'webhook1', authData);
-      service.registerWebhookEventHandler(socket2, 'client1', 'webhook1', authData);
+    it('adds socket to existing handler', async () => {
+      const webhookHandleID = 'webhook1';
 
-      // @ts-ignore
-      expect(service.webhookHandleListeners['webhook1']).toEqual([
-        {
-          socket: socket1,
-          authData,
-          clientID: 'client1',
-        }, {
-          socket: socket2,
-          authData,
-          clientID: 'client1',
-        },
-      ]);
+      // Action
+      await service.registerWebhookEventHandler(socket1, 'client1', webhookHandleID, authData);
+      await service.registerWebhookEventHandler(socket2, 'client1', webhookHandleID, authData);
+
+      // Expect
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+      expect(socket2.join).toHaveBeenCalledWith(socket2.id);
+      expect(socketStorageMock.pushWebhookHandleListener).toHaveBeenNthCalledWith(1, {
+        webhookHandleID,
+        clientID: 'client1',
+        authData,
+        socketID: socket1.id,
+      });
+      expect(socketStorageMock.pushWebhookHandleListener).toHaveBeenNthCalledWith(2, {
+        webhookHandleID,
+        clientID: 'client1',
+        authData,
+        socketID: socket2.id,
+      });
     });
   });
 
@@ -461,21 +841,23 @@ describe('EventService', () => {
       },
     } as AuthData;
 
-    it('removes handler socket', () => {
-      // register handler
-      service.registerWebhookEventHandler(socket1, 'client1', 'webhook1', authData);
+    it('removes handler socket', async () => {
+      const webhookHandleID = 'webhook1';
 
-      // unregister
-      service.unregisterWebhookEventHandler(socket1, 'client1', 'webhook1');
-
-      // @ts-ignore
-      expect(service.webhookHandleListeners['webhook1']).toEqual([]);
-    });
-
-    it('does not throw error if handler does not exist', () => {
-      expect(() => {
-        service.unregisterWebhookEventHandler(socket1, 'client1', 'webhook1');
-      }).not.toThrow();
+      // Action
+      await service.unregisterWebhookEventHandler({
+        clientID: 'client1',
+        authData,
+        webhookHandleID,
+        socketID: socket1.id,
+      });
+      // Expect
+      expect(socketStorageMock.removeWebhookHandleListener).toHaveBeenCalledWith({
+        webhookHandleID,
+        clientID: 'client1',
+        authData,
+        socketID: socket1.id,
+      });
     });
   });
 
@@ -489,13 +871,28 @@ describe('EventService', () => {
       },
     } as AuthData;
 
-    it('sends event to matching handlers', () => {
-      // register handlers
-      service.registerWebhookEventHandler(socket1, 'client1', 'webhook1', authData);
-      service.registerWebhookEventHandler(socket2, 'client2', 'webhook1', authData);
+    it('sends event to matching handlers', async () => {
+      const handlers = [
+        {
+          webhookHandleID: 'webhook1',
+          authData,
+          clientID: 'client1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+        {
+          webhookHandleID: 'webhook1',
+          authData,
+          clientID: 'client2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket2.id,
+        },
+      ];
+
+      socketStorageMock.getWebhookHandleListeners?.mockResolvedValue(handlers);
 
       // send event
-      service.sendWebhookEvent(
+      await service.sendWebhookEvent(
         'webhook1',
         null,
         { payload: 'data' },
@@ -503,173 +900,307 @@ describe('EventService', () => {
         { param: 'value2' },
       );
 
-      // check socket emits called
-      expect(socket1.emit).toBeCalledWith('handleWebhookEvent:webhook1', {
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(1, socket1.id);
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(2, socket2.id);
+
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(1, 'handleWebhookEvent:webhook1', {
         body: { payload: 'data' },
         headers: { header1: 'value1' },
         params: { param: 'value2' },
       });
-      expect(socket2.emit).toBeCalledWith('handleWebhookEvent:webhook1', {
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(2, 'handleWebhookEvent:webhook1', {
         body: { payload: 'data' },
         headers: { header1: 'value1' },
         params: { param: 'value2' },
       });
     });
 
-    it('does not send event if no matching handlers', () => {
-      // send event
-      service.sendWebhookEvent(
-        'webhook1',
+    it('does not send event if no matching handlers', async () => {
+      const handlers = [
+        {
+          webhookHandleID: 'webhook1',
+          authData,
+          clientID: 'client1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+      ];
+
+      socketStorageMock.getWebhookHandleListeners?.mockResolvedValue(handlers);
+
+      // Action
+      await service.sendWebhookEvent(
+        'webhook2',
         null,
         { payload: 'data' },
         { header1: 'value1' },
         { param: 'value2' },
       );
 
-      // check nothing emitted
-      expect(socket1.emit).not.toBeCalled();
-      expect(socket2.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).not.toHaveBeenCalled();
+      expect(emitterProviderMock.emit).not.toHaveBeenCalled();
     });
   });
-
+  // hasta aca
   describe('registerAuthFunctionEventHandler', () => {
-    it('registers new auth function handler', () => {
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
+    it('registers new auth function handler', async () => {
+      const clientID = 'client1';
+      const authFunctionId = 'func1';
 
-      // @ts-ignore
-      expect(service.authFunctionHandlers['client1']['func1']).toEqual([socket1]);
+      socketStorageMock.pushAuthFunctionEventEventHandler?.mockResolvedValue(true);
+
+      // Action
+      await service.registerAuthFunctionEventHandler(socket1, clientID, authFunctionId);
+
+      // Expect
+      expect(socketStorageMock.pushAuthFunctionEventEventHandler).toHaveBeenCalledWith({
+        socketID: socket1.id,
+        clientID,
+        authFunctionId,
+      });
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
     });
 
-    it('adds socket to existing handler', () => {
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
-      service.registerAuthFunctionEventHandler(socket2, 'client1', 'func1');
+    it('adds socket to existing handler', async () => {
+      const clientID = 'client1';
+      const authFunctionId = 'func1';
 
-      // @ts-ignore
-      expect(service.authFunctionHandlers['client1']['func1']).toEqual([socket1, socket2]);
+      socketStorageMock.pushAuthFunctionEventEventHandler?.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+
+      // Action
+      await service.registerAuthFunctionEventHandler(socket1, clientID, authFunctionId);
+      await service.registerAuthFunctionEventHandler(socket2, clientID, authFunctionId);
+
+      expect(socketStorageMock.pushAuthFunctionEventEventHandler).toHaveBeenNthCalledWith(1, {
+        socketID: socket1.id,
+        clientID,
+        authFunctionId,
+      });
+
+      expect(socketStorageMock.pushAuthFunctionEventEventHandler).toHaveBeenNthCalledWith(2, {
+        socketID: socket2.id,
+        clientID,
+        authFunctionId,
+      });
+
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+      expect(socket2.join).toHaveBeenCalledWith(socket2.id);
     });
 
-    it('does not add duplicate socket', () => {
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
+    it('does not add duplicate socket', async () => {
+      const clientID = 'client1';
+      const authFunctionId = 'func1';
 
-      // @ts-ignore
-      expect(service.authFunctionHandlers['client1']['func1']).toEqual([socket1]);
+      socketStorageMock.pushAuthFunctionEventEventHandler?.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+      // Action
+      await service.registerAuthFunctionEventHandler(socket1, clientID, authFunctionId);
+      await service.registerAuthFunctionEventHandler(socket1, clientID, authFunctionId);
+
+      // Expect
+      expect(socketStorageMock.pushAuthFunctionEventEventHandler).toHaveBeenNthCalledWith(1, {
+        socketID: socket1.id,
+        clientID,
+        authFunctionId,
+      });
+      expect(socketStorageMock.pushAuthFunctionEventEventHandler).toHaveBeenNthCalledWith(2, {
+        socketID: socket1.id,
+        clientID,
+        authFunctionId,
+      });
+      expect(socket1.join).toHaveBeenCalledTimes(1);
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
     });
   });
 
   describe('unregisterAuthFunctionEventHandler', () => {
-    it('removes handler socket', () => {
-      // register handler
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
+    it('removes handler socket', async () => {
+      const clientID = 'client1';
+      const authFunctionId = 'func1';
 
-      // unregister
-      service.unregisterAuthFunctionEventHandler(socket1, 'client1', 'func1');
+      // Action
+      service.unregisterAuthFunctionEventHandler(socket1, clientID, authFunctionId);
 
-      // @ts-ignore
-      expect(service.authFunctionHandlers['client1']['func1']).toEqual([]);
-    });
-
-    it('does not throw error if handler does not exist', () => {
-      expect(() => {
-        service.unregisterAuthFunctionEventHandler(socket1, 'client1', 'func1');
-      }).not.toThrow();
+      // Expect
+      expect(socketStorageMock.removeAuthFunctionEventHandler).toHaveBeenCalledWith({
+        socketID: socket1.id,
+        clientID,
+        authFunctionId,
+      });
     });
   });
 
   describe('sendAuthFunctionEvent', () => {
-    it('sends event to matching handler', () => {
-      // register handler
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
+    it('sends event to matching handler', async () => {
+      const clientID = 'client1';
+      const authFunctionId = 'func1';
 
-      // send event
-      service.sendAuthFunctionEvent('func1', 'client1', { payload: 'data' });
+      const handlers = [
+        {
+          authFunctionId,
+          socketID: socket1.id,
+          clientID,
+          serverId: socketStorageMock.serverId,
+        },
+      ];
 
-      // check socket emit called
-      expect(socket1.emit).toBeCalledWith('handleAuthFunctionEvent:func1', { payload: 'data' });
+      socketStorageMock.getAuthFunctionEventHandlers?.mockResolvedValue(handlers);
+
+      // Action
+      await service.sendAuthFunctionEvent(authFunctionId, clientID, { payload: 'data' });
+
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.emit).toHaveBeenCalledWith('handleAuthFunctionEvent:func1', { payload: 'data' });
     });
 
-    it('sends to all clients if clientId not specified', () => {
-      // register handlers
-      service.registerAuthFunctionEventHandler(socket1, 'client1', 'func1');
-      service.registerAuthFunctionEventHandler(socket2, 'client2', 'func1');
+    it('sends to all clients if clientId not specified', async () => {
+      const authFunctionId = 'func1';
 
-      // send event without clientId
-      service.sendAuthFunctionEvent('func1', null, { payload: 'data' });
+      const handlers = [
+        {
+          authFunctionId,
+          socketID: socket1.id,
+          clientID: 'client1',
+          serverId: socketStorageMock.serverId,
+        },
+        {
+          authFunctionId,
+          socketID: socket2.id,
+          clientID: 'client2',
+          serverId: socketStorageMock.serverId,
+        },
+      ];
 
-      // check all sockets emit called
-      expect(socket1.emit).toBeCalledWith('handleAuthFunctionEvent:func1', { payload: 'data' });
-      expect(socket2.emit).toBeCalledWith('handleAuthFunctionEvent:func1', { payload: 'data' });
+      socketStorageMock.getAuthFunctionEventHandlers?.mockResolvedValue(handlers);
+
+      // Action
+      await service.sendAuthFunctionEvent(authFunctionId, null, { payload: 'data' });
+
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(1, socket1.id);
+      expect(emitterProviderMock.to).toHaveBeenNthCalledWith(2, socket2.id);
+
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(1, `handleAuthFunctionEvent:${authFunctionId}`, { payload: 'data' });
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(2, `handleAuthFunctionEvent:${authFunctionId}`, { payload: 'data' });
     });
 
     it('does not send event if no matching handlers', () => {
-      // send event
+      const handlers = [];
+
+      socketStorageMock.getAuthFunctionEventHandlers?.mockResolvedValue(handlers);
+
+      // Action
       service.sendAuthFunctionEvent('func1', 'client1', { payload: 'data' });
 
-      // check nothing emitted
-      expect(socket1.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).not.toBeCalled();
     });
   });
 
   // ...other tests
 
   describe('registerVariableChangeEventHandler', () => {
-    it('registers new variable change handler', () => {
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
+    it('registers new variable change handler', async () => {
+      const clientID = 'client1';
+      const variableId = 'var1';
 
-      // @ts-ignore
-      expect(service.variableChangeHandlers['client1']['var1']).toEqual([socket1]);
+      socketStorageMock.pushVariableChangeHandler?.mockResolvedValue(true);
+
+      // Action
+      await service.registerVariableChangeEventHandler(socket1, clientID, variableId);
+
+      expect(socketStorageMock.pushVariableChangeHandler).toHaveBeenCalledWith({
+        clientID,
+        variableId,
+        socketID: socket1.id,
+      });
+
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
     });
 
-    it('adds socket to existing handler', () => {
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
-      service.registerVariableChangeEventHandler(socket2, 'client1', 'var1');
+    it('adds socket to existing handler', async () => {
+      const clientID = 'client1';
+      const variableId = 'var1';
 
-      // @ts-ignore
-      expect(service.variableChangeHandlers['client1']['var1']).toEqual([socket1, socket2]);
+      socketStorageMock.pushVariableChangeHandler?.mockResolvedValue(true);
+
+      await service.registerVariableChangeEventHandler(socket1, clientID, variableId);
+      await service.registerVariableChangeEventHandler(socket2, clientID, variableId);
+
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
+      expect(socket2.join).toHaveBeenCalledWith(socket2.id);
+
+      expect(socketStorageMock.pushVariableChangeHandler).toHaveBeenNthCalledWith(1, {
+        clientID,
+        variableId,
+        socketID: socket1.id,
+      });
+
+      expect(socketStorageMock.pushVariableChangeHandler).toHaveBeenNthCalledWith(2, {
+        clientID,
+        variableId,
+        socketID: socket2.id,
+      });
     });
 
-    it('does not add duplicate socket', () => {
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
+    it('does not add duplicate socket', async () => {
+      const clientID = 'client1';
+      const variableId = 'var1';
 
-      // @ts-ignore
-      expect(service.variableChangeHandlers['client1']['var1']).toEqual([socket1]);
+      socketStorageMock.pushVariableChangeHandler?.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+      await service.registerVariableChangeEventHandler(socket1, clientID, variableId);
+      await service.registerVariableChangeEventHandler(socket1, clientID, variableId);
+
+      expect(socket1.join).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('unregisterVariableChangeEventHandler', () => {
-    it('removes handler socket', () => {
-      // register handler
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
+    it('removes handler socket', async () => {
+      const clientID = 'client1';
+      const variableId = 'var1';
 
       // unregister
-      service.unregisterVariableChangeEventHandler(socket1, 'client1', 'var1');
+      await service.unregisterVariableChangeEventHandler(socket1, 'client1', 'var1');
 
-      // @ts-ignore
-      expect(service.variableChangeHandlers['client1']['var1']).toEqual([]);
-    });
-
-    it('does not throw error if handler does not exist', () => {
-      expect(() => {
-        service.unregisterVariableChangeEventHandler(socket1, 'client1', 'var1');
-      }).not.toThrow();
+      expect(socketStorageMock.removeVariableChangeHandler).toHaveBeenCalledWith({
+        clientID,
+        variableId,
+        socketID: socket1.id,
+      });
     });
   });
 
   describe('sendVariableChangeEvent', () => {
     beforeEach(() => {
       authServiceMock.hasEnvironmentEntityAccess?.mockResolvedValue(true);
+
+      // Mock this here for easier handling in tests.
+      socketStorageMock.getVariablesChangeHandlers?.mockResolvedValue([]);
+      socketStorageMock.getVariableChangeHandlers?.mockResolvedValue([]);
     });
 
     it('sends event to matching handler', async () => {
-      // register handler
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
+      const clientID = 'client1';
+      const variableId = 'var1';
+
+      socketStorageMock.getVariableChangeHandlers?.mockResolvedValue([
+        {
+          clientID,
+          variableId,
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+        },
+      ]);
 
       const variable = {
         id: 'var1',
       } as Variable;
 
-      // send event
+      // Action
       await service.sendVariableChangeEvent(variable, {
         type: 'update',
         previousValue: 'old value',
@@ -681,8 +1212,9 @@ describe('EventService', () => {
         updatedFields: ['value'],
       });
 
-      // check socket emit called
-      expect(socket1.emit).toBeCalledWith('handleVariableChangeEvent:var1', {
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.emit).toHaveBeenCalledWith(`handleVariableChangeEvent:${variableId}`, {
         id: 'var1',
         type: 'update',
         previousValue: 'old value',
@@ -695,9 +1227,25 @@ describe('EventService', () => {
     });
 
     it('sends to all clients', async () => {
-      // register handlers
-      service.registerVariableChangeEventHandler(socket1, 'client1', 'var1');
-      service.registerVariableChangeEventHandler(socket2, 'client2', 'var1');
+      const clientID = 'client1';
+      const variableId = 'var1';
+      const clientID2 = 'client2';
+      const variableId2 = 'var1';
+
+      socketStorageMock.getVariableChangeHandlers?.mockResolvedValue([
+        {
+          clientID,
+          variableId,
+          socketID: socket1.id,
+          serverId: socketStorageMock.serverId,
+        },
+        {
+          clientID: clientID2,
+          variableId: variableId2,
+          socketID: socket2.id,
+          serverId: socketStorageMock.serverId,
+        },
+      ]);
 
       const variable = {
         id: 'var1',
@@ -716,7 +1264,8 @@ describe('EventService', () => {
       });
 
       // check all sockets emit called
-      expect(socket1.emit).toBeCalledWith('handleVariableChangeEvent:var1', {
+
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(1, `handleVariableChangeEvent:${variableId}`, {
         id: 'var1',
         type: 'update',
         previousValue: 'old value',
@@ -726,7 +1275,7 @@ describe('EventService', () => {
         secret: false,
         updatedFields: ['value'],
       });
-      expect(socket2.emit).toBeCalledWith('handleVariableChangeEvent:var1', {
+      expect(emitterProviderMock.emit).toHaveBeenNthCalledWith(2, `handleVariableChangeEvent:${variableId2}`, {
         id: 'var1',
         type: 'update',
         previousValue: 'old value',
@@ -739,6 +1288,7 @@ describe('EventService', () => {
     });
 
     it('does not send event if no matching handlers', async () => {
+      // TODO: continue with this.
       const variable = {
         id: 'var1',
       } as Variable;
@@ -756,10 +1306,13 @@ describe('EventService', () => {
       });
 
       // check nothing emitted
-      expect(socket1.emit).not.toBeCalled();
+      expect(emitterProviderMock.to).not.toBeCalled();
     });
 
     it('sends to matching variables change handlers by path', async () => {
+      const clientID = 'client1';
+      const clientID2 = 'client2';
+
       const authData = {
         environment: {
           id: 'env123',
@@ -769,16 +1322,33 @@ describe('EventService', () => {
         },
       } as AuthData;
 
-      // register handlers
-      service.registerVariablesChangeEventHandler(socket1, 'client1', authData, 'path1');
-      service.registerVariablesChangeEventHandler(socket2, 'client2', authData, 'path2');
+      socketStorageMock.getVariablesChangeHandlers?.mockResolvedValue([
+        {
+          authData,
+          clientID,
+          path: 'path1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+          secret: false,
+          type: 'update',
+        },
+        {
+          authData,
+          clientID: clientID2,
+          path: 'path2',
+          serverId: socketStorageMock.serverId,
+          socketID: socket2.id,
+          secret: false,
+          type: 'update',
+        },
+      ]);
 
       const variable = {
         id: 'var123',
         environmentId: 'env123',
       } as Variable;
 
-      // send event
+      // Action
       await service.sendVariableChangeEvent(variable, {
         type: 'update',
         previousValue: 'old value',
@@ -790,14 +1360,16 @@ describe('EventService', () => {
         updatedFields: ['value'],
       });
 
-      // check socket1 emitted
-      expect(socket1.emit).toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).toHaveBeenCalledWith(socket1.id);
+      expect(emitterProviderMock.to).toHaveBeenCalledTimes(1);
 
-      // check socket2 did not emit
-      expect(socket2.emit).not.toBeCalled();
+      expect(emitterProviderMock.emit).toHaveBeenCalledTimes(1);
     });
 
     it('does not send to variables change handler for different path', async () => {
+      const clientID = 'client1';
+
       const authData = {
         environment: {
           id: 'env123',
@@ -806,14 +1378,25 @@ describe('EventService', () => {
           id: 'tenant123',
         },
       } as AuthData;
-      // register handler
-      service.registerVariablesChangeEventHandler(socket1, 'client1', authData, 'path1');
+
+      socketStorageMock.getVariablesChangeHandlers?.mockResolvedValue([
+        {
+          authData,
+          clientID,
+          path: 'path1',
+          serverId: socketStorageMock.serverId,
+          socketID: socket1.id,
+          secret: false,
+          type: 'update',
+        },
+      ]);
 
       const variable = {
         id: 'var123',
+        environmentId: 'env123',
       } as Variable;
 
-      // send event
+      // Action
       await service.sendVariableChangeEvent(variable, {
         type: 'update',
         previousValue: 'old value',
@@ -825,13 +1408,16 @@ describe('EventService', () => {
         updatedFields: ['value'],
       });
 
-      // check nothing emitted
-      expect(socket1.emit).not.toBeCalled();
+      // Expect
+      expect(emitterProviderMock.to).not.toHaveBeenCalled();
+      expect(emitterProviderMock.emit).not.toHaveBeenCalled();
     });
   });
 
   describe('registerVariablesChangeEventHandler', () => {
-    it('registers new variables change handler', () => {
+    it('registers new variables change handler', async () => {
+      const clientID = 'client1';
+      const path = 'path1';
       const authData = {
         environment: {
           id: 'env123',
@@ -841,18 +1427,27 @@ describe('EventService', () => {
         },
       } as AuthData;
 
-      service.registerVariablesChangeEventHandler(socket1, 'client1', authData, 'path1');
+      socketStorageMock.pushVariablesChangeHandler?.mockResolvedValue(true);
 
-      // @ts-ignore
-      expect(service.variablesChangeHandlers['client1']['path1']).toEqual([
-        {
-          socket: socket1,
-          authData,
-        },
-      ]);
+      // Action
+      await service.registerVariablesChangeEventHandler(socket1, 'client1', authData, path);
+
+      // Expect
+      expect(socketStorageMock.pushVariablesChangeHandler).toHaveBeenCalledWith({
+        authData,
+        clientID,
+        path,
+        secret: undefined,
+        type: undefined,
+        socketID: socket1.id,
+      });
+
+      expect(socket1.join).toHaveBeenCalledWith(socket1.id);
     });
 
-    it('adds socket to existing handler', () => {
+    it('adds socket to existing handler', async () => {
+      const clientID = 'client1';
+      const path = 'path1';
       const authData = {
         environment: {
           id: 'env123',
@@ -862,14 +1457,28 @@ describe('EventService', () => {
         },
       } as AuthData;
 
-      service.registerVariablesChangeEventHandler(socket1, 'client1', authData, 'path1');
-      service.registerVariablesChangeEventHandler(socket2, 'client1', authData, 'path1');
+      socketStorageMock.pushVariablesChangeHandler?.mockResolvedValue(true);
 
-      // @ts-ignore
-      expect(service.variablesChangeHandlers['client1']['path1']).toEqual([
-        { socket: socket1, authData },
-        { socket: socket2, authData },
-      ]);
+      await service.registerVariablesChangeEventHandler(socket1, clientID, authData, path);
+      await service.registerVariablesChangeEventHandler(socket2, clientID, authData, path);
+
+      expect(socketStorageMock.pushVariablesChangeHandler).toHaveBeenNthCalledWith(1, {
+        authData,
+        clientID,
+        path,
+        secret: undefined,
+        type: undefined,
+        socketID: socket1.id,
+      });
+
+      expect(socketStorageMock.pushVariablesChangeHandler).toHaveBeenNthCalledWith(2, {
+        authData,
+        clientID,
+        path,
+        secret: undefined,
+        type: undefined,
+        socketID: socket2.id,
+      });
     });
   });
 });
