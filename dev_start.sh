@@ -5,3 +5,4 @@ vault server -dev -dev-root-token-id root &
 SKIP_KNATIVE=1 yarn run start:dev &
 # yarn run start:dev &
 cd science && PYTHON_LOG_LEVEL="DEBUG" flask --app app run --debug
+# cd science && flask --app app run
