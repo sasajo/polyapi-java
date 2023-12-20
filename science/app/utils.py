@@ -166,9 +166,13 @@ def store_message(
     conversation_id: str, data: MessageDict
 ) -> Optional[ConversationMessage]:
     db = get_client()
+    role = data["role"]
+    if role == "tool":
+        # store as assistant so we dont try to run again!
+        role = "assistant"
     create_input = {
         "conversationId": conversation_id,
-        "role": data["role"],
+        "role": role,
         "content": _get_content(data),
         "type": data.get("type", MessageType.gpt.value),
     }
