@@ -9,9 +9,6 @@ import {{{packageName}}}.{{{className}}};
   {{~#ifIsType this "ServerFunctionSpecification"}}
 import {{{packageName}}}.{{{className}}};
   {{/ifIsType}}
-  {{~#ifIsType this "ApiFunctionSpecification"}}
-import {{{packageName}}}.{{{className}}};
-  {{/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
 import {{{packageName}}}.{{{className}}};
@@ -20,16 +17,13 @@ import {{{packageName}}}.{{{className}}};
 
 import static io.polyapi.client.api.Utils.*;
 
-public class Poly {
+public class Vari {
 {{~#each specifications}}
   {{~#ifIsType this "ServerFunctionSpecification"}}
   private static final {{className}} {{name}};
   {{~/ifIsType}}
   {{~#ifIsType this "CustomFunctionSpecification"}}
   private static final {{className}} {{name}};
-  {{~/ifIsType}}
-  {{~#ifIsType this "ApiFunctionSpecification"}}
-    private static final {{className}} {{name}};
   {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
@@ -45,9 +39,6 @@ public class Poly {
   {{~#ifIsType this "CustomFunctionSpecification"}}
     {{name}} = new {{className}};
   {{~/ifIsType}}
-  {{~#ifIsType this "ApiFunctionSpecification"}}
-    {{name}} = new {{className}};
-  {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     {{name}} = new {{className}}(proxyFactory);
@@ -56,8 +47,27 @@ public class Poly {
 
 {{~#each specifications}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
-  public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
-    return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
+  {{~#ifIsType function.returnType "VoidPropertyType"}}
+  public static void {{name}}({{{renderArguments function.arguments}}}) {
+  {{~else}}
+  public static ApiFunctionResponse<{{{function.returnType.getInCodeType}}}> {{name}}({{{renderArguments function.arguments}}}) {
+  {{~/ifIsType}}
+    try {
+      var payloadForThePolyApiFunction = new JSONObject();
+      {{~#each function.arguments}}
+      payloadForThePolyApiFunction.put("{{name}}", objectMapper.toJSONValue(variableInjectManager.getInjectedValueOrOriginal({{inCodeName}})));
+      {{~/each}}
+      {{~#ifIsType function.returnType "VoidPropertyType"}}
+      apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
+      {{~else}}
+      var response = apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
+      var responseBody = response.getBody();
+      var typeRef = new TypeReference<ApiFunctionResponse<{{{function.returnType.getInCodeType}}}>>() {};
+      return objectMapper.readValue(responseBody, typeRef);
+      {{~/ifIsType}}
+    } catch (Exception e) {
+      throw new PolyRuntimeException(e);
+    }
   }
   {{~/ifIsType}}
 

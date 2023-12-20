@@ -1,6 +1,5 @@
-package io.polyapi.plugin.model.specification;
+package io.polyapi.plugin.model.specification.function;
 
-import io.polyapi.plugin.utils.StringUtils;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,15 +10,14 @@ import static java.util.regex.Pattern.MULTILINE;
 
 @Getter
 @Setter
-public class CustomFunctionSpecification extends Specification {
-  private FunctionSpecification function;
+public class CustomFunctionSpecification extends FunctionSpecification {
   private String[] requirements;
   private String code;
   private String language;
 
   @Override
-  protected String getTypePackage() {
-    return "function.custom";
+  protected String getSubtypePackage() {
+    return "custom";
   }
 
   public String getCode() {

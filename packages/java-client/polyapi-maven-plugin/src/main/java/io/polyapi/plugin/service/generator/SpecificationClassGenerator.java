@@ -2,7 +2,6 @@ package io.polyapi.plugin.service.generator;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.jknack.handlebars.Handlebars;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.model.LibraryTreeNode;
@@ -15,12 +14,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+@Deprecated
 abstract class SpecificationClassGenerator<T extends Specification> extends AbstractClassGenerator {
 
   private final JsonSchemaToTypeGenerator jsonSchemaToTypeGenerator = new JsonSchemaToTypeGenerator();
 
-  public SpecificationClassGenerator(Handlebars handlebars, FileService fileService) {
-    super(handlebars, fileService);
+  public SpecificationClassGenerator(FileService fileService) {
+    super(fileService);
   }
 
   static boolean isArray(JsonNode schema) {
@@ -67,7 +67,7 @@ abstract class SpecificationClassGenerator<T extends Specification> extends Abst
           result.append("  public ").append(property.getType().getInCodeType()).append(" ").append(property.getInCodeName()).append(";\n");
         }
         result.append("}");
-        getFileService().createClassFile(packageName, typeName, result.toString());
+        getFileService().createFileWithContent(new File(new File("target/generated-sources/" + typeName.replace('.', '/')), typeName + ".java"), result.toString());
       } else {
         if (objectPropertyType.getSchema() == null) {
           return;

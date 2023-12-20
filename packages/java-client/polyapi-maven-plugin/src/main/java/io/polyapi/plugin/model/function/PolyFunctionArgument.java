@@ -1,4 +1,4 @@
-package io.polyapi.commons.api.model.function;
+package io.polyapi.plugin.model.function;
 
 import lombok.Getter;
 import lombok.Setter;

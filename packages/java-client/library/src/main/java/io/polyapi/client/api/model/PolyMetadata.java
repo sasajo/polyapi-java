@@ -1,4 +1,4 @@
-package io.polyapi.commons.api.model;
+package io.polyapi.client.api.model;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

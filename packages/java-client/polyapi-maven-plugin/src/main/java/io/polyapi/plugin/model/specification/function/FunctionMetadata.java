@@ -1,4 +1,4 @@
-package io.polyapi.plugin.model.specification;
+package io.polyapi.plugin.model.specification.function;
 
 import io.polyapi.plugin.model.property.PropertyType;
 import io.polyapi.plugin.model.property.VoidPropertyType;
@@ -12,8 +12,8 @@ import static java.util.function.Predicate.not;
 
 @Getter
 @Setter
-public class FunctionSpecification {
-  private List<PropertySpecification> arguments;
+public class FunctionMetadata {
+  private List<PropertyMetadata> arguments;
   private PropertyType returnType;
   private Boolean synchronous;
 

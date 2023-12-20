@@ -1,4 +1,4 @@
-package io.polyapi.commons.api.model.function;
+package io.polyapi.plugin.model.function;
 
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,8 +15,8 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 
-public class PolyEntityTest {
-  private static final Logger logger = LoggerFactory.getLogger(PolyEntityTest.class);
+public class PolyFunctionTest {
+  private static final Logger logger = LoggerFactory.getLogger(PolyFunctionTest.class);
   private static final String DEFAULT_METHOD_NAME = "test";
 
   public static Stream<Arguments> getSignatureTestSource() throws Exception {

@@ -1,5 +1,6 @@
 package io.polyapi.client.internal.proxy;
 
+import java.lang.reflect.Type;
 import java.util.Map;
 
 /**
@@ -16,5 +17,5 @@ public interface PolyInvocation {
    * @param returnType     The expected type return.
    * @return The result of the invocation.
    */
-  Object invoke(String polyFunctionId, Map<String, Object> body, Class<?> returnType);
+  Object invoke(String polyFunctionId, Map<String, Object> body, Type returnType);
 }

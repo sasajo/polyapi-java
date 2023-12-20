@@ -1,5 +1,6 @@
 package io.polyapi.commons.internal.file;
 
+import com.github.jknack.handlebars.Handlebars;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.service.file.FileService;
 import org.slf4j.Logger;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Optional;
 
@@ -14,6 +16,23 @@ import static java.lang.String.format;
 
 public class FileServiceImpl implements FileService {
   private static final Logger logger = LoggerFactory.getLogger(FileServiceImpl.class);
+  private final Handlebars handlebars;
+
+  public FileServiceImpl(Handlebars handlebars) {
+    this.handlebars = handlebars;
+  }
+
+  public void createFileFromTemplate(File file, String template, Object context) {
+    try {
+      logger.debug("Creating file content using template {}.", template);
+      var content = handlebars.compile(template).apply(context);
+      logger.trace("Content created:\n{}", content);
+      createFileWithContent(file, content);
+    } catch (IOException e) {
+      // FIXME: Throw appropriate exception.
+      throw new PolyApiException(format("An exception occurred while creating content for template %s.", template), e);
+    }
+  }
 
   public void createFileWithContent(File file, String content) {
     Optional.ofNullable(file).map(File::getAbsolutePath).orElseThrow(NullPointerException::new);
@@ -26,6 +45,8 @@ public class FileServiceImpl implements FileService {
     } catch (FileNotFoundException e) {
       // FIXME: Throw appropriate exception.
       throw new PolyApiException(format("An exception occurred while creating file %s.", file.getAbsolutePath()), e);
+    } finally {
+      logger.debug("File {} created successfully.", file.getAbsolutePath());
     }
   }
 }

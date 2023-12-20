@@ -1,7 +1,7 @@
 package io.polyapi.plugin.service;
 
 import com.github.javaparser.ast.type.Type;
-import io.polyapi.commons.api.model.function.PolyFunction;
+import io.polyapi.plugin.model.function.PolyFunction;
 import io.polyapi.plugin.model.TypeData;
 
 import java.io.File;

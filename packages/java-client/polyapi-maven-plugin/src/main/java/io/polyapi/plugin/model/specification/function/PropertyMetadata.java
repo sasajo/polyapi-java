@@ -1,17 +1,12 @@
-package io.polyapi.plugin.model.specification;
+package io.polyapi.plugin.model.specification.function;
 
 import io.polyapi.plugin.model.property.PropertyType;
-import io.polyapi.plugin.model.property.VoidPropertyType;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Optional;
-
-import static java.lang.Boolean.TRUE;
-
 @Getter
 @Setter
-public class PropertySpecification {
+public class PropertyMetadata {
   private String name;
   private String description;
   private PropertyType type;

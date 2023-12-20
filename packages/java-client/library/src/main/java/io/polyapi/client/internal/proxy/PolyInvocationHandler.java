@@ -1,7 +1,7 @@
 package io.polyapi.client.internal.proxy;
 
-import io.polyapi.commons.api.model.PolyEntity;
-import io.polyapi.commons.api.model.PolyMetadata;
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.model.PolyMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +33,6 @@ public class PolyInvocationHandler implements InvocationHandler {
         .boxed()
         .collect(toMap(List.of(polyMetadata.paramNames())::get,
           List.of(arguments)::get)),
-      method.getReturnType());
+      method.getGenericReturnType());
   }
 }

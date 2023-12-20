@@ -3,12 +3,7 @@ package {{packageName}};
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
 {{~#each specifications}}
-  {{~#ifIsType this "CustomFunctionSpecification"}}
 import {{{packageName}}}.{{{className}}};
-  {{/ifIsType}}
-  {{~#ifIsType this "ServerFunctionSpecification"}}
-import {{{packageName}}}.{{{className}}};
-  {{/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
 import {{{packageName}}}.{{{className}}};
@@ -19,12 +14,7 @@ import static io.polyapi.client.api.Utils.*;
 
 public class {{className}} extends PolyContext {
 {{~#each specifications}}
-  {{~#ifIsType this "ServerFunctionSpecification"}}
   private final {{className}} {{name}};
-  {{~/ifIsType}}
-  {{~#ifIsType this "CustomFunctionSpecification"}}
-  private final {{className}} {{name}};
-  {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
   public final {{className}} {{name}};
@@ -39,6 +29,12 @@ public class {{className}} extends PolyContext {
   {{~#ifIsType this "CustomFunctionSpecification"}}
     this.{{name}} = new {{className}};
   {{~/ifIsType}}
+  {{~#ifIsType this "ApiFunctionSpecification"}}
+    this.{{name}} = createApiFunctionProxy({{className}}.class);
+  {{~/ifIsType}}
+  {{~#ifIsType this "ServerVariableSpecification"}}
+    this.{{name}} = {{~#if variable.secret}} createServerVariableProxy{{~else}} createRetrievableServerVariableProxy{{~/if}}({{className}}.class);
+  {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     this.{{name}} = new {{className}}(proxyFactory);
@@ -47,27 +43,8 @@ public class {{className}} extends PolyContext {
 
 {{~#each specifications}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
-  {{~#ifIsType function.returnType "VoidPropertyType"}}
-  public void {{name}}({{{renderArguments function.arguments}}}) {
-  {{~else}}
-  public ApiFunctionResponse<{{{function.returnType.getInCodeType}}}> {{name}}({{{renderArguments function.arguments}}}) {
-  {{~/ifIsType}}
-    try {
-      var payloadForThePolyApiFunction = new JSONObject();
-      {{~#each function.arguments}}
-      payloadForThePolyApiFunction.put("{{name}}", objectMapper.toJSONValue(variableInjectManager.getInjectedValueOrOriginal({{inCodeName}})));
-      {{~/each}}
-      {{~#ifIsType function.returnType "VoidPropertyType"}}
-      apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
-      {{~else}}
-      var response = apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
-      var responseBody = response.getBody();
-      var typeRef = new TypeReference<ApiFunctionResponse<{{{function.returnType.getInCodeType}}}>>() {};
-      return objectMapper.readValue(responseBody, typeRef);
-      {{~/ifIsType}}
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
+  public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
+    return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
   {{~/ifIsType}}
 

@@ -1,4 +1,4 @@
-package io.polyapi.plugin.model.specification;
+package io.polyapi.plugin.model.specification.variable;
 
 import io.polyapi.plugin.model.property.PropertyType;
 import lombok.Getter;

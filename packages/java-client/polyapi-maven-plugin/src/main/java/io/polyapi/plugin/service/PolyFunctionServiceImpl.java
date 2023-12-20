@@ -2,7 +2,7 @@ package io.polyapi.plugin.service;
 
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
-import io.polyapi.commons.api.model.function.PolyFunction;
+import io.polyapi.plugin.model.function.PolyFunction;
 import io.polyapi.commons.api.service.PolyApiService;
 
 import java.util.HashMap;

@@ -1,7 +1,7 @@
 package io.polyapi.plugin.model.property;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.polyapi.plugin.model.specification.PropertySpecification;
+import io.polyapi.plugin.model.specification.function.PropertyMetadata;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,7 +11,7 @@ import java.util.List;
 @Setter
 public class ObjectPropertyType extends PropertyType {
   private JsonNode schema;
-  private List<PropertySpecification> properties;
+  private List<PropertyMetadata> properties;
   private String typeName;
 
   @Override

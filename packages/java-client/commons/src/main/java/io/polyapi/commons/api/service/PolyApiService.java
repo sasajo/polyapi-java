@@ -18,8 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static io.polyapi.commons.api.http.HttpMethod.GET;
-import static io.polyapi.commons.api.http.HttpMethod.POST;
+import static io.polyapi.commons.api.http.HttpMethod.*;
 import static java.util.function.Predicate.not;
 
 /**
@@ -46,6 +45,10 @@ public class PolyApiService {
 
   public <I, O> O post(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body, Type expectedResponseType) {
     return parsedCall(POST, relativePath, headers, queryParams, body, expectedResponseType);
+  }
+
+  public <I> void patch(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body) {
+    parsedCall(PATCH, relativePath, headers, queryParams, body, Void.TYPE);
   }
 
   private <I, O> O parsedCall(HttpMethod method, String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body, Type expectedResponseType) {

@@ -2,17 +2,23 @@ package io.polyapi.plugin.model.specification;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.polyapi.commons.api.model.PolyObject;
 import io.polyapi.plugin.model.Generable;
 import io.polyapi.plugin.model.VisibilityMetadata;
-import io.polyapi.plugin.utils.StringUtils;
+import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.WebhookHandleSpecification;
+import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Optional;
-import java.util.function.Predicate;
+import java.util.stream.Stream;
 
+import static java.lang.String.format;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.joining;
 
 @Getter
 @Setter
@@ -41,15 +47,13 @@ public abstract class Specification implements Generable {
 
   @Override
   public String getPackageName() {
-    return "io.polyapi.poly." + getTypePackage() + Optional.ofNullable(context).filter(not(String::isBlank)).map(String::toLowerCase).map(value -> "." + value).orElse("");
+    return format("io.polyapi.%s",
+      Stream.of(getTypePackage(), Optional.ofNullable(context).orElse(""))
+        .filter(not(String::isBlank))
+        .map(String::toLowerCase)
+        .collect(joining(".")));
   }
 
 
   protected abstract String getTypePackage();
-
-
-  @Override
-  public String getClassName() {
-    return StringUtils.toPascalCase(getName());
-  }
 }

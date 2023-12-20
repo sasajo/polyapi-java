@@ -1,6 +1,6 @@
 package io.polyapi.plugin.model.property;
 
-import io.polyapi.plugin.model.specification.FunctionSpecification;
+import io.polyapi.plugin.model.specification.function.FunctionMetadata;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,5 +8,5 @@ import lombok.Setter;
 @Setter
 public class FunctionPropertyType extends PropertyType {
   private String name;
-  private FunctionSpecification spec;
+  private FunctionMetadata spec;
 }

@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.polyapi.plugin.utils.StringUtils.toPascalCase;
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
@@ -31,12 +30,7 @@ public class Context implements Generable {
 
   @Override
   public String getPackageName() {
-    return Optional.ofNullable(parent).map(parent -> format("%s.%s", parent.getPackageName(), parent.getName().toLowerCase())).orElse("io.polyapi.context");
-  }
-
-  @Override
-  public String getClassName() {
-    return toPascalCase(name);
+    return Optional.ofNullable(parent).map(parent -> format("%s.context.%s", parent.getPackageName(), parent.getName().toLowerCase())).orElse("io.polyapi");
   }
 
   public Context put(Context context) {

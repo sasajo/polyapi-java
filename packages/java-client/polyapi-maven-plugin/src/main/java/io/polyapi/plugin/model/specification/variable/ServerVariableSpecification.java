@@ -1,6 +1,6 @@
-package io.polyapi.plugin.model.specification;
+package io.polyapi.plugin.model.specification.variable;
 
-import io.polyapi.plugin.utils.StringUtils;
+import io.polyapi.plugin.model.specification.Specification;
 import lombok.Getter;
 import lombok.Setter;
 

@@ -1,4 +1,4 @@
-package io.polyapi.commons.api.model.function;
+package io.polyapi.plugin.model.function;
 
 
 import io.polyapi.commons.api.model.Visibility;
@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;

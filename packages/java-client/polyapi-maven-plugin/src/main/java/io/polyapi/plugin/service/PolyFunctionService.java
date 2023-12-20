@@ -1,6 +1,6 @@
 package io.polyapi.plugin.service;
 
-import io.polyapi.commons.api.model.function.PolyFunction;
+import io.polyapi.plugin.model.function.PolyFunction;
 
 public interface PolyFunctionService {
 

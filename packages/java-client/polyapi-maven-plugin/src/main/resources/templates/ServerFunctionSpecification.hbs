@@ -1,13 +1,13 @@
 package {{packageName}};
 
-import io.polyapi.commons.api.model.PolyObject;
-import io.polyapi.commons.api.model.PolyEntity;
-import io.polyapi.commons.api.model.PolyMetadata;
+import io.polyapi.client.api.model.function.PolyServerFunction;
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.model.PolyMetadata;
 
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{~#each function.arguments}}"{{inCodeName}}"{{#unless @last}}, {{/unless}} {{~/each}} },
         paramTypes = { {{~#each function.arguments}}"{{{type}}}"{{#unless @last}}, {{/unless}} {{~/each}} })
-public interface {{className}} extends PolyObject {
+public interface {{className}} extends PolyServerFunction {
 
 {{~#if function.returnsValue}}
   {{function.returnType}}
