@@ -1,7 +1,5 @@
 #!/bin/bash
 yarn prisma migrate deploy
-cd science
-nohup uwsgi --ini ./uwsgi.ini
 
 # Function to handle the SIGTERM signal
 function handle_sigterm() {
@@ -20,3 +18,6 @@ echo $child_pid
 
 # Wait for the child process to exit
 wait "$child_pid"
+
+cd science
+nohup uwsgi --ini ./uwsgi.ini
