@@ -7,9 +7,10 @@ import requests
 from app.conversation import get_plugin_conversation_lookback, get_recent_messages
 
 assert requests
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from openai import OpenAI
 from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from prisma import get_client
 from prisma.models import ConversationMessage, ApiKey
 
@@ -33,8 +34,11 @@ def _get_openapi_url(plugin_id: int) -> str:
     )
     if not plugin or not plugin.environment:
         raise NotImplementedError(f"Plugin with id {plugin_id} doesn't exist, how?")
-    domain = os.environ.get("HOST_URL", "https://na1.polyapi.io").strip("https://")
-    url = f"https://{plugin.slug}-{plugin.environment.subdomain}.{domain}/plugins/{plugin.slug}/openapi"
+    if os.environ.get("LOCAL_PLUGIN_DEBUG"):
+        url = "http://localhost:8000/plugins/megatronical/openapi"
+    else:
+        domain = os.environ.get("HOST_URL", "https://na1.polyapi.io").strip("https://")
+        url = f"https://{plugin.slug}-{plugin.environment.subdomain}.{domain}/plugins/{plugin.slug}/openapi"
     return url
 
 
@@ -112,13 +116,20 @@ def _get_previous_messages(
     return prev_msgs
 
 
-def _tool_call(openai_api_key: str | None, **kwargs):
+def _choose_tool(openai_api_key: str | None, **kwargs):
     client = OpenAI(api_key=openai_api_key)
     return client.chat.completions.create(model=CHAT_GPT_MODEL, **kwargs)
 
 
 def _functions_to_tools(functions: List[Dict]) -> List[Dict]:
     return [{"type": "function", "function": f} for f in functions]
+
+
+def _get_tools(plugin_id: int) -> Tuple[List[Dict], Dict]:
+    openapi = _get_openapi_spec(plugin_id)
+    functions = openapi_to_openai_functions(openapi)
+    tools = _functions_to_tools(functions)
+    return tools, openapi
 
 
 def get_plugin_chat(
@@ -135,9 +146,7 @@ def get_plugin_chat(
 
     prev_msgs = _get_previous_messages(conversation_id, db_api_key)
 
-    openapi = _get_openapi_spec(plugin_id)
-    functions = openapi_to_openai_functions(openapi)
-    tools = _functions_to_tools(functions)
+    tools, openapi = _get_tools(plugin_id)
 
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
@@ -145,7 +154,7 @@ def get_plugin_chat(
     openai_api_key = get_tenant_openai_key(
         user_id=db_api_key.userId, application_id=db_api_key.applicationId
     )
-    resp = _tool_call(
+    resp = _choose_tool(
         openai_api_key,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
         tools=tools,  # type: ignore
@@ -159,18 +168,14 @@ def get_plugin_chat(
             raise NotImplementedError(f"Got weird OpenAI response: {choice}")
 
         tool_calls = choice.message.tool_calls
-        # logger.warning("TOOL CALLS" + str(choice.message.tool_calls))
-        # try:
-        #     logger.warning("FUNCTION CALL" + str(choice.message.function_call))
-        # except Exception as e:
-        #     logger.warning(str(e))
         if tool_calls:
             tool_call = tool_calls[0]
             # lets execute the function_call and return the results
-            execute_msg = execute_function(api_key, openapi, tool_call.model_dump())
+            execute_msg = execute_function(api_key, openapi, tool_call)
             tool_call_msg = choice.message.model_dump()
+            del tool_call_msg["function_call"]
             messages.extend([tool_call_msg, execute_msg])  # type: ignore
-            resp2 = _tool_call(
+            resp2 = _choose_tool(
                 openai_api_key,
                 messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
                 tools=tools,
@@ -203,21 +208,26 @@ def _get_name_path_map(openapi: Dict) -> Dict:
     return rv
 
 
-def execute_function(api_key: str, openapi: Dict, tool_call: Dict) -> MessageDict:
-    assert tool_call["type"] == "function"
-    function_call = tool_call["function"]
-    func_name = function_call["name"]
+def execute_function(api_key: str, openapi: Dict, tool_call: ChatCompletionMessageToolCall) -> Dict:
+    assert tool_call.type == "function"
+    function_call = tool_call.function
+    func_name = function_call.name
     assert func_name
     name_path_map = _get_name_path_map(openapi)
     path = name_path_map[func_name]
-    # TODO figure out how to switch domains
-    # domain = "https://megatronical.pagekite.me"
-    domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
+    if os.environ.get("LOCAL_PLUGIN_DEBUG"):
+        domain = "https://megatronical.pagekite.me"  # DEBUG DOMAIN for local pagekite
+    else:
+        domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
     headers = {"Authorization": f"Bearer {api_key}"}
-    # NOTE: we need to figure out how to handle utf8 before we re-enable this log, otherwise we will get UnicodeEncodeErrors
-    # print("right before we send to execute", function_call)
-    log("API EXECUTE", domain + path)
     resp = requests.post(
-        domain + path, json=json.loads(function_call["arguments"]), headers=headers
+        domain + path, json=json.loads(function_call.arguments), headers=headers
     )
-    return MessageDict(role="function", name=func_name, content=resp.text)
+
+    execute_msg = dict(
+        tool_call_id=tool_call.id,
+        role="tool",
+        name=func_name,
+        content=resp.text)
+
+    return execute_msg

@@ -345,7 +345,7 @@ export class GptPluginService {
     );
   }
 
-  async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
+  async getPluginAndEnvironment(hostname: string, slug: string): Promise<[GptPlugin, Environment]> {
     const [hostSlug, subdomain] = getSlugSubdomain(hostname);
     if (!subdomain || hostSlug !== slug) {
       throw new BadRequestException(
@@ -356,6 +356,17 @@ export class GptPluginService {
     const plugin = await this.prisma.gptPlugin.findUniqueOrThrow({
       where: { slug_environmentId: { slug, environmentId: environment.id } },
     });
+    return [plugin, environment];
+  }
+
+  async getOpenApiSpec(hostname: string, slug: string): Promise<string> {
+    let plugin, environment;
+    if (process.env.LOCAL_PLUGIN_DEBUG) {
+      plugin = await this.prisma.gptPlugin.findFirst({ where: { slug: 'megatronical' } });
+      environment = await this.prisma.environment.findFirst({ where: { id: plugin.environmentId } });
+    } else {
+      [plugin, environment] = await this.getPluginAndEnvironment(hostname, slug);
+    }
 
     const functionIds = plugin.functionIds ? JSON.parse(plugin.functionIds) : [];
     const functions = await this.getAllFunctions(plugin.environmentId, environment.tenantId, functionIds);

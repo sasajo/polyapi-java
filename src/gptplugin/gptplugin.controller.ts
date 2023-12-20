@@ -70,9 +70,12 @@ export class GptPluginController {
   @UseGuards(PolyAuthGuard, ChatQuestionsLimitGuard)
   @Post('api/conversations/:slug')
   public async apiConversationPost(@Req() req: AuthRequest, @Param('slug') conversationSlug: string, @Body() body): Promise<unknown> {
-    const slug = getSlugSubdomain(req.hostname)[0];
-    // for testing locally!
-    // const slug = 'megatronical';
+    let slug;
+    if (process.env.LOCAL_PLUGIN_DEBUG) {
+      slug = 'megatronical'; // use this for local plugin testing
+    } else {
+      slug = getSlugSubdomain(req.hostname)[0];
+    }
     if (!slug) {
       throw new BadRequestException('Slug not found! Please use your plugin subdomain like "foo-1234.na1.polyapi.io".');
     }

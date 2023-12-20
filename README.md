@@ -79,3 +79,8 @@ Then edit it and use `kubectl apply -f config-features.yaml` to update the confi
 `KUBE_CONFIG_USE_DEFAULT=true FAAS_DOCKER_USERNAME=tbd FAAS_DOCKER_PASSWORD=tbd ./dev_start.sh`.
 
 NOTE: following the above steps will let you create a server function. However, the actual docker container doesn't seem to be really created... or something. When you try to execute you get a 404. TODO: figure out how why `this.customObjectsApi.createNamespacedCustomObject` doesn't seem to be actually creating the pod.
+
+## How to Run Plugins Locally
+
+1. To run the plugin code locally, you need to set the `LOCAL_PLUGIN_DEBUG=1` environment variable. This variable is set by default by `dev_start.sh`.
+2. You must run the `megatronical` pagekite. Please contact Dan for assistance running this pagekite. [Pagekite Info](https://pagekite.net)

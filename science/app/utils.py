@@ -187,6 +187,12 @@ def _get_content(data: MessageDict):
     functions = data.get("functions")
     if functions:
         content += f"function: {json.dumps(functions)}\n"
+    tool_calls = data.get("tool_calls")
+    if tool_calls:
+        content += f"tool_calls: {json.dumps(tool_calls)}\n"
+    tool_call_id = data.get("tool_call_id")
+    if tool_call_id:
+        content += f"tool_call_id: {json.dumps(tool_call_id)}\n"
     content += data.get("content") or ""
     return content
 
