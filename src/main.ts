@@ -56,6 +56,10 @@ const initSwagger = (app: INestApplication) => {
 
 // eslint-disable-next-line func-style
 async function bootstrap() {
+  process.on('exit', (code) => {
+    console.log('on exit: ', code);
+  });
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: process.env.LOG_LEVELS
       ? (process.env.LOG_LEVELS.split(',') as LogLevel[])
