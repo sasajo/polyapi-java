@@ -1,10 +1,10 @@
 #!/bin/bash
-yarn prisma migrate deploy
+#yarn prisma migrate deploy
 
 # Function to handle the SIGTERM signal
 function handle_sigterm() {
     echo "Received SIGTERM, shutting down gracefully"
-    kill -TERM "$child_pid"
+    kill -TERM "$child_pid";
 }
 
 # Set up signal trapping
