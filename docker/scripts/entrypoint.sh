@@ -8,14 +8,16 @@ handle_sigterm()
     kill -TERM "$child_pid";
 }
 
-# Set up signal trapping
-trap handle_sigterm SIGTERM
+
 
 # Run the application server and store its process ID
 nohup yarn run start:prod &
 child_pid=$!
 
 echo $child_pid
+
+# Set up signal trapping
+trap 'handle_sigterm' 15
 
 # Wait for the child process to exit
 wait "$child_pid"
