@@ -30,12 +30,12 @@ public class DefaultHttpClient implements HttpClient {
   private final TokenProvider tokenProvider;
 
   /**
-   * Utility constructor that sets a default {@link OkHttpClient} and uses a {@link HardcodedTokenProvider}.
+   * Utility constructor that sets a default {@link OkHttpClient} and uses a {@link TokenProvider}.
    *
-   * @param apiKey The hardcoded key.
+   * @param tokenProvider The provided token provider.
    */
-  public DefaultHttpClient(String apiKey) {
-    this(new OkHttpClient(), new HardcodedTokenProvider(apiKey));
+  public DefaultHttpClient(TokenProvider tokenProvider) {
+    this(new OkHttpClient(), tokenProvider);
   }
 
   public DefaultHttpClient(OkHttpClient client, TokenProvider tokenProvider) {

@@ -17,12 +17,9 @@ import {{{packageName}}}.{{{className}}};
 
 import static io.polyapi.client.api.Utils.*;
 
-public class Vari {
+public class Vari extends PolyContext {
 {{~#each specifications}}
-  {{~#ifIsType this "ServerFunctionSpecification"}}
-  private static final {{className}} {{name}};
-  {{~/ifIsType}}
-  {{~#ifIsType this "CustomFunctionSpecification"}}
+  {{~#ifIsType this "ServerVariableSpecification"}}
   private static final {{className}} {{name}};
   {{~/ifIsType}}
 {{~/each}}
@@ -31,17 +28,14 @@ public class Vari {
 {{~/each}}
 
   static {
-    var proxyFactory = new PolyProxyFactory();
+    var vari = new Vari();
 {{~#each specifications}}
-  {{~#ifIsType this "ServerFunctionSpecification"}}
-    {{name}} = proxyFactory.createServerFunctionProxy({{className}}.class);
-  {{~/ifIsType}}
-  {{~#ifIsType this "CustomFunctionSpecification"}}
-    {{name}} = new {{className}};
+  {{~#ifIsType this "ServerVariableSpecification"}}
+    {{name}} = proxyFactory.createServerVariableProxy({{className}}.class);
   {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
-    {{name}} = new {{className}}(proxyFactory);
+    {{name}} = vari.createSubContext({{className}}.class);
 {{~/each}}
   }
 

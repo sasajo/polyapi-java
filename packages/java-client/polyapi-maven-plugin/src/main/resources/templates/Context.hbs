@@ -2,8 +2,10 @@ package {{packageName}};
 
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
+import io.polyapi.client.api.model.websocket.WebhookEventConsumer;
+import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
 {{~#each specifications}}
-import {{{packageName}}}.{{{className}}};
+  import {{{packageName}}}.{{{className}}};
 {{~/each}}
 {{#each subcontexts}}
 import {{{packageName}}}.{{{className}}};
@@ -20,8 +22,8 @@ public class {{className}} extends PolyContext {
   public final {{className}} {{name}};
 {{~/each}}
 
-  public {{className}}(PolyProxyFactory proxyFactory) {
-    super(proxyFactory);
+  public {{className}}(PolyProxyFactory proxyFactory, WebhookHandlerFactory webhookHandlerFactory) {
+    super(proxyFactory, webhookHandlerFactory);
 {{~#each specifications}}
   {{~#ifIsType this "ServerFunctionSpecification"}}
     this.{{name}} = createServerFunctionProxy({{className}}.class);
@@ -33,11 +35,14 @@ public class {{className}} extends PolyContext {
     this.{{name}} = createApiFunctionProxy({{className}}.class);
   {{~/ifIsType}}
   {{~#ifIsType this "ServerVariableSpecification"}}
-    this.{{name}} = {{~#if variable.secret}} createServerVariableProxy{{~else}} createRetrievableServerVariableProxy{{~/if}}({{className}}.class);
+    this.{{name}} = createServerVariableProxy({{className}}.class);
+  {{~/ifIsType}}
+  {{~#ifIsType this "WebhookHandleSpecification"}}
+    this.{{name}} = createWebhookHandle({{className}}.class);
   {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
-    this.{{name}} = new {{className}}(proxyFactory);
+    this.{{name}} = new {{className}}(proxyFactory, webhookHandlerFactory);
 {{~/each}}
   }
 
@@ -68,22 +73,7 @@ public class {{className}} extends PolyContext {
 
   {{~#ifIsType this "WebhookHandleSpecification"}}
   public void {{name}}(WebhookEventConsumer<{{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}> callback) {
-    try {
-      webSocketClient.registerWebhookEventHandler("{{id}}", objects -> {
-        var data = (JSONObject) objects[0];
-        try {
-          callback.accept(
-            objectMapper.readValue(data.get("body").toString(), {{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}.class),
-            jsonObjectToMap((JSONObject) data.get("headers")),
-            jsonObjectToMap((JSONObject) data.get("params"))
-          );
-        } catch (Exception e) {
-          throw new PolyRuntimeException(e);
-        }
-      });
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
+    this.{{name}}.{{name}}(callback);
   }
   {{~/ifIsType}}
 

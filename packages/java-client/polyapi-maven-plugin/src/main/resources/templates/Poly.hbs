@@ -20,37 +20,32 @@ import {{{packageName}}}.{{{className}}};
 
 import static io.polyapi.client.api.Utils.*;
 
-public class Poly {
+public class Poly extends PolyContext {
 {{~#each specifications}}
-  {{~#ifIsType this "ServerFunctionSpecification"}}
   private static final {{className}} {{name}};
-  {{~/ifIsType}}
-  {{~#ifIsType this "CustomFunctionSpecification"}}
-  private static final {{className}} {{name}};
-  {{~/ifIsType}}
-  {{~#ifIsType this "ApiFunctionSpecification"}}
-    private static final {{className}} {{name}};
-  {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
   public static final {{className}} {{name}};
 {{~/each}}
 
   static {
-    var proxyFactory = new PolyProxyFactory();
+    Poly poly = new Poly();
 {{~#each specifications}}
   {{~#ifIsType this "ServerFunctionSpecification"}}
-    {{name}} = proxyFactory.createServerFunctionProxy({{className}}.class);
+    {{name}} = poly.createServerFunctionProxy({{className}}.class);
   {{~/ifIsType}}
   {{~#ifIsType this "CustomFunctionSpecification"}}
     {{name}} = new {{className}};
   {{~/ifIsType}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
-    {{name}} = new {{className}};
+    {{name}} = poly.createApiFunctionProxy({{className}}.class);
+  {{~/ifIsType}}
+  {{~#ifIsType this "WebhookHandleSpecification"}}
+    {{name}} = poly.createWebhookHandle({{className}}.class);
   {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
-    {{name}} = new {{className}}(proxyFactory);
+    {{name}} = poly.createSubContext({{className}}.class);
 {{~/each}}
   }
 

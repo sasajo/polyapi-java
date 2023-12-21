@@ -1,13 +1,12 @@
 package io.polyapi.client.internal.service;
 
 import io.polyapi.client.api.ApiFunctionResponse;
-import io.polyapi.client.api.VariableUpdateResponse;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.commons.internal.http.DefaultHttpClient;
+import io.polyapi.commons.internal.http.HardcodedTokenProvider;
 import io.polyapi.commons.internal.json.JacksonJsonParser;
-import kotlin.jvm.internal.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +27,7 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
    * @param apiKey The Bearer token that will authorize the use of this service.
    */
   public InvocationServiceImpl(String host, Integer port, String apiKey) {
-    this(host, port, new DefaultHttpClient(apiKey), new JacksonJsonParser());
+    this(host, port, new DefaultHttpClient(new HardcodedTokenProvider(apiKey)), new JacksonJsonParser());
   }
 
   public InvocationServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {

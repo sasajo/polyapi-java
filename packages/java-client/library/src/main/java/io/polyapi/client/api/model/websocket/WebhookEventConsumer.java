@@ -1,4 +1,4 @@
-package io.polyapi.client.api;
+package io.polyapi.client.api.model.websocket;
 
 import java.util.Map;
 

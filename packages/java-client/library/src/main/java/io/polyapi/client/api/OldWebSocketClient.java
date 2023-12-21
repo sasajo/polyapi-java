@@ -8,18 +8,19 @@ import io.socket.client.IO;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 
-public class WebSocketClient {
+@Deprecated
+public class OldWebSocketClient {
   private static final String URL = ClientInfo.API_BASE_URL + "/events";
   private Socket socket;
 
-  private static WebSocketClient instance;
+  private static OldWebSocketClient instance;
 
-  private WebSocketClient() {
+  private OldWebSocketClient() {
   }
 
-  public static WebSocketClient getInstance() {
+  public static OldWebSocketClient getInstance() {
     if (instance == null) {
-      instance = new WebSocketClient();
+      instance = new OldWebSocketClient();
     }
 
     return instance;
