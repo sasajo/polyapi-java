@@ -8,11 +8,9 @@ handle_sigterm()
     kill -TERM "$child_pid";
 }
 
-
-
 # Run the application server and store its process ID
 nohup yarn run start:prod &
-child_pid=$!
+child_pid= ps -A | grep 'node' | awk '{print $1}' | tail -n 1
 
 echo $child_pid
 
