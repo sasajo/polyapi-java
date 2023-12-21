@@ -1294,8 +1294,6 @@ export class FunctionService implements OnModuleInit {
     let requirements: string[] = [];
     let synchronous = true;
 
-    console.log('RETURN DEBUG', returnType);
-    console.log('RETURNSCHEMA DEBUG', returnTypeSchema);
     if (returnTypeSchema) {
       returnType = JSON.stringify(returnTypeSchema);
     }
@@ -1367,8 +1365,6 @@ export class FunctionService implements OnModuleInit {
         });
       }
     }
-
-    console.log('WTF did returntype get overridden?', returnType);
 
     if (customFunction) {
       this.logger.debug(`Updating custom function ${name} with context ${context}, imported libraries: [${[...requirements].join(', ')}], code:\n${code}`);
