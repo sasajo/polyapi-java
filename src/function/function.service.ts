@@ -2784,7 +2784,7 @@ export class FunctionService implements OnModuleInit {
       const typeSchema = returnType ? JSON.parse(returnType) : undefined;
       return ['object', typeSchema];
     } catch (e) {
-      return ['string', undefined];
+      return [returnType || 'string', undefined];
     }
   }
 }
