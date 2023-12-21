@@ -1294,6 +1294,8 @@ export class FunctionService implements OnModuleInit {
     let requirements: string[] = [];
     let synchronous = true;
 
+    console.log('RETURN DEBUG', returnType);
+    console.log('RETURN DEBUG', returnTypeSchema);
     if (returnTypeSchema) {
       returnType = JSON.stringify(returnTypeSchema);
     }
