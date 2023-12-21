@@ -18,7 +18,7 @@ echo $child_pid
 trap 'handle_sigterm' 15
 
 # Wait for the child process to exit
-wait "$child_pid"
+wait "kill -TERM "$child_pid""
 
 cd science
 nohup uwsgi --ini ./uwsgi.ini
