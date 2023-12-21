@@ -1297,7 +1297,7 @@ export class FunctionService implements OnModuleInit {
     if (returnTypeSchema) {
       returnType = JSON.stringify(returnTypeSchema);
     }
-    if (!returnType || !args) {
+    if (language === 'javascript' && (!returnType || !args)) {
       const {
         code: transpilerCode,
         args: transpilerArgs,
@@ -1781,10 +1781,6 @@ export class FunctionService implements OnModuleInit {
 
     const functionArguments = JSON.parse(customFunction.arguments || '[]');
 
-    // let argumentsList: any[] = [];
-    // if (customFunction.language === 'python') {
-    //   argumentsList = Array.isArray(args) ? args : Object.values(args);
-    // } else {
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
 
     const logsEnabled = customFunction.logsEnabled && customFunction.environmentId === executionEnvironment.id;
