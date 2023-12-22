@@ -2,9 +2,16 @@ import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString,
 import { ScheduleType, FunctionsExecutionType } from '../../job';
 import { Type } from 'class-transformer';
 
-import { OnTime, Periodical, Interval, CreateFunctionJob, ScheduleBase } from './utils';
-import { ApiProperty } from '@nestjs/swagger';
-import { ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
+import { OnTime, Periodical, Interval, FunctionJob, ScheduleBase, ScheduleApiProperty } from './utils.dto';
+import { ApiExtraModels, PartialType } from '@nestjs/swagger';
+
+export { FunctionJob } from './utils.dto';
+
+export class CreateFunctionJob extends PartialType(FunctionJob) {
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+}
 
 @ApiExtraModels(Interval, Periodical, OnTime)
 export class CreateJobDto {
@@ -12,19 +19,8 @@ export class CreateJobDto {
     @IsNotEmpty()
     name: string;
 
-    @ApiProperty({
-      name: 'schedule',
+    @ScheduleApiProperty({
       required: false,
-      oneOf: [
-        {
-          $ref: getSchemaPath(Interval),
-        }, {
-          $ref: getSchemaPath(Periodical),
-        },
-        {
-          $ref: getSchemaPath(OnTime),
-        },
-      ],
     })
     @IsObject()
     @ValidateNested()

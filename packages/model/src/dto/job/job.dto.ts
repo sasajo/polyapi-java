@@ -1,34 +1,32 @@
 import { FunctionsExecutionType, ScheduleType } from '../../job';
-import { CreateFunctionJob } from './utils';
+import { FunctionJob, ScheduleApiProperty } from './utils.dto';
 
-export type FunctionJob = Required<CreateFunctionJob>;
-
-export type Periodical = {
-    type: ScheduleType.PERIODICAL;
-    value: string;
+export class Periodical {
+  type: ScheduleType.PERIODICAL;
+  value: string;
 }
 
-export type OnTime = {
-    type: ScheduleType.ON_TIME;
-    value: Date;
+export class OnTime {
+  type: ScheduleType.ON_TIME;
+  value: Date;
 }
 
-export type Interval = {
-    type: ScheduleType.INTERVAL;
-    value: number;
+export class Interval {
+  type: ScheduleType.INTERVAL;
+  value: number;
 }
 
 export type Schedule = Periodical | OnTime | Interval;
 
-export type JobDto = {
+export class JobDto {
+  id: string;
 
-    id: string;
+  name: string;
 
-    name: string;
-
+    @ScheduleApiProperty()
     schedule: Schedule;
 
-    functions: FunctionJob[]
+    functions: FunctionJob[];
 
     functionsExecutionType: FunctionsExecutionType;
 

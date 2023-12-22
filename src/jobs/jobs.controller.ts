@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, Patch, Post, Query, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthRequest } from 'common/types';
-import { ConfigVariableName, CreateJobDto, ExecutionFiltersDto, FunctionJob, Jobs, Schedule, ScheduleType, UpdateJobDto } from '@poly/model';
+import { ConfigVariableName, CreateJobDto, ExecutionDto, ExecutionFiltersDto, FunctionJob, CreateFunctionJob, Jobs, Schedule, ScheduleType, UpdateJobDto } from '@poly/model';
 import { Environment } from '@prisma/client';
 import { FunctionService } from 'function/function.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
@@ -8,7 +8,6 @@ import { JobsService } from './jobs.service';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import * as cronParser from 'cron-parser';
 import { InvalidIntervalTimeException } from './errors/http';
-import { CreateFunctionJob } from '../../packages/model/src/dto/job/utils';
 
 @Controller('jobs')
 export class JobsController {
@@ -90,7 +89,7 @@ export class JobsController {
     transform: true,
     forbidNonWhitelisted: true,
     whitelist: true,
-  })) filters: ExecutionFiltersDto) {
+  })) filters: ExecutionFiltersDto): Promise<ExecutionDto[]> {
     const job = await this.findJob(req.user.environment, id);
 
     return (await this.service.getExecutions(job, filters)).map(execution => this.service.toExecutionDto(execution));

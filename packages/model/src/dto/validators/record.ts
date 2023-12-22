@@ -2,10 +2,13 @@ import { ValidationOptions, registerDecorator } from 'class-validator';
 import { isPlainObject } from 'lodash';
 
 import { ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+import { applyDecorators } from '@nestjs/common';
+import { ApiProperty, ApiPropertyOptions } from '@nestjs/swagger';
 
 export type RecordValidationOpts = {
-  type: 'string',
-  nullable: boolean
+  type?: 'string',
+  nullable?: boolean,
+  apiProperty?: ApiPropertyOptions,
 }
 
 @ValidatorConstraint({
@@ -48,18 +51,33 @@ class RecordConstraint implements ValidatorConstraintInterface {
  * Intended to validate Records on JSON structures, for that reason you only have to provide value type and not index type
  * since in JSON all indexes will be string.
  */
-export const Record = (opts: RecordValidationOpts = {
+export const Record = ({
+  nullable = false,
+  apiProperty = {
+    required: true,
+  },
+  type = 'string',
+}: RecordValidationOpts = {
   nullable: false,
   type: 'string',
+  apiProperty: {
+    required: true,
+  },
 }, validationOptions?: ValidationOptions) => {
-  return function (object: any, propertyName: string) {
+  return applyDecorators(function (object: any, propertyName: string) {
     registerDecorator({
       name: 'Record',
       target: object.constructor,
       propertyName,
       options: validationOptions,
-      constraints: [opts],
+      constraints: [{ nullable, type }],
       validator: RecordConstraint,
     });
-  };
+  }, ApiProperty({
+    required: apiProperty.required,
+    type: 'object',
+    additionalProperties: {
+      type,
+    },
+  }));
 };

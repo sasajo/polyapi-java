@@ -1,31 +1,14 @@
 import { IsArray, IsBoolean, IsEnum, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
-
 import { Type } from 'class-transformer';
-import { ScheduleBase, Interval, Periodical, OnTime, CreateFunctionJob } from './utils';
+import { ScheduleBase, Interval, Periodical, OnTime, FunctionJob, ScheduleApiProperty } from './utils.dto';
 import { FunctionsExecutionType, ScheduleType } from '../../job';
-import { ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
 
-@ApiExtraModels(Interval, Periodical, OnTime)
 export class UpdateJobDto {
     @IsString()
     @IsOptional()
     name?: string;
 
-    @ApiProperty({
-      name: 'schedule',
-      required: false,
-      oneOf: [
-        {
-          $ref: getSchemaPath(Interval),
-        }, {
-          $ref: getSchemaPath(Periodical),
-        },
-        {
-          $ref: getSchemaPath(OnTime),
-        },
-      ],
-    })
+    @ScheduleApiProperty({ required: false })
     @IsOptional()
     @IsObject()
     @ValidateNested()
@@ -52,8 +35,8 @@ export class UpdateJobDto {
     @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
-    @Type(() => CreateFunctionJob)
-    functions?: CreateFunctionJob[];
+    @Type(() => FunctionJob)
+    functions?: FunctionJob[];
 
     @IsOptional()
     @IsEnum(FunctionsExecutionType)

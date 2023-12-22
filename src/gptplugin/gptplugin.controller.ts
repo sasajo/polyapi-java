@@ -10,9 +10,9 @@ import {
   Param,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiSecurity } from '@nestjs/swagger';
+import { ApiExtraModels, ApiResponse, ApiSecurity, getSchemaPath } from '@nestjs/swagger';
 import { Request } from 'express';
-import { CreatePluginDto, Role } from '@poly/model';
+import { CreatePluginDto, EmptyWhoAmIDto, Role, WhoAmIDto } from '@poly/model';
 import { GptPluginService, getSlugSubdomain } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
@@ -116,9 +116,22 @@ export class GptPluginController {
     };
   }
 
+  @ApiExtraModels(WhoAmIDto, EmptyWhoAmIDto)
   @UseGuards(PolyAuthGuard)
   @Get('whoami')
-  public async whoami(@Req() req: AuthRequest): Promise<unknown> {
+  @ApiResponse({
+    schema: {
+      oneOf: [
+        {
+          $ref: getSchemaPath(WhoAmIDto),
+        },
+        {
+          $ref: getSchemaPath(EmptyWhoAmIDto),
+        },
+      ],
+    },
+  })
+  public async whoami(@Req() req: AuthRequest): Promise<WhoAmIDto | EmptyWhoAmIDto> {
     const user = req.user.user;
     if (user) {
       return {
