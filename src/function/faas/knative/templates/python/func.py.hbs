@@ -25,4 +25,11 @@ def main(context):
     except Exception as e:
         return str(e), 500
 
+    if result == None:
+        result = ""
+    elif isinstance(result, (int, float, bool))
+        # http body cant be non-string, non-array, non-object
+        # convert to string here then convert back client side
+        result = str(result)
+
     return result, 200
