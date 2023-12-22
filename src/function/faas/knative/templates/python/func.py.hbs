@@ -29,7 +29,8 @@ def main(context):
         result = ""
     elif isinstance(result, (int, float, bool)):
         # http body cant be non-string, non-array, non-object
-        # convert to object here then convert back client side
-        result = {_polyParse: type(result), "value": result}
+        # also just sending back "9" breaks because flask interprets as status code
+        # so do it this way, because OpenAI should be able to interpret this result I think
+        result = f"({result}) {type(result)}"
 
     return result, 200
