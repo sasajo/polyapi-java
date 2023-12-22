@@ -4,7 +4,8 @@ import logging
 import sys
 from typing import Any
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+log_line_format = "[%(levelname)s] %(message)s"
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_line_format)
 
 FUNCTION_ENVIRONMENT_ID = "{{environmentId}}"
 
