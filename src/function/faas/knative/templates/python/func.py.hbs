@@ -28,9 +28,6 @@ def main(context):
     if result == None:
         result = ""
     elif isinstance(result, (int, float, bool)):
-        # http body cant be non-string, non-array, non-object
-        # also just sending back "9" breaks because flask interprets as status code
-        # so do it this way, because OpenAI should be able to interpret this result I think
-        result = f"({type(result).__name__}) {result}"
+        result = str(result)
 
     return result, 200
