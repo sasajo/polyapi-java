@@ -1297,7 +1297,10 @@ export class FunctionService implements OnModuleInit {
     if (returnTypeSchema) {
       returnType = JSON.stringify(returnTypeSchema);
     }
-    if (language === 'javascript' && (!returnType || !args)) {
+    if (!returnType || !args) {
+      if (language !== 'javascript') {
+        throw new BadRequestException('Cannot infer return type or arguments from non-javascript code.');
+      }
       const {
         code: transpilerCode,
         args: transpilerArgs,
