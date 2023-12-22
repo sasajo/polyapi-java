@@ -27,7 +27,11 @@ def main(context):
 
     if result == None:
         result = ""
-    elif isinstance(result, (int, float, bool)):
+    elif isinstance(result, int):
+        result = f'(int) {result}'
+    elif isinstance(result, float):
+        result = f'(float) {result}'
+    elif isinstance(result, bool):
         result = str(result)
 
     return result, 200
