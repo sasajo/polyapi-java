@@ -1322,10 +1322,6 @@ export class FunctionService implements OnModuleInit {
       synchronous = transpilerSynchronous;
     }
 
-    if (!args) {
-      args = [];
-    }
-
     let customFunction = await this.prisma.customFunction.findFirst({
       where: {
         environmentId: environment.id,
