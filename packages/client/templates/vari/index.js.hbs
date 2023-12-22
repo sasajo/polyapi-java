@@ -91,7 +91,7 @@ const getVariableHandlers = (clientID, getSocket, getApiKey) => {
       },
       inject: (path) => {
 
-        if (typeof path !== 'undefined' || secret) {
+        if (typeof path !== 'undefined') {
           return {
             type: 'PolyVariable',
             id,
@@ -99,9 +99,13 @@ const getVariableHandlers = (clientID, getSocket, getApiKey) => {
           };
         }
 
-        return new Proxy({}, {
+        return new Proxy({
+          [parts]: [],
+          [pathState]: getStringPath([[]])[0]
+        }, {
           get(target, prop) {
-            const pathParts = target[parts] || [];
+            
+            const pathParts = target[parts] ? [...target[parts]] : [];
 
             if (prop === 'toJSON') {
                 return () => ({
@@ -140,8 +144,10 @@ const getVariableHandlers = (clientID, getSocket, getApiKey) => {
             }
 
             if (prop.match(/\d+/)) {
-                
-                if (paths.find(currentPath => {
+
+                if (secret) {
+                  pathParts.push(Number(prop));
+                } else if (paths.find(currentPath => {
                   const arrContextPath = contextPath.split('.');
                   arrContextPath.pop();
 
