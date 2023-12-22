@@ -1786,7 +1786,7 @@ export class FunctionService implements OnModuleInit {
 
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
 
-    const logsEnabled = customFunction.logsEnabled; // && customFunction.environmentId === executionEnvironment.id;
+    const logsEnabled = customFunction.logsEnabled && customFunction.environmentId === executionEnvironment.id;
     console.log('LOGS ENABLED', logsEnabled);
 
     const processError = async (error: any) => {
