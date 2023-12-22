@@ -29,7 +29,7 @@ def main(context):
         result = ""
     elif isinstance(result, (int, float, bool)):
         # http body cant be non-string, non-array, non-object
-        # convert to string here then convert back client side
-        result = str(result)
+        # convert to object here then convert back client side
+        result = {_polyParse: type(result), "value": result}
 
     return result, 200
