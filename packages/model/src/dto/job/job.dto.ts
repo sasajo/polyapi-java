@@ -1,4 +1,4 @@
-import { FunctionsExecutionType, JobStatus, ScheduleType } from '../../job';
+import { FunctionsExecutionType, ScheduleType } from '../../job';
 import { CreateFunctionJob } from './utils';
 
 export type FunctionJob = Required<CreateFunctionJob>;
@@ -36,5 +36,5 @@ export type JobDto = {
 
     environmentId: string;
 
-    status: JobStatus;
+    enabled: boolean;
 }

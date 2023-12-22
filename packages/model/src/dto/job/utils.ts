@@ -3,7 +3,6 @@ import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Validate, ValidationArguments } from 'class-validator';
 import { CronExpression, Record } from '../validators';
 import { ScheduleType } from '../../job';
-import { ApiExtraModels } from '@nestjs/swagger';
 
 const dateErrMsg = (validationArgs: ValidationArguments) => `${validationArgs.property} must be a valid ISO 8601 date string`;
 
@@ -41,7 +40,9 @@ export class Periodical extends ScheduleBase {
     @IsString()
     @IsNotEmpty()
     @Validate(CronExpression)
-    @ApiProperty()
+    @ApiProperty({
+      description: 'You can try your cron expressions here: https://crontab.guru/#*_*_*_*_*',
+    })
     value: string;
 }
 

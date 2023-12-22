@@ -1,8 +1,8 @@
-import { IsArray, IsEnum, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 import { Type } from 'class-transformer';
 import { ScheduleBase, Interval, Periodical, OnTime, CreateFunctionJob } from './utils';
-import { FunctionsExecutionType, JobStatus, ScheduleType } from '../../job';
+import { FunctionsExecutionType, ScheduleType } from '../../job';
 import { ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -60,6 +60,6 @@ export class UpdateJobDto {
     executionType?: FunctionsExecutionType;
 
     @IsOptional()
-    @IsEnum(JobStatus)
-    status?: JobStatus;
+    @IsBoolean()
+    enabled?: boolean | undefined;
 }

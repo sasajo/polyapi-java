@@ -1,5 +1,5 @@
-import { IsArray, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { ScheduleType, FunctionsExecutionType, JobStatus } from '../../job';
+import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ScheduleType, FunctionsExecutionType } from '../../job';
 import { Type } from 'class-transformer';
 
 import { OnTime, Periodical, Interval, CreateFunctionJob, ScheduleBase } from './utils';
@@ -57,6 +57,6 @@ export class CreateJobDto {
     executionType: FunctionsExecutionType;
 
     @IsOptional()
-    @IsEnum(JobStatus)
-    status?: JobStatus;
+    @IsBoolean()
+    enabled: boolean | undefined;
 }
