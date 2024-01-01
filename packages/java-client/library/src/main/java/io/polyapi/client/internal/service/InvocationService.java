@@ -15,4 +15,6 @@ public interface InvocationService {
   <T> T getVariable(String id, Type type);
 
   <T> void updateVariable(String id, T entity);
+
+  <T> T invokeAuthFunction(String id, Map<String, Object>body, Type type);
 }

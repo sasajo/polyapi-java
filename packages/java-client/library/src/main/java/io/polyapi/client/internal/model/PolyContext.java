@@ -1,10 +1,9 @@
 package io.polyapi.client.internal.model;
 
 import io.polyapi.client.api.model.variable.ServerVariable;
-import io.polyapi.client.api.model.websocket.WebhookEventConsumer;
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.api.model.function.PolyApiFunction;
-import io.polyapi.client.api.model.function.PolyServerFunction;
+import io.polyapi.client.api.model.function.server.PolyServerFunction;
 import io.polyapi.client.internal.proxy.WebhookHandle;
 import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
 import io.polyapi.client.internal.service.InvocationServiceImpl;

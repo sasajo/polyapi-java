@@ -3,7 +3,7 @@ package io.polyapi.client.internal.proxy;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
 import io.polyapi.commons.api.model.PolyObject;
-import io.polyapi.client.api.model.function.PolyServerFunction;
+import io.polyapi.client.api.model.function.server.PolyServerFunction;
 
 /**
  * Mock interface that extends {@link PolyObject}

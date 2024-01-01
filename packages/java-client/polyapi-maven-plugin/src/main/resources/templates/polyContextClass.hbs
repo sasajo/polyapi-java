@@ -126,7 +126,7 @@ public class {{className}} extends PolyContext {
   public void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
     getToken(clientID, clientSecret{{#if audienceRequired}}, audience{{/if}}, scopes, callback, null);
   }
-  public void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
+public void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
     var userId = options != null ? options.getUserId() : null;
     var callbackUrl = options != null ? options.getCallbackUrl() : null;
     var autoCloseOnUrl = options != null && options.getAutoCloseOnUrl() != null ? options.getAutoCloseOnUrl() : false;

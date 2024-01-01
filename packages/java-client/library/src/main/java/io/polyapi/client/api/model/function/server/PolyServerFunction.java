@@ -1,4 +1,4 @@
-package io.polyapi.client.api.model.function;
+package io.polyapi.client.api.model.function.server;
 
 import io.polyapi.commons.api.model.PolyObject;
 
