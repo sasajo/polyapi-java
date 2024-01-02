@@ -5,8 +5,8 @@ import io.polyapi.client.api.AuthTokenOptions;
 
 public interface TokenAuthFunction extends AuthFunction {
 
-  default void getToken(String clientID, String clientSecret, String[] scopes, AuthTokenEventConsumer callback) {
-    getToken(clientID, clientSecret, scopes, callback, null);
+  default void getToken(String clientId, String clientSecret, String[] scopes, AuthTokenEventConsumer callback) {
+    getToken(clientId, clientSecret, scopes, callback, null);
   }
-  void getToken(String clientID, String clientSecret, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options);
+  void getToken(String clientId, String clientSecret, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options);
 }

@@ -40,6 +40,9 @@ public class {{className}} extends PolyContext {
   {{~#ifIsType this "WebhookHandleSpecification"}}
     this.{{name}} = createWebhookHandle({{className}}.class);
   {{~/ifIsType}}
+  {{~#ifIsType this "AuthFunctionSpecification"}}
+    this.{{name}} = createWebhookHandle({{className}}.class);
+  {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     this.{{name}} = new {{className}}(proxyFactory, webhookHandlerFactory);
@@ -48,7 +51,11 @@ public class {{className}} extends PolyContext {
 
 {{~#each specifications}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
-  public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
+    {{~#if function.returnsValue}}
+      public {{function.returnType}}
+    {{~else}}
+      public void
+    {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
     return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
   {{~/ifIsType}}
@@ -66,7 +73,11 @@ public class {{className}} extends PolyContext {
   {{~/ifIsType}}
 
   {{~#ifIsType this "ServerFunctionSpecification"}}
-  public {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
+    {{~#if function.returnsValue}}
+      public {{function.returnType}}
+    {{~else}}
+      public void
+    {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
     return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
   {{~/ifIsType}}
@@ -80,87 +91,15 @@ public class {{className}} extends PolyContext {
   {{~#ifIsType this "AuthFunctionSpecification"}}
   {{~#if subResource}}
   public void {{name}}(String token) {
-    try {
-      var payload = new JSONObject();
-      payload.put("clientID", ClientInfo.CLIENT_ID);
-      payload.put("token", token);
-
-      apiClient.post("/auth-providers/{{id}}/{{subResource}}", payload.toString());
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
+    this.{{name}}.{{name}}(token);
   }
   {{~else}}
-  public void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
-    getToken(clientID, clientSecret{{#if audienceRequired}}, audience{{/if}}, scopes, callback, null);
+  public void getToken(String clientId, String clientSecret{{#if audienceRequired}}, String audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
+    this.{{name}}.getToken(clientId, clientSecret{{#if audienceRequired}}, audience{{/if}}, scopes, callback);
   }
-  public void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
-    var userId = options != null ? options.getUserId() : null;
-    var callbackUrl = options != null ? options.getCallbackUrl() : null;
-    var autoCloseOnUrl = options != null && options.getAutoCloseOnUrl() != null ? options.getAutoCloseOnUrl() : false;
-    var autoCloseOnToken = options != null && options.getAutoCloseOnToken() != null ? options.getAutoCloseOnToken() : true;
-    var timeout = options != null && options.getTimeout() != null ? options.getTimeout() : 120_000;
-    var eventsClientId = ClientInfo.CLIENT_ID;
-    var timer = new Timer();
 
-    try {
-      var payload = new JSONObject();
-      payload.put("eventsClientId", variableInjectManager.getInjectedValueOrOriginal(eventsClientId));
-      payload.put("clientId", variableInjectManager.getInjectedValueOrOriginal(clientID));
-      payload.put("clientSecret", variableInjectManager.getInjectedValueOrOriginal(clientSecret));
-      payload.put("scopes", scopes);
-      {{#if audienceRequired}}payload.put("audience", variableInjectManager.getInjectedValueOrOriginal(audience));{{/if}}
-      payload.put("userId", variableInjectManager.getInjectedValueOrOriginal(userId));
-      if (callbackUrl != null) {
-        payload.put("callbackUrl", variableInjectManager.getInjectedValueOrOriginal(callbackUrl));
-      }
-
-      var response = apiClient.post("/auth-providers/{{id}}/execute", payload.toString());
-      var responseBody = response.getBody();
-      var data = objectMapper.readValue(responseBody, GetAuthTokenResponse.class);
-
-      if (data.getToken() != null) {
-        callback.accept(data.getToken(), data.getUrl(), null);
-        return;
-      }
-      if (data.getUrl() != null && autoCloseOnUrl) {
-        callback.accept(null, data.getUrl(), null);
-        return;
-      }
-
-      webSocketClient.registerAuthFunctionEventHandler("{{id}}", (objects) -> {
-        var eventData = (JSONObject) objects[0];
-        try {
-          var event = objectMapper.readValue(eventData.toString(), GetAuthTokenResponse.class);
-          if (event.getToken() != null) {
-            callback.accept(event.getToken(), event.getUrl(), event.getError());
-            if (event.getToken() != null && autoCloseOnToken) {
-              webSocketClient.unregisterAuthFunctionEventHandler("{{id}}");
-            }
-          }
-        } catch (Exception e) {
-          throw new PolyRuntimeException(e);
-        }
-      });
-
-      callback.accept(data.getToken(), data.getUrl(), data.getError());
-
-      if (timeout > 0) {
-        timer.schedule(new TimerTask() {
-          @Override
-          public void run() {
-            try {
-              webSocketClient.unregisterAuthFunctionEventHandler("{{id}}");
-              callback.accept(null, null, "Timeout reached for auth function {{id}}");
-            } catch (JSONException ex) {
-              throw new PolyRuntimeException(ex);
-            }
-          }
-        }, timeout);
-      }
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
+  public void getToken(String clientId, String clientSecret{{#if audienceRequired}}, String audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
+    this.{{name}}.getToken(clientId, clientSecret{{#if audienceRequired}}, audience{{/if}}, scopes, callback, options);
   }
   {{~/if}}
   {{~/ifIsType}}

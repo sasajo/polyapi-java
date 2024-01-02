@@ -26,7 +26,7 @@ public class PolyProxyFactoryTest {
     logger.debug("Mock object ID: {}", entityId);
     logger.debug("Mocking InvocationHandler.");
     var serviceMock = PowerMockito.mock(InvocationService.class);
-    when(serviceMock.invokeServerFunction(eq(entityId), anyMap(), eq(String.class))).thenReturn(DEFAULT_STRING);
+    when(serviceMock.invokeServerFunction(eq(MockPolyServerFunction.class), eq(entityId), anyMap(), eq(String.class))).thenReturn(DEFAULT_STRING);
     logger.debug("Creating PolyProxyFactory with mock.");
     var factory = new PolyProxyFactory(serviceMock);
     logger.debug("Creating proxy for {}.", MockPolyServerFunction.class.getSimpleName());
@@ -34,6 +34,6 @@ public class PolyProxyFactoryTest {
     logger.debug("Proxy created.");
     assertThat(proxy, instanceOf(MockPolyServerFunction.class));
     assertThat(proxy.doMagic(DEFAULT_STRING), equalTo(DEFAULT_STRING));
-    verify(serviceMock).invokeServerFunction(eq(entityId), eq(Map.of("parameter", DEFAULT_STRING)), eq(String.class));
+    verify(serviceMock).invokeServerFunction(eq(MockPolyServerFunction.class), eq(entityId), eq(Map.of("parameter", DEFAULT_STRING)), eq(String.class));
   }
 }

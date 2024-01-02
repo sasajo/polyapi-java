@@ -22,13 +22,15 @@ public class PolyInvocationHandler implements InvocationHandler {
 
   @Override
   public Object invoke(Object proxy, Method method, Object[] arguments) {
-    var polyData = method.getDeclaringClass().getAnnotation(PolyEntity.class);
+    Class<?> invokingClass = method.getDeclaringClass();
+    var polyData = invokingClass.getAnnotation(PolyEntity.class);
     var polyMetadata = method.getDeclaringClass().getAnnotation(PolyMetadata.class);
     logger.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
     logger.debug("Executing Poly function with ID '{}'.", polyData.value());
     logger.debug("Poly metadata param names: {}.", polyMetadata.paramNames());
     logger.debug("Poly metadata param types: {}.", polyMetadata.paramTypes());
-    return invocation.invoke(polyData.value(),
+    return invocation.invoke(invokingClass,
+      polyData.value(),
       range(0, arguments.length)
         .boxed()
         .collect(toMap(List.of(polyMetadata.paramNames())::get,

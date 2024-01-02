@@ -1,14 +1,18 @@
 package io.polyapi.client.internal.model;
 
+import io.polyapi.client.api.model.function.PolyApiFunction;
+import io.polyapi.client.api.model.function.auth.AudienceTokenAuthFunction;
+import io.polyapi.client.api.model.function.auth.SubresourceAuthFunction;
+import io.polyapi.client.api.model.function.auth.TokenAuthFunction;
+import io.polyapi.client.api.model.function.server.PolyServerFunction;
 import io.polyapi.client.api.model.variable.ServerVariable;
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
-import io.polyapi.client.api.model.function.PolyApiFunction;
-import io.polyapi.client.api.model.function.server.PolyServerFunction;
 import io.polyapi.client.internal.proxy.WebhookHandle;
 import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
 import io.polyapi.client.internal.service.InvocationServiceImpl;
 import io.polyapi.client.internal.websocket.WebSocketClient;
 import io.polyapi.commons.api.error.PolyApiException;
+import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.internal.http.DefaultHttpClient;
 import io.polyapi.commons.internal.http.HardcodedTokenProvider;
@@ -35,8 +39,12 @@ public class PolyContext {
       }).orElseThrow(PolyApiException::new), new JacksonJsonParser());
   }
 
-  public PolyContext(PolyContextConfiguration config, JsonParser jsonParser) {
-    this(new PolyProxyFactory(new InvocationServiceImpl(config.host(), config.port(), new DefaultHttpClient(new HardcodedTokenProvider(config.apiKey())), jsonParser)), new WebhookHandlerFactory(new WebSocketClient(config.host(), config.port(), config.clientId(), new HardcodedTokenProvider(config.apiKey())), jsonParser));
+  private PolyContext(PolyContextConfiguration config, JsonParser jsonParser) {
+    this(config.host(), config.port(), config.clientId(), new DefaultHttpClient(new HardcodedTokenProvider(config.apiKey())), new WebSocketClient(config.host(), config.port(), config.clientId(), new HardcodedTokenProvider(config.apiKey())), jsonParser);
+  }
+
+  private PolyContext(String host, Integer port, String clientId, HttpClient httpClient, WebSocketClient webSocketClient, JsonParser jsonParser) {
+    this(new PolyProxyFactory(new InvocationServiceImpl(host, port, clientId, httpClient, jsonParser, webSocketClient)), new WebhookHandlerFactory(webSocketClient, jsonParser));
   }
 
   public PolyContext(PolyProxyFactory proxyFactory, WebhookHandlerFactory webhookHandlerFactory) {
@@ -58,6 +66,18 @@ public class PolyContext {
 
   protected <T extends WebhookHandle> T createWebhookHandle(Class<T> polyInterface) {
     return webhookHandlerFactory.create(polyInterface);
+  }
+
+  protected <T extends TokenAuthFunction> T createTokenAuthFunction(Class<T> polyInterface) {
+    return proxyFactory.createTokenAuthProxy(polyInterface);
+  }
+
+  protected <T extends AudienceTokenAuthFunction> T createAudienceTokenAuthFunction(Class<T> polyInterface) {
+    return proxyFactory.createAudienceTokenAuthProxy(polyInterface);
+  }
+
+  protected <T extends SubresourceAuthFunction> T createSubresourceAuthFunction(Class<T> polyInterface) {
+    return proxyFactory.createSubresourceAuthProxy(polyInterface);
   }
 
   protected <T extends PolyContext> T createSubContext(Class<T> polyContextType) {

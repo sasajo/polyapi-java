@@ -3,7 +3,7 @@ package io.polyapi.client.internal.proxy;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.function.PolyApiFunction;
 import io.polyapi.client.api.model.function.auth.AudienceTokenAuthFunction;
-import io.polyapi.client.api.model.function.auth.AuthFunction;
+import io.polyapi.client.api.model.function.auth.SubresourceAuthFunction;
 import io.polyapi.client.api.model.function.auth.TokenAuthFunction;
 import io.polyapi.client.api.model.function.server.PolyServerFunction;
 import io.polyapi.client.api.model.variable.ServerVariable;
@@ -19,15 +19,15 @@ import static java.lang.reflect.Proxy.newProxyInstance;
 public class PolyProxyFactory {
   private final InvocationHandler apiFunctionInvocationHandler;
   private final InvocationHandler serverFunctionInvocationHandler;
+  private final InvocationHandler subresourceAuthFunctionInvocationHandler;
   private final InvocationHandler authFunctionInvocationHandler;
-  private final InvocationHandler audienceAuthFunctionInvocationHandler;
-  private final VariInvocationHandler serverVariableInvocationHandler;
+  private final InvocationHandler serverVariableInvocationHandler;
 
   public PolyProxyFactory(InvocationService invocationService) {
     this.serverFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeServerFunction);
     this.apiFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeApiFunction);
     this.authFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeAuthFunction);
-    this.audienceAuthFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeAuthFunction);
+    this.subresourceAuthFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeSubresourceAuthFunction);
     this.serverVariableInvocationHandler = new VariInvocationHandler(invocationService);
   }
 
@@ -69,7 +69,7 @@ public class PolyProxyFactory {
    * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
    * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
    */
-  public <T extends ServerVariable> T createServerVariableProxy(Class<T> polyInterface) {
+  public <T extends ServerVariable<?>> T createServerVariableProxy(Class<T> polyInterface) {
     return createProxy(serverVariableInvocationHandler, polyInterface);
   }
 
@@ -78,7 +78,10 @@ public class PolyProxyFactory {
   }
 
   public <T extends AudienceTokenAuthFunction> T createAudienceTokenAuthProxy(Class<T> polyInterface) {
-    return createProxy(serverVariableInvocationHandler, polyInterface);
+    return createProxy(authFunctionInvocationHandler, polyInterface);
+  }
+  public <T extends SubresourceAuthFunction> T createSubresourceAuthProxy(Class<T> polyInterface) {
+    return createProxy(subresourceAuthFunctionInvocationHandler, polyInterface);
   }
 
   private <T extends PolyObject> T createProxy(InvocationHandler invocationHandler, Class<T> polyInterface) {
@@ -90,4 +93,5 @@ public class PolyProxyFactory {
     }
     return polyInterface.cast(newProxyInstance(polyInterface.getClassLoader(), new Class[]{polyInterface}, invocationHandler));
   }
+
 }

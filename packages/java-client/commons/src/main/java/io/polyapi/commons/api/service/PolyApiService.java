@@ -39,8 +39,16 @@ public class PolyApiService {
     this.port = port;
   }
 
+  public <O> O get(String relativePath, Type expectedResponseType) {
+    return get(relativePath, new HashMap<>(), new HashMap<>(), expectedResponseType);
+  }
+
   public <O> O get(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, Type expectedResponseType) {
     return parsedCall(GET, relativePath, headers, queryParams, null, expectedResponseType);
+  }
+
+  public <I, O> O post(String relativePath, I body, Type expectedResponseType) {
+    return post(relativePath, new HashMap<>(), new HashMap<>(), body, expectedResponseType);
   }
 
   public <I, O> O post(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body, Type expectedResponseType) {
