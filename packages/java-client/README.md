@@ -16,6 +16,11 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 <properties>
   <poly.version>0.2.0-SNAPSHOT</poly.version>
 </properties>
+<resources>
+  <resource>
+    <directory>target/generated-resources</directory>
+  </resource>
+</resources>
 <dependencies>
   <dependency>
     <groupId>io.polyapi</groupId>

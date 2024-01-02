@@ -31,7 +31,7 @@ public class PolyContext {
     this(Optional.of(new Properties())
       .map(properties -> {
         try {
-          properties.load(PolyContext.class.getResourceAsStream("poly.properties"));
+          properties.load(PolyContext.class.getResourceAsStream("/poly.properties"));
           return new PolyContextConfiguration(properties.getProperty("io.polyapi.host"), Integer.valueOf(properties.getProperty("io.polyapi.port")), properties.getProperty("io.polyapi.api.key"), properties.getProperty("io.polyapi.api.client.id"));
         } catch (IOException e) {
           throw new PolyApiException(e);
