@@ -32,7 +32,7 @@ public class PolyContext {
       .map(properties -> {
         try {
           properties.load(PolyContext.class.getResourceAsStream("/poly.properties"));
-          return new PolyContextConfiguration(properties.getProperty("io.polyapi.host"), Integer.valueOf(properties.getProperty("io.polyapi.port")), properties.getProperty("io.polyapi.api.key"), properties.getProperty("io.polyapi.api.client.id"));
+          return new PolyContextConfiguration(properties);
         } catch (IOException e) {
           throw new PolyApiException(e);
         }
@@ -40,7 +40,7 @@ public class PolyContext {
   }
 
   private PolyContext(PolyContextConfiguration config, JsonParser jsonParser) {
-    this(config.host(), config.port(), config.clientId(), new DefaultHttpClient(new HardcodedTokenProvider(config.apiKey())), new WebSocketClient(config.host(), config.port(), config.clientId(), new HardcodedTokenProvider(config.apiKey())), jsonParser);
+    this(config.getHost(), config.getPort(), config.getClientId(), new DefaultHttpClient(new HardcodedTokenProvider(config.getApiKey()), config.getConnectionTimeoutMillis(), config.getReadTimeoutMillis(), config.getWriteTimeoutMillis()), new WebSocketClient(config.getHost(), config.getPort(), config.getClientId(), new HardcodedTokenProvider(config.getApiKey())), jsonParser);
   }
 
   private PolyContext(String host, Integer port, String clientId, HttpClient httpClient, WebSocketClient webSocketClient, JsonParser jsonParser) {

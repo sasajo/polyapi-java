@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
@@ -32,18 +31,6 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
   private final WebSocketClient webSocketClient;
   private final String clientId;
   private final JsonParser jsonParser;
-
-  /**
-   * Utility constructor that only receives the minimum data.
-   *
-   * @param host     The host URL for Poly.
-   * @param port     The port to connect to.
-   * @param apiKey   The Bearer token that will authorize the use of this service.
-   * @param clientId The ID of the client.
-   */
-  public InvocationServiceImpl(String host, Integer port, String apiKey, String clientId) {
-    this(host, port, clientId, new DefaultHttpClient(new HardcodedTokenProvider(apiKey)), new JacksonJsonParser(), new WebSocketClient(host, port, clientId, new HardcodedTokenProvider(apiKey)));
-  }
 
   public InvocationServiceImpl(String host, Integer port, String clientId, HttpClient client, JsonParser jsonParser, WebSocketClient webSocketClient) {
     super(host, port, client, jsonParser);
@@ -74,7 +61,7 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
       });
       var variableInjectManager = VariableInjectManager.getInstance();
       Optional<AuthTokenOptions> optionalOptions = Optional.ofNullable(options);
-      GetAuthTokenResponse data = post(format("/auth-providers/%s/execute", id), body.entrySet().stream()
+      GetAuthTokenResponse data = post(format("auth-providers/%s/execute", id), body.entrySet().stream()
         .filter(entry -> entry.getValue() != null)
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> variableInjectManager.getInjectedValueOrOriginal(entry.getValue()))), GetAuthTokenResponse.class);
       if (data.getToken() == null) {
@@ -120,7 +107,7 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
 
   private <T> T invokeFunction(String type, String id, Map<String, Object> body, Type expectedResponseType) {
     logger.debug("Invoking Poly {} function with ID {}.", type, id);
-    var result = super.<Map<String, Object>, T>post(format("/functions/%s/%s/execute", type.toLowerCase(), id), new HashMap<>(), new HashMap<>(), body, expectedResponseType);
+    var result = super.<Map<String, Object>, T>post(format("functions/%s/%s/execute", type.toLowerCase(), id), body, expectedResponseType);
     logger.debug("Function successfully executed. Returning result as {}.", expectedResponseType.getTypeName());
     return result;
   }
@@ -128,20 +115,20 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
   @Override
   public <T> T getVariable(String id, Type expectedResponseType) {
     logger.debug("Retrieving variable of type {} with ID {}.", expectedResponseType.getTypeName(), id);
-    return get(format("/variables/%s/value", id), new HashMap<>(), new HashMap<>(), expectedResponseType);
+    return get(format("variables/%s/value", id), expectedResponseType);
   }
 
   @Override
   public <T> void updateVariable(String id, T entity) {
     logger.debug("Updating variable with ID {}.", id);
-    patch(format("/variables/%s/value", id), new HashMap<>(), new HashMap<>(), entity);
+    patch(format("variables/%s/value", id), entity);
     logger.debug("Update successful.");
   }
 
   @Override
   public Void invokeSubresourceAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
     body.put("clientID", clientId);
-    post(format("/auth-providers/%s/%s", id, invokingClass.getDeclaredAnnotation(PolyAuthSubresource.class).value()), body, expectedResponseType);
+    post(format("auth-providers/%s/%s", id, invokingClass.getDeclaredAnnotation(PolyAuthSubresource.class).value()), body, expectedResponseType);
     return null;
   }
 }

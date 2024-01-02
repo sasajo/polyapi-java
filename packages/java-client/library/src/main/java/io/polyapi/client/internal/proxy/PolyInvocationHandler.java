@@ -7,7 +7,11 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.IntStream.range;
@@ -29,12 +33,8 @@ public class PolyInvocationHandler implements InvocationHandler {
     logger.debug("Executing Poly function with ID '{}'.", polyData.value());
     logger.debug("Poly metadata param names: {}.", polyMetadata.paramNames());
     logger.debug("Poly metadata param types: {}.", polyMetadata.paramTypes());
-    return invocation.invoke(invokingClass,
-      polyData.value(),
-      range(0, arguments.length)
-        .boxed()
-        .collect(toMap(List.of(polyMetadata.paramNames())::get,
-          List.of(arguments)::get)),
-      method.getGenericReturnType());
+    Map<String, Object> body = new HashMap<>();
+    range(0, polyMetadata.paramNames().length).boxed().forEach(i -> body.put(polyMetadata.paramNames()[i], arguments[i]));
+    return invocation.invoke(invokingClass, polyData.value(), body, method.getGenericReturnType());
   }
 }

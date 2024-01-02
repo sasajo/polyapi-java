@@ -23,7 +23,7 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
   @Override
   public List<Specification> getJsonSpecs() {
     logger.info("Retrieving JSon specifications from Poly API for this user.");
-    List<Specification> specifications = get("specs", new HashMap<>(), new HashMap<>(), defaultInstance().constructCollectionType(List.class, Specification.class));
+    List<Specification> specifications = get("specs", defaultInstance().constructCollectionType(List.class, Specification.class));
     logger.info("{} specifications retrieved.", specifications.size());
     if (logger.isDebugEnabled()) {
       logger.trace("Retrieved specifications the following IDs: [{}]", specifications.stream().map(Specification::getId).collect(joining(", ")));

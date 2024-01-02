@@ -55,6 +55,10 @@ public class PolyApiService {
     return parsedCall(POST, relativePath, headers, queryParams, body, expectedResponseType);
   }
 
+  public <I> void patch(String relativePath, I body) {
+    parsedCall(PATCH, relativePath, new HashMap<>(), new HashMap<>(), body, Void.TYPE);
+  }
+
   public <I> void patch(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body) {
     parsedCall(PATCH, relativePath, headers, queryParams, body, Void.TYPE);
   }

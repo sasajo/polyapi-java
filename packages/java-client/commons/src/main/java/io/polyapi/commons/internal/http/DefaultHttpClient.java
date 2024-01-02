@@ -21,6 +21,7 @@ import java.util.UUID;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.Charset.defaultCharset;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class DefaultHttpClient implements HttpClient {
@@ -33,9 +34,16 @@ public class DefaultHttpClient implements HttpClient {
    * Utility constructor that sets a default {@link OkHttpClient} and uses a {@link TokenProvider}.
    *
    * @param tokenProvider The provided token provider.
+   * @param connectTimeoutMillis The amount of milliseconds that the client will wait on connection before timing out.
+   * @param readTimeoutMillis The amount of milliseconds that the client will wait on reading the response before timing out.
+   * @param writeTimeoutMillis The amount of milliseconds that the client will wait on writing before timing out.
    */
-  public DefaultHttpClient(TokenProvider tokenProvider) {
-    this(new OkHttpClient(), tokenProvider);
+  public DefaultHttpClient(TokenProvider tokenProvider, Long connectTimeoutMillis, Long readTimeoutMillis, Long writeTimeoutMillis) {
+    this(new OkHttpClient.Builder()
+      .connectTimeout(connectTimeoutMillis, MILLISECONDS)
+      .readTimeout(readTimeoutMillis, MILLISECONDS)
+      .writeTimeout(writeTimeoutMillis, MILLISECONDS)
+      .build(), tokenProvider);
   }
 
   public DefaultHttpClient(OkHttpClient client, TokenProvider tokenProvider) {
