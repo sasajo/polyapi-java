@@ -1,4 +1,4 @@
-package io.polyapi.plugin.service.generator.template;
+package io.polyapi.plugin.service.template;
 
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Options;
@@ -11,9 +11,9 @@ import java.util.List;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
-public class TemplateGenerator extends Handlebars {
+public class PolyHandlebars extends Handlebars {
 
-  public TemplateGenerator() {
+  public PolyHandlebars() {
     super(new ClassPathTemplateLoader("/templates", ".hbs"));
     registerHelper("ifIsType", new ConditionHelper<>((object, options) -> object.getClass().getSimpleName().equals(options.param(0))));
     registerHelper("ifIsNotEmpty", new ConditionHelper<>((Collection<?> collection, Options options) -> !collection.isEmpty()));

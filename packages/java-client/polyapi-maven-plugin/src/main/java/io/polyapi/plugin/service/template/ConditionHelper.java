@@ -1,4 +1,4 @@
-package io.polyapi.plugin.service.generator.template;
+package io.polyapi.plugin.service.template;
 
 import com.github.jknack.handlebars.Helper;
 import com.github.jknack.handlebars.Options;

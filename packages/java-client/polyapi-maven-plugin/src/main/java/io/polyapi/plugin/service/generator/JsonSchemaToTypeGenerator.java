@@ -11,6 +11,8 @@ import org.jsonschema2pojo.rules.RuleFactory;
 
 import java.io.IOException;
 
+// FIXME: This should be removed. But keeping it to see if there's anything to be retrieved from this.
+@Deprecated
 public class JsonSchemaToTypeGenerator {
   public JCodeModel generateObjectCodeModel(JsonNode schema, String typeName, String packageName) {
     var config = new DefaultGenerationConfig() {

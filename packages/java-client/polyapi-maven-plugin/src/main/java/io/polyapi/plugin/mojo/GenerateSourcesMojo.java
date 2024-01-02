@@ -13,7 +13,7 @@ import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.service.MavenService;
 import io.polyapi.plugin.service.SpecificationServiceImpl;
-import io.polyapi.plugin.service.generator.template.TemplateGenerator;
+import io.polyapi.plugin.service.template.PolyHandlebars;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.slf4j.Logger;
@@ -36,7 +36,7 @@ public class GenerateSourcesMojo extends PolyApiMojo {
 
   @Override
   public void execute(String host, Integer port, TokenProvider tokenProvider, HttpClient httpClient, JsonParser jsonParser, MavenService mavenService) {
-    this.fileService = new FileServiceImpl(new TemplateGenerator());
+    this.fileService = new FileServiceImpl(new PolyHandlebars());
     var specifications = new SpecificationServiceImpl(host, port, httpClient, jsonParser).getJsonSpecs();
     var context = new HashMap<String, Object>();
     // @FIXME: Are we sure we want to set this ID at this level?
