@@ -14,7 +14,7 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
 2. Add the following to your project's `pom.xml` to add the dependencies:
 ```xml
 <properties>
-  <poly.version>0.1.8-SNAPSHOT</poly.version>
+  <poly.version>0.2.0-SNAPSHOT</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -36,7 +36,8 @@ This is a Java client library for Poly API. It is generated from the [Poly speci
             <goal>generate-sources</goal>
           </goals>
           <configuration>
-            <apiBaseUrl>https://develop-k8s.polyapi.io</apiBaseUrl>
+            <host>https://develop-k8s.polyapi.io</host>
+            <port>443</port>
             <apiKey>{API_KEY}</apiKey>
           </configuration>
         </execution>
