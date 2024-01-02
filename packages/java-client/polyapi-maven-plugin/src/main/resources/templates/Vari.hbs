@@ -3,19 +3,13 @@ package {{packageName}};
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
 {{~#each specifications}}
-  {{~#ifIsType this "CustomFunctionSpecification"}}
-import {{{packageName}}}.{{{className}}};
-  {{/ifIsType}}
-  {{~#ifIsType this "ServerFunctionSpecification"}}
+  {{~#ifIsType this "ServerVariableSpecification"}}
 import {{{packageName}}}.{{{className}}};
   {{/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
 import {{{packageName}}}.{{{className}}};
 {{~/each}}
-
-
-import static io.polyapi.client.api.Utils.*;
 
 public class Vari extends PolyContext {
 {{~#each specifications}}
@@ -31,166 +25,11 @@ public class Vari extends PolyContext {
     var vari = new Vari();
 {{~#each specifications}}
   {{~#ifIsType this "ServerVariableSpecification"}}
-    {{name}} = proxyFactory.createServerVariableProxy({{className}}.class);
+    {{name}} = vari.createServerVariableProxy({{className}}.class);
   {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     {{name}} = vari.createSubContext({{className}}.class);
 {{~/each}}
   }
-
-{{~#each specifications}}
-  {{~#ifIsType this "ApiFunctionSpecification"}}
-  {{~#ifIsType function.returnType "VoidPropertyType"}}
-  public static void {{name}}({{{renderArguments function.arguments}}}) {
-  {{~else}}
-  public static ApiFunctionResponse<{{{function.returnType.getInCodeType}}}> {{name}}({{{renderArguments function.arguments}}}) {
-  {{~/ifIsType}}
-    try {
-      var payloadForThePolyApiFunction = new JSONObject();
-      {{~#each function.arguments}}
-      payloadForThePolyApiFunction.put("{{name}}", objectMapper.toJSONValue(variableInjectManager.getInjectedValueOrOriginal({{inCodeName}})));
-      {{~/each}}
-      {{~#ifIsType function.returnType "VoidPropertyType"}}
-      apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
-      {{~else}}
-      var response = apiClient.post("/functions/api/{{id}}/execute", payloadForThePolyApiFunction.toString());
-      var responseBody = response.getBody();
-      var typeRef = new TypeReference<ApiFunctionResponse<{{{function.returnType.getInCodeType}}}>>() {};
-      return objectMapper.readValue(responseBody, typeRef);
-      {{~/ifIsType}}
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
-  }
-  {{~/ifIsType}}
-
-  {{~#ifIsType this "CustomFunctionSpecification"}}
-    {{~#if this.isJava}}
-      {{~#if function.returnsValue}}
-  public static {{function.returnType}}
-      {{~else}}
-  public static void
-      {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-    {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
-  }
-    {{~/if}}
-  {{~/ifIsType}}
-
-  {{~#ifIsType this "ServerFunctionSpecification"}}
-  public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
-    return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
-  }
-  {{~/ifIsType}}
-
-  {{~#ifIsType this "WebhookHandleSpecification"}}
-  public static void {{name}}(WebhookEventConsumer<{{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}> callback) {
-    try {
-      webSocketClient.registerWebhookEventHandler("{{id}}", objects -> {
-        var data = (JSONObject) objects[0];
-        try {
-          callback.accept(
-            objectMapper.readValue(data.get("body").toString(), {{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}.class),
-            jsonObjectToMap((JSONObject) data.get("headers")),
-            jsonObjectToMap((JSONObject) data.get("params"))
-          );
-        } catch (Exception e) {
-          throw new PolyRuntimeException(e);
-        }
-      });
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
-  }
-  {{~/ifIsType}}
-
-  {{~#ifIsType this "AuthFunctionSpecification"}}
-  {{~#if subResource}}
-  public static void {{name}}(String token) {
-    try {
-      var payload = new JSONObject();
-      payload.put("clientID", ClientInfo.CLIENT_ID);
-      payload.put("token", token);
-
-      apiClient.post("/auth-providers/{{id}}/{{subResource}}", payload.toString());
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
-  }
-  {{~else}}
-  public static void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
-    getToken(clientID, clientSecret{{#if audienceRequired}}, audience{{/if}}, scopes, callback, null);
-  }
-
-  public static void getToken(String clientID, String clientSecret{{#if audienceRequired}}, audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
-    var userId = options != null ? options.getUserId() : null;
-    var callbackUrl = options != null ? options.getCallbackUrl() : null;
-    var autoCloseOnUrl = options != null && options.getAutoCloseOnUrl() != null ? options.getAutoCloseOnUrl() : false;
-    var autoCloseOnToken = options != null && options.getAutoCloseOnToken() != null ? options.getAutoCloseOnToken() : true;
-    var timeout = options != null && options.getTimeout() != null ? options.getTimeout() : 120_000;
-    var eventsClientId = ClientInfo.CLIENT_ID;
-    var timer = new Timer();
-
-    try {
-      var payload = new JSONObject();
-      payload.put("eventsClientId", variableInjectManager.getInjectedValueOrOriginal(eventsClientId));
-      payload.put("clientId", variableInjectManager.getInjectedValueOrOriginal(clientID));
-      payload.put("clientSecret", variableInjectManager.getInjectedValueOrOriginal(clientSecret));
-      payload.put("scopes", scopes);
-      {{#if audienceRequired}}payload.put("audience", variableInjectManager.getInjectedValueOrOriginal(audience));{{/if}}
-      payload.put("userId", variableInjectManager.getInjectedValueOrOriginal(userId));
-      if (callbackUrl != null) {
-        payload.put("callbackUrl", variableInjectManager.getInjectedValueOrOriginal(callbackUrl));
-      }
-
-      var response = apiClient.post("/auth-providers/{{id}}/execute", payload.toString());
-      var responseBody = response.getBody();
-      var data = objectMapper.readValue(responseBody, GetAuthTokenResponse.class);
-
-      if (data.getToken() != null) {
-        callback.accept(data.getToken(), data.getUrl(), null);
-        return;
-      }
-      if (data.getUrl() != null && autoCloseOnUrl) {
-        callback.accept(null, data.getUrl(), null);
-        return;
-      }
-
-      webSocketClient.registerAuthFunctionEventHandler("{{id}}", (objects) -> {
-        var eventData = (JSONObject) objects[0];
-        try {
-          var event = objectMapper.readValue(eventData.toString(), GetAuthTokenResponse.class);
-          if (event.getToken() != null) {
-            callback.accept(event.getToken(), event.getUrl(), event.getError());
-            if (event.getToken() != null && autoCloseOnToken) {
-              webSocketClient.unregisterAuthFunctionEventHandler("{{id}}");
-            }
-          }
-        } catch (Exception e) {
-          throw new PolyRuntimeException(e);
-        }
-      });
-
-      callback.accept(data.getToken(), data.getUrl(), data.getError());
-
-      if (timeout > 0) {
-        timer.schedule(new TimerTask() {
-          @Override
-          public void run() {
-            try {
-              webSocketClient.unregisterAuthFunctionEventHandler("{{id}}");
-              callback.accept(null, null, "Timeout reached for auth function {{id}}");
-            } catch (JSONException ex) {
-              throw new PolyRuntimeException(ex);
-            }
-          }
-        }, timeout);
-      }
-    } catch (Exception e) {
-      throw new PolyRuntimeException(e);
-    }
-  }
-  {{~/if}}
-  {{~/ifIsType}}
-{{~/each}}
 }

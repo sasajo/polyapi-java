@@ -12,8 +12,6 @@ import {{{packageName}}}.{{{className}}};
 {{~/each}}
 
 
-import static io.polyapi.client.api.Utils.*;
-
 public class {{className}} extends PolyContext {
 {{~#each specifications}}
   private final {{className}} {{name}};
@@ -56,7 +54,10 @@ public class {{className}} extends PolyContext {
     {{~else}}
       public void
     {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-    return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
+    {{~#if function.returnsValue}}
+      return
+    {{~else}}
+    {{~/if}} {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
   {{~/ifIsType}}
 
@@ -67,7 +68,10 @@ public class {{className}} extends PolyContext {
       {{~else}}
   public void
       {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-    {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
+      {{~#if function.returnsValue}}
+        return
+      {{~else}}
+      {{~/if}} {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
     {{~/if}}
   {{~/ifIsType}}
@@ -78,7 +82,10 @@ public class {{className}} extends PolyContext {
     {{~else}}
       public void
     {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-    return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
+    {{~#if function.returnsValue}}
+      return
+    {{~else}}
+    {{~/if}} {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
   {{~/ifIsType}}
 
