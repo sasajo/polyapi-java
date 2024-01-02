@@ -27,7 +27,7 @@ public class {{className}} extends PolyContext {
     this.{{name}} = createServerFunctionProxy({{className}}.class);
   {{~/ifIsType}}
   {{~#ifIsType this "CustomFunctionSpecification"}}
-    this.{{name}} = new {{className}};
+    this.{{name}} = new {{className}}();
   {{~/ifIsType}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
     this.{{name}} = createApiFunctionProxy({{className}}.class);

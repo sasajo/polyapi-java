@@ -4,6 +4,7 @@ import io.polyapi.commons.api.model.PolyObject;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
 
+// {{language}}
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{~#each function.arguments}}"{{inCodeName}}"{{#unless @last}}, {{/unless}} {{~/each}} },
         paramTypes = { {{~#each function.arguments}}"{{{type.inCodeName}}}"{{#unless @last}}, {{/unless}} {{~/each}} })
