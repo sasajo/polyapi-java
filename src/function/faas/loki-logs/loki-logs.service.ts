@@ -143,7 +143,8 @@ export class LokiLogsService implements FaasLogsService {
       lines
         .map(line => line.replace(timestampStdPipePattern, ''))
         .join('\n'),
-      level,
+      // Python uses WARNING instead of WARN. Coerce it here back to WARN.
+      level === 'WARNING' ? 'WARN' : level,
     ];
   }
 }
