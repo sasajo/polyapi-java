@@ -133,7 +133,7 @@ export class LokiLogsService implements FaasLogsService {
   }
 
   private getLogContentAndLevel(rawLogText: string): [logContent: string, logLevel: string] {
-    const polyLogPattern = /\[(ERROR|LOG|INFO|WARN)](.*?)\[\/\1]/gs;
+    const polyLogPattern = /\[(ERROR|LOG|INFO|WARNING|WARN|DEBUG|CRITICAL)](.*?)\[\/\1]/gs;
     const timestampStdPipePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (stdout|stderr) F /g;
 
     const [, level, logText] = polyLogPattern.exec(rawLogText) || [null, 'UNKNOWN', rawLogText];
@@ -143,7 +143,8 @@ export class LokiLogsService implements FaasLogsService {
       lines
         .map(line => line.replace(timestampStdPipePattern, ''))
         .join('\n'),
-      level,
+      // Python uses WARNING instead of WARN. Coerce it here back to WARN.
+      level === 'WARNING' ? 'WARN' : level,
     ];
   }
 }

@@ -4,8 +4,16 @@ import logging
 import sys
 from typing import Any
 
-log_line_format = "[%(levelname)s] %(message)s"
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_line_format)
+# root
+logging.getLogger().setLevel(logging.DEBUG)
+
+# poly
+logger = logging.getLogger("poly")
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("[%(levelname)s] %(message)s [/%(levelname)s]")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 FUNCTION_ENVIRONMENT_ID = "{{environmentId}}"
 
