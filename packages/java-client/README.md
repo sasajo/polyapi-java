@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.1.7
+### v0.2.0
 
 ## Introduction
 This is a Java client library for Poly API. It is generated from the [Poly specification](https://develop-k8s.polyapi.io/specs). It is based on its Typescript counterpart [polyapi](https://www.npmjs.com/package/polyapi)
