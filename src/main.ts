@@ -62,7 +62,7 @@ const initSwagger = (app: INestApplication) => {
 // eslint-disable-next-line func-style
 async function bootstrap() {
   process.on('exit', (code) => {
-    console.log('onn exit: ', code);
+    console.log('onn exittt: ', code);
   });
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
