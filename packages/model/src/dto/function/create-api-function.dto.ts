@@ -47,5 +47,4 @@ export class CreateApiFunctionDto {
   @IsOptional()
   @IsBoolean()
   enableRedirect: boolean;
-
 }

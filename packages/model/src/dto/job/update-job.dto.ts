@@ -1,14 +1,14 @@
-import { IsArray, IsEnum, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
-
+import { IsArray, IsBoolean, IsEnum, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ScheduleBase, Interval, Periodical, OnTime, CreateFunctionJob } from './utils';
-import { FunctionsExecutionType, JobStatus, ScheduleType } from '../../job';
+import { ScheduleBase, Interval, Periodical, OnTime, FunctionJob, ScheduleApiProperty } from './utils.dto';
+import { FunctionsExecutionType, ScheduleType } from '../../job';
 
 export class UpdateJobDto {
     @IsString()
     @IsOptional()
     name?: string;
 
+    @ScheduleApiProperty({ required: false })
     @IsOptional()
     @IsObject()
     @ValidateNested()
@@ -35,14 +35,14 @@ export class UpdateJobDto {
     @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
-    @Type(() => CreateFunctionJob)
-    functions?: CreateFunctionJob[];
+    @Type(() => FunctionJob)
+    functions?: FunctionJob[];
 
     @IsOptional()
     @IsEnum(FunctionsExecutionType)
     executionType?: FunctionsExecutionType;
 
     @IsOptional()
-    @IsEnum(JobStatus)
-    status?: JobStatus;
+    @IsBoolean()
+    enabled?: boolean | undefined;
 }

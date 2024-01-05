@@ -23,7 +23,7 @@ export class ConfigVariableService {
   private readonly publicVisibilityStrategy: ConfigVariableStrategy<PublicVisibilityValue>;
   private readonly defaultTierVisibilityStrategy: ConfigVariableStrategy<DefaultTierValue>;
   private readonly defaultTosStrategy: ConfigVariableStrategy<DefaultTosValue>;
-  private readonly JobsStrategy: ConfigVariableStrategy<Jobs>;
+  private readonly jobsStrategy: ConfigVariableStrategy<Jobs>;
 
   constructor(prisma: PrismaService, commonService: CommonService) {
     this.prisma = prisma;
@@ -33,7 +33,7 @@ export class ConfigVariableService {
     this.publicVisibilityStrategy = new PublicVisibilityStrategy(prisma, commonService);
     this.defaultTierVisibilityStrategy = new DefaultTierStrategy(prisma, commonService);
     this.defaultTosStrategy = new DefaultTosStrategy(prisma, commonService);
-    this.JobsStrategy = new JobsStrategy(prisma, commonService);
+    this.jobsStrategy = new JobsStrategy(prisma, commonService);
   }
 
   toDto(data: ConfigVariable): ConfigVariableDto {
@@ -74,7 +74,7 @@ export class ConfigVariableService {
       case ConfigVariableName.DefaultTos:
         return this.defaultTosStrategy as ConfigVariableStrategy<T>;
       case ConfigVariableName.Jobs:
-        return this.JobsStrategy as ConfigVariableStrategy<T>;
+        return this.jobsStrategy as ConfigVariableStrategy<T>;
       default:
         return this.defaultConfigVariableStrategy as ConfigVariableStrategy<T>;
     }

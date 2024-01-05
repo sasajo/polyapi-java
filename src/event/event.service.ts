@@ -1,55 +1,28 @@
 import crypto from 'crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
 import { ErrorEvent, VariableChangeEvent, VariableChangeEventType, Visibility } from '@poly/model';
 import { AxiosError } from 'axios';
 import { Environment, Variable } from '@prisma/client';
 import { AuthService } from 'auth/auth.service';
 import { AuthData } from 'common/types';
+import { EMITTER } from './emitter/emitter.provider';
+import { Emitter } from '@socket.io/redis-emitter';
+import { SocketStorage, WebhookHandleListener, ErrorHandler } from './socket-storage/socket-storage.provider';
 
-type ClientID = string;
 type Path = string;
-type ErrorHandler = {
-  id: string;
-  path: string;
-  socket: Socket;
-  authData: AuthData;
-  applicationIds?: string[];
-  environmentIds?: string[];
-  functionIds?: string[];
-  tenant?: boolean;
-}
-type WebhookHandleID = string;
-type WebhookHandleListener = {
-  clientID: string;
-  socket: Socket;
-  authData: AuthData;
-}
-type AuthFunctionID = string;
-type VariableID = string;
-type VariableSocketListener = {
-  socket: Socket;
-  authData: AuthData;
-  type?: VariableChangeEventType;
-  secret?: boolean;
-}
-
 @Injectable()
 export class EventService {
   private logger: Logger = new Logger(EventService.name);
-  private errorHandlers: ErrorHandler[] = [];
-  private readonly webhookHandleListeners: Record<WebhookHandleID, WebhookHandleListener[]> = {};
-  // TODO: future: use flat array structure for this
-  private readonly authFunctionHandlers: Record<ClientID, Record<AuthFunctionID, Socket[]>> = {};
-  private readonly variableChangeHandlers: Record<ClientID, Record<VariableID, Socket[]>> = {};
-  private readonly variablesChangeHandlers: Record<ClientID, Record<Path, VariableSocketListener[]>> = {};
 
   constructor(
     private readonly authService: AuthService,
+    @Inject(EMITTER) private readonly emitter: Emitter,
+    private readonly socketStorage: SocketStorage,
   ) {
   }
 
-  registerErrorHandler(
+  async registerErrorHandler(
     socket: Socket,
     authData: AuthData,
     path: string,
@@ -60,28 +33,41 @@ export class EventService {
   ) {
     const id = crypto.randomUUID();
     this.logger.debug(`Registering error handler: ${socket.id} '${path}', applicationIds: ${applicationIds}, environmentIds: ${environmentIds}, functionIds: ${functionIds}, tenant: ${tenant} with ID=${id}}`);
-    this.errorHandlers.push({
+
+    await this.socketStorage.pushErrorHandler({
       id,
-      socket,
       path,
       authData,
       applicationIds,
       environmentIds,
       functionIds,
       tenant,
+      socketID: socket.id,
     });
+
+    socket.join(socket.id);
 
     socket.on('disconnect', () => {
       this.logger.debug(`Client for error handler '${id}' disconnected. Removing handler...`);
-      this.errorHandlers = this.errorHandlers.filter(handler => handler.id !== id);
+      this.unregisterErrorHandler({
+        id,
+        path,
+        authData,
+        applicationIds,
+        environmentIds,
+        functionIds,
+        tenant,
+        socketID: socket.id,
+      });
     });
 
     return id;
   }
 
-  unregisterErrorHandler(socket: Socket, handlerId: string) {
-    this.logger.debug(`Unregistering error handler: ${socket.id} '${handlerId}'`);
-    this.errorHandlers = this.errorHandlers.filter(handler => handler.id !== handlerId);
+  unregisterErrorHandler(errorHandler: ErrorHandler) {
+    this.logger.debug(`Unregistering error handler: ${errorHandler.socketID} '${errorHandler.id}'`);
+
+    this.socketStorage.removeErrorhandler(errorHandler);
   }
 
   async sendErrorEvent(
@@ -100,7 +86,10 @@ export class EventService {
       applicationId,
       userId,
     };
-    const errorHandlersOnPath = this.errorHandlers
+
+    const errorHandlers = await this.socketStorage.getErrorHandlers();
+
+    const errorHandlersOnPath = errorHandlers
       .filter(this.filterByPath(path, handler => handler.path));
     const tenantHandlers = errorHandlersOnPath
       .filter(handler => handler.tenant === true && tenantId === handler.authData.tenant.id);
@@ -121,18 +110,19 @@ export class EventService {
       ...functionHandlers,
       ...defaultHandlers,
     ];
-    if (allHandlers.length === 0) {
+
+    if (!allHandlers.length) {
       return false;
     }
 
-    const sentInfos = await Promise.all(allHandlers.map(async ({ id, authData, socket }) => {
+    const sentInfos = await Promise.all(allHandlers.map(async ({ id, authData, socketID }) => {
       // currently allowing Tenant access by default
       if (visibility !== Visibility.Public && authData.tenant.id !== tenantId) {
         return false;
       }
 
       this.logger.debug(`Sending error event for path: '${path}' to '${id}'`, handlerEvent);
-      socket.emit(`handleError:${id}`, handlerEvent);
+      this.emitter.to(socketID).emit(`handleError:${id}`, handlerEvent);
       return true;
     }));
 
@@ -155,42 +145,44 @@ export class EventService {
     }
   }
 
-  registerWebhookEventHandler(client: Socket, clientID: string, webhookHandleID: string, authData: AuthData) {
+  async registerWebhookEventHandler(client: Socket, clientID: string, webhookHandleID: string, authData: AuthData) {
     this.logger.debug(`Registering webhook handler for webhook handle ${webhookHandleID} on ${clientID}`);
-    if (!this.webhookHandleListeners[webhookHandleID]) {
-      this.webhookHandleListeners[webhookHandleID] = [];
-    }
-    this.webhookHandleListeners[webhookHandleID].push({
-      socket: client,
+
+    client.join(client.id);
+
+    const webhookHandleListener: WebhookHandleListener = {
       clientID,
       authData,
-    });
+      webhookHandleID,
+      socketID: client.id,
+    };
+
+    await this.socketStorage.pushWebhookHandleListener(webhookHandleListener);
 
     client.on('disconnect', () => {
       this.logger.debug(`Client for webhook event handler disconnected: ${clientID} '${webhookHandleID}'`);
-      this.unregisterWebhookEventHandler(client, clientID, webhookHandleID);
+
+      this.unregisterWebhookEventHandler(webhookHandleListener);
     });
   }
 
-  unregisterWebhookEventHandler(client: Socket, clientID: string, webhookHandleID: string) {
-    this.logger.debug(`Unregistering webhook event handler: '${webhookHandleID}' on ${clientID}`);
-    if (!this.webhookHandleListeners[webhookHandleID]) {
-      return;
-    }
+  unregisterWebhookEventHandler(webhookHandleListener: WebhookHandleListener) {
+    this.logger.debug(`Unregistering webhook event handler: '${webhookHandleListener.webhookHandleID}' on ${webhookHandleListener.clientID}`);
 
-    this.webhookHandleListeners[webhookHandleID] = this.webhookHandleListeners[webhookHandleID]
-      .filter(listener => listener.clientID !== clientID);
+    return this.socketStorage.removeWebhookHandleListener(webhookHandleListener);
   }
 
-  sendWebhookEvent(webhookHandleID: string, executionEnvironment: Environment | null, eventPayload: any, eventHeaders: Record<string, any>, subpathParams: Record<string, string>) {
+  async sendWebhookEvent(webhookHandleID: string, executionEnvironment: Environment | null, eventPayload: any, eventHeaders: Record<string, any>, subpathParams: Record<string, string>) {
     this.logger.debug(`Sending webhook event: '${webhookHandleID}'`, eventPayload);
 
-    this.webhookHandleListeners[webhookHandleID]?.forEach(({ socket, authData }) => {
-      if (executionEnvironment && authData.environment.id !== executionEnvironment.id) {
+    const webhookHandleListeners = await this.socketStorage.getWebhookHandleListeners();
+
+    webhookHandleListeners.forEach(({ authData, webhookHandleID: id, socketID }) => {
+      if ((executionEnvironment && authData.environment.id !== executionEnvironment.id) || id !== webhookHandleID) {
         return;
       }
 
-      socket.emit(`handleWebhookEvent:${webhookHandleID}`, {
+      this.emitter.to(socketID).emit(`handleWebhookEvent:${webhookHandleID}`, {
         body: eventPayload,
         headers: eventHeaders,
         params: subpathParams,
@@ -198,19 +190,20 @@ export class EventService {
     });
   }
 
-  registerAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string): boolean {
+  async registerAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string): Promise<boolean> {
     this.logger.debug(`Registering handler for auth function ${authFunctionId} on ${clientID}`);
-    if (!this.authFunctionHandlers[clientID]) {
-      this.authFunctionHandlers[clientID] = {};
-    }
-    let handlers = this.authFunctionHandlers[clientID][authFunctionId];
-    if (!handlers) {
-      this.authFunctionHandlers[clientID][authFunctionId] = handlers = [];
-    }
-    if (handlers.some(socket => socket.id === client.id)) {
+
+    const result = await this.socketStorage.pushAuthFunctionEventEventHandler({
+      socketID: client.id,
+      clientID,
+      authFunctionId,
+    });
+
+    if (!result) {
       return false;
     }
-    handlers.push(client);
+
+    client.join(client.id);
 
     client.on('disconnect', () => {
       this.logger.debug(`Client for auth function handler disconnected: ${clientID} '${authFunctionId}'`);
@@ -222,42 +215,38 @@ export class EventService {
 
   unregisterAuthFunctionEventHandler(client: Socket, clientID: string, authFunctionId: string) {
     this.logger.debug(`Unregistering auth function handler: '${authFunctionId}' on ${clientID}`);
-    if (!this.authFunctionHandlers[clientID]?.[authFunctionId]) {
-      return;
-    }
 
-    this.authFunctionHandlers[clientID][authFunctionId] = this.authFunctionHandlers[clientID][authFunctionId]
-      .filter(socket => socket.id !== client.id);
+    this.socketStorage.removeAuthFunctionEventHandler({ clientID, authFunctionId, socketID: client.id });
   }
 
-  sendAuthFunctionEvent(authFunctionId: string, clientID: string | null, eventPayload: any) {
+  async sendAuthFunctionEvent(authFunctionId: string, clientID: string | null, eventPayload: any) {
     this.logger.debug(`Sending auth function event: '${authFunctionId}'`, eventPayload);
 
-    const handlers = clientID ? [this.authFunctionHandlers[clientID]] : Object.values(this.authFunctionHandlers);
-    handlers.forEach(clientHandlers => {
-      if (!clientHandlers?.[authFunctionId]) {
-        return;
+    const handlers = await this.socketStorage.getAuthFunctionEventHandlers();
+
+    for (const handler of handlers) {
+      const matchAuthFunctionId = handler.authFunctionId === authFunctionId;
+
+      if ((!clientID && matchAuthFunctionId) || (clientID && handler.clientID === clientID && matchAuthFunctionId)) {
+        this.emitter.to(handler.socketID).emit(`handleAuthFunctionEvent:${authFunctionId}`, eventPayload);
       }
-      clientHandlers[authFunctionId].forEach(socket => {
-        this.logger.debug(`Sending auth function event: '${authFunctionId}'`, eventPayload);
-        socket.emit(`handleAuthFunctionEvent:${authFunctionId}`, eventPayload);
-      });
-    });
+    }
   }
 
-  registerVariableChangeEventHandler(client: Socket, clientID: string, variableId: string): boolean {
+  async registerVariableChangeEventHandler(client: Socket, clientID: string, variableId: string): Promise<boolean> {
     this.logger.debug(`Registering handler for variable ${variableId} on ${clientID}`);
-    if (!this.variableChangeHandlers[clientID]) {
-      this.variableChangeHandlers[clientID] = {};
-    }
-    let handlers = this.variableChangeHandlers[clientID][variableId];
-    if (!handlers) {
-      this.variableChangeHandlers[clientID][variableId] = handlers = [];
-    }
-    if (handlers.some(socket => socket.id === client.id)) {
+
+    const result = await this.socketStorage.pushVariableChangeHandler({
+      clientID,
+      variableId,
+      socketID: client.id,
+    });
+
+    if (!result) {
       return false;
     }
-    handlers.push(client);
+
+    client.join(client.id);
 
     client.on('disconnect', () => {
       this.logger.debug(`Client for variable handler disconnected: ${clientID} '${variableId}'`);
@@ -269,56 +258,60 @@ export class EventService {
 
   unregisterVariableChangeEventHandler(client: Socket, clientID: string, variableId: string) {
     this.logger.debug(`Unregistering variable handler: '${variableId}' on ${clientID}`);
-    if (!this.variableChangeHandlers[clientID]?.[variableId]) {
-      return;
-    }
 
-    this.variableChangeHandlers[clientID][variableId] = this.variableChangeHandlers[clientID][variableId]
-      .filter(socket => socket.id !== client.id);
+    this.socketStorage.removeVariableChangeHandler({
+      clientID,
+      variableId,
+      socketID: client.id,
+    });
   }
 
-  registerVariablesChangeEventHandler(
+  async registerVariablesChangeEventHandler(
     client: Socket,
     clientID: string,
     authData: AuthData,
     path: string,
     type?: VariableChangeEventType,
     secret?: boolean,
-  ): boolean {
+  ): Promise<boolean> {
     this.logger.debug(`Registering handler for variables on path ${path} on ${clientID}`);
-    if (!this.variablesChangeHandlers[clientID]) {
-      this.variablesChangeHandlers[clientID] = {};
-    }
-    let handlers = this.variablesChangeHandlers[clientID][path];
-    if (!handlers) {
-      this.variablesChangeHandlers[clientID][path] = handlers = [];
-    }
-    if (handlers.some(filterSocket => filterSocket.socket.id === client.id)) {
+
+    const result = await this.socketStorage.pushVariablesChangeHandler({
+      authData,
+      clientID,
+      path,
+      secret,
+      type,
+      socketID: client.id,
+    });
+
+    if (!result) {
       return false;
     }
-    handlers.push({
-      socket: client,
-      authData,
-      type,
-      secret,
-    });
+
+    client.join(client.id);
 
     client.on('disconnect', () => {
       this.logger.debug(`Client for variable handler disconnected: ${clientID} '${path}'`);
-      this.unregisterVariablesChangeEventHandler(client, clientID, path);
+      this.unregisterVariablesChangeEventHandler(client, clientID, authData, path, type, secret);
     });
 
     return true;
   }
 
-  unregisterVariablesChangeEventHandler(client: Socket, clientID: string, path: string) {
-    this.logger.debug(`Unregistering variable handler: '${path}' on ${clientID}`);
-    if (!this.variableChangeHandlers[clientID]?.[path]) {
-      return;
-    }
+  async unregisterVariablesChangeEventHandler(client: Socket, clientID: string, authData: AuthData, path: string, type?: VariableChangeEventType,
+    secret?: boolean,
+  ) {
+    this.logger.debug(`Unregistering variables handler: '${path}' on ${clientID}`);
 
-    this.variableChangeHandlers[clientID][path] = this.variableChangeHandlers[clientID][path]
-      .filter(socket => socket.id !== client.id);
+    this.socketStorage.removeVariablesChangeHandler({
+      clientID,
+      path,
+      authData,
+      type,
+      secret,
+      socketID: client.id,
+    });
   }
 
   async sendVariableChangeEvent(variable: Variable, event: VariableChangeEvent) {
@@ -335,36 +328,26 @@ export class EventService {
       updatedFields: event.updatedFields,
     };
 
-    const handlers = Object.values(this.variableChangeHandlers);
-    handlers.forEach(clientHandlers => {
-      if (!clientHandlers?.[variable.id]) {
-        return;
-      }
-      clientHandlers[variable.id].forEach(socket => {
+    const [handlers, pathHandlers] = await Promise.all([this.socketStorage.getVariableChangeHandlers(), this.socketStorage.getVariablesChangeHandlers()]);
+
+    handlers.forEach(handler => {
+      if (handler.variableId === variable.id) {
         this.logger.debug(`Sending variable event: '${variable.id}'`, handlerEvent);
-        socket.emit(`handleVariableChangeEvent:${variable.id}`, handlerEvent);
-      });
+        this.emitter.to(handler.socketID).emit(`handleVariableChangeEvent:${variable.id}`, handlerEvent);
+      }
     });
 
-    const pathHandlers = Object.values(this.variablesChangeHandlers);
-    for (const pathHandler of pathHandlers) {
-      const paths = Object.keys(pathHandler)
-        .filter(this.filterByPath(event.path));
+    const filteredPathHandlers = pathHandlers.filter(this.filterByPath(event.path, handler => handler.path)).filter(data => data.type == null || data.type === event.type)
+      .filter(data => data.secret == null || data.secret === event.secret);
 
-      for (const path of paths) {
-        const listeners = pathHandler[path]
-          .filter(data => data.type == null || data.type === event.type)
-          .filter(data => data.secret == null || data.secret === event.secret);
-
-        await Promise.all(listeners.map(async ({ authData, socket }) => {
-          if (!await this.authService.hasEnvironmentEntityAccess(variable, authData, true)) {
-            return;
-          }
-
-          this.logger.debug(`Sending variable event for path: '${path}'`, handlerEvent);
-          socket.emit(`handleVariablesChangeEvent:${path}`, handlerEvent);
-        }));
+    for (const listener of filteredPathHandlers) {
+      if (!await this.authService.hasEnvironmentEntityAccess(variable, listener.authData, true)) {
+        return;
       }
+
+      this.logger.debug(`Sending variable event for path: '${listener.path}'`, handlerEvent);
+
+      this.emitter.to(listener.socketID).emit(`handleVariablesChangeEvent:${listener.path}`, handlerEvent);
     }
   }
 

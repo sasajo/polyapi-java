@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
+import { INestApplication, LogLevel, Logger, ValidationPipe } from '@nestjs/common';
 import swStats from 'swagger-stats';
 import { AppModule } from 'app.module';
 import { PrismaService } from 'prisma-module/prisma.service';
@@ -8,6 +8,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { API_TAG_INTERNAL } from 'common/constants';
 import { Request } from 'express';
+import { RedisIoAdapter } from 'event/adapter';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+
+const readFile = promisify(fs.readFile);
 
 const logger = new Logger('main');
 
@@ -55,7 +61,15 @@ const initSwagger = (app: INestApplication) => {
 
 // eslint-disable-next-line func-style
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  process.on('exit', (code) => {
+    console.log('onn exittt: ', code);
+  });
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: process.env.LOG_LEVELS
+      ? (process.env.LOG_LEVELS.split(',') as LogLevel[])
+      : ['log', 'warn', 'error', 'debug'],
+  });
 
   app.useGlobalPipes(new ValidationPipe({
     transform: false,
@@ -69,16 +83,43 @@ async function bootstrap() {
   await prismaService.enableShutdownHooks(app);
 
   if (config.useSwaggerUI) {
-    const document = initSwagger(app);
+    let internalDocument: any;
+    let publicDocument: any;
+
+    if (process.env.NODE_ENV !== 'development') {
+      try {
+        const [internalDocumentContents, publicDocumentContents] = await Promise.all([readFile(path.join(process.cwd(), './swagger-internal.json'), 'utf-8'), readFile(path.join(process.cwd(), './swagger.json'), 'utf-8')]);
+
+        internalDocument = JSON.parse(internalDocumentContents);
+        publicDocument = JSON.parse(publicDocumentContents);
+
+        SwaggerModule.setup('swagger-internal', app, internalDocument);
+        SwaggerModule.setup('swagger', app, publicDocument);
+
+        logger.debug('Loaded swagger docs from json files.');
+      } catch (err) {
+        logger.warn('Could not load swagger docs from json files, loading from app runtime metadata.');
+        internalDocument = initSwagger(app);
+      }
+    } else {
+      logger.debug('Loaded swagger docs from app runtime data.');
+      internalDocument = initSwagger(app);
+    }
 
     app.use(swStats.getMiddleware({
-      swaggerSpec: document,
+      swaggerSpec: internalDocument,
       authentication: true,
       onAuthenticate: (req: Request, username: string, password: string) => {
         return username === config.swaggerStatsUsername && password === config.swaggerStatsPassword;
       },
     }));
   }
+
+  const redisIoAdapter = new RedisIoAdapter(app);
+
+  await redisIoAdapter.connectToRedis(config.redisUrl, config.redisPassword);
+
+  app.useWebSocketAdapter(redisIoAdapter);
 
   await app.listen(config.port);
 }

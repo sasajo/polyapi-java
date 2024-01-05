@@ -10,9 +10,9 @@ import {
   Param,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiSecurity } from '@nestjs/swagger';
+import { ApiExtraModels, ApiResponse, ApiSecurity, getSchemaPath } from '@nestjs/swagger';
 import { Request } from 'express';
-import { CreatePluginDto, Role } from '@poly/model';
+import { CreatePluginDto, EmptyWhoAmIDto, Role, WhoAmIDto } from '@poly/model';
 import { GptPluginService, getSlugSubdomain } from 'gptplugin/gptplugin.service';
 import { AuthRequest } from 'common/types';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
@@ -39,7 +39,7 @@ export class GptPluginController {
   @Get('plugins/:slug/openapi')
   public async pluginOpenApi(@Req() req: Request, @Param('slug') slug: string): Promise<unknown> {
     const spec = await this.service.getOpenApiSpec(req.hostname, slug);
-    return spec;
+    return JSON.parse(spec);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -70,9 +70,12 @@ export class GptPluginController {
   @UseGuards(PolyAuthGuard, ChatQuestionsLimitGuard)
   @Post('api/conversations/:slug')
   public async apiConversationPost(@Req() req: AuthRequest, @Param('slug') conversationSlug: string, @Body() body): Promise<unknown> {
-    const slug = getSlugSubdomain(req.hostname)[0];
-    // for testing locally!
-    // const slug = 'megatronical';
+    let slug;
+    if (process.env.LOCAL_PLUGIN_DEBUG) {
+      slug = 'megatronical'; // use this for local plugin testing
+    } else {
+      slug = getSlugSubdomain(req.hostname)[0];
+    }
     if (!slug) {
       throw new BadRequestException('Slug not found! Please use your plugin subdomain like "foo-1234.na1.polyapi.io".');
     }
@@ -85,7 +88,7 @@ export class GptPluginController {
 
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Delete('api/conversations/:slug')
-  public async apiConversationDelete(@Req() req: AuthRequest, @Param('id') conversationSlug: string): Promise<unknown> {
+  public async apiConversationDelete(@Req() req: AuthRequest, @Param('slug') conversationSlug: string): Promise<unknown> {
     return this.chatService.deleteConversation(req.user, conversationSlug);
   }
 
@@ -113,9 +116,22 @@ export class GptPluginController {
     };
   }
 
+  @ApiExtraModels(WhoAmIDto, EmptyWhoAmIDto)
   @UseGuards(PolyAuthGuard)
   @Get('whoami')
-  public async whoami(@Req() req: AuthRequest): Promise<unknown> {
+  @ApiResponse({
+    schema: {
+      oneOf: [
+        {
+          $ref: getSchemaPath(WhoAmIDto),
+        },
+        {
+          $ref: getSchemaPath(EmptyWhoAmIDto),
+        },
+      ],
+    },
+  })
+  public async whoami(@Req() req: AuthRequest): Promise<WhoAmIDto | EmptyWhoAmIDto> {
     const user = req.user.user;
     if (user) {
       return {

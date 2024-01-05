@@ -1,6 +1,6 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, Patch, Post, Query, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthRequest } from 'common/types';
-import { ConfigVariableName, CreateJobDto, ExecutionFiltersDto, FunctionJob, JobStatus, Jobs, Schedule, ScheduleType, UpdateJobDto } from '@poly/model';
+import { ConfigVariableName, CreateJobDto, ExecutionDto, ExecutionFiltersDto, FunctionJob, CreateFunctionJob, Jobs, Schedule, ScheduleType, UpdateJobDto } from '@poly/model';
 import { Environment } from '@prisma/client';
 import { FunctionService } from 'function/function.service';
 import { PolyAuthGuard } from 'auth/poly-auth-guard.service';
@@ -8,10 +8,11 @@ import { JobsService } from './jobs.service';
 import { ConfigVariableService } from 'config-variable/config-variable.service';
 import * as cronParser from 'cron-parser';
 import { InvalidIntervalTimeException } from './errors/http';
-import { CreateFunctionJob } from '../../packages/model/src/dto/job/utils';
 
 @Controller('jobs')
 export class JobsController {
+  private logger: Logger = new Logger(JobsController.name);
+
   constructor(private readonly service: JobsService, private readonly functionService: FunctionService, private readonly configVariableService: ConfigVariableService) {
 
   }
@@ -25,7 +26,7 @@ export class JobsController {
       executionType,
       functions,
       name,
-      status = JobStatus.ENABLED,
+      enabled = true,
     } = data;
 
     await Promise.all([this.checkFunctions(req.user.environment, data.functions), this.checkSchedule(req.user.environment, schedule)]);
@@ -33,7 +34,7 @@ export class JobsController {
     const functionsJob = this.processJobFunctions(functions);
 
     return this.service.toJobDto(
-      await this.service.createJob(req.user.environment, name, schedule, functionsJob, executionType, status),
+      await this.service.createJob(req.user.environment, name, schedule, functionsJob, executionType, enabled),
     );
   }
 
@@ -53,7 +54,7 @@ export class JobsController {
       executionType,
       functions,
       name,
-      status,
+      enabled,
     } = data;
 
     if (schedule) {
@@ -65,7 +66,7 @@ export class JobsController {
     const job = await this.findJob(req.user.environment, id);
     const functionsJob = functions ? this.processJobFunctions(functions) : functions;
 
-    return this.service.toJobDto(await this.service.updateJob(job, name, schedule, functionsJob, executionType, status));
+    return this.service.toJobDto(await this.service.updateJob(job, name, schedule, functionsJob, executionType, enabled));
   }
 
   @Get(':id')
@@ -88,7 +89,7 @@ export class JobsController {
     transform: true,
     forbidNonWhitelisted: true,
     whitelist: true,
-  })) filters: ExecutionFiltersDto) {
+  })) filters: ExecutionFiltersDto): Promise<ExecutionDto[]> {
     const job = await this.findJob(req.user.environment, id);
 
     return (await this.service.getExecutions(job, filters)).map(execution => this.service.toExecutionDto(execution));
@@ -99,7 +100,26 @@ export class JobsController {
   async getJobExecution(@Req() req: AuthRequest, @Param('job') jobId: string, @Param('id') id: string) {
     await this.findJob(req.user.environment, jobId);
 
-    return this.service.toExecutionDto(await this.findExecution(id));
+    return this.service.toExecutionDto(await this.findExecution(jobId, id));
+  }
+
+  @Delete(':job/executions')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PolyAuthGuard)
+  async deleteJobExecutions(@Req() req: AuthRequest, @Param('job') jobId: string) {
+    this.logger.debug(`Deleting job executions for job with id "${jobId}"`);
+    await this.findJob(req.user.environment, jobId);
+    await this.service.deleteJobExecutions(jobId);
+  }
+
+  @Delete(':job/executions/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PolyAuthGuard)
+  async deleteJobExecution(@Req() req: AuthRequest, @Param('job') jobId: string, @Param('id') id: string) {
+    this.logger.debug(`Deleting job execution for job with id "${jobId}" and execution id "${id}"`);
+    await this.findJob(req.user.environment, jobId);
+    await this.findExecution(jobId, id);
+    await this.service.deleteJobExecution(id);
   }
 
   private async checkFunctions(environment: Environment, functions: { id: string }[] = []) {
@@ -112,14 +132,14 @@ export class JobsController {
 
   private async checkSchedule(environment: Environment, schedule: Schedule) {
     const jobConfig = (await this.configVariableService.getEffectiveValue<Jobs>(ConfigVariableName.Jobs, environment.tenantId, environment.id)) || {
-      minimumIntervalTimeBetweenExecutions: 5,
+      minimumExecutionInterval: 5,
     };
 
-    const { minimumIntervalTimeBetweenExecutions } = jobConfig;
+    const { minimumExecutionInterval } = jobConfig;
 
     if (schedule.type === ScheduleType.INTERVAL) {
-      if (schedule.value < minimumIntervalTimeBetweenExecutions) {
-        throw new InvalidIntervalTimeException(minimumIntervalTimeBetweenExecutions);
+      if (schedule.value < minimumExecutionInterval) {
+        throw new InvalidIntervalTimeException(minimumExecutionInterval);
       }
     }
 
@@ -132,8 +152,8 @@ export class JobsController {
 
       const intervalMinutes = (secondExecutionDate.getTime() - firstExecutionDate.getTime()) / 1000 / 60;
 
-      if (intervalMinutes < minimumIntervalTimeBetweenExecutions) {
-        throw new InvalidIntervalTimeException(minimumIntervalTimeBetweenExecutions);
+      if (intervalMinutes < minimumExecutionInterval) {
+        throw new InvalidIntervalTimeException(minimumExecutionInterval);
       }
     }
 
@@ -154,11 +174,11 @@ export class JobsController {
     return job;
   }
 
-  private async findExecution(id: string) {
-    const execution = await this.service.getExecution(id);
+  private async findExecution(jobId: string, id: string) {
+    const execution = await this.service.getExecution(jobId, id);
 
     if (!execution) {
-      throw new NotFoundException('Job not found.');
+      throw new NotFoundException('Execution not found.');
     }
 
     return execution;

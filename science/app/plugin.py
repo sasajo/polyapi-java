@@ -1,14 +1,16 @@
 import os
 import json
+import logging
 from flask import abort
 import requests
 
 from app.conversation import get_plugin_conversation_lookback, get_recent_messages
 
 assert requests
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from openai import OpenAI
 from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from prisma import get_client
 from prisma.models import ConversationMessage, ApiKey
 
@@ -22,6 +24,8 @@ from app.utils import (
     strip_type_and_info,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def _get_openapi_url(plugin_id: int) -> str:
     db = get_client()
@@ -30,8 +34,11 @@ def _get_openapi_url(plugin_id: int) -> str:
     )
     if not plugin or not plugin.environment:
         raise NotImplementedError(f"Plugin with id {plugin_id} doesn't exist, how?")
-    domain = os.environ.get("HOST_URL", "https://na1.polyapi.io").strip("https://")
-    url = f"https://{plugin.slug}-{plugin.environment.subdomain}.{domain}/plugins/{plugin.slug}/openapi"
+    if os.environ.get("LOCAL_PLUGIN_DEBUG"):
+        url = "http://localhost:8000/plugins/megatronical/openapi"
+    else:
+        domain = os.environ.get("HOST_URL", "https://na1.polyapi.io").strip("https://")
+        url = f"https://{plugin.slug}-{plugin.environment.subdomain}.{domain}/plugins/{plugin.slug}/openapi"
     return url
 
 
@@ -109,9 +116,20 @@ def _get_previous_messages(
     return prev_msgs
 
 
-def _function_call(openai_api_key: str | None, **kwargs):
+def _choose_tool(openai_api_key: str | None, **kwargs):
     client = OpenAI(api_key=openai_api_key)
     return client.chat.completions.create(model=CHAT_GPT_MODEL, **kwargs)
+
+
+def _functions_to_tools(functions: List[Dict]) -> List[Dict]:
+    return [{"type": "function", "function": f} for f in functions]
+
+
+def _get_tools(plugin_id: int) -> Tuple[List[Dict], Dict]:
+    openapi = _get_openapi_spec(plugin_id)
+    functions = openapi_to_openai_functions(openapi)
+    tools = _functions_to_tools(functions)
+    return tools, openapi
 
 
 def get_plugin_chat(
@@ -128,8 +146,7 @@ def get_plugin_chat(
 
     prev_msgs = _get_previous_messages(conversation_id, db_api_key)
 
-    openapi = _get_openapi_spec(plugin_id)
-    functions = openapi_to_openai_functions(openapi)
+    tools, openapi = _get_tools(plugin_id)
 
     messages = [
         MessageDict(role="user", content=message, type=MessageType.plugin.value)
@@ -137,10 +154,10 @@ def get_plugin_chat(
     openai_api_key = get_tenant_openai_key(
         user_id=db_api_key.userId, application_id=db_api_key.applicationId
     )
-    resp = _function_call(
+    resp = _choose_tool(
         openai_api_key,
         messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-        functions=functions,  # type: ignore
+        tools=tools,  # type: ignore
         temperature=0.2,
     )
 
@@ -150,16 +167,18 @@ def get_plugin_chat(
         if not choice.message:
             raise NotImplementedError(f"Got weird OpenAI response: {choice}")
 
-        function_call = choice.message.function_call
-        if function_call:
+        tool_calls = choice.message.tool_calls
+        if tool_calls:
+            tool_call = tool_calls[0]
             # lets execute the function_call and return the results
-            function_msg = execute_function(api_key, openapi, function_call.model_dump())
-            function_call_msg = choice.message.model_dump()
-            messages.extend([function_call_msg, function_msg])  # type: ignore
-            resp2 = _function_call(
+            execute_msg = execute_function(api_key, openapi, tool_call)
+            tool_call_msg = choice.message.model_dump()
+            del tool_call_msg["function_call"]
+            messages.extend([tool_call_msg, execute_msg])  # type: ignore
+            resp2 = _choose_tool(
                 openai_api_key,
                 messages=strip_type_and_info(msgs_to_msg_dicts(prev_msgs) + messages),  # type: ignore
-                functions=functions,  # type: ignore
+                tools=tools,
                 temperature=0.2,
             )
             # lets line up response for possible function_call execution
@@ -175,15 +194,10 @@ def get_plugin_chat(
     return {"conversationGuid": conversation_id, "messages": _serialize(messages)}
 
 
-def _serialize(messages: List[MessageDict]) -> List[Dict]:
+def _serialize(messages: List[MessageDict]) -> List[MessageDict]:
     rv = []
     for message in messages:
-        rv.append(
-            {
-                "role": message["role"],
-                "content": message["content"],
-            }
-        )
+        rv.append(message)
     return rv
 
 
@@ -194,18 +208,26 @@ def _get_name_path_map(openapi: Dict) -> Dict:
     return rv
 
 
-def execute_function(api_key: str, openapi: Dict, function_call: Dict) -> MessageDict:
-    func_name = function_call["name"]
+def execute_function(api_key: str, openapi: Dict, tool_call: ChatCompletionMessageToolCall) -> Dict:
+    assert tool_call.type == "function"
+    function_call = tool_call.function
+    func_name = function_call.name
     assert func_name
     name_path_map = _get_name_path_map(openapi)
     path = name_path_map[func_name]
-    # TODO figure out how to switch domains
-    # domain = "https://megatronical.pagekite.me"
-    domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
+    if os.environ.get("LOCAL_PLUGIN_DEBUG"):
+        domain = "https://megatronical.pagekite.me"  # DEBUG DOMAIN for local pagekite
+    else:
+        domain = os.environ.get("HOST_URL", "https://na1.polyapi.io")
     headers = {"Authorization": f"Bearer {api_key}"}
-    # NOTE: we need to figure out how to handle utf8 before we re-enable this log, otherwise we will get UnicodeEncodeErrors
-    # print("right before we send to execute", function_call)
     resp = requests.post(
-        domain + path, json=json.loads(function_call["arguments"]), headers=headers
+        domain + path, json=json.loads(function_call.arguments), headers=headers
     )
-    return MessageDict(role="function", name=func_name, content=resp.text)
+
+    execute_msg = dict(
+        tool_call_id=tool_call.id,
+        role="tool",
+        name=func_name,
+        content=resp.text)
+
+    return execute_msg

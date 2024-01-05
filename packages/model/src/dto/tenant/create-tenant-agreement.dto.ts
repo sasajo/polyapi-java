@@ -1,4 +1,4 @@
-import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsOptional, IsString } from 'class-validator';
 
@@ -6,14 +6,14 @@ export class CreateTenantAgreement {
     @IsString()
     tosId: string;
 
-    @ApiModelProperty({
+    @ApiProperty({
       required: false,
     })
     @IsString()
     @IsOptional()
     notes?: string;
 
-    @ApiModelProperty({
+    @ApiProperty({
       required: false,
       description: 'If not provided, is generated automatically.',
     })

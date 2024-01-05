@@ -7,6 +7,9 @@ import { AuthProviderModule } from 'auth-provider/auth-provider.module';
 import { VariableModule } from 'variable/variable.module';
 import { ApplicationModule } from 'application/application.module';
 import { EnvironmentModule } from 'environment/environment.module';
+import emitterProvider from './emitter/emitter.provider';
+import { SocketStorage } from './socket-storage/socket-storage.provider';
+import { RedlockModule } from 'common/modules/redlock.module';
 
 @Module({
   imports: [
@@ -16,8 +19,14 @@ import { EnvironmentModule } from 'environment/environment.module';
     forwardRef(() => VariableModule),
     ApplicationModule,
     EnvironmentModule,
+    RedlockModule.register({
+      settings: {
+        retryDelay: 1000,
+        retryCount: 10,
+      },
+    }),
   ],
-  providers: [EventGateway, EventService],
+  providers: [EventGateway, EventService, emitterProvider, SocketStorage],
   exports: [EventService],
 })
 export class EventModule {}

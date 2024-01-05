@@ -1,8 +1,7 @@
-import { IsEnum, IsOptional, IsString } from "class-validator";
-import { FunctionsExecutionType, JobExecutionStatus } from "../../job";
+import { IsEnum, IsOptional } from 'class-validator';
+import { JobExecutionStatus } from '../../job';
 
 export class ExecutionFiltersDto {
-
     @IsOptional()
     @IsEnum(JobExecutionStatus)
     status?: JobExecutionStatus;

@@ -2,7 +2,12 @@ import { HttpException, HttpStatus, InternalServerErrorException, Logger } from 
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from 'config/config.service';
 import { catchError, lastValueFrom, map } from 'rxjs';
-import { getDateMinusXHours, getNanosecondsFromDate, getNanosecondsDateISOString } from '@poly/common/utils';
+import {
+  getDateMinusXHours,
+  getNanosecondsFromDate,
+  getNanosecondsDateISOString,
+  getSecondsFromDate,
+} from '@poly/common/utils';
 import { FunctionLog } from '@poly/model';
 import { FaasLogsService } from '../faas.service';
 
@@ -25,12 +30,13 @@ export class LokiLogsService implements FaasLogsService {
 
   constructor(private readonly config: ConfigService, private readonly httpService: HttpService) {}
 
-  async getLogs(functionId: string, keyword = ''): Promise<FunctionLog[]> {
+  async getLogs(functionId: string, keyword = '', lastHours = 24, limit = 100): Promise<FunctionLog[]> {
     this.logger.debug(`Getting logs for function with id ${functionId}`);
     const logQuery = this.constructQuery(functionId, keyword);
-    const dateMinus24hs = getDateMinusXHours(new Date(), 24);
-    const url = `${this.config.faasPolyServerLogsUrl}/loki/api/v1/query_range?query=${encodeURIComponent(logQuery)}&start=${getNanosecondsFromDate(dateMinus24hs)}`;
-    this.logger.debug(`Sending request to ${url}`);
+    const startDate = getDateMinusXHours(new Date(), lastHours);
+    const url = `${this.config.faasPolyServerLogsUrl}/loki/api/v1/query_range?query=${encodeURIComponent(logQuery)}&start=${getNanosecondsFromDate(startDate)}`;
+    this.logger.debug(`Last ${lastHours} hours of logs will be retrieved`);
+    this.logger.debug(`Sending request to Loki: ${url}`);
     return await lastValueFrom(
       this.httpService
         .get(url)
@@ -44,7 +50,29 @@ export class LokiLogsService implements FaasLogsService {
           }),
           map((lokiData) => this.toFunctionLogs(lokiData)),
           map((logs) => this.sortLogsByNewestFirst(logs)),
+          map((sortedLogs) => sortedLogs.slice(0, limit)),
           map((sortedLogs) => this.getUserFriendlyLogs(sortedLogs)),
+          catchError(this.processLogsRetrievalError()),
+        ),
+    );
+  }
+
+  async deleteLogs(functionId: string): Promise<void> {
+    this.logger.debug(`Deleting logs for function with id ${functionId}`);
+    const logQuery = this.constructQuery(functionId);
+    const startDate = new Date(2023, 1, 1); // all logs (for now)
+    const url = `${this.config.faasPolyServerLogsUrl}/loki/api/v1/delete?query=${encodeURIComponent(logQuery)}&start=${getSecondsFromDate(startDate)}`;
+    this.logger.debug(`Sending request to ${url}`);
+
+    await lastValueFrom(
+      this.httpService
+        .post(url)
+        .pipe(
+          map((response) => {
+            if (response.status !== 204) {
+              throw new InternalServerErrorException('Failed to delete logs.');
+            }
+          }),
           catchError(this.processLogsRetrievalError()),
         ),
     );
@@ -96,7 +124,7 @@ export class LokiLogsService implements FaasLogsService {
     );
   }
 
-  private constructQuery(functionId: string, keyword: string): string {
+  private constructQuery(functionId: string, keyword?: string): string {
     const getKeywordQuery = (keyword: string) => `|~ "(?i)${keyword}"`;
     const textContentQuery = keyword
       ? ` ${getKeywordQuery(keyword)}`
@@ -105,7 +133,7 @@ export class LokiLogsService implements FaasLogsService {
   }
 
   private getLogContentAndLevel(rawLogText: string): [logContent: string, logLevel: string] {
-    const polyLogPattern = /\[(ERROR|LOG|INFO|WARN)](.*?)\[\/\1]/gs;
+    const polyLogPattern = /\[(ERROR|LOG|INFO|WARNING|WARN|DEBUG|CRITICAL)](.*?)\[\/\1]/gs;
     const timestampStdPipePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (stdout|stderr) F /g;
 
     const [, level, logText] = polyLogPattern.exec(rawLogText) || [null, 'UNKNOWN', rawLogText];
@@ -115,7 +143,8 @@ export class LokiLogsService implements FaasLogsService {
       lines
         .map(line => line.replace(timestampStdPipePattern, ''))
         .join('\n'),
-      level,
+      // Python uses WARNING instead of WARN. Coerce it here back to WARN.
+      level === 'WARNING' ? 'WARN' : level,
     ];
   }
 }

@@ -198,6 +198,7 @@ export class AuthProviderController {
       callbackUrl = null,
       userId = null,
     } = data;
+
     return await this.service.executeAuthProvider(authProvider, eventsClientId, clientId, clientSecret, audience, scopes, callbackUrl, userId);
   }
 

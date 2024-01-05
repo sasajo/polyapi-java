@@ -1,15 +1,13 @@
-import { ApiModelProperty } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
+import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
+import { applyDecorators } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Validate, ValidationArguments } from 'class-validator';
-import { CronExpression } from '../validators';
+import { CronExpression, Record } from '../validators';
 import { ScheduleType } from '../../job';
 
 const dateErrMsg = (validationArgs: ValidationArguments) => `${validationArgs.property} must be a valid ISO 8601 date string`;
 
 export class ScheduleBase {
-    @ApiModelProperty({
-      name: 'type',
-    })
     @IsString()
     @IsIn([ScheduleType.INTERVAL, ScheduleType.PERIODICAL, ScheduleType.ON_TIME])
     type: ScheduleType;
@@ -17,59 +15,82 @@ export class ScheduleBase {
 
 export class OnTime extends ScheduleBase {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: [ScheduleType.ON_TIME],
     })
     type: ScheduleType.ON_TIME;
 
+    /**
+     * Valid ISO 8601 date string, you can create your dates with this tool: https://www.timestamp-converter.com/
+     */
     @IsDate({
       message: dateErrMsg,
     })
-    @ApiModelProperty()
     @Type(() => Date)
     value: Date;
 }
 
 export class Periodical extends ScheduleBase {
     @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: [ScheduleType.PERIODICAL],
     })
     type: ScheduleType.PERIODICAL;
 
+    /**
+     * You can try your cron expressions here: https://crontab.guru
+     */
     @IsString()
     @IsNotEmpty()
     @Validate(CronExpression)
-    @ApiModelProperty()
     value: string;
 }
 
 export class Interval extends ScheduleBase {
-    @IsString()
-    @ApiModelProperty({
+    @ApiProperty({
       enum: [ScheduleType.INTERVAL],
     })
+    @IsString()
     type: ScheduleType.INTERVAL;
 
+    /**
+     * The interval in minutes.
+     */
     @IsNumber()
-    @ApiModelProperty()
     value: number;
 }
 
-export class CreateFunctionJob {
+export class FunctionJob {
     @IsString()
     @IsNotEmpty()
     id: string;
 
     @IsOptional()
     @IsObject()
-    eventPayload?: object;
+    @Record({ apiProperty: { required: false } })
+    eventPayload: object;
 
     @IsOptional()
-    @IsObject()
-    headersPayload?: object;
+    @Record({ apiProperty: { required: false } })
+    headersPayload: object;
 
     @IsOptional()
-    @IsObject()
-    paramsPayload?: object;
+    @Record({ apiProperty: { required: false } })
+    paramsPayload: object;
 }
+
+export const ScheduleApiProperty = ({ required }: { required?: boolean } = { required: true }) => applyDecorators(ApiProperty({
+  name: 'schedule',
+  oneOf: [
+    {
+      $ref: getSchemaPath(Periodical),
+    },
+    {
+      $ref: getSchemaPath(Interval),
+    },
+    {
+      $ref: getSchemaPath(OnTime),
+    },
+  ],
+  required,
+}));

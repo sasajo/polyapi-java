@@ -1,11 +1,8 @@
 """ logging related functions
 """
-import sys
 import logging
 import rollbar
 from typing import Dict
-
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 def log(*args, **kwargs) -> None:

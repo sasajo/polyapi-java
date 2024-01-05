@@ -18,7 +18,7 @@ import {
   Req,
   Res,
   UseGuards,
-  UseInterceptors,
+  UseInterceptors, UsePipes, ValidationPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiSecurity } from '@nestjs/swagger';
 import { ASSISTANCE_TRAINING_SCRIPT_VERSION_HEADER, TRAINING_SCRIPT_VERSION_HEADER } from '@poly/common/utils';
@@ -34,13 +34,14 @@ import {
   CreateServerCustomFunctionResponseDto,
   ExecuteApiFunctionDto,
   ExecuteCustomFunctionDto,
-  ExecuteCustomFunctionQueryParams,
   FunctionBasicDto,
   FunctionDetailsDto,
   FunctionPublicBasicDto,
   FunctionPublicDetailsDto,
   Permission,
+  PrebuiltBaseImageOptions,
   Role,
+  ServerFunctionLogsQueryParams,
   TrainingFunctionDto,
   UpdateApiFunctionDto,
   UpdateClientCustomFunctionDto,
@@ -424,8 +425,10 @@ export class FunctionController {
   @UseGuards(new PolyAuthGuard([Role.SuperAdmin]))
   @Post('/server/prebuilt-base-image')
   @Header('Content-Type', 'text/plain')
-  async createOrUpdatePrebuiltBaseImage(@Req() req: AuthRequest) {
-    return this.service.createOrUpdatePrebuiltBaseImage(req.user);
+  async createOrUpdatePrebuiltBaseImage(@Req() req: AuthRequest, @Body() data: PrebuiltBaseImageOptions) {
+    const { language = 'javascript' } = data;
+
+    return this.service.createOrUpdatePrebuiltBaseImage(req.user, language);
   }
 
   @UseGuards(PolyAuthGuard)
@@ -560,8 +563,13 @@ export class FunctionController {
   }
 
   @UseGuards(PolyAuthGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
   @Get('/server/:id/logs')
-  async getServerFunctionLogs(@Req() req: AuthRequest, @Param('id') id: string, @Query('keyword') keyword): Promise<any> {
+  async getServerFunctionLogs(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Query() { keyword, lastHours, lastDays, limit }: ServerFunctionLogsQueryParams,
+  ): Promise<any> {
     const serverFunction = await this.service.findServerFunction(id);
     if (!serverFunction) {
       throw new NotFoundException(`Function with ID ${id} not found.`);
@@ -577,7 +585,38 @@ export class FunctionController {
 
     await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user);
 
-    return await this.service.getServerFunctionLogs(id, keyword, serverFunction.logsEnabled);
+    const hours = lastHours && lastDays
+      ? Math.min(lastHours, lastDays * 24)
+      : lastHours || (lastDays && lastDays * 24);
+    const logs = await this.service.getServerFunctionLogs(id, req.user.tenant.id, req.user.environment.id, keyword, hours, limit);
+    return {
+      logsEnabled: serverFunction.logsEnabled,
+      logs,
+    };
+  }
+
+  @UseGuards(PolyAuthGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @Delete('/server/:id/logs')
+  async deleteServerFunctionLogs(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const serverFunction = await this.service.findServerFunction(id);
+    if (!serverFunction) {
+      throw new NotFoundException(`Function with ID ${id} not found.`);
+    }
+
+    if (req.user.environment.id !== serverFunction.environmentId) {
+      throw new ForbiddenException(`You do not have access to the logs of the function with ID ${id}.`);
+    }
+
+    await this.authService.checkEnvironmentEntityAccess(serverFunction, req.user);
+
+    await this.service.deleteServerFunctionLogs(id);
+
+    res.status(HttpStatus.ACCEPTED).send('Logs scheduled for deletion, please wait a few minutes.');
   }
 
   @PerfLog(PerfLogType.ServerFunctionExecution)
@@ -589,7 +628,6 @@ export class FunctionController {
     @Param('id') id: string,
     @Body() data: ExecuteCustomFunctionDto,
     @Headers() headers: Record<string, any>,
-    @Query() { clientId }: ExecuteCustomFunctionQueryParams,
   ): Promise<any> {
     this.logger.debug(`Headers: ${JSON.stringify(headers)}`);
 
@@ -616,7 +654,14 @@ export class FunctionController {
       id: customFunction.id,
     };
 
-    const { body, statusCode = 200 } = await this.service.executeServerFunction(customFunction, executionEnvironment, data, headers, clientId) || {};
+    const { body, statusCode = 200 } = await this.service.executeServerFunction(
+      customFunction,
+      executionEnvironment,
+      data,
+      headers,
+      req.user.user?.id,
+      req.user.application?.id,
+    ) || {};
     return res.status(statusCode).send(body);
   }
 

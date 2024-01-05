@@ -27,9 +27,11 @@ import {
   Body,
   ConfigVariableName,
   CustomFunctionSpecification,
+  FormDataEntry,
   FunctionArgument,
   FunctionBasicDto,
   FunctionDetailsDto,
+  FunctionLog,
   FunctionPublicBasicDto,
   FunctionPublicDetailsDto,
   GraphQLBody,
@@ -39,17 +41,15 @@ import {
   PropertySpecification,
   PropertyType,
   PublicVisibilityValue,
+  RawBody,
   Role,
   ServerFunctionSpecification,
   TrainingDataGeneration,
+  UpdateSourceFunctionDto,
+  UpdateSourceNullableEntry,
   Variables,
   Visibility,
   VisibilityQuery,
-  UpdateSourceFunctionDto,
-  UpdateSourceNullableEntry,
-  FormDataEntry,
-  RawBody,
-  FunctionLog,
 } from '@poly/model';
 import { EventService } from 'event/event.service';
 import { AxiosError } from 'axios';
@@ -58,7 +58,7 @@ import { PathError } from 'common/path-error';
 import { ConfigService } from 'config/config.service';
 import { AiService } from 'ai/ai.service';
 import { compareArgumentsByRequired } from 'function/comparators';
-import { FaasService, FaasLogsService } from 'function/faas/faas.service';
+import { FaasLogsService, FaasService } from 'function/faas/faas.service';
 import { KNativeFaasService } from 'function/faas/knative/knative-faas.service';
 import { transpileCode } from 'function/custom/transpiler';
 import { SpecsService } from 'specs/specs.service';
@@ -467,7 +467,7 @@ export class FunctionService implements OnModuleInit {
           this.logger.debug(`Setting argument descriptions to arguments metadata from AI: ${JSON.stringify(aiArguments)}...`);
 
           (aiArguments || [])
-            .filter((aiArgument) => !argumentsMetadata[aiArgument.name].description)
+            .filter((aiArgument) => argumentsMetadata[aiArgument.name] && !argumentsMetadata[aiArgument.name].description)
             .forEach((aiArgument) => {
               argumentsMetadata[aiArgument.name].description = aiArgument.description;
             });
@@ -1132,7 +1132,7 @@ export class FunctionService implements OnModuleInit {
           {
             name: {
               not: {
-                equals: this.config.prebuiltBaseImageName,
+                equals: this.config.prebuiltBaseNodeImageName,
               },
             },
           },
@@ -1298,6 +1298,9 @@ export class FunctionService implements OnModuleInit {
       returnType = JSON.stringify(returnTypeSchema);
     }
     if (!returnType || !args) {
+      if (language !== 'javascript') {
+        throw new BadRequestException('Cannot infer return type or arguments from non-javascript code.');
+      }
       const {
         code: transpilerCode,
         args: transpilerArgs,
@@ -1444,7 +1447,6 @@ export class FunctionService implements OnModuleInit {
           createFromScratch,
           customFunction.sleep,
           customFunction.sleepAfter,
-          logsEnabled,
         );
 
         return customFunction;
@@ -1547,7 +1549,6 @@ export class FunctionService implements OnModuleInit {
         await this.limitService.getTenantServerFunctionLimits(customFunction.environment.tenantId),
         sleep ?? customFunction.sleep,
         sleepAfter ?? customFunction.sleepAfter,
-        logsEnabled,
       );
     }
 
@@ -1690,7 +1691,7 @@ export class FunctionService implements OnModuleInit {
           {
             name: {
               not: {
-                equals: this.config.prebuiltBaseImageName,
+                equals: this.config.prebuiltBaseNodeImageName,
               },
             },
           },
@@ -1785,20 +1786,10 @@ export class FunctionService implements OnModuleInit {
 
     const argumentsList = Array.isArray(args) ? args : functionArguments.map((arg: FunctionArgument) => typeof args[arg.key] === 'undefined' ? '$poly-undefined-value' : args[arg.key]);
 
-    try {
-      const result = await this.faasService.executeFunction(
-        customFunction.id,
-        customFunction.environmentId,
-        executionEnvironment.tenantId,
-        executionEnvironment.id,
-        argumentsList,
-        headers,
-      );
-      this.logger.debug(
-        `Server function ${customFunction.id} executed successfully with result: ${JSON.stringify(result)}`,
-      );
-      return result;
-    } catch (error) {
+    const logsEnabled = customFunction.logsEnabled && customFunction.environmentId === executionEnvironment.id;
+    console.log('LOGS ENABLED', logsEnabled);
+
+    const processError = async (error: any) => {
       this.logger.error(`Error executing server function ${customFunction.id}: ${error.message}`);
       const functionPath = `${customFunction.context ? `${customFunction.context}.` : ''}${customFunction.name}`;
       if (await this.eventService.sendErrorEvent(
@@ -1815,7 +1806,35 @@ export class FunctionService implements OnModuleInit {
       }
 
       throw new HttpException(error.response?.data || error.message, error.status || HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    };
+
+    try {
+      const result = await this.faasService.executeFunction(
+        customFunction.id,
+        executionEnvironment.tenantId,
+        argumentsList,
+        headers,
+        logsEnabled,
+      );
+      this.logger.debug(
+        `Server function ${customFunction.id} executed with result: ${JSON.stringify(result)}`,
+      );
+
+      if (result.statusCode < 200 || result.statusCode >= 300) {
+        return await processError({
+          message: result.body,
+          status: result.statusCode,
+          response: {
+            data: result.body,
+            status: result.statusCode,
+          },
+        });
+      }
+
+      return result;
+    } catch (error) {
+      return await processError(error);
+    };
   }
 
   async updateAllServerFunctions() {
@@ -1857,8 +1876,6 @@ export class FunctionService implements OnModuleInit {
         apiKey,
         await this.limitService.getTenantServerFunctionLimits(serverFunction.environment.tenantId),
         serverFunction.logsEnabled,
-        undefined,
-        undefined,
       );
     }
   }
@@ -1911,12 +1928,24 @@ export class FunctionService implements OnModuleInit {
     };
   }
 
-  async getServerFunctionLogs(id: string, keyword: string, logsEnabled: boolean): Promise<{ logsEnabled: boolean, logs: FunctionLog[] }> {
-    const logs = await this.faasLogsService.getLogs(id, keyword);
-    return {
-      logsEnabled,
-      logs,
-    };
+  async getServerFunctionLogs(
+    id: string,
+    tenantId: string,
+    environmentId: string,
+    keyword: string | undefined,
+    hours: number | undefined,
+    limit: number | undefined,
+  ): Promise<FunctionLog[]> {
+    return await this.faasLogsService.getLogs(
+      id,
+      keyword,
+      hours,
+      limit,
+    );
+  }
+
+  async deleteServerFunctionLogs(id: string): Promise<void> {
+    await this.faasLogsService.deleteLogs(id);
   }
 
   private isGraphQLBody(body: Body): body is GraphQLBody {
@@ -1934,31 +1963,47 @@ export class FunctionService implements OnModuleInit {
     });
   }
 
-  async createOrUpdatePrebuiltBaseImage(user: AuthData) {
-    const functionName = this.config.prebuiltBaseImageName;
+  async createOrUpdatePrebuiltBaseImage(user: AuthData, language: string) {
+    switch (language) {
+      case 'javascript': {
+        // TODO: we might try to refactor this, so it does not store the function in the database
+        const functionName = this.config.prebuiltBaseNodeImageName;
+        const code = `function ${functionName}(): void {};`;
+        const customFunction = await this.createOrUpdateServerFunction(
+          user.environment,
+          '',
+          functionName,
+          '',
+          code,
+          'javascript',
+          {},
+          undefined,
+          undefined,
+          undefined,
+          user.key,
+          false,
+          () => Promise.resolve(),
+          true,
+        );
 
-    const code = `
-      function ${functionName}(): void {};
-    `;
-
-    const customFunction = await this.createOrUpdateServerFunction(
-      user.environment,
-      '',
-      functionName,
-      '',
-      code,
-      'javascript',
-      {},
-      undefined,
-      undefined,
-      undefined,
-      user.key,
-      false,
-      () => Promise.resolve(),
-      true,
-    );
-
-    return this.faasService.getFunctionName(customFunction.id);
+        return this.faasService.getFunctionName(customFunction.id);
+      }
+      case 'java': {
+        await this.faasService.createFunction(
+          this.config.prebuiltBaseJavaImageName,
+          user.tenant.id,
+          user.environment.id,
+          this.config.prebuiltBaseJavaImageName,
+          'public class PolyCustomFunction {}',
+          'java',
+          [],
+          user.key,
+          {},
+          true,
+        );
+        return this.faasService.getFunctionName(this.config.prebuiltBaseJavaImageName);
+      }
+    }
   }
 
   /**
@@ -2735,7 +2780,7 @@ export class FunctionService implements OnModuleInit {
       const typeSchema = returnType ? JSON.parse(returnType) : undefined;
       return ['object', typeSchema];
     } catch (e) {
-      return ['string', undefined];
+      return [returnType || 'string', undefined];
     }
   }
 }

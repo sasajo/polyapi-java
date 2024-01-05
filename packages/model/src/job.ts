@@ -9,11 +9,6 @@ export enum FunctionsExecutionType {
     PARALLEL = 'parallel'
 }
 
-export enum JobStatus {
-    ENABLED = 'enabled',
-    DISABLED = 'disabled'
-};
-
 export enum JobExecutionStatus {
     FINISHED = 'finished',
     JOB_ERROR = 'job_error',

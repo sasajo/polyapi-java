@@ -4,7 +4,7 @@ import { validateObjectValue } from '../../utils';
 
 export class Jobs {
   @IsNumber()
-  minimumIntervalTimeBetweenExecutions: number;
+  minimumExecutionInterval: number;
 }
 
 export const validate = (value: unknown) => {

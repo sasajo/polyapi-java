@@ -51,6 +51,8 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 
 export const getNanosecondsFromDate = (date: Date): string => `${date.getTime() * 1000000}`;
 
+export const getSecondsFromDate = (date: Date): string => `${date.getTime() / 1000}`;
+
 export const getNanosecondsDateISOString = (nanoSecondTimestamp: string): string => {
   const milliseconds = parseInt(nanoSecondTimestamp.slice(0, -6), 10);
   const date = new Date(milliseconds);
@@ -63,3 +65,7 @@ export const getDateMinusXHours = (date: Date, hours: number): Date => {
   date.setHours(date.getHours() - hours);
   return date;
 };
+
+// sleep function from SO
+// https://stackoverflow.com/a/39914235
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

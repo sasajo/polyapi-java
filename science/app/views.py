@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import json
-from typing import Any, Dict, Generator, Optional, Union
+import logging
+from typing import Any, Dict, Optional, Union
 from flask import Blueprint, Response, request, jsonify
-from openai import OpenAIError, RateLimitError, APIError
+from openai import OpenAIError, RateLimitError, APIError, Stream
 from app.completion import general_question, get_completion_answer
 from app.constants import MessageType, PerfLogType
 from app.conversation import get_chat_conversation_lookback, get_recent_messages
@@ -27,6 +28,8 @@ from app.utils import (
 )
 from app.router import split_route_and_question
 from app.perf import PerfLogger
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("views", __name__)
 
@@ -88,7 +91,7 @@ def function_completion() -> Response:
     language = data.get("language", "")
 
     try:
-        resp: Union[Generator, str] = ""  # either str or streaming completion type
+        resp: Union[Stream, str] = ""  # either str or streaming completion type
         if route == "function":
             resp = get_completion_answer(
                 user_id, conversation.id, environment_id, question, prev_msgs, language
@@ -268,6 +271,12 @@ def clear_conversations_view() -> str:
     user_id = request.get_json(force=True)["user_id"]
     clear_conversations(user_id)
     return "Conversation Cleared"
+
+
+@bp.route("/log-test")
+def log_test():
+    logger.debug("I am a debug log!")
+    return "Ok debug logged. Check the logs!"
 
 
 @bp.route("/error")

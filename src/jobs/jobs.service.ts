@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { FunctionJob, JobDto, FunctionsExecutionType, Schedule, ScheduleType, JobStatus, ExecutionDto, JobExecutionStatus, ExecutionFiltersDto } from '@poly/model';
+import { FunctionJob, JobDto, FunctionsExecutionType, Schedule, ScheduleType, ExecutionDto, JobExecutionStatus, ExecutionFiltersDto } from '@poly/model';
 import { CustomFunction, Environment, Job, JobExecution } from '@prisma/client';
 import { PrismaService } from 'prisma-module/prisma.service';
 import { FunctionService } from 'function/function.service';
@@ -9,6 +9,7 @@ import Bull, { Queue } from 'bull';
 import { CommonService } from 'common/common.service';
 import { QUEUE_NAME, JOB_PREFIX, JOB_DOES_NOT_EXIST_ANYMORE } from './constants';
 import { Cron } from '@nestjs/schedule';
+import { ConfigVariableService } from 'config-variable/config-variable.service';
 
 type JobFunctionCallResult = { statusCode: number | undefined, id: string, fatalErr: boolean };
 type ServerFunctionResult = Awaited<ReturnType<FunctionService['executeServerFunction']>>;
@@ -18,7 +19,13 @@ type ServerFunctionResult = Awaited<ReturnType<FunctionService['executeServerFun
 export class JobsService implements OnModuleDestroy {
   private readonly logger = new Logger(JobsService.name);
 
-  constructor(private readonly prisma: PrismaService, private readonly functionService: FunctionService, @InjectQueue(QUEUE_NAME) private readonly queue: Queue<Job>, private readonly httpService: HttpService, private readonly commonService: CommonService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly functionService: FunctionService,
+    @InjectQueue(QUEUE_NAME) private readonly queue: Queue<Job>,
+    private readonly httpService: HttpService,
+    private readonly commonService: CommonService,
+    private readonly configVariableService: ConfigVariableService) {
 
   }
 
@@ -142,7 +149,17 @@ export class JobsService implements OnModuleDestroy {
         return;
       }
 
-      const job = queueJob.data as Job;
+      let job: Job | null = queueJob.data as Job;
+
+      job = await this.prisma.job.findFirst({
+        where: {
+          id: job.id,
+        },
+      });
+
+      if (!job) {
+        return this.logger.debug('Job does not exist anymore in database, skipping execution save action...');
+      }
 
       const duration = this.getQueueJobDurationInSeconds(queueJob.processedOn, queueJob.finishedOn);
 
@@ -167,24 +184,17 @@ export class JobsService implements OnModuleDestroy {
 
       this.logger.debug(`Processing job "${job.name}" with id "${job.id}" asd `);
 
-      const [environment, jobInDb] = await Promise.all([
-        this.prisma.environment.findFirst({
-          where: {
-            id: job.environmentId,
-          },
-        }), this.prisma.job.findFirst({
-          where: {
-            id: job.id,
-          },
-        }),
-      ]);
-
-      if (!environment) {
-        throw new Error(`Environment not found for job "${job.name}" with id "${job.id}".`);
-      }
+      const jobInDb = await this.prisma.job.findFirst({
+        where: {
+          id: job.id,
+        },
+        include: {
+          environment: true,
+        },
+      });
 
       if (!jobInDb) {
-        this.logger.error('Job does not exist anymore in our database, execution skipped.');
+        this.logger.debug('Job does not exist anymore in our database, execution skipped.');
         return JOB_DOES_NOT_EXIST_ANYMORE;
       }
 
@@ -194,7 +204,7 @@ export class JobsService implements OnModuleDestroy {
 
       const functions = JSON.parse(job.functions) as FunctionJob[];
 
-      const [customFunctions, notFoundFunctions] = await this.functionService.retrieveFunctions(environment, functions);
+      const [customFunctions, notFoundFunctions] = await this.functionService.retrieveFunctions(jobInDb.environment, functions);
 
       if (notFoundFunctions.length) {
         throw new Error(`Job won't be executed since functions ${notFoundFunctions.join(', ')} are not found.`);
@@ -215,7 +225,7 @@ export class JobsService implements OnModuleDestroy {
           let callResult: ServerFunctionResult | null = null;
 
           try {
-            callResult = await this.functionService.executeServerFunction(customFunction, environment, args);
+            callResult = await this.functionService.executeServerFunction(customFunction, jobInDb.environment, args);
           } catch (err) {
             results.push({
               id: functionExecution.id,
@@ -238,7 +248,7 @@ export class JobsService implements OnModuleDestroy {
             break;
           }
         } else {
-          executions.push(this.functionService.executeServerFunction(customFunction, environment, args));
+          executions.push(this.functionService.executeServerFunction(customFunction, jobInDb.environment, args));
         }
       }
 
@@ -296,7 +306,7 @@ export class JobsService implements OnModuleDestroy {
 
       if (executions.length === 3 && executions.every(execution => execution.status === JobExecutionStatus.JOB_ERROR)) {
         this.logger.error(`Last 3 executions have "${JobExecutionStatus.JOB_ERROR}" status, disabling job...`);
-        await this.updateJob(job, undefined, undefined, undefined, undefined, JobStatus.DISABLED);
+        await this.updateJob(job, undefined, undefined, undefined, undefined, false);
       }
 
       await this.saveExecutionDetails(job, JobExecutionStatus.JOB_ERROR, [], queueJob.processedOn, queueJob.finishedOn);
@@ -307,6 +317,23 @@ export class JobsService implements OnModuleDestroy {
 
   private async saveExecutionDetails(job: Job, status: JobExecutionStatus, results: JobFunctionCallResult[], processedOn?: number, finishedOn?: number) {
     try {
+      const functions = (JSON.parse(job.functions) as FunctionJob[]).map<ExecutionDto['functions'][number]>(functionCall => {
+        const functionResult = results.find(result => result.id === functionCall.id) as JobFunctionCallResult;
+
+        return {
+          id: functionCall.id,
+          invocation: {
+            eventPayload: functionCall.eventPayload,
+            headersPayload: functionCall.headersPayload,
+            paramsPayload: functionCall.paramsPayload,
+          },
+          response: {
+            statusCode: functionResult?.statusCode,
+            fatalError: functionResult?.fatalErr,
+          },
+        };
+      });
+
       await this.prisma.$transaction(async trx => {
         const savedJob = await trx.job.findFirst({
           where: {
@@ -318,7 +345,7 @@ export class JobsService implements OnModuleDestroy {
             data: {
               jobId: job.id,
               results: JSON.stringify(results),
-              functions: job.functions,
+              functions: JSON.stringify(functions),
               type: job.functionsExecutionType,
               status,
               ...(processedOn ? { processedOn: new Date(processedOn) } : null),
@@ -390,7 +417,7 @@ export class JobsService implements OnModuleDestroy {
 
       const jobs = await this.prisma.job.findMany({
         where: {
-          status: JobStatus.ENABLED,
+          enabled: true,
         },
       });
 
@@ -455,7 +482,6 @@ export class JobsService implements OnModuleDestroy {
     return {
       id: execution.id,
       jobId: execution.jobId,
-      results: JSON.parse(execution.results),
       duration: this.getQueueJobDurationInSeconds(execution.processedOn ? execution.processedOn.getTime() : undefined, execution.finishedOn ? execution.finishedOn.getTime() : undefined),
       functions: JSON.parse(execution.functions),
       type: execution.type as FunctionsExecutionType,
@@ -504,11 +530,11 @@ export class JobsService implements OnModuleDestroy {
       schedule,
       nextExecutionAt,
       environmentId: job.environmentId,
-      status: job.status as JobStatus,
+      enabled: job.enabled,
     };
   }
 
-  async createJob(environment: Environment, name: string, schedule: Schedule, functions: FunctionJob[], functionsExecutionType: FunctionsExecutionType, status: JobStatus) {
+  async createJob(environment: Environment, name: string, schedule: Schedule, functions: FunctionJob[], functionsExecutionType: FunctionsExecutionType, enabled: boolean) {
     const scheduleValue = this.buildScheduleValue(schedule);
 
     return await this.prisma.$transaction(async trx => {
@@ -520,11 +546,11 @@ export class JobsService implements OnModuleDestroy {
           functions: JSON.stringify(functions),
           functionsExecutionType,
           environmentId: environment.id,
-          status,
+          enabled,
         },
       });
 
-      if (status === JobStatus.ENABLED) {
+      if (enabled) {
         await this.addJobToQueue(createdJob);
       }
 
@@ -534,14 +560,14 @@ export class JobsService implements OnModuleDestroy {
     });
   }
 
-  async updateJob(job: Job, name: string | undefined, schedule: Schedule | undefined, functions: FunctionJob[] | undefined, functionsExecutionType: FunctionsExecutionType | undefined, status?: JobStatus) {
+  async updateJob(job: Job, name: string | undefined, schedule: Schedule | undefined, functions: FunctionJob[] | undefined, functionsExecutionType: FunctionsExecutionType | undefined, enabled?: boolean | undefined) {
     const scheduleValue = schedule ? this.buildScheduleValue(schedule) : undefined;
 
     try {
       return await this.prisma.$transaction(async trx => {
-        const disableJob = job.status === JobStatus.ENABLED && status === JobStatus.DISABLED;
+        const disableJob = job.enabled && enabled === false;
 
-        const enableJobAgain = job.status === JobStatus.DISABLED && status === JobStatus.ENABLED;
+        const enableJobAgain = !job.enabled && enabled === true;
 
         const oldJobSchedule = this.getScheduleInfo(job);
 
@@ -563,11 +589,11 @@ export class JobsService implements OnModuleDestroy {
             ...scheduleValue,
             functions: functions ? JSON.stringify(functions) : undefined,
             functionsExecutionType,
-            status,
+            enabled,
           },
         });
 
-        if ((shouldRemoveRuntimeJob && status !== JobStatus.DISABLED) || enableJobAgain) {
+        if ((shouldRemoveRuntimeJob && enabled !== false) || enableJobAgain) {
           await this.addJobToQueue(updatedJob);
         }
 
@@ -660,8 +686,25 @@ export class JobsService implements OnModuleDestroy {
     });
   }
 
-  async getExecution(id: string) {
+  async getExecution(jobId: string, id: string) {
     return this.prisma.jobExecution.findFirst({
+      where: {
+        id,
+        jobId,
+      },
+    });
+  }
+
+  async deleteJobExecutions(jobId: string) {
+    return this.prisma.jobExecution.deleteMany({
+      where: {
+        jobId,
+      },
+    });
+  }
+
+  async deleteJobExecution(id: string) {
+    return this.prisma.jobExecution.delete({
       where: {
         id,
       },
