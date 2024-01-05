@@ -1,40 +1,6 @@
-# compiled output
-/dist
-/node_modules
-*.tgz
-
-# data / env
-prisma/data/poly.db
-prisma/data/poly.db-journal
-examples.jsonl
-.env
-.env*
-server-functions
-
-# Logs
-logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# OS
-.DS_Store
-
-# Tests
-/coverage
-/.nyc_output
-
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# IDE - Idea
+.idea
+*.iml
 
 # IDE - VSCode
 */.vscode
@@ -43,10 +9,5 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# pycache
-__pycache__
-.mypy_cache/
-
-# docker file to be ignired
-/docker/certs
-/docker/data
+**/target
+**/pom.xml.versionsBackup

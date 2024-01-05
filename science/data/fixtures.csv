@@ -1,7 +1,0 @@
-context,name,description,method,url,headers
-hospitality,opera.checkin,get a list of guests that checked in to a hotel on a specific date,GET,https://opera.example.com/checkin?date={{date}},
-hospitality,opera.getHotelDetails,find the hotel that a reservation is for and returns the details of that hotel,GET,https://opera.example.com/get-hotel-details?reservationID={{reservationID}},
-hospitality,opera.guestDetails,get guest details,GET,https://opera.example.com/get-guest-details?guestID={{guestID}},
-hospitality,opera.guestDetailsPassport,get guest details via passport id,GET,https://opera.example.com/get-guest-details?passportID={{passportID}},
-travel,unitedAirlines.getFlights,get a list of flights for a specific user,GET,https://united.example.com/get-flights?guestID={{guestID}}&status={{status}},
-travel,unitedAirlines.getStatus,"get the status of a specific flight, including airport of origin and arrival",GET,https://united.example.com/{{tenant}}/get-status?flightID={{flightID}},"{'key':'X-Shopify-Access-Token','value':'{{shopToken}}'}"

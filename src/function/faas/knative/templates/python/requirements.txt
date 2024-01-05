@@ -1,4 +1,0 @@
-# TODO did test docker image work? if so, be sure to leave a comment here explaining the significance of this requirements file
-parliament-functions==0.1.0
-requests
-polyapi-python

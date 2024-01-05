@@ -1,2 +1,0 @@
-UPDATE api_key SET permissions = REPLACE(permissions, '}', ',"libraryGenerate":true}') where cast(permissions::json->>'execute' as boolean) = true AND permissions::json->>'libraryGenerate' IS NULL;
-UPDATE api_key SET permissions = REPLACE(permissions, '}', ',"manageWebhooks":true}') where cast(permissions::json->>'manageApiFunctions' as boolean) = true AND permissions::json->>'manageWebhooks' IS NULL;

@@ -1,86 +1,185 @@
-# Poly API
+# Java Client Library (beta)
+### v0.2.0
 
-## Installation
+## Introduction
+This is a Java client library for Poly API. It is generated from the [Poly specification](https://develop-k8s.polyapi.io/specs). It is based on its Typescript counterpart [polyapi](https://www.npmjs.com/package/polyapi)
 
+## Requirements
+- Java 17+
+- Maven 3.6.3+ (or Gradle 7.2+) (optional)
+- Poly API key
+
+## Setting up project
+1. Create a new Java Maven project
+2. Add the following to your project's `pom.xml` to add the dependencies:
+```xml
+<properties>
+  <poly.version>0.2.0-SNAPSHOT</poly.version>
+</properties>
+<resources>
+  <resource>
+    <directory>target/generated-resources</directory>
+  </resource>
+</resources>
+<dependencies>
+  <dependency>
+    <groupId>io.polyapi</groupId>
+    <artifactId>library</artifactId>
+    <version>${poly.version}</version>
+  </dependency>
+</dependencies>
+<build>
+  <plugins>
+    <plugin>
+      <groupId>io.polyapi</groupId>
+      <artifactId>polyapi-maven-plugin</artifactId>
+      <version>${poly.version}</version>
+      <executions>
+        <execution>
+          <phase>generate-sources</phase>
+          <goals>
+            <goal>generate-sources</goal>
+          </goals>
+          <configuration>
+            <host>https://develop-k8s.polyapi.io</host>
+            <port>443</port>
+            <apiKey>{API_KEY}</apiKey>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>build-helper-maven-plugin</artifactId>
+      <version>3.2.0</version>
+      <executions>
+        <execution>
+          <id>add-source</id>
+          <phase>generate-sources</phase>
+          <goals>
+            <goal>add-source</goal>
+          </goals>
+          <configuration>
+            <sources>
+              <source>target/generated-sources</source>
+            </sources>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
+</build>
+```
+Make sure you replace `{API_KEY}` with valid API key to access the Poly API.
+
+3. Run `mvn clean compile` to generate the Poly functions and compile the project (this needs to be done everytime you update your Poly functions)
+
+## Using the library
+### Poly Functions
+To use the Poly functions you can import `import io.polyapi.Poly;` and traverse through it to find the function you want to use. For example:
+```java
+var body = new Create$HotelDataBody();
+var payload = new Create$Payload();
+var result = Poly.hotelApi.hotelData.createRoomEntry("https://eofn4s3nvu8okku.m.pipedream.net", "meat", body, payload);
+var data = result.getData();
+
+System.out.println(data.getPrice());
+``` 
+
+### Webhook handlers
+```java
+Poly.events.itemPurchased((event, headers, params) -> {
+  System.out.println(event.getPrice());
+});
+```
+
+### Auth functions
+```java
+var clientId = "...";
+var clientSecret = "...";
+var scopes = new String[]{"offline_access"};
+
+Poly.auth0.getToken(clientId, clientSecret, scopes, (token, url, error) -> {
+    System.out.println(token);
+    System.out.println(url);
+    System.out.println(error);
+
+    if (token != null) {
+        ...
+        // revoke token (optional, if you want to revoke the token after you are done with it)
+        Poly.auth0.revokeToken(token);
+    }
+});
+```
+
+### Poly Variables
+To use Poly variables you can import `import io.polyapi.Vari;` and traverse through it to find the variable you want to use. For example:
+```java
+var clientId = Vari.auth.clientId.get();
+System.out.println(clientId);
+```
+You can update variable using the following code:
+```java
+Vari.auth.clientId.update("newClientId");
+```
+You can listen for update events:
+```java
+Vari.auth.clientId.onUpdate((event) -> {
+  System.out.println("Previous value: " + event.getPreviousValue()+", currentValue: " + event.getCurrentValue());
+});
+```
+
+### Custom Functions
+It is possible to create custom functions that can be used in Poly. To do so, you need to create a class with desired function. For example:
+```java
+public class CustomFunction {
+    public String sayHello(String name) {
+        return "Hello " + name;
+    }
+}
+```
+Then to add it to Poly, you need to add run the following Maven goal:
 ```bash
-$ yarn install
+mvn library:addFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.client" -Dclient -Ddescription="This says hello to you"
+```
+Note the use of `-Dclient` flag. This is used to specify that the function is a client function.
+This will add the function with specified name and context to Poly, so it can be used in code:
+
+```java
+var result = Poly.test.client.sayHello("John");
+System.out.println(result);
 ```
 
-## Setup the .env file
-
+### Server Functions
+Similar to Custom Functions, you can create Server Functions. To do so, you need to create a class with desired function same as with Custom Functions.
+Then to add it to Poly, you need to add run the following Maven goal:
 ```bash
-# just copy over the template for local development
-$ cp .env.template .env
+mvn library:addFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Dserver -Ddescription="This says hello to you from server"
 ```
+Note the use of `-Dserver` flag. This is used to specify that the function is a server function.
 
-## Migrate the DB, Generate Prisma Libraries
+## Limitations
+Comparing to its Typescript counterpart, the Java library is still missing the following features:
+- Error handlers
+- Fetching multiple Poly Variables from context
 
-```bash
-$ ./after_pull.sh
-```
+These features will be added in the future releases.
 
-## Run Dev Start Script
-
-```bash
-$ ./dev_start.sh
-```
-
-This script will start:
-
-- Redis
-- Postgres
-- Vault
-- Node Server on 8000
-- Flask Server on 5000
-
-## Get your API Key
-
-If this is the first time you are running the server, you probably need your api key! To get it, do this:
-
-```bash
-source .env && psql $DATABASE_URL -c 'select key from api_key;'
-```
-
-## Test the API Key
-
-To test the API key, copy the api key from the step above and use it to hit the whoami endpoint:
-
-```bash
-curl -H "Authorization: Bearer <API_KEY>" localhost:8000/whoami
-```
-
-## How to Run Knative Locally
-
-WARNING: these steps are experimental and incomplete
-
-1. Follow the [Knative quickstart](https://knative.dev/docs/getting-started/quickstart-install/) steps to get `kind`, `kubectl`, and `kn` running locally
-
-2. Continue to follow the Knative quickstart steps to run the Knative Quickstart Plugin.
-
-IMPORANT: be sure to pass the --registry flag so kind also creates a Docker registry.
-
-3. Add a `poly-functions` persistant volume CLAIM. Follow [this guide](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/#create-a-persistentvolume) but instead of naming the volume `task-pv-volume` name it `poly-functions` in the YAML file.
-
-4. Configure your knative to allow `persistant-volume-claims`. Add these two to the ConfigMap:
-* kubernetes.podspec-persistent-volume-claim: "enabled"
-* kubernetes.podspec-persistent-volume-write: "enabled"
-The easiest way is to dump the old configmap to a file:
-
-```
-kubectl get configmap -n knative-serving config-features > config-features.yaml
-```
-
-Then edit it and use `kubectl apply -f config-features.yaml` to update the config map.
-
-5. More steps required TBD!
-6. Go in to `./dev_start.sh` and comment out the `SKIP_KNATIVE=1` option.
-7. That's it! Run the following command to start your server
-
-`KUBE_CONFIG_USE_DEFAULT=true FAAS_DOCKER_USERNAME=tbd FAAS_DOCKER_PASSWORD=tbd ./dev_start.sh`.
-
-NOTE: following the above steps will let you create a server function. However, the actual docker container doesn't seem to be really created... or something. When you try to execute you get a 404. TODO: figure out how why `this.customObjectsApi.createNamespacedCustomObject` doesn't seem to be actually creating the pod.
-
-## How to Run Plugins Locally
-
-1. To run the plugin code locally, you need to set the `LOCAL_PLUGIN_DEBUG=1` environment variable. This variable is set by default by `dev_start.sh`.
-2. You must run the `megatronical` pagekite. Please contact Dan for assistance running this pagekite. [Pagekite Info](https://pagekite.net)
+## Changelog
+### v0.1.8
+- Fixed type generation for Java server functions
+### v0.1.7
+- Added support for Java server functions
+### v0.1.6
+- Added support for Java client functions
+### v0.1.5
+- Fixed issue with void return types
+### v0.1.4
+- Deployment setup update
+### v0.1.3
+- Storing Poly specs file into `target/.poly/specs.json`
+### v0.1.2
+- Using String as default class on `inject` secret variable function
+- Fixed Vari packaging causing variable classes overwriting each other 
+### v0.1.1
+- Added initial support for injecting Poly Variables to Poly Functions
