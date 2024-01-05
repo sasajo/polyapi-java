@@ -1,0 +1,324 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "definitions": {
+    "Address": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "line1": {
+          "type": "string"
+        },
+        "line2": {
+          "type": "string"
+        },
+        "postal_code": {
+          "type": "string",
+          "format": "integer"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "city",
+        "country",
+        "line1",
+        "line2",
+        "postal_code",
+        "state"
+      ],
+      "title": "Address"
+    },
+    "Discount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "object": {
+          "type": "string"
+        },
+        "checkout_session": {
+          "type": "null"
+        },
+        "coupon": {
+          "$ref": "#/definitions/Coupon"
+        },
+        "customer": {
+          "type": "string"
+        },
+        "end": {
+          "type": "null"
+        },
+        "invoice": {
+          "type": "null"
+        },
+        "invoice_item": {
+          "type": "null"
+        },
+        "promotion_code": {
+          "type": "null"
+        },
+        "start": {
+          "type": "integer"
+        },
+        "subscription": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "checkout_session",
+        "coupon",
+        "customer",
+        "end",
+        "id",
+        "invoice",
+        "invoice_item",
+        "object",
+        "promotion_code",
+        "start",
+        "subscription"
+      ],
+      "title": "Discount"
+    },
+    "Coupon": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "integer"
+        },
+        "object": {
+          "type": "string"
+        },
+        "amount_off": {
+          "type": "null"
+        },
+        "created": {
+          "type": "integer"
+        },
+        "currency": {
+          "type": "null"
+        },
+        "duration": {
+          "type": "string"
+        },
+        "duration_in_months": {
+          "type": "null"
+        },
+        "livemode": {
+          "type": "boolean"
+        },
+        "max_redemptions": {
+          "type": "integer"
+        },
+        "metadata": {
+          "$ref": "#/definitions/CouponMetadata"
+        },
+        "name": {
+          "type": "string"
+        },
+        "percent_off": {
+          "type": "integer"
+        },
+        "redeem_by": {
+          "type": "null"
+        },
+        "times_redeemed": {
+          "type": "integer"
+        },
+        "valid": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "amount_off",
+        "created",
+        "currency",
+        "duration",
+        "duration_in_months",
+        "id",
+        "livemode",
+        "max_redemptions",
+        "metadata",
+        "name",
+        "object",
+        "percent_off",
+        "redeem_by",
+        "times_redeemed",
+        "valid"
+      ],
+      "title": "Coupon"
+    },
+    "CouponMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "title": "CouponMetadata"
+    },
+    "InvoiceSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "custom_fields": {
+          "type": "null"
+        },
+        "default_payment_method": {
+          "type": "null"
+        },
+        "footer": {
+          "type": "null"
+        },
+        "rendering_options": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "custom_fields",
+        "default_payment_method",
+        "footer",
+        "rendering_options"
+      ],
+      "title": "InvoiceSettings"
+    },
+    "ResponseTypeMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "jobDescription": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "jobDescription"
+      ],
+      "title": "ResponseTypeMetadata"
+    },
+    "Shipping": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Address"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "name",
+        "phone"
+      ],
+      "title": "Shipping"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "object": {
+      "type": "string"
+    },
+    "address": {
+      "$ref": "#/definitions/Address"
+    },
+    "balance": {
+      "type": "integer"
+    },
+    "created": {
+      "type": "integer"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "default_source": {
+      "type": "string"
+    },
+    "delinquent": {
+      "type": "boolean"
+    },
+    "description": {
+      "type": "string"
+    },
+    "discount": {
+      "$ref": "#/definitions/Discount"
+    },
+    "email": {
+      "type": "string"
+    },
+    "invoice_prefix": {
+      "type": "string"
+    },
+    "invoice_settings": {
+      "$ref": "#/definitions/InvoiceSettings"
+    },
+    "livemode": {
+      "type": "boolean"
+    },
+    "metadata": {
+      "$ref": "#/definitions/ResponseTypeMetadata"
+    },
+    "name": {
+      "type": "string"
+    },
+    "next_invoice_sequence": {
+      "type": "integer"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "preferred_locales": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "shipping": {
+      "$ref": "#/definitions/Shipping"
+    },
+    "tax_exempt": {
+      "type": "string"
+    },
+    "test_clock": {
+      "type": "null"
+    }
+  },
+  "required": [
+    "address",
+    "balance",
+    "created",
+    "currency",
+    "default_source",
+    "delinquent",
+    "description",
+    "discount",
+    "email",
+    "id",
+    "invoice_prefix",
+    "invoice_settings",
+    "livemode",
+    "metadata",
+    "name",
+    "next_invoice_sequence",
+    "object",
+    "phone",
+    "preferred_locales",
+    "shipping",
+    "tax_exempt",
+    "test_clock"
+  ],
+  "title": "ResponseType"
+}

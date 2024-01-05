@@ -2,6 +2,15 @@ package io.polyapi.plugin.model.property;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.JsonNode;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import static java.util.function.Predicate.not;
 
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,
@@ -24,5 +33,13 @@ public abstract class PropertyType {
   @Override
   public String toString() {
     return getInCodeType();
+  }
+
+  public abstract String getTypeSchema();
+
+  public abstract String getResultType(String defaultValue);
+
+  public Set<String> getImports(String basePackage, String defaultType) {
+    return new HashSet<>();
   }
 }

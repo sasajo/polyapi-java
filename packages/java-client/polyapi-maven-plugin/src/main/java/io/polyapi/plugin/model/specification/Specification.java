@@ -41,10 +41,6 @@ public abstract class Specification implements Generable {
   private String description;
   private VisibilityMetadata visibilityMetadata;
 
-  public boolean isRootContext() {
-    return getContext().isEmpty();
-  }
-
   @Override
   public String getPackageName() {
     return format("io.polyapi.%s",

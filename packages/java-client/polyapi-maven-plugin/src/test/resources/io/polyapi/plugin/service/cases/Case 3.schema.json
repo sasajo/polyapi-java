@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "definitions": {
+    "Message": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "client_msg_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/Metadata"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Block"
+          }
+        },
+        "team": {
+          "type": "string"
+        },
+        "edited": {
+          "$ref": "#/definitions/Edited"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Attachment"
+          }
+        },
+        "thread_ts": {
+          "type": "string"
+        },
+        "reply_count": {
+          "type": "integer"
+        },
+        "reply_users_count": {
+          "type": "integer"
+        },
+        "latest_reply": {
+          "type": "string"
+        },
+        "reply_users": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "is_locked": {
+          "type": "boolean"
+        },
+        "subscribed": {
+          "type": "boolean"
+        },
+        "last_read": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attachments",
+        "blocks",
+        "client_msg_id",
+        "edited",
+        "is_locked",
+        "last_read",
+        "latest_reply",
+        "metadata",
+        "reply_count",
+        "reply_users",
+        "reply_users_count",
+        "subscribed",
+        "team",
+        "text",
+        "thread_ts",
+        "type",
+        "user"
+      ],
+      "title": "Message"
+    },
+    "Attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "fallback": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "pretext": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fallback",
+        "id",
+        "pretext",
+        "text"
+      ],
+      "title": "Attachment"
+    },
+    "Block": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "block_id": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/definitions/Text"
+        }
+      },
+      "required": [
+        "block_id",
+        "text",
+        "type"
+      ],
+      "title": "Block"
+    },
+    "Text": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "emoji": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "emoji",
+        "text",
+        "type"
+      ],
+      "title": "Text"
+    },
+    "Edited": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "user": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "user"
+      ],
+      "title": "Edited"
+    },
+    "Metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "type": "string"
+        },
+        "event_payload": {
+          "$ref": "#/definitions/EventPayload"
+        }
+      },
+      "required": [
+        "event_payload",
+        "event_type"
+      ],
+      "title": "Metadata"
+    },
+    "EventPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "integer"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "EventPayload"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "ts": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "message": {
+      "$ref": "#/definitions/Message"
+    }
+  },
+  "required": [
+    "channel",
+    "message",
+    "ok",
+    "text",
+    "ts"
+  ],
+  "title": "ResponseType"
+}

@@ -5,7 +5,23 @@ import io.polyapi.client.internal.model.PolyContext;
 import io.polyapi.client.api.model.websocket.WebhookEventConsumer;
 import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
 {{~#each specifications}}
-  import {{{packageName}}}.{{{className}}};
+import {{{packageName}}}.{{{className}}};
+  {{~#ifIsType this "ServerFunctionSpecification"}}
+    {{~#each this.imports}}
+import {{{this}}};
+    {{~/each}}
+  {{~/ifIsType}}
+{{~#ifIsType this "CustomFunctionSpecification"}}
+  {{~#each this.imports}}
+    import {{{this}}};
+  {{~/each}}
+{{~/ifIsType}}
+{{~#ifIsType this "ApiFunctionSpecification"}}
+  {{~#each this.imports}}
+    import {{{this}}};
+  {{~/each}}
+{{~/ifIsType}}
+
 {{~/each}}
 {{#each subcontexts}}
 import {{{packageName}}}.{{{className}}};
@@ -49,13 +65,9 @@ public class {{className}} extends PolyContext {
 
 {{~#each specifications}}
   {{~#ifIsType this "ApiFunctionSpecification"}}
+  public  {{{this.resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
     {{~#if function.returnsValue}}
-      public {{function.returnType}}
-    {{~else}}
-      public void
-    {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-    {{~#if function.returnsValue}}
-      return
+    return
     {{~else}}
     {{~/if}} {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
@@ -63,13 +75,9 @@ public class {{className}} extends PolyContext {
 
   {{~#ifIsType this "CustomFunctionSpecification"}}
     {{~#if this.isJava}}
+  public {{{this.resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
       {{~#if function.returnsValue}}
-  public {{function.returnType}}
-      {{~else}}
-  public void
-      {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-      {{~#if function.returnsValue}}
-        return
+    return
       {{~else}}
       {{~/if}} {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }
@@ -77,13 +85,9 @@ public class {{className}} extends PolyContext {
   {{~/ifIsType}}
 
   {{~#ifIsType this "ServerFunctionSpecification"}}
+  public {{{this.resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
     {{~#if function.returnsValue}}
-      public {{function.returnType}}
-    {{~else}}
-      public void
-    {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
-    {{~#if function.returnsValue}}
-      return
+    return
     {{~else}}
     {{~/if}} {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
   }

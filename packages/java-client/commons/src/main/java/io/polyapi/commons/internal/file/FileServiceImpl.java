@@ -18,6 +18,7 @@ public class FileServiceImpl implements FileService {
   private static final Logger logger = LoggerFactory.getLogger(FileServiceImpl.class);
   private final Handlebars handlebars;
 
+
   public FileServiceImpl(Handlebars handlebars) {
     this.handlebars = handlebars;
   }

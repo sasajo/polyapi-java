@@ -4,6 +4,10 @@ import io.polyapi.plugin.model.specification.Specification;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Set;
+
+import static java.lang.String.format;
+
 @Getter
 @Setter
 public abstract class FunctionSpecification extends Specification {
@@ -12,6 +16,14 @@ public abstract class FunctionSpecification extends Specification {
   @Override
   protected String getTypePackage() {
     return "function." + getSubtypePackage();
+  }
+
+  public String getResultType() {
+    return function.getResultType(format("%sResponse", getClassName()));
+  }
+
+  public Set<String> getImports() {
+    return function.getImports(getPackageName(), getClassName());
   }
 
   protected abstract String getSubtypePackage();

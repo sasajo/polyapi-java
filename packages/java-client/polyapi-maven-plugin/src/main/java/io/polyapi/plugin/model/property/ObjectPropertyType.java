@@ -4,12 +4,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.polyapi.plugin.model.specification.function.PropertyMetadata;
 import lombok.Getter;
 import lombok.Setter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static java.lang.String.format;
+import static java.util.function.Predicate.not;
 
 @Getter
 @Setter
 public class ObjectPropertyType extends PropertyType {
+  private static final Logger logger = LoggerFactory.getLogger(ObjectPropertyType.class);
   private JsonNode schema;
   private List<PropertyMetadata> properties;
   private String typeName;
@@ -20,5 +29,48 @@ public class ObjectPropertyType extends PropertyType {
       return typeName;
     }
     return "Object";
+  }
+
+  @Override
+  public String getTypeSchema() {
+    return Optional.ofNullable(schema).map(Object::toString).orElse("");
+  }
+
+  @Override
+  public String getResultType(String defaultType) {
+    if (Optional.ofNullable(schema).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
+      return switch (Optional.ofNullable(schema.get("type")).map(JsonNode::textValue).orElse("")) {
+        case "array" -> format("%s<%s>", List.class.getName(), Optional.ofNullable(schema.get("items"))
+          .map(items -> items.get("$ref"))
+          .map(JsonNode::textValue)
+          .map(value -> value.replace("#/definitions/", ""))
+          .filter(not(String::isBlank))
+          .orElse("Object"));
+        case "integer" -> Integer.class.getSimpleName();
+        case "string" -> String.class.getSimpleName();
+        case "number" -> Double.class.getSimpleName();
+        case "boolean" -> Boolean.class.getSimpleName();
+        default -> defaultType;
+      };
+    } else {
+      return getInCodeType();
+    }
+  }
+
+  @Override
+  public Set<String> getImports(String basePackage, String defaultType) {
+    if (Optional.ofNullable(schema).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
+      return switch (Optional.ofNullable(schema.get("type")).map(JsonNode::textValue).orElse("")) {
+        case "array" -> Optional.ofNullable(schema.get("items"))
+          .map(items -> items.get("$ref"))
+          .map(JsonNode::textValue)
+          .map(value -> value.replace("#/definitions/", format("%s.", basePackage)))
+          .map(Set::of)
+          .orElseGet(Set::of);
+        case "integer", "string", "number", "boolean" -> Set.of();
+        default -> Set.of(format("%s.%s", basePackage, defaultType));
+      };
+    }
+    return new HashSet<>();
   }
 }

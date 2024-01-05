@@ -17,5 +17,15 @@ public class PrimitivePropertyType extends PropertyType {
       default -> "Object";
     };
   }
+
+  @Override
+  public String getTypeSchema() {
+    return null;
+  }
+
+  @Override
+  public String getResultType(String defaultType) {
+    return getInCodeType();
+  }
 }
 

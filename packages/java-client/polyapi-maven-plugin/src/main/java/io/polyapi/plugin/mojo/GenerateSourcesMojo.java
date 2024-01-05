@@ -6,12 +6,14 @@ import io.polyapi.commons.api.http.TokenProvider;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.commons.internal.file.FileServiceImpl;
+import io.polyapi.plugin.model.CustomType;
 import io.polyapi.plugin.model.Generable;
 import io.polyapi.plugin.model.specification.Context;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
+import io.polyapi.plugin.service.JsonSchemaParser;
 import io.polyapi.plugin.service.MavenService;
 import io.polyapi.plugin.service.SpecificationServiceImpl;
 import io.polyapi.plugin.service.template.PolyHandlebars;
@@ -34,10 +36,12 @@ import static java.util.function.Predicate.not;
 public class GenerateSourcesMojo extends PolyApiMojo {
   private static final Logger logger = LoggerFactory.getLogger(GenerateSourcesMojo.class);
   private FileService fileService;
+  private JsonSchemaParser jsonSchemaParser;
 
   @Override
   public void execute(String host, Integer port, TokenProvider tokenProvider, HttpClient httpClient, JsonParser jsonParser, MavenService mavenService) {
     this.fileService = new FileServiceImpl(new PolyHandlebars());
+    this.jsonSchemaParser = new JsonSchemaParser();
     var specifications = new SpecificationServiceImpl(host, port, httpClient, jsonParser).getJsonSpecs();
     var context = new HashMap<String, Object>();
     // @FIXME: Are we sure we want to set this ID at this level?
@@ -51,7 +55,6 @@ public class GenerateSourcesMojo extends PolyApiMojo {
     context.put("packageName", "io.polyapi");
     fileService.createClassFileWithDefaultPackage("ClientInfo", "clientInfo", context);
     fileService.createFileFromTemplate(new File("target/generated-resources/poly.properties"), "poly.properties", context);
-
     fileService.createFileWithContent(new File(new File("target/.poly"), "specs.json"), jsonParser.toJsonString(specifications));
     writeContext("Poly", specifications, FunctionSpecification.class);
     writeContext("Vari", specifications, ServerVariableSpecification.class);
@@ -69,9 +72,13 @@ public class GenerateSourcesMojo extends PolyApiMojo {
     writeChildrenContent(rootContext);
   }
 
-
   private void writeChildrenContent(Context context) {
     context.getSpecifications().forEach(this::writeContent);
+    context.getSpecifications().stream()
+      .filter(FunctionSpecification.class::isInstance)
+      .map(FunctionSpecification.class::cast)
+      .flatMap(specification -> jsonSchemaParser.generateReturnClassStructure(specification).stream())
+      .forEach(this::writeContent);
     context.getSubcontexts().stream()
       .peek(this::writeContent)
       .forEach(this::writeChildrenContent);
