@@ -7,7 +7,6 @@ import io.polyapi.commons.api.http.TokenProvider;
  *
  * @deprecated This class should be replaced for one that obtains the token dynamically and refreshes it.
  */
-@Deprecated
 public class HardcodedTokenProvider implements TokenProvider {
 
   private final String token;

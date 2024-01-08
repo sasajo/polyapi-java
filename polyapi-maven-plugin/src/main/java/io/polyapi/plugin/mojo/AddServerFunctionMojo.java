@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
-@Mojo(name = "addServerFunction", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
+@Mojo(name = "add-server-function", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
 public class AddServerFunctionMojo extends AddFunctionMojo {
 
     private static final Logger logger = LoggerFactory.getLogger(AddClientFunctionMojo.class);
