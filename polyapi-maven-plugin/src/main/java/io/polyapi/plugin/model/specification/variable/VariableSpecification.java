@@ -7,13 +7,13 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VariableSpecification {
-  private String environmentId;
-  private boolean secret;
-  private PropertyType valueType;
-  private Object value;
+    private String environmentId;
+    private boolean secret;
+    private PropertyType valueType;
+    private Object value;
 
-  public VariableSpecification() {
-    var obj = new Object();
+    public VariableSpecification() {
+        var obj = new Object();
 
-  }
+    }
 }

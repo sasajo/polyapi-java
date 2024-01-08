@@ -5,5 +5,5 @@ package io.polyapi.plugin.mojo;
  */
 public class GenerateSourcesMojoIT {
 
-  // FIXME: Missing tests.
+    // FIXME: Missing tests.
 }

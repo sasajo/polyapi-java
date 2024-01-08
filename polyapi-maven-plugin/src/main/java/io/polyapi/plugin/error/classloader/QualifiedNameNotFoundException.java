@@ -8,16 +8,16 @@ import lombok.Getter;
  */
 @Getter
 public class QualifiedNameNotFoundException extends PolyApiException {
-  private final String qualifiedName;
+    private final String qualifiedName;
 
-  /**
-   * Constructor that sets the qualified name and adds a message around it.
-   *
-   * @param qualifiedName The qualified name that wasn't found.
-   * @param cause         The exception that caused this one.
-   */
-  public QualifiedNameNotFoundException(String qualifiedName, Throwable cause) {
-    super("Class not found: " + qualifiedName + ". Make sure you have compiled your project.", cause);
-    this.qualifiedName = qualifiedName;
-  }
+    /**
+     * Constructor that sets the qualified name and adds a message around it.
+     *
+     * @param qualifiedName The qualified name that wasn't found.
+     * @param cause         The exception that caused this one.
+     */
+    public QualifiedNameNotFoundException(String qualifiedName, Throwable cause) {
+        super("Class not found: " + qualifiedName + ". Make sure you have compiled your project.", cause);
+        this.qualifiedName = qualifiedName;
+    }
 }

@@ -9,10 +9,10 @@ import java.util.List;
  */
 public interface SpecificationService {
 
-  /**
-   * Retrieve all the JSON specifications in Poly.
-   *
-   * @return String A JSON containing the specifications.
-   */
-  List<Specification> getJsonSpecs();
+    /**
+     * Retrieve all the JSON specifications in Poly.
+     *
+     * @return String A JSON containing the specifications.
+     */
+    List<Specification> getJsonSpecs();
 }

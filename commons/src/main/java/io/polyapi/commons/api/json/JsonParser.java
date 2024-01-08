@@ -45,10 +45,10 @@ public interface JsonParser {
   <O> O parseInputStream(InputStream json, Type expectedResponseType);
 
   /**
-   * Converts a {@link Class} into a JSon schema.
+   * Converts a {@link Type} into a JSon schema.
    *
-   * @param clazz The class to convert.
+   * @param type The Type to convert.
    * @return String The JSon schema.
    */
-  String toJsonSchema(Class<?> clazz);
+  String toJsonSchema(Type type);
 }

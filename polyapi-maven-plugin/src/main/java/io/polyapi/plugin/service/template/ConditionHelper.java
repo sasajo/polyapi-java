@@ -15,14 +15,14 @@ import java.util.function.BiPredicate;
  */
 public class ConditionHelper<T> implements Helper<T> {
 
-  private final BiPredicate<T, Options> predicate;
+    private final BiPredicate<T, Options> predicate;
 
-  public ConditionHelper(BiPredicate<T, Options> predicate) {
-    this.predicate = predicate;
-  }
+    public ConditionHelper(BiPredicate<T, Options> predicate) {
+        this.predicate = predicate;
+    }
 
-  @Override
-  public Object apply(T value, Options options) throws IOException {
-    return predicate.test(value, options) ? options.fn() : options.inverse();
-  }
+    @Override
+    public Object apply(T value, Options options) throws IOException {
+        return predicate.test(value, options) ? options.fn() : options.inverse();
+    }
 }

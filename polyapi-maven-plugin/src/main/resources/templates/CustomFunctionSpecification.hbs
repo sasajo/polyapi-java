@@ -6,10 +6,8 @@ import io.polyapi.client.api.model.PolyMetadata;
 
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{~#each function.arguments}}"{{inCodeName}}"{{#unless @last}}, {{/unless}} {{~/each}} },
-        paramTypes = { {{~#each function.arguments}}"{{{type.inCodeName}}}"{{#unless @last}}, {{/unless}} {{~/each}} })
-public class {{className}} implements PolyCustomFunction {
+paramTypes = { {{~#each function.arguments}}"{{{type.inCodeName}}}"{{#unless @last}}, {{/unless}} {{~/each}} })
+public interface {{className}} extends PolyCustomFunction {
 
-  public {{{resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
-    {{{code}}}
-  }
+{{{resultType}}} {{name}}({{{renderArguments function.arguments}}});
 }

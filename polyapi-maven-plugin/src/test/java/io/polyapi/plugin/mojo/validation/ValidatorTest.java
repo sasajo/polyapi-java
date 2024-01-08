@@ -5,5 +5,5 @@ package io.polyapi.plugin.mojo.validation;
  */
 public class ValidatorTest {
 
-  // FIXME: Add tests.
+    // FIXME: Add tests.
 }

@@ -5,12 +5,12 @@ package io.polyapi.plugin.error.validation;
  */
 public class NullOrEmptyValueException extends ValidationException {
 
-  /**
-   * Constructor that indicates the property that is validated.
-   *
-   * @param validatedProperty The property to validate.
-   */
-  public NullOrEmptyValueException(String validatedProperty) {
-    super(validatedProperty, "Property '%s' is empty when it shouldn't.");
-  }
+    /**
+     * Constructor that indicates the property that is validated.
+     *
+     * @param validatedProperty The property to validate.
+     */
+    public NullOrEmptyValueException(String validatedProperty) {
+        super(validatedProperty, "Property '%s' is empty when it shouldn't.");
+    }
 }

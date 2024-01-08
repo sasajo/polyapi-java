@@ -3,33 +3,33 @@ package {{packageName}};
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
 {{~#each specifications}}
-  {{~#ifIsType this "ServerVariableSpecification"}}
-import {{{packageName}}}.{{{className}}};
-  {{/ifIsType}}
+    {{~#ifIsType this "ServerVariableSpecification"}}
+        import {{{packageName}}}.{{{className}}};
+    {{/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
-import {{{packageName}}}.{{{className}}};
+    import {{{packageName}}}.{{{className}}};
 {{~/each}}
 
 public class Vari extends PolyContext {
 {{~#each specifications}}
-  {{~#ifIsType this "ServerVariableSpecification"}}
-  private static final {{className}} {{name}};
-  {{~/ifIsType}}
+    {{~#ifIsType this "ServerVariableSpecification"}}
+        private static final {{className}} {{name}};
+    {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
-  public static final {{className}} {{name}};
+    public static final {{className}} {{name}};
 {{~/each}}
 
-  static {
-    var vari = new Vari();
+static {
+var vari = new Vari();
 {{~#each specifications}}
-  {{~#ifIsType this "ServerVariableSpecification"}}
-    {{name}} = vari.createServerVariableProxy({{className}}.class);
-  {{~/ifIsType}}
+    {{~#ifIsType this "ServerVariableSpecification"}}
+        {{name}} = vari.createServerVariableProxy({{className}}.class);
+    {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     {{name}} = vari.createSubContext({{className}}.class);
 {{~/each}}
-  }
+}
 }

@@ -18,59 +18,63 @@ import static java.util.function.Predicate.not;
 @Getter
 @Setter
 public class ObjectPropertyType extends PropertyType {
-  private static final Logger logger = LoggerFactory.getLogger(ObjectPropertyType.class);
-  private JsonNode schema;
-  private List<PropertyMetadata> properties;
-  private String typeName;
+    private static final Logger logger = LoggerFactory.getLogger(ObjectPropertyType.class);
+    private JsonNode schema;
+    private List<PropertyMetadata> properties;
+    private String typeName;
 
-  @Override
-  public String getInCodeType() {
-    if (typeName != null && !typeName.isEmpty()) {
-      return typeName;
+    @Override
+    public String getInCodeType() {
+        if (typeName != null && !typeName.isEmpty()) {
+            return typeName;
+        }
+        return "Object";
     }
-    return "Object";
-  }
 
-  @Override
-  public String getTypeSchema() {
-    return Optional.ofNullable(schema).map(Object::toString).orElse("");
-  }
-
-  @Override
-  public String getResultType(String defaultType) {
-    if (Optional.ofNullable(schema).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
-      return switch (Optional.ofNullable(schema.get("type")).map(JsonNode::textValue).orElse("")) {
-        case "array" -> format("%s<%s>", List.class.getName(), Optional.ofNullable(schema.get("items"))
-          .map(items -> items.get("$ref"))
-          .map(JsonNode::textValue)
-          .map(value -> value.replace("#/definitions/", ""))
-          .filter(not(String::isBlank))
-          .orElse("Object"));
-        case "integer" -> Integer.class.getSimpleName();
-        case "string" -> String.class.getSimpleName();
-        case "number" -> Double.class.getSimpleName();
-        case "boolean" -> Boolean.class.getSimpleName();
-        default -> defaultType;
-      };
-    } else {
-      return getInCodeType();
+    @Override
+    public String getTypeSchema() {
+        return Optional.ofNullable(schema).map(Object::toString).orElse("");
     }
-  }
 
-  @Override
-  public Set<String> getImports(String basePackage, String defaultType) {
-    if (Optional.ofNullable(schema).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
-      return switch (Optional.ofNullable(schema.get("type")).map(JsonNode::textValue).orElse("")) {
-        case "array" -> Optional.ofNullable(schema.get("items"))
-          .map(items -> items.get("$ref"))
-          .map(JsonNode::textValue)
-          .map(value -> value.replace("#/definitions/", format("%s.", basePackage)))
-          .map(Set::of)
-          .orElseGet(Set::of);
-        case "integer", "string", "number", "boolean" -> Set.of();
-        default -> Set.of(format("%s.%s", basePackage, defaultType));
-      };
+    @Override
+    public String getResultType(String defaultType) {
+        return getResultType(schema, defaultType);
     }
-    return new HashSet<>();
-  }
+
+    private String getResultType(JsonNode node, String defaultType) {
+        if (Optional.ofNullable(node).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
+            return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
+                case "array" -> format("%s<%s>", List.class.getName(), Optional.ofNullable(node.get("items"))
+                        .map(items -> items.get("$ref"))
+                        .map(JsonNode::textValue)
+                        .map(value -> value.replace("#/definitions/", ""))
+                        .filter(not(String::isBlank))
+                        .orElse(Optional.ofNullable(node.get("items")).map(type -> getResultType(type, defaultType)).orElseGet(this::getInCodeType)));
+                case "integer" -> Integer.class.getSimpleName();
+                case "string" -> String.class.getSimpleName();
+                case "number" -> Double.class.getSimpleName();
+                case "boolean" -> Boolean.class.getSimpleName();
+                default -> defaultType;
+            };
+        } else {
+            return getInCodeType();
+        }
+    }
+
+    @Override
+    public Set<String> getImports(String basePackage, String defaultType) {
+        if (Optional.ofNullable(schema).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
+            return switch (Optional.ofNullable(schema.get("type")).map(JsonNode::textValue).orElse("")) {
+                case "array" -> Optional.ofNullable(schema.get("items"))
+                        .map(items -> items.get("$ref"))
+                        .map(JsonNode::textValue)
+                        .map(value -> value.replace("#/definitions/", format("%s.", basePackage)))
+                        .map(Set::of)
+                        .orElseGet(Set::of);
+                case "integer", "string", "number", "boolean" -> Set.of();
+                default -> Set.of(format("%s.%s", basePackage, defaultType));
+            };
+        }
+        return new HashSet<>();
+    }
 }

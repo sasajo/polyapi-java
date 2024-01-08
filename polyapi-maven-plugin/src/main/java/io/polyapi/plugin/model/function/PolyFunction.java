@@ -16,27 +16,27 @@ import static java.util.stream.Collectors.joining;
 @Getter
 @Setter
 public class PolyFunction {
-  private String id;
-  private String name;
-  private String description;
-  private String context;
-  private String code;
-  private String language = "java";
-  private String returnType;
-  private Visibility visibility;
-  private Boolean logsEnabled;
+    private String id;
+    private String name;
+    private String description;
+    private String context;
+    private String code;
+    private String language = "java";
+    private String returnType;
+    private Visibility visibility;
+    private Boolean logsEnabled;
 
-  private Map<String, Object> returnTypeSchema;
-  private List<PolyFunctionArgument> arguments;
+    private Map<String, Object> returnTypeSchema;
+    private List<PolyFunctionArgument> arguments;
 
-  /**
-   * Gets the signature of this function in the form of functionName(ArgClass, ArgClass2...).
-   *
-   * @return String The signature of this function.
-   */
-  public String getSignature() {
-    return format("%s(%s)", name, Optional.ofNullable(arguments).orElseGet(ArrayList::new).stream()
-      .map(PolyFunctionArgument::getType)
-      .collect(joining(", ")));
-  }
+    /**
+     * Gets the signature of this function in the form of functionName(ArgClass, ArgClass2...).
+     *
+     * @return String The signature of this function.
+     */
+    public String getSignature() {
+        return format("%s(%s)", name, Optional.ofNullable(arguments).orElseGet(ArrayList::new).stream()
+                .map(PolyFunctionArgument::getType)
+                .collect(joining(", ")));
+    }
 }

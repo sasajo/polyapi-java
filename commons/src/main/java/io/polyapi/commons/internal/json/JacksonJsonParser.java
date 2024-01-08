@@ -10,17 +10,14 @@ import io.polyapi.commons.api.json.JsonParser;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Array;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
-import static java.io.InputStream.nullInputStream;
 import static java.nio.charset.Charset.defaultCharset;
 
 /**
@@ -129,12 +126,12 @@ public class JacksonJsonParser implements JsonParser {
   }
 
   /**
-   * @see JsonParser#toJsonSchema(Class)
+   * @see JsonParser#toJsonSchema(Type)
    */
   @Override
-  public String toJsonSchema(Class<?> clazz) {
-    logger.debug("Generating JSon schema for class '{}'", clazz.getSimpleName());
-    JsonNode schema = jsonSchemaGenerator.generateJsonSchema(clazz);
+  public String toJsonSchema(Type type) {
+    logger.debug("Generating JSon schema for class '{}'", type.getTypeName());
+    JsonNode schema = jsonSchemaGenerator.generateJsonSchema(defaultInstance().constructType(type));
     logger.debug("Schema generated. Converting to String.");
     String result = toJsonString(schema);
     logger.debug("JSon converted successfully.");

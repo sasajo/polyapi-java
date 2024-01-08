@@ -10,11 +10,11 @@ import io.polyapi.commons.api.json.JsonParser;
 @PolyEntity("{{id}}")
 public class {{className}} extends WebhookHandle {
 
-  public {{className}}(JsonParser jsonParser, WebSocketClient client) {
-    super(jsonParser, client);
-  }
+public {{className}}(JsonParser jsonParser, WebSocketClient client) {
+super(jsonParser, client);
+}
 
-  public void {{name}}(WebhookEventConsumer<{{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}> callback) {
-    registerEventHandler("{{id}}", {{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}.class, callback);
-  }
+public void {{name}}(WebhookEventConsumer<{{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}> callback) {
+registerEventHandler("{{id}}", {{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}.class, callback);
+}
 }

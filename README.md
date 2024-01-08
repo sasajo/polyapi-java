@@ -154,9 +154,8 @@ System.out.println(result);
 Similar to Custom Functions, you can create Server Functions. To do so, you need to create a class with desired function same as with Custom Functions.
 Then to add it to Poly, you need to add run the following Maven goal:
 ```bash
-mvn library:addFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Dserver -Ddescription="This says hello to you from server"
+mvn polyapi:addServerFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Ddescription="This says hello to you from server"
 ```
-Note the use of `-Dserver` flag. This is used to specify that the function is a server function.
 
 ## Limitations
 Comparing to its Typescript counterpart, the Java library is still missing the following features:

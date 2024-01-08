@@ -5,5 +5,5 @@ package io.polyapi.plugin.mojo;
  */
 public class AddServerFunctionMojoIT {
 
-  // FIXME: Missing tests.
+    // FIXME: Missing tests.
 }

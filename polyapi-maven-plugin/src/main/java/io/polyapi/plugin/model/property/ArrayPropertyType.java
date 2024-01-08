@@ -14,25 +14,25 @@ import static java.util.stream.Stream.concat;
 @Getter
 @Setter
 public class ArrayPropertyType extends PropertyType {
-  private PropertyType items;
+    private PropertyType items;
 
-  @Override
-  public String getInCodeType() {
-    return "java.util.List<" + items.getInCodeType() + ">";
-  }
+    @Override
+    public String getInCodeType() {
+        return "java.util.List<" + items.getInCodeType() + ">";
+    }
 
-  @Override
-  public String getTypeSchema() {
-    return items.getTypeSchema();
-  }
+    @Override
+    public String getTypeSchema() {
+        return items.getTypeSchema();
+    }
 
-  @Override
-  public String getResultType(String defaultType) {
-    return format("%s<%s>", List.class.getName(), items.getResultType(defaultType));
-  }
+    @Override
+    public String getResultType(String defaultType) {
+        return format("%s<%s>", List.class.getName(), items.getResultType(defaultType));
+    }
 
-  @Override
-  public Set<String> getImports(String basePackage, String defaultType) {
-    return concat(Stream.of(Set.class.getName()), items.getImports(basePackage, defaultType).stream()).collect(toSet());
-  }
+    @Override
+    public Set<String> getImports(String basePackage, String defaultType) {
+        return concat(Stream.of(Set.class.getName()), items.getImports(basePackage, defaultType).stream()).collect(toSet());
+    }
 }

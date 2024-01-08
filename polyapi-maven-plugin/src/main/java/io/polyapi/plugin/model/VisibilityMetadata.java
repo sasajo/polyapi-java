@@ -6,7 +6,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VisibilityMetadata {
-  private Visibility visibility;
-  private String foreignTenantName;
+    private Visibility visibility;
+    private String foreignTenantName;
 }
 

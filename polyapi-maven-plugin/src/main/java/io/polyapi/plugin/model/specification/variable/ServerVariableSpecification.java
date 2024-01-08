@@ -7,10 +7,10 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ServerVariableSpecification extends Specification {
-  private VariableSpecification variable;
+    private VariableSpecification variable;
 
-  @Override
-  protected String getTypePackage() {
-    return "variable.server";
-  }
+    @Override
+    protected String getTypePackage() {
+        return "variable.server";
+    }
 }

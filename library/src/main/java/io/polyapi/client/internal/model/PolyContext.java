@@ -1,6 +1,7 @@
 package io.polyapi.client.internal.model;
 
 import io.polyapi.client.api.model.function.PolyApiFunction;
+import io.polyapi.client.api.model.function.PolyCustomFunction;
 import io.polyapi.client.api.model.function.auth.AudienceTokenAuthFunction;
 import io.polyapi.client.api.model.function.auth.SubresourceAuthFunction;
 import io.polyapi.client.api.model.function.auth.TokenAuthFunction;
@@ -58,6 +59,10 @@ public class PolyContext {
 
   protected <T extends PolyApiFunction> T createApiFunctionProxy(Class<T> polyInterface) {
     return proxyFactory.createApiFunctionProxy(polyInterface);
+  }
+
+  protected <T extends PolyCustomFunction> T createCustomFunctionProxy(Class<T> polyInterface) {
+    return proxyFactory.createCustomVariableProxy(polyInterface);
   }
 
   protected <T extends ServerVariable> T createServerVariableProxy(Class<T> polyInterface) {

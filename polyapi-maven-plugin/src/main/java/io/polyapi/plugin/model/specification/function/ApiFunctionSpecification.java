@@ -7,10 +7,10 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ApiFunctionSpecification extends FunctionSpecification {
-  private ApiType apiType;
+    private ApiType apiType;
 
-  @Override
-  protected String getSubtypePackage() {
-    return "api";
-  }
+    @Override
+    protected String getSubtypePackage() {
+        return "api";
+    }
 }
