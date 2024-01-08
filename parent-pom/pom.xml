@@ -6,6 +6,7 @@
     <groupId>io.polyapi</groupId>
     <artifactId>parent-pom</artifactId>
     <version>0.2.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>Poly API Java parent POM</name>
     <url>https://polyapi.io</url>
     <description>Java client library for Poly API</description>
