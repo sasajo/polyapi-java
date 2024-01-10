@@ -27,16 +27,16 @@ This is the list of requirements for the usage of this client:
 
 <a name="project-setup"></a>
 ## Setting up project
-### I'm a developer!
-Welcome fellow dev! As you will be modifying the code here (and maybe even this documentation), you'll need to download and make sure that this project compiles for you.
+### I'm looking to dive into the source code!
+Welcome fellow Poly dev! As you will be modifying the code here (and maybe even this documentation), you'll need to download and make sure that this project compiles for you.
 So, the steps to follow are these:
 1. **Setup an SSH key in your computer.**
 To do so, follow [this GitHub tutorial](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account).
-2. **Clone this beautiful project.** To do so, run:
+2. **Clone this beautiful project.** To do so, run wherever you want to set the project.:
 ```
 git clone git@github.com:polyapi/polyapi-java.git
 ```
-Wherever you want to set the project.
+
 3. **Install the project.** For this you'll run:
 ```
 mvn clean install
@@ -47,7 +47,7 @@ From the folder of the project.
 
 If you want to run the project functionalities, follow the steps for customer. Just bear in mind to update the version to your local ones below. 
 
-### I'm a customer!
+### I'm looking to use Poly to simplify my life!
 Nice to have some customers looking around here! So, you'll need to run the following steps: 
 1. **Create a new Java Maven project.** There are many ways to achieve this. Most likely you already have a project where you want to run this. If you don't, you can follow [this tutorial](https://maven.apache.org/guides/getting-started/maven-in-five-minutes.html). Just have in mind to update the Java version to 17.
 2. **Update the project.** Add the following to your project's `pom.xml`:
@@ -55,11 +55,6 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 <properties>
   <poly.version>0.2.0-SNAPSHOT</poly.version>
 </properties>
-<resources>
-  <resource>
-    <directory>target/generated-resources</directory>
-  </resource>
-</resources>
 <dependencies>
   <dependency>
     <groupId>io.polyapi</groupId>
@@ -68,6 +63,11 @@ Nice to have some customers looking around here! So, you'll need to run the foll
   </dependency>
 </dependencies>
 <build>
+  <resources>
+    <resource>
+      <directory>target/generated-resources</directory>
+    </resource>
+  </resources>
   <plugins>
     <plugin>
       <groupId>io.polyapi</groupId>

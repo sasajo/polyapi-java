@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -57,5 +58,17 @@ public abstract class Specification implements Generable {
     @Override
     public void accept(CodeGenerationVisitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Specification that)) return false;
+        return Objects.equals(context, that.context) && Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(context, name);
     }
 }

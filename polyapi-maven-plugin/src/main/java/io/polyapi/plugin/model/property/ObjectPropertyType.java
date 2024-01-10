@@ -44,12 +44,12 @@ public class ObjectPropertyType extends PropertyType {
     private String getResultType(JsonNode node, String defaultType) {
         if (Optional.ofNullable(node).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
             return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
-                case "array" -> format("%s<%s>", List.class.getName(), Optional.ofNullable(node.get("items"))
+                case "array" -> Optional.ofNullable(node.get("items"))
                         .map(items -> items.get("$ref"))
                         .map(JsonNode::textValue)
                         .map(value -> value.replace("#/definitions/", ""))
                         .filter(not(String::isBlank))
-                        .orElse(Optional.ofNullable(node.get("items")).map(type -> getResultType(type, defaultType)).orElseGet(this::getInCodeType)));
+                        .orElse(Optional.ofNullable(node.get("items")).map(type -> getResultType(type, defaultType)).orElseGet(this::getInCodeType));
                 case "integer" -> Integer.class.getSimpleName();
                 case "string" -> String.class.getSimpleName();
                 case "number" -> Double.class.getSimpleName();

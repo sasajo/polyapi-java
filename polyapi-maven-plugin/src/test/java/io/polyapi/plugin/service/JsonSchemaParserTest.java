@@ -1,5 +1,7 @@
 package io.polyapi.plugin.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.util.RawValue;
 import io.polyapi.plugin.model.CustomType;
@@ -24,12 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonSchemaParserTest {
     private final JsonSchemaParser jsonSchemaParser = new JsonSchemaParser();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public static Stream<Arguments> generateReturnClassStructureSource() throws Exception {
         return Stream.of(Arguments.of("Simple recursive schema with no base type.", "Case 1", 2, List.of("Data", "TestResponse")),
                 Arguments.of("Recursive schema with base type.", "Case 2", 8, List.of("Coupon", "Discount", "Address", "CouponMetadata", "ResponseTypeMetadata", "TestResponse", "InvoiceSettings", "Shipping")),
                 Arguments.of("Schema that has a text value evaluated to null.", "Case 3", 8, List.of("Message", "TestResponse", "Edited", "Metadata", "Block", "Attachment", "Text", "EventPayload")),
-                Arguments.of("Schema with base type and no definitions.", "Case 4", 1, List.of("TestResponse")));
+                Arguments.of("Schema with base type and no definitions.", "Case 4", 1, List.of("TestResponse")),
+                Arguments.of("Schema for array of numbers.", "Case 5", 1, List.of("TestResponse")));
     }
 
     @ParameterizedTest(name = "{1}: {0}")
@@ -41,7 +45,7 @@ public class JsonSchemaParserTest {
         specification.setContext("polyapi.testing");
         var functionMetadata = new FunctionMetadata();
         var returnType = new ObjectPropertyType();
-        returnType.setSchema(JsonNodeFactory.instance.rawValueNode(new RawValue(IOUtils.toString(JsonSchemaParser.class.getResourceAsStream(format("/%s/cases/%s.schema.json", JsonSchemaParser.class.getPackageName().replace(".", "/"), schemaFileName)), defaultCharset()))));
+        returnType.setSchema(objectMapper.readTree(JsonSchemaParser.class.getResourceAsStream(format("/%s/cases/%s.schema.json", JsonSchemaParser.class.getPackageName().replace(".", "/"), schemaFileName))));
         functionMetadata.setReturnType(returnType);
         specification.setFunction(functionMetadata);
         var customTypes = jsonSchemaParser.generateReturnClassStructure(specification).stream().map(CustomType::getName).toList();

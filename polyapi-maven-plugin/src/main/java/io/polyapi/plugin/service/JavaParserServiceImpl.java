@@ -122,13 +122,13 @@ public class JavaParserServiceImpl implements JavaParserService {
                                     var argument = new PolyFunctionArgument();
                                     argument.setName(param.getNameAsString());
                                     var argumentTypeData = parse(param.getType());
-                                    argument.setType(argumentTypeData.name());
+                                    argument.setType(param.getType().resolve().asReferenceType().getQualifiedName());
                                     argument.setTypeSchema(argumentTypeData.jsonSchema());
                                     return argument;
                                 })
                                 .forEach(function.getArguments()::add);
                         logger.trace("Parsed {} parameters.", function.getArguments().size());
-                        compilationUnit.getPackageDeclaration().ifPresent(declaration -> declaration.setName(format("io.polyapi.function.custom.%s", context)));
+                        compilationUnit.getPackageDeclaration().ifPresent(declaration -> declaration.setName(format("io.polyapi.function.custom.%s", Optional.ofNullable(context).map(String::toLowerCase).orElse(""))));
                         compilationUnit.getType(0).setName(format("%sDelegate", StringUtils.toPascalCase(function.getName())));
                         function.setCode(compilationUnit.toString());
                         functions.add(function);

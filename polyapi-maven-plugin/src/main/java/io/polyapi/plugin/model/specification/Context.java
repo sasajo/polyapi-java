@@ -8,9 +8,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
@@ -24,7 +26,7 @@ public class Context implements Generable {
     private String name;
     private Context parent;
     private List<Context> subcontexts = new ArrayList<>();
-    private List<Specification> specifications = new ArrayList<>();
+    private Set<Specification> specifications = new HashSet<>();
 
     public Context(Context parent, String name) {
         this.parent = parent;
