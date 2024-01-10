@@ -33,7 +33,5 @@ public abstract class PropertyType {
 
     public abstract String getResultType(String defaultValue);
 
-    public Set<String> getImports(String basePackage, String defaultType) {
-        return new HashSet<>();
-    }
+    public abstract Set<String> getImports(String basePackage, String defaultType);
 }

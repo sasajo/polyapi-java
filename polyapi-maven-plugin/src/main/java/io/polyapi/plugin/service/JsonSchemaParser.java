@@ -41,7 +41,7 @@ public class JsonSchemaParser {
 
                 // This cannot be put as an attribute of this class as it does not take well when being reused and has many errors.
                 new SchemaMapper(new RuleFactory(config, new Jackson2Annotator(config), new SchemaStore()), new SchemaGenerator())
-                        .generate(codeModel, specification.getResultType(), specification.getPackageName(), functionMetadata.getReturnType().getTypeSchema());
+                        .generate(codeModel, specification.getResultType().replace(List.class.getName(), "").replace("<", "").replace(">", ""), specification.getPackageName(), functionMetadata.getReturnType().getTypeSchema());
                 logger.debug("Code generated. Writing to string.");
                 try (var codeWriter = new PolyCodeWriter()) {
                     codeModel.build(codeWriter);

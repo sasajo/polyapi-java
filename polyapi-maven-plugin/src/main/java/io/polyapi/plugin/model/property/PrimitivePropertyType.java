@@ -3,6 +3,9 @@ package io.polyapi.plugin.model.property;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Getter
 @Setter
 public class PrimitivePropertyType extends PropertyType {
@@ -26,6 +29,11 @@ public class PrimitivePropertyType extends PropertyType {
     @Override
     public String getResultType(String defaultType) {
         return getInCodeType();
+    }
+
+    @Override
+    public Set<String> getImports(String basePackage, String defaultType) {
+        return new HashSet<>();
     }
 }
 

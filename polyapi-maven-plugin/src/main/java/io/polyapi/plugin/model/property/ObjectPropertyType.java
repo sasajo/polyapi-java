@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
@@ -50,7 +51,6 @@ public class ObjectPropertyType extends PropertyType {
                 sb.append(c);
             }
         }
-
         return sb.toString();
     }
 
@@ -62,12 +62,8 @@ public class ObjectPropertyType extends PropertyType {
     private String getResultType(JsonNode node, String defaultType) {
         if (Optional.ofNullable(node).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
             return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
-                case "array" -> Optional.ofNullable(node.get("items"))
-                        .map(items -> items.get("$ref"))
-                        .map(JsonNode::textValue)
-                        .map(value -> value.replace("#/definitions/", ""))
-                        .filter(not(String::isBlank))
-                        .orElse(Optional.ofNullable(node.get("items")).map(type -> getResultType(type, defaultType)).orElseGet(this::getInCodeType));
+                case "array" ->
+                        format("%s<%s>", List.class.getName(), getRefType(node, "", type -> getResultType(type, defaultType)));
                 case "integer" -> Integer.class.getSimpleName();
                 case "string" -> String.class.getSimpleName();
                 case "number" -> Double.class.getSimpleName();
@@ -79,16 +75,27 @@ public class ObjectPropertyType extends PropertyType {
         }
     }
 
+    private String getRefType(JsonNode node, String packageName, Function<JsonNode, String> defaultProcessing) {
+        return Optional.ofNullable(node.get("items"))
+                .map(items -> items.get("$ref"))
+                .map(JsonNode::textValue)
+                .map(value -> value.replace("#/definitions/", packageName))
+                .filter(not(String::isBlank))
+                .orElseGet(() -> Optional.ofNullable(node.get("items")).map(defaultProcessing).orElse(null));
+    }
+
     @Override
     public Set<String> getImports(String basePackage, String defaultType) {
-        if (Optional.ofNullable(schema).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
-            return switch (Optional.ofNullable(schema.get("type")).map(JsonNode::textValue).orElse("")) {
-                case "array" -> Optional.ofNullable(schema.get("items"))
-                        .map(items -> items.get("$ref"))
-                        .map(JsonNode::textValue)
-                        .map(value -> value.replace("#/definitions/", format("%s.", basePackage)))
-                        .map(Set::of)
-                        .orElseGet(Set::of);
+        return getImports(schema, basePackage, defaultType);
+    }
+
+    private Set<String> getImports(JsonNode node, String basePackage, String defaultType) {
+        if (Optional.ofNullable(node).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
+            return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
+                case "array" ->
+                        Optional.ofNullable(getRefType(node, format("%s.", basePackage), type -> getImports(type, basePackage, defaultType).stream().findFirst().orElse(null)))
+                                .map(Set::of)
+                                .orElseGet(Set::of);
                 case "integer", "string", "number", "boolean" -> Set.of();
                 default -> Set.of(format("%s.%s", basePackage, defaultType));
             };
