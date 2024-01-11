@@ -1,9 +1,12 @@
 package io.polyapi.client.api;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Map;
 
-@lombok.Setter
-@lombok.Getter
+@Setter
+@Getter
 public class ApiFunctionResponse<T> {
   private T data;
   private Map<String, String> headers;

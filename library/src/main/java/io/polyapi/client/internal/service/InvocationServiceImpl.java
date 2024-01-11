@@ -14,7 +14,9 @@ import io.polyapi.client.error.invocation.delegate.InvalidMethodDeclarationExcep
 import io.polyapi.client.error.invocation.delegate.MissingDefaultConstructorException;
 import io.polyapi.client.internal.websocket.WebSocketClient;
 import io.polyapi.commons.api.error.PolyApiException;
+import io.polyapi.commons.api.error.http.UnexpectedHttpResponseException;
 import io.polyapi.commons.api.http.HttpClient;
+import io.polyapi.commons.api.http.ResponseRecord;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import org.slf4j.Logger;
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
@@ -29,6 +32,7 @@ import java.util.TimerTask;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static java.lang.String.format;
 
 public class InvocationServiceImpl extends PolyApiService implements InvocationService {
@@ -50,8 +54,13 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     }
 
     @Override
-    public <T> ApiFunctionResponse<T> invokeApiFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
-        return invokeFunction("API", id, body, expectedResponseType);
+    public <T> T invokeApiFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
+        ApiFunctionResponse<T> response = invokeFunction("API", id, body, defaultInstance().constructParametricType(ApiFunctionResponse.class, defaultInstance().constructType(expectedResponseType)));
+        if (response.getStatus() < 200 || response.getStatus() >= 400) {
+            throw new UnexpectedHttpResponseException(new ResponseRecord(response.getHeaders().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> List.of(entry.getValue()))), Optional.ofNullable(response.getData()).map(jsonParser::toJsonInputStream).orElse(null), response.getStatus()));
+        }
+
+        return response.getData();
     }
 
     @Override

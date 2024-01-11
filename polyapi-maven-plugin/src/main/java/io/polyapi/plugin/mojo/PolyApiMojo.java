@@ -1,6 +1,5 @@
 package io.polyapi.plugin.mojo;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.polyapi.commons.api.error.http.UnexpectedHttpResponseException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.http.TokenProvider;
@@ -68,7 +67,7 @@ public abstract class PolyApiMojo extends AbstractMojo {
                             .writeTimeout(10, MINUTES)
                             .build(),
                             tokenProvider),
-                    new JacksonJsonParser(new ObjectMapper()),
+                    new JacksonJsonParser(),
                     mavenService);
         } catch (PolyApiMavenPluginException e) {
             logger.error("An exception occurred during the plugin execution.", e);
