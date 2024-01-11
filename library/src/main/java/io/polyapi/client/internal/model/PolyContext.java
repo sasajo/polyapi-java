@@ -19,10 +19,13 @@ import io.polyapi.commons.internal.http.DefaultHttpClient;
 import io.polyapi.commons.internal.http.HardcodedTokenProvider;
 import io.polyapi.commons.internal.json.JacksonJsonParser;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.Properties;
+
+import static java.lang.String.format;
 
 public class PolyContext {
   private final PolyProxyFactory proxyFactory;
@@ -32,7 +35,7 @@ public class PolyContext {
     this(Optional.of(new Properties())
       .map(properties -> {
         try {
-          properties.load(PolyContext.class.getResourceAsStream("/poly.properties"));
+          properties.load(PolyContext.class.getResourceAsStream(format("%spoly.properties", File.separator)));
           return new PolyContextConfiguration(properties);
         } catch (IOException e) {
           throw new PolyApiException(e);
