@@ -71,7 +71,7 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
             var method = Stream.of(invokingClass.getDeclaredMethods()).findFirst()
                     .orElseThrow(() -> new PolyApiException());
             try {
-                return (T) delegateClass.getDeclaredMethod(method.getName(), method.getParameterTypes()).invoke(delegate, body.values());
+                return (T) delegateClass.getDeclaredMethod(method.getName(), method.getParameterTypes()).invoke(delegate, body.values().toArray());
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 throw new InvalidMethodDeclarationException(invokingClass, e);
 

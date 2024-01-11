@@ -9,5 +9,5 @@ import io.polyapi.client.api.model.PolyMetadata;
 paramTypes = { {{~#each function.arguments}}"{{{type}}}"{{#unless @last}}, {{/unless}} {{~/each}} })
 public interface {{className}} extends PolyApiFunction {
 
-{{{resultType}}} {{name}}({{{renderArguments function.arguments}}});
+{{{resultType}}} {{name}}({{{renderArguments this}}});
 }

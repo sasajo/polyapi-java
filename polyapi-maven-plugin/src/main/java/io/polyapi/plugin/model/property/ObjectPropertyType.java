@@ -55,7 +55,7 @@ public class ObjectPropertyType extends PropertyType {
     }
 
     @Override
-    public String getResultType(String defaultType) {
+    public String getType(String defaultType) {
         return getResultType(schema, defaultType);
     }
 

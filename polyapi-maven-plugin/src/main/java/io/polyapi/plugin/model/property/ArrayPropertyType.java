@@ -27,8 +27,8 @@ public class ArrayPropertyType extends PropertyType {
     }
 
     @Override
-    public String getResultType(String defaultType) {
-        return format("%s<%s>", List.class.getName(), items.getResultType(defaultType));
+    public String getType(String defaultType) {
+        return format("%s<%s>", List.class.getName(), items.getType(defaultType));
     }
 
     @Override

@@ -19,7 +19,7 @@ public class FunctionPropertyType extends PropertyType {
     }
 
     @Override
-    public String getResultType(String defaultType) {
+    public String getType(String defaultType) {
         return Function.class.getName();
     }
 

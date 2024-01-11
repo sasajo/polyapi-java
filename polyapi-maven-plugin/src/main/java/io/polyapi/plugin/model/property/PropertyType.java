@@ -3,7 +3,6 @@ package io.polyapi.plugin.model.property;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import java.util.HashSet;
 import java.util.Set;
 
 @JsonTypeInfo(
@@ -31,7 +30,7 @@ public abstract class PropertyType {
 
     public abstract String getTypeSchema();
 
-    public abstract String getResultType(String defaultValue);
+    public abstract String getType(String defaultValue);
 
     public abstract Set<String> getImports(String basePackage, String defaultType);
 }

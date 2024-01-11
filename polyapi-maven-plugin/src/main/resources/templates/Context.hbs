@@ -22,7 +22,6 @@ import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
             import {{{this}}};
         {{~/each}}
     {{~/ifIsType}}
-
 {{~/each}}
 {{#each subcontexts}}
     import {{{packageName}}}.{{{className}}};
@@ -66,7 +65,7 @@ super(proxyFactory, webhookHandlerFactory);
 
 {{~#each specifications}}
     {{~#ifIsType this "ApiFunctionSpecification"}}
-        public  {{{this.resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
+        public  {{{this.resultType}}} {{name}}({{{renderArguments this}}}) {
         {{~#if function.returnsValue}}
             return
         {{~else}}
@@ -77,7 +76,7 @@ super(proxyFactory, webhookHandlerFactory);
 
     {{~#ifIsType this "CustomFunctionSpecification"}}
         {{~#if this.isJava}}
-            public {{{this.resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
+            public {{{this.resultType}}} {{name}}({{{renderArguments this}}}) {
             {{~#if function.returnsValue}}
                 return
             {{~else}}
@@ -88,7 +87,7 @@ super(proxyFactory, webhookHandlerFactory);
     {{~/ifIsType}}
 
     {{~#ifIsType this "ServerFunctionSpecification"}}
-        public {{{this.resultType}}} {{name}}({{{renderArguments function.arguments}}}) {
+        public {{{this.resultType}}} {{name}}({{{renderArguments this}}}) {
         {{~#if function.returnsValue}}
             return
         {{~else}}

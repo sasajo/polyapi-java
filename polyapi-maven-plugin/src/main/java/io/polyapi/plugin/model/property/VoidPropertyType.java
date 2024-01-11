@@ -15,7 +15,7 @@ public class VoidPropertyType extends PropertyType {
     }
 
     @Override
-    public String getResultType(String defaultType) {
+    public String getType(String defaultType) {
         return "void";
     }
 

@@ -1,17 +1,23 @@
 package {{packageName}};
 
-import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
 {{~#each specifications}}
-    {{~#ifIsType this "CustomFunctionSpecification"}}
-        import {{{packageName}}}.{{{className}}};
-    {{/ifIsType}}
+    import {{{packageName}}}.{{{className}}};
     {{~#ifIsType this "ServerFunctionSpecification"}}
-        import {{{packageName}}}.{{{className}}};
-    {{/ifIsType}}
+        {{~#each this.imports}}
+            import {{{this}}};
+        {{~/each}}
+    {{~/ifIsType}}
+    {{~#ifIsType this "CustomFunctionSpecification"}}
+        {{~#each this.imports}}
+            import {{{this}}};
+        {{~/each}}
+    {{~/ifIsType}}
     {{~#ifIsType this "ApiFunctionSpecification"}}
-        import {{{packageName}}}.{{{className}}};
-    {{/ifIsType}}
+        {{~#each this.imports}}
+            import {{{this}}};
+        {{~/each}}
+    {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     import {{{packageName}}}.{{{className}}};
@@ -49,7 +55,7 @@ Poly poly = new Poly();
 
 {{~#each specifications}}
     {{~#ifIsType this "ApiFunctionSpecification"}}
-        public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
+        public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments this}}}) {
         return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
         }
     {{~/ifIsType}}
@@ -60,14 +66,14 @@ Poly poly = new Poly();
                 public static {{function.returnType}}
             {{~else}}
                 public static void
-            {{~/if}} {{name}}({{{renderArguments function.arguments}}}) {
+            {{~/if}} {{name}}({{{renderArguments this}}}) {
             {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
             }
         {{~/if}}
     {{~/ifIsType}}
 
     {{~#ifIsType this "ServerFunctionSpecification"}}
-        public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments function.arguments}}}) {
+        public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments this}}}) {
         return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
         }
     {{~/ifIsType}}

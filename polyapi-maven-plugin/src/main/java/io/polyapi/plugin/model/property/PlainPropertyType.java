@@ -17,7 +17,7 @@ public class PlainPropertyType extends PropertyType {
     }
 
     @Override
-    public String getResultType(String defaultType) {
+    public String getType(String defaultType) {
         return "String";
     }
 
