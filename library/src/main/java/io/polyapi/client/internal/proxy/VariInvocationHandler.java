@@ -22,7 +22,7 @@ public class VariInvocationHandler implements InvocationHandler {
   @Override
   public Object invoke(Object proxy, Method method, Object[] arguments) {
     try {
-      var polyData = method.getDeclaringClass().getAnnotation(PolyEntity.class);
+      var polyData = proxy.getClass().getInterfaces()[0].getAnnotation(PolyEntity.class);
       logger.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
       logger.debug("Operating with server variable with ID '{}'.", polyData.value());
       var result = method.invoke(new DefaultServerVariableImpl<>(polyData.value(), method.getGenericReturnType(), invocationService, VariableInjectManager.getInstance()), arguments);
