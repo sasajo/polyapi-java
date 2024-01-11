@@ -18,10 +18,14 @@ import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.internal.http.DefaultHttpClient;
 import io.polyapi.commons.internal.http.HardcodedTokenProvider;
 import io.polyapi.commons.internal.json.JacksonJsonParser;
+import org.apache.commons.io.IOUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -35,7 +39,7 @@ public class PolyContext {
     this(Optional.of(new Properties())
       .map(properties -> {
         try {
-          properties.load(PolyContext.class.getResourceAsStream(format("%spoly.properties", File.separator)));
+          properties.load(PolyContext.class.getResourceAsStream("/poly.properties"));
           return new PolyContextConfiguration(properties);
         } catch (IOException e) {
           throw new PolyApiException(e);
