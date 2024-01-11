@@ -6,23 +6,28 @@ import io.polyapi.client.api.AuthTokenOptions;
 import io.polyapi.client.api.GetAuthTokenResponse;
 import io.polyapi.client.api.VariableInjectManager;
 import io.polyapi.client.api.model.function.auth.PolyAuthSubresource;
+import io.polyapi.client.error.invocation.delegate.DelegateCreationException;
+import io.polyapi.client.error.invocation.delegate.DelegateExecutionException;
+import io.polyapi.client.error.invocation.delegate.DelegateNotFoundException;
+import io.polyapi.client.error.invocation.delegate.InvalidDelegateClassTypeException;
+import io.polyapi.client.error.invocation.delegate.InvalidMethodDeclarationException;
+import io.polyapi.client.error.invocation.delegate.MissingDefaultConstructorException;
 import io.polyapi.client.internal.websocket.WebSocketClient;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
-import io.polyapi.commons.internal.http.DefaultHttpClient;
-import io.polyapi.commons.internal.http.HardcodedTokenProvider;
-import io.polyapi.commons.internal.json.JacksonJsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 
@@ -52,12 +57,30 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     @Override
     public <T> T invokeCustomFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
         try {
-            Class.forName(format("%sDelegate", invokingClass.getName()));
+            var delegateClass = Class.forName(format("%sDelegate", invokingClass.getName()));
+            Object delegate;
+            try {
+                delegate = delegateClass.getConstructor().newInstance();
+            } catch (NoSuchMethodException e) {
+                throw new MissingDefaultConstructorException(invokingClass, e);
+            } catch (InvocationTargetException | IllegalAccessException e) {
+                throw new DelegateCreationException(invokingClass, e);
+            } catch (InstantiationException e) {
+                throw new InvalidDelegateClassTypeException(invokingClass, e);
+            }
+            var method = Stream.of(invokingClass.getDeclaredMethods()).findFirst()
+                    .orElseThrow(() -> new PolyApiException());
+            try {
+                return (T) delegateClass.getDeclaredMethod(method.getName(), method.getParameterTypes()).invoke(delegate, body.values());
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw new InvalidMethodDeclarationException(invokingClass, e);
+
+            } catch (InvocationTargetException e) {
+                throw new DelegateExecutionException(invokingClass, e);
+            }
         } catch (ClassNotFoundException e) {
-            // FIXME: Throw the appropriate exception.
-            throw new PolyApiException(e);
+            throw new DelegateNotFoundException(invokingClass, e);
         }
-        return null;
     }
 
     @Override
