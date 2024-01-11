@@ -30,7 +30,11 @@ import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
 
 public class {{className}} extends PolyContext {
 {{~#each specifications}}
+    {{~#ifIsType this "ServerVariableSpecification"}}
+        public final {{className}} {{name}};
+    {{~else}}
     private final {{className}} {{name}};
+    {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     public final {{className}} {{name}};
