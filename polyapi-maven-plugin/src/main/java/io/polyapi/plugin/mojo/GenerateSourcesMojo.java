@@ -19,6 +19,8 @@ import io.polyapi.plugin.service.SpecificationServiceImpl;
 import io.polyapi.plugin.service.template.PolyHandlebars;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,9 +40,13 @@ public class GenerateSourcesMojo extends PolyApiMojo {
     private FileService fileService;
     private JsonSchemaParser jsonSchemaParser;
 
+    @Parameter(property = "overwrite", defaultValue = "false")
+    private Boolean overwrite;
+
+
     @Override
     public void execute(String host, Integer port, TokenProvider tokenProvider, HttpClient httpClient, JsonParser jsonParser, MavenService mavenService) {
-        this.fileService = new FileServiceImpl(new PolyHandlebars());
+        this.fileService = new FileServiceImpl(new PolyHandlebars(), overwrite);
         this.jsonSchemaParser = new JsonSchemaParser();
         var specifications = new SpecificationServiceImpl(host, port, httpClient, jsonParser).getJsonSpecs();
         var context = new HashMap<String, Object>();

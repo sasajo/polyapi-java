@@ -17,10 +17,12 @@ import static java.lang.String.format;
 public class FileServiceImpl implements FileService {
   private static final Logger logger = LoggerFactory.getLogger(FileServiceImpl.class);
   private final Handlebars handlebars;
+  private final boolean overwriteFiles;
 
 
-  public FileServiceImpl(Handlebars handlebars) {
+  public FileServiceImpl(Handlebars handlebars, boolean overwriteFiles) {
     this.handlebars = handlebars;
+    this.overwriteFiles = overwriteFiles;
   }
 
   public void createFileFromTemplate(File file, String template, Object context) {
@@ -36,18 +38,22 @@ public class FileServiceImpl implements FileService {
   }
 
   public void createFileWithContent(File file, String content) {
-    Optional.ofNullable(file).map(File::getAbsolutePath).orElseThrow(NullPointerException::new);
-    logger.debug("Creating file with content for file {}.", file.getAbsolutePath());
-    File parent = file.getParentFile();
-    logger.debug("Creating parent folder at {}.", parent.getAbsolutePath());
-    parent.mkdirs();
-    try (PrintWriter out = new PrintWriter(file)) {
-      out.println(content);
-    } catch (FileNotFoundException e) {
-      // FIXME: Throw appropriate exception.
-      throw new PolyApiException(format("An exception occurred while creating file %s.", file.getAbsolutePath()), e);
-    } finally {
-      logger.debug("File {} created successfully.", file.getAbsolutePath());
+    if (file.exists() && !overwriteFiles) {
+      logger.info("File {} already exists. Skipping its creation.", file.getAbsolutePath());
+    } else {
+      Optional.ofNullable(file).map(File::getAbsolutePath).orElseThrow(NullPointerException::new);
+      logger.debug("Creating file with content for file {}.", file.getAbsolutePath());
+      File parent = file.getParentFile();
+      logger.debug("Creating parent folder at {}.", parent.getAbsolutePath());
+      parent.mkdirs();
+      try (PrintWriter out = new PrintWriter(file)) {
+        out.println(content);
+      } catch (FileNotFoundException e) {
+        // FIXME: Throw appropriate exception.
+        throw new PolyApiException(format("An exception occurred while creating file %s.", file.getAbsolutePath()), e);
+      } finally {
+        logger.debug("File {} created successfully.", file.getAbsolutePath());
+      }
     }
   }
 }

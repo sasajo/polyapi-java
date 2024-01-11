@@ -207,6 +207,7 @@ Here's the list of parameters:
 - **host (required):** The host where the Poly API instance is hosted.
 - **port:** The port that the Poly API instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
+- **overwrite:** Flag indicating that the generated files will overwrite any existing files. Default value is false.
 
 <a name="project-usage"></a>
 ## Usage
