@@ -207,6 +207,7 @@ Here's the list of parameters:
 - **host (required):** The host where the Poly API instance is hosted.
 - **port:** The port that the Poly API instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
+- **context:** Value that works as fillter for the retrieved specifications. The filter will return any specification that starts with the indicated value. (i.e. if you set `polyapi` as a value, it will only generate those that have that as a context). This parameter is case-insensitive. 
 - **overwrite:** Flag indicating that the generated files will overwrite any existing files. Default value is false.
 
 <a name="project-usage"></a>

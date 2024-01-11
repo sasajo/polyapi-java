@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -42,6 +43,9 @@ public class GenerateSourcesMojo extends PolyApiMojo {
 
     @Parameter(property = "overwrite", defaultValue = "false")
     private Boolean overwrite;
+
+    @Parameter(property = "context")
+    private String context;
 
 
     @Override
@@ -72,6 +76,7 @@ public class GenerateSourcesMojo extends PolyApiMojo {
         specifications.stream()
                 .filter(filter::isInstance)
                 .filter(specification -> !(specification instanceof CustomFunctionSpecification && !CustomFunctionSpecification.class.cast(specification).isJava()))
+                .filter(specification -> Optional.ofNullable(specification.getContext()).orElse("").toLowerCase().startsWith(Optional.ofNullable(context).orElse("").toLowerCase()))
                 .peek(specification -> logger.trace("Generating context for specification {}.", specification.getName()))
                 .forEach(specification -> createContext(rootContext, Stream.of(specification.getContext().split("\\.")).filter(not(String::isEmpty)).toList(), specification));
         rootContext.accept(new CodeGenerationVisitor(fileService, jsonSchemaParser));
