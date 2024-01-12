@@ -110,6 +110,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 </build>
 ```
 Make sure you replace `{API_KEY}` with valid API key to access the Poly API.
+If you work on Windows, remember to replace the '/' bar in the resources for '\'. 
 
 3. **Compile the project.** To generate the Poly functions and compile the project (this needs to be done everytime you update your Poly functions) run this beautiful command:
 ```
@@ -207,7 +208,7 @@ Here's the list of parameters:
 - **host (required):** The host where the Poly API instance is hosted.
 - **port:** The port that the Poly API instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
-- **context:** Value that works as fillter for the retrieved specifications. The filter will return any specification that starts with the indicated value. (i.e. if you set `polyapi` as a value, it will only generate those that have that as a context). This parameter is case-insensitive. 
+- **context:** Comma separated values that work as filter for the retrieved specifications. These filters will return any specification that starts with any of the the indicated values. (i.e. if you set `polyapi,google` as a value, it will only generate those that have either of those as a context). This parameter is case-insensitive. 
 - **overwrite:** Flag indicating that the generated files will overwrite any existing files. Default value is false.
 
 <a name="project-usage"></a>

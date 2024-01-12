@@ -6,21 +6,19 @@ import io.polyapi.commons.api.http.TokenProvider;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.commons.internal.file.FileServiceImpl;
-import io.polyapi.plugin.model.Generable;
 import io.polyapi.plugin.model.specification.Context;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
-import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
 import io.polyapi.plugin.service.JsonSchemaParser;
 import io.polyapi.plugin.service.MavenService;
 import io.polyapi.plugin.service.SpecificationServiceImpl;
 import io.polyapi.plugin.service.template.PolyHandlebars;
+import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,7 +74,9 @@ public class GenerateSourcesMojo extends PolyApiMojo {
         specifications.stream()
                 .filter(filter::isInstance)
                 .filter(specification -> !(specification instanceof CustomFunctionSpecification && !CustomFunctionSpecification.class.cast(specification).isJava()))
-                .filter(specification -> Optional.ofNullable(specification.getContext()).orElse("").toLowerCase().startsWith(Optional.ofNullable(context).orElse("").toLowerCase()))
+                .filter(specification -> Stream.of(Optional.ofNullable(context).orElse("").toLowerCase().split(","))
+                        .map(String::trim)
+                        .anyMatch(Optional.ofNullable(specification.getContext()).orElse("").toLowerCase()::startsWith))
                 .peek(specification -> logger.trace("Generating context for specification {}.", specification.getName()))
                 .forEach(specification -> createContext(rootContext, Stream.of(specification.getContext().split("\\.")).filter(not(String::isEmpty)).toList(), specification));
         rootContext.accept(new CodeGenerationVisitor(fileService, jsonSchemaParser));
