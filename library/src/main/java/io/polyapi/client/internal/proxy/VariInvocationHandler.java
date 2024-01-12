@@ -26,7 +26,7 @@ public class VariInvocationHandler implements InvocationHandler {
         logger.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
         logger.debug("Operating with server variable with ID '{}'.", polyData.value());
         var result = Stream.of(proxy.getClass().getInterfaces()[0].getInterfaces()[0].getMethods())
-                .filter(parentInterfaceMethod -> parentInterfaceMethod.getName().equals(method.getName()))
+                .filter(parentInterfaceMethod -> parentInterfaceMethod.getName().equals(method.getName()) && parentInterfaceMethod.getParameterCount() == method.getParameterCount())
                 .findFirst()
                 .map(parentInterfaceMethod -> {
                     try {

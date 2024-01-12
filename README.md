@@ -217,17 +217,14 @@ Here's the list of parameters:
 ### Poly Functions
 To use the Poly functions you can import `import io.polyapi.Poly;` and traverse through it to find the function you want to use. For example:
 ```java
-var body = new Create$HotelDataBody();
-var payload = new Create$Payload();
-var result = Poly.hotelApi.hotelData.createRoomEntry("https://eofn4s3nvu8okku.m.pipedream.net", "meat", body, payload);
-var data = result.getData();
+var result = Poly.yourApi.context.reallyCoolPolyFunction("https://really.cool.polyfunction.net", "param");
 
-System.out.println(data.getPrice());
+System.out.println(result);
 ``` 
 
 ### Webhook handlers
 ```java
-Poly.events.itemPurchased((event, headers, params) -> {
+Poly.myWebhooks.onCoolEvent((event, headers, params) -> {
   System.out.println(event.getPrice());
 });
 ```

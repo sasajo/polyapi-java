@@ -26,7 +26,11 @@ public class VariableInjectManager {
 
     public Object getInjectedValueOrOriginal(String injectableId, String param, Object original) {
         var hash = hash(injectableId, param);
-        return injectionMap.containsKey(hash) ? new InjectedVariable(injectionMap.remove(hash), null) : original;
+        return getOrDefault(hash, getOrDefault(hash(null, param), original));
+    }
+
+    private Object getOrDefault(int hash, Object defaultValue) {
+        return injectionMap.containsKey(hash) ? new InjectedVariable(injectionMap.remove(hash), null) : defaultValue;
     }
 
     public void put(String variableId, String injectableId, String... paramNames) {
