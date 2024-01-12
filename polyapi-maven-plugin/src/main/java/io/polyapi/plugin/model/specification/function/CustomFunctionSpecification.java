@@ -3,6 +3,7 @@ package io.polyapi.plugin.model.specification.function;
 import io.polyapi.plugin.model.CustomType;
 import io.polyapi.plugin.model.Generable;
 import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
+import io.polyapi.plugin.service.visitor.PolyVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -36,7 +37,7 @@ public class CustomFunctionSpecification extends FunctionSpecification {
     }
 
     @Override
-    public void accept(CodeGenerationVisitor visitor) {
+    public void accept(PolyVisitor visitor) {
         visitor.visit(this);
     }
 

@@ -1,15 +1,9 @@
 package io.polyapi.client.api.model.variable;
 
-import io.polyapi.commons.api.model.PolyObject;
+import io.polyapi.client.api.model.PolyProxy;
 
-public interface ServerVariable<T> extends PolyObject {
+public interface ServerVariable<T> extends PolyProxy {
   void update(T entity);
 
-  String inject();
-
-  String inject(String path);
-
-  <T> T inject(Class<T> clazz);
-
-  <T> T inject(String path, Class<T> clazz);
+  T inject(PolyProxy injectable, String... paramNames);
 }

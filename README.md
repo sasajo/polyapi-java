@@ -74,16 +74,16 @@ Nice to have some customers looking around here! So, you'll need to run the foll
       <artifactId>polyapi-maven-plugin</artifactId>
       <version>${poly.version}</version>
       <executions>
+        <configuration>
+          <host>https://develop-k8s.polyapi.io</host>
+          <port>443</port>
+          <apiKey>{API_KEY}</apiKey>
+        </configuration>
         <execution>
           <phase>generate-sources</phase>
           <goals>
             <goal>generate-sources</goal>
           </goals>
-          <configuration>
-            <host>https://develop-k8s.polyapi.io</host>
-            <port>443</port>
-            <apiKey>{API_KEY}</apiKey>
-          </configuration>
         </execution>
       </executions>
     </plugin>
@@ -293,7 +293,7 @@ System.out.println(result);
 Similar to Custom Functions, you can create Server Functions. To do so, you need to create a class with desired function same as with Custom Functions.
 Then to add it to Poly, you need to add run the following Maven goal:
 ```bash
-mvn polyapi:addServerFunction -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Ddescription="This says hello to you from server"
+mvn polyapi:add-server-function -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Ddescription="This says hello to you from server"
 ```
 
 ## Limitations

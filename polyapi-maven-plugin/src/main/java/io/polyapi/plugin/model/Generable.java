@@ -2,6 +2,7 @@ package io.polyapi.plugin.model;
 
 import io.polyapi.commons.api.model.PolyObject;
 import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
+import io.polyapi.plugin.service.visitor.PolyVisitor;
 
 import static io.polyapi.plugin.utils.StringUtils.toPascalCase;
 
@@ -16,5 +17,5 @@ public interface Generable extends PolyObject {
 
     String getName();
 
-    void accept(CodeGenerationVisitor visitor);
+    void accept(PolyVisitor visitor);
 }

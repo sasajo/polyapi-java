@@ -4,7 +4,6 @@ import io.polyapi.client.api.ApiFunctionResponse;
 import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.api.AuthTokenOptions;
 import io.polyapi.client.api.GetAuthTokenResponse;
-import io.polyapi.client.api.VariableInjectManager;
 import io.polyapi.client.api.model.function.auth.PolyAuthSubresource;
 import io.polyapi.client.error.invocation.delegate.DelegateCreationException;
 import io.polyapi.client.error.invocation.delegate.DelegateExecutionException;
@@ -40,12 +39,14 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     private final WebSocketClient webSocketClient;
     private final String clientId;
     private final JsonParser jsonParser;
+    private final VariableInjectManager variableInjectManager;
 
     public InvocationServiceImpl(String host, Integer port, String clientId, HttpClient client, JsonParser jsonParser, WebSocketClient webSocketClient) {
         super(host, port, client, jsonParser);
         this.clientId = clientId;
         this.jsonParser = jsonParser;
         this.webSocketClient = webSocketClient;
+        this.variableInjectManager = VariableInjectManager.getInstance();
     }
 
     @Override
@@ -102,11 +103,8 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
                 body.put("userId", options.getUserId());
                 body.put("callbackUrl", options.getCallbackUrl());
             });
-            var variableInjectManager = VariableInjectManager.getInstance();
             Optional<AuthTokenOptions> optionalOptions = Optional.ofNullable(options);
-            GetAuthTokenResponse data = post(format("auth-providers/%s/execute", id), body.entrySet().stream()
-                    .filter(entry -> entry.getValue() != null)
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> variableInjectManager.getInjectedValueOrOriginal(entry.getValue()))), GetAuthTokenResponse.class);
+            GetAuthTokenResponse data = post(format("auth-providers/%s/execute", id), createInjectedMap(id, body), GetAuthTokenResponse.class);
             if (data.getToken() == null) {
                 if (data.getUrl() == null || !optionalOptions.map(AuthTokenOptions::getAutoCloseOnUrl).orElse(false)) {
                     webSocketClient.registerAuthFunctionEventHandler(id, objects -> {
@@ -148,10 +146,9 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
         }
     }
 
-
     private <T> T invokeFunction(String type, String id, Map<String, Object> body, Type expectedResponseType) {
         logger.debug("Invoking Poly {} function with ID {}.", type, id);
-        var result = super.<Map<String, Object>, T>post(format("functions/%s/%s/execute", type.toLowerCase(), id), body, expectedResponseType);
+        var result = super.<Map<String, Object>, T>post(format("functions/%s/%s/execute", type.toLowerCase(), id), createInjectedMap(id, body), expectedResponseType);
         logger.debug("Function successfully executed. Returning result as {}.", expectedResponseType.getTypeName());
         return result;
     }
@@ -165,14 +162,18 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     @Override
     public <T> void updateVariable(String id, T entity) {
         logger.debug("Updating variable with ID {}.", id);
-        patch(format("variables/%s/value", id), entity);
+        patch(format("variables/%s/value", id), variableInjectManager.getInjectedValueOrOriginal(id, "value", entity));
         logger.debug("Update successful.");
     }
 
     @Override
     public Void invokeSubresourceAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
         body.put("clientID", clientId);
-        post(format("auth-providers/%s/%s", id, invokingClass.getDeclaredAnnotation(PolyAuthSubresource.class).value()), body, expectedResponseType);
+        post(format("auth-providers/%s/%s", id, invokingClass.getDeclaredAnnotation(PolyAuthSubresource.class).value()), createInjectedMap(id, body), expectedResponseType);
         return null;
+    }
+
+    private Map<String, Object> createInjectedMap(String injectableId, Map<String, Object> body) {
+        return body.entrySet().stream().collect(Collectors.<Map.Entry<String, Object>, String, Object>toMap(Map.Entry::getKey, entry -> variableInjectManager.getInjectedValueOrOriginal(injectableId, entry.getKey(), entry.getValue())));
     }
 }

@@ -1,6 +1,7 @@
 package io.polyapi.plugin.model;
 
 import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
+import io.polyapi.plugin.service.visitor.PolyVisitor;
 import lombok.Getter;
 
 import java.util.List;
@@ -18,7 +19,7 @@ public class CustomType implements Generable {
     }
 
     @Override
-    public void accept(CodeGenerationVisitor visitor) {
+    public void accept(PolyVisitor visitor) {
         visitor.visit(this);
     }
 }

@@ -2,6 +2,7 @@ package io.polyapi.plugin.model.specification.function;
 
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
+import io.polyapi.plugin.service.visitor.PolyVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -30,7 +31,7 @@ public abstract class FunctionSpecification extends Specification {
     protected abstract String getSubtypePackage();
 
     @Override
-    public void accept(CodeGenerationVisitor visitor) {
+    public void accept(PolyVisitor visitor) {
         visitor.visit(this);
     }
 }

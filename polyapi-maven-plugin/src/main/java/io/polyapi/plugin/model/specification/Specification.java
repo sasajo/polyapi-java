@@ -11,6 +11,7 @@ import io.polyapi.plugin.model.specification.function.ServerFunctionSpecificatio
 import io.polyapi.plugin.model.specification.function.WebhookHandleSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.service.visitor.CodeGenerationVisitor;
+import io.polyapi.plugin.service.visitor.PolyVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -56,7 +57,7 @@ public abstract class Specification implements Generable {
     protected abstract String getTypePackage();
 
     @Override
-    public void accept(CodeGenerationVisitor visitor) {
+    public void accept(PolyVisitor visitor) {
         visitor.visit(this);
     }
 

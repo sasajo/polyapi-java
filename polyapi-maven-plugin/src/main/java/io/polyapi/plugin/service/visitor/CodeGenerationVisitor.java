@@ -3,17 +3,28 @@ package io.polyapi.plugin.service.visitor;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.CustomType;
 import io.polyapi.plugin.model.Generable;
+import io.polyapi.plugin.model.property.VoidPropertyType;
 import io.polyapi.plugin.model.specification.Context;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
+import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.service.JsonSchemaParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static java.lang.String.format;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
-public class CodeGenerationVisitor implements PolyVisitor{
+import static java.lang.String.format;
+import static java.util.function.Predicate.not;
+import static java.util.stream.IntStream.range;
+import static java.util.stream.Stream.concat;
+
+public class CodeGenerationVisitor implements PolyVisitor {
     private static final Logger logger = LoggerFactory.getLogger(CodeGenerationVisitor.class);
 
     private final FileService fileService;
@@ -42,7 +53,19 @@ public class CodeGenerationVisitor implements PolyVisitor{
     @Override
     public void visit(FunctionSpecification specification) {
         visit((Specification) specification);
-        jsonSchemaParser.generateReturnClassStructure(specification).forEach(this::generate);
+
+        logger.info("Generating class for {} function return type.", specification.getName());
+        var functionMetadata = specification.getFunction();
+        Optional.ofNullable(functionMetadata.getReturnType())
+                .filter(not(VoidPropertyType.class::isInstance))
+                .filter(returnType -> Objects.nonNull(returnType.getTypeSchema()))
+                .map(returnType -> concat(jsonSchemaParser.parse(specification.getClassName() + "Response", specification.getPackageName(), functionMetadata.getReturnType()).stream(),
+                        range(0, Optional.ofNullable(functionMetadata.getArguments()).orElseGet(ArrayList::new).size())
+                                .boxed()
+                                .map(i -> jsonSchemaParser.parse(format("%sArgument%s", specification.getClassName(), i), specification.getPackageName(), functionMetadata.getArguments().get(i).getType()))
+                                .flatMap(List::stream))
+                ).orElseGet(Stream::of)
+                .forEach(this::generate);
     }
 
     @Override
@@ -51,6 +74,12 @@ public class CodeGenerationVisitor implements PolyVisitor{
             visit((FunctionSpecification) specification);
             new CustomType(specification.getPackageName(), format("%sDelegate", specification.getClassName()), specification.getCode()).accept(this);
         }
+    }
+
+    @Override
+    public void visit(ServerVariableSpecification specification) {
+        visit((Specification) specification);
+        jsonSchemaParser.parse(specification.getClassName()+"Value", specification.getPackageName(), specification.getVariable().getValueType()).forEach(customType -> customType.accept(this));
     }
 
     @Override
