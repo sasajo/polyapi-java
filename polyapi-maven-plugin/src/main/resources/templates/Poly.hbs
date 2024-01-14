@@ -24,7 +24,7 @@ import io.polyapi.client.internal.model.PolyContext;
 {{~/each}}
 
 
-public class Poly extends PolyContext {
+public final class Poly extends PolyContext {
 {{~#each specifications}}
     private static final {{className}} {{name}};
 {{~/each}}

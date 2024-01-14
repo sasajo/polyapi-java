@@ -1,4 +1,4 @@
-package io.polyapi.client.api.model.function.auth;
+package io.polyapi.client.api.model.function;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

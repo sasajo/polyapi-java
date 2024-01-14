@@ -1,20 +1,25 @@
 package {{packageName}};
 
+import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
 {{~#each specifications}}
+    import {{{packageName}}}.{{{className}}};
     {{~#ifIsType this "ServerVariableSpecification"}}
-        import {{{packageName}}}.{{{className}}};
+        {{~#each this.imports}}
+            import {{{this}}};
+        {{~/each}}
     {{/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     import {{{packageName}}}.{{{className}}};
 {{~/each}}
 
-public class Vari extends PolyContext {
+public final class Vari extends PolyContext {
 {{~#each specifications}}
     {{~#ifIsType this "ServerVariableSpecification"}}
-        private static final {{className}} {{name}};
+        @PolyEntity("{{id}}")
+        private static final {{type}} {{name}};
     {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
@@ -25,11 +30,25 @@ static {
 var vari = new Vari();
 {{~#each specifications}}
     {{~#ifIsType this "ServerVariableSpecification"}}
-        {{name}} = vari.createServerVariableProxy({{className}}.class);
+        {{name}} = vari.createServerVariable("{{{type}}}", "{{{packageName}}}");
     {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
     {{name}} = vari.createSubContext({{className}}.class);
 {{~/each}}
 }
+
+{{~#ifIsType this "ServerVariableSpecification"}}
+    public static void update{{{className}}}Variable({{{type}}} value) {
+        this.{{name}}Handler.update(value);
+    }
+
+    {{~#if variable.secret}}
+    {{~else}}
+    public static {{{type}}} get{{{className}}}Variable() {
+        return this.{{name}}Handler.get();
+    }
+    {{/if}}
+{{~/ifIsType}}
+
 }

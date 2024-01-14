@@ -3,16 +3,18 @@ package io.polyapi.client.internal.proxy;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.function.PolyApiFunction;
 import io.polyapi.client.api.model.function.PolyCustomFunction;
-import io.polyapi.client.api.model.function.auth.AudienceTokenAuthFunction;
-import io.polyapi.client.api.model.function.auth.SubresourceAuthFunction;
-import io.polyapi.client.api.model.function.auth.TokenAuthFunction;
-import io.polyapi.client.api.model.function.server.PolyServerFunction;
-import io.polyapi.client.api.model.variable.ServerVariable;
+import io.polyapi.client.api.model.function.AudienceTokenAuthFunction;
+import io.polyapi.client.api.model.function.SubresourceAuthFunction;
+import io.polyapi.client.api.model.function.TokenAuthFunction;
+import io.polyapi.client.api.model.function.PolyServerFunction;
+import io.polyapi.client.api.model.variable.ServerVariableHandler;
 import io.polyapi.client.internal.service.InvocationService;
 import io.polyapi.commons.api.model.PolyObject;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 
 import static java.lang.String.format;
 import static java.lang.reflect.Proxy.newProxyInstance;
@@ -62,18 +64,38 @@ public class PolyProxyFactory {
         return createProxy(apiFunctionInvocationHandler, polyInterface);
     }
 
-    /**
-     * Creates a proxy for a determined {@link PolyObject} that uses the invocationHandler for retrievable server variable
-     * operations. This method only accepts interfaces. If something other is sent as an argument, an {@link IllegalArgumentException} will be thrown.
-     *
-     * @param polyInterface The interface to proxy.
-     * @param <T>           The type of the interface.
-     * @return PolyObject A {@link Proxy} that implements of the expected interface.
-     * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
-     * @throws IllegalArgumentException Thrown when a class that is not an interface is set as argument.
-     */
-    public <T extends ServerVariable<?>> T createServerVariableProxy(Class<T> polyInterface) {
-        return createProxy(serverVariableInvocationHandler, polyInterface);
+    public <T> T createServerVariableProxy(String type, String packageName) {
+        return (T) switch (type.toLowerCase()) {
+            case "boolean" -> new Boolean(false);
+            case "integer" -> new Integer(0);
+            case "string", "object" -> new String();
+            case "list" -> new ArrayList<>();
+            case "double" -> new Double(0D);
+            case "long" -> new Long(0L);
+            case "short" -> new Short((short) 0);
+            case "byte" -> new Byte((byte) 0);
+            default -> {
+                try {
+                    yield Class.forName(format("%s.%s", packageName, type)).getConstructor().newInstance();
+                } catch (InstantiationException e) {
+                    // FIXME: Throw the appropriate exception.
+                    throw new RuntimeException(e);
+                } catch (IllegalAccessException e) {
+                    // FIXME: Throw the appropriate exception.
+                    throw new RuntimeException(e);
+                } catch (InvocationTargetException e) {
+                    // FIXME: Throw the appropriate exception.
+                    throw new RuntimeException(e);
+                } catch (NoSuchMethodException e) {
+                    // FIXME: Throw the appropriate exception.
+                    throw new RuntimeException(e);
+                } catch (ClassNotFoundException e) {
+                    // FIXME: Throw the appropriate exception.
+                    throw new RuntimeException(e);
+                }
+            }
+
+        };
     }
 
     public <T extends PolyCustomFunction> T createCustomVariableProxy(Class<T> polyInterface) {
@@ -92,6 +114,10 @@ public class PolyProxyFactory {
         return createProxy(subresourceAuthFunctionInvocationHandler, polyInterface);
     }
 
+    public <T, H extends ServerVariableHandler<T>> H createServerVariableHandler(Class<H> polyInterface) {
+        return createProxy(serverVariableInvocationHandler, polyInterface);
+    }
+
     private <T extends PolyObject> T createProxy(InvocationHandler invocationHandler, Class<T> polyInterface) {
         if (!polyInterface.isInterface()) {
             throw new IllegalArgumentException(format("Poly object defined is not an interface. Only interfaces are expected. Input class is '%s'", polyInterface.getName()));
@@ -101,5 +127,4 @@ public class PolyProxyFactory {
         }
         return polyInterface.cast(newProxyInstance(polyInterface.getClassLoader(), new Class[]{polyInterface}, invocationHandler));
     }
-
 }

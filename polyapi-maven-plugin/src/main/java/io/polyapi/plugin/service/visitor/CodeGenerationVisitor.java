@@ -46,7 +46,7 @@ public class CodeGenerationVisitor implements PolyVisitor {
 
     @Override
     public void visit(Specification specification) {
-        logger.debug("CodeGenerationVisitor visiting specification {}", specification.getName());
+        logger.debug("Generating code for {}", specification.getName());
         generate(specification);
     }
 
@@ -78,8 +78,8 @@ public class CodeGenerationVisitor implements PolyVisitor {
 
     @Override
     public void visit(ServerVariableSpecification specification) {
-        visit((Specification) specification);
-        jsonSchemaParser.parse(specification.getClassName()+"Value", specification.getPackageName(), specification.getVariable().getValueType()).forEach(customType -> customType.accept(this));
+        fileService.createClassFile(specification.getPackageName(), format("%sHandler", specification.getClassName()), specification.getClass().getSimpleName(), specification);
+        jsonSchemaParser.parse(specification.getClassName(), specification.getPackageName(), specification.getVariable().getValueType()).forEach(customType -> customType.accept(this));
     }
 
     @Override

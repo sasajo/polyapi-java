@@ -2,7 +2,6 @@ package io.polyapi.client.internal.proxy;
 
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.internal.service.InvocationService;
-import io.polyapi.client.internal.service.VariableInjectManager;
 import io.polyapi.commons.api.error.PolyApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +29,7 @@ public class VariInvocationHandler implements InvocationHandler {
                 .findFirst()
                 .map(parentInterfaceMethod -> {
                     try {
-                        return parentInterfaceMethod.invoke(new DefaultServerVariableImpl<>(polyData.value(), proxy.getClass().getInterfaces()[0].getSimpleName().toLowerCase(), method.getGenericReturnType(), invocationService, VariableInjectManager.getInstance()), arguments);
+                        return parentInterfaceMethod.invoke(new DefaultServerVariableHandlerImpl<>(polyData.value(), method.getGenericReturnType(), invocationService), arguments);
                     } catch (IllegalAccessException e) {
                         // FIXME: Throw the appropriate exception.
                         throw new PolyApiException(e);

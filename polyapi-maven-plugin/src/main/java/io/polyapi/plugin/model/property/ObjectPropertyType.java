@@ -56,14 +56,14 @@ public class ObjectPropertyType extends PropertyType {
 
     @Override
     public String getType(String defaultType) {
-        return getResultType(schema, defaultType);
+        return getType(schema, defaultType);
     }
 
-    private String getResultType(JsonNode node, String defaultType) {
+    private String getType(JsonNode node, String defaultType) {
         if (Optional.ofNullable(node).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
             return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
                 case "array" ->
-                        format("%s<%s>", List.class.getName(), getRefType(node, "", type -> getResultType(type, defaultType)));
+                        format("%s<%s>", List.class.getName(), getRefType(node, "", type -> getType(type, defaultType)));
                 case "integer" -> Integer.class.getSimpleName();
                 case "string" -> String.class.getSimpleName();
                 case "number" -> Double.class.getSimpleName();

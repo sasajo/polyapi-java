@@ -24,6 +24,7 @@ public abstract class FunctionSpecification extends Specification {
         return function.getResultType(format("%sResponse", getClassName()));
     }
 
+    @Override
     public Set<String> getImports() {
         return function.getImports(getPackageName(), getClassName());
     }

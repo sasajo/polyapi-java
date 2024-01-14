@@ -5,33 +5,42 @@ import io.polyapi.client.internal.model.PolyContext;
 import io.polyapi.client.api.model.websocket.WebhookEventConsumer;
 import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
+import io.polyapi.client.api.model.PolyEntity;
 {{~#each specifications}}
-    import {{{packageName}}}.{{{className}}};
     {{~#ifIsType this "ServerFunctionSpecification"}}
         {{~#each this.imports}}
-            import {{{this}}};
+import {{{this}}};
         {{~/each}}
     {{~/ifIsType}}
     {{~#ifIsType this "CustomFunctionSpecification"}}
         {{~#each this.imports}}
-            import {{{this}}};
+import {{{this}}};
         {{~/each}}
     {{~/ifIsType}}
     {{~#ifIsType this "ApiFunctionSpecification"}}
         {{~#each this.imports}}
-            import {{{this}}};
+import {{{this}}};
         {{~/each}}
+    {{~/ifIsType}}
+    {{~#ifIsType this "ServerVariableSpecification"}}
+        {{~#each this.imports}}
+import {{{this}}};
+        {{~/each}}
+    {{~else}}
+import {{{packageName}}}.{{{className}}};
     {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
-    import {{{packageName}}}.{{{className}}};
+import {{{packageName}}}.{{{className}}};
 {{~/each}}
 
 
 public class {{className}} extends PolyContext {
 {{~#each specifications}}
     {{~#ifIsType this "ServerVariableSpecification"}}
-        public final {{className}} {{name}};
+    private final {{className}}Handler {{name}}Handler;
+    @PolyEntity("{{id}}")
+    public final {{{type}}} {{name}};
     {{~else}}
     private final {{className}} {{name}};
     {{~/ifIsType}}
@@ -53,7 +62,8 @@ super(proxyFactory, webhookHandlerFactory);
         this.{{name}} = createApiFunctionProxy({{className}}.class);
     {{~/ifIsType}}
     {{~#ifIsType this "ServerVariableSpecification"}}
-        this.{{name}} = createServerVariableProxy({{className}}.class);
+        this.{{name}}Handler = createServerVariableHandler({{className}}Handler.class);
+        this.{{name}} = createServerVariableProxy("{{{type}}}", "{{{packageName}}}");
     {{~/ifIsType}}
     {{~#ifIsType this "WebhookHandleSpecification"}}
         this.{{name}} = createWebhookHandle({{className}}.class);
@@ -139,6 +149,20 @@ super(proxyFactory, webhookHandlerFactory);
         public {{{this.className}}} get{{{this.className}}}AuthFunction() {
             return this.{{{name}}};
         }
+    {{~/ifIsType}}
+
+    {{~#ifIsType this "ServerVariableSpecification"}}
+        public void update{{{className}}}Variable({{{type}}} value) {
+            this.{{name}}Handler.update(value);
+        }
+
+    {{~#if variable.secret}}
+    {{~else}}
+        public {{{type}}} get{{{className}}}Variable() {
+            return this.{{name}}Handler.get();
+        }
+    {{/if}}
+
     {{~/ifIsType}}
 {{~/each}}
 }

@@ -1,4 +1,4 @@
-package io.polyapi.client.api.model.function.auth;
+package io.polyapi.client.api.model.function;
 
 import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.api.AuthTokenOptions;

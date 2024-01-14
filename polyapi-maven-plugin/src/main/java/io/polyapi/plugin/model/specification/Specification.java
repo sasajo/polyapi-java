@@ -18,6 +18,7 @@ import lombok.Setter;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
@@ -60,6 +61,8 @@ public abstract class Specification implements Generable {
     public void accept(PolyVisitor visitor) {
         visitor.visit(this);
     }
+
+    public abstract Set<String> getImports();
 
     @Override
     public boolean equals(Object o) {

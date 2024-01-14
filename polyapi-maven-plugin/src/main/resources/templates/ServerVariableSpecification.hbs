@@ -1,10 +1,10 @@
 package {{packageName}};
 
 import io.polyapi.client.api.model.PolyEntity;
-import io.polyapi.client.api.model.variable.{{~#if variable.secret}}ServerVariable{{~else}}RetrievableServerVariable{{/if}};
+import io.polyapi.client.api.model.variable.{{~#if variable.secret}}ServerVariable{{~else}}RetrievableServerVariable{{/if}}Handler;
 
 @PolyEntity("{{id}}")
-public interface {{className}} extends{{~#if variable.secret}} ServerVariable{{~else}} RetrievableServerVariable{{/if}}<{{type}}> {
+public interface {{className}}Handler extends{{~#if variable.secret}} ServerVariable{{~else}} RetrievableServerVariable{{/if}}Handler<{{type}}> {
 
 {{~#if variable.secret}}
 {{~else}}
