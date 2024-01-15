@@ -17,6 +17,8 @@ public interface InvocationService {
 
     Void invokeSubresourceAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType);
 
+    <T> T injectVariable(String id, String packageName, String type);
+
     <T> T getVariable(String id, Type type);
 
     <T> void updateVariable(String id, T entity);

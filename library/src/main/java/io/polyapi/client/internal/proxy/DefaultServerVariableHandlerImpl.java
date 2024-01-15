@@ -11,11 +11,20 @@ public class DefaultServerVariableHandlerImpl<T> implements RetrievableServerVar
     private final InvocationService invocationService;
     private final String id;
     private final Type type;
+    private final String packageName;
+    private final String declaredType;
 
-    public DefaultServerVariableHandlerImpl(String id, Type type, InvocationService invocationService) {
+    public DefaultServerVariableHandlerImpl(String id, String packageName, Type type, String declaredType, InvocationService invocationService) {
         this.id = id;
+        this.declaredType = declaredType;
+        this.packageName = packageName;
         this.type = type;
         this.invocationService = invocationService;
+    }
+
+    @Override
+    public T inject() {
+        return invocationService.injectVariable(id, packageName, declaredType);
     }
 
     @Override

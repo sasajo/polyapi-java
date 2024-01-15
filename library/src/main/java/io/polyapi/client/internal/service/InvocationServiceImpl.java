@@ -154,6 +154,11 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     }
 
     @Override
+    public <T> T injectVariable(String id, String packageName, String type) {
+        return variableInjectionService.inject(id, packageName, type);
+    }
+
+    @Override
     public <T> T getVariable(String id, Type expectedResponseType) {
         logger.debug("Retrieving variable of type {} with ID {}.", expectedResponseType.getTypeName(), id);
         return get(format("variables/%s/value", id), expectedResponseType);

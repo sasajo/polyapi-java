@@ -1,92 +1,69 @@
 package io.polyapi.client.internal.service;
 
 import io.polyapi.client.api.InjectedVariable;
-import io.polyapi.client.api.model.PolyEntity;
-import io.polyapi.client.api.model.function.PolyFunction;
-import io.polyapi.client.internal.model.PolyContext;
 import io.polyapi.commons.api.error.PolyApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
+import static java.lang.String.format;
 
 public class VariableInjectionServiceImpl implements VariableInjectionService {
     private static final Logger logger = LoggerFactory.getLogger(VariableInjectionServiceImpl.class);
 
-    private final Class<?> vari;
-    private List<ServerVariableKeyRecord> serverVariables;
-
-    public VariableInjectionServiceImpl() {
-        try {
-            this.vari = Class.forName("io.polyapi.Vari");
-        } catch (ClassNotFoundException e) {
-            // Throw an appropriate exception.
-            throw new RuntimeException(e);
-        }
-    }
-
-    private synchronized List<ServerVariableKeyRecord> getServerVariables() {
-        if (serverVariables == null) {
-            serverVariables = scan(vari, vari);
-        }
-        return serverVariables;
-    }
-
-    private List<ServerVariableKeyRecord> scan(Class<?> contextClass, Object context) {
-        List<ServerVariableKeyRecord> serverVariables = scan(contextClass, context, not(PolyContext.class::isInstance).and(not(PolyFunction.class::isInstance)))
-                .peek(field -> field.setAccessible(true))
-                .map(field -> {
-                    try {
-                        return new ServerVariableKeyRecord(field.get(context), field.getAnnotation(PolyEntity.class).value());
-                    } catch (IllegalAccessException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
-                    }
-                })
-                .collect(toList()); // Using Stream.collect(toList()) instead of just Stream.toList() as the latter returns an unmodifiable list.
-        scan(contextClass, context, PolyContext.class::isInstance)
-                .map(field -> {
-                    try {
-                        return scan(field.getType(), field.get(context));
-                    } catch (IllegalAccessException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
-                    }
-                })
-                .forEach(serverVariables::addAll);
-        return serverVariables;
-    }
-
-    private Stream<Field> scan(Class<?> contextClass, Object context, Predicate<Object> filter) {
-        return Stream.of(contextClass.getDeclaredFields())
-                .peek(field -> field.setAccessible(true))
-                .filter(field -> {
-                    try {
-                        return filter.test(field.get(context));
-                    } catch (IllegalAccessException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-    }
+    private static final Map<String, Object> injectionMap = new HashMap<>();
 
     @Override
     public Object replace(String propertyName, Object original) {
-        return getServerVariables().stream()
-                .filter(record -> record.match(original))
-                .peek(record -> logger.debug("Replacing property '{}' with variable with ID '{}'.", propertyName, record.id()))
+        return injectionMap.entrySet().stream()
+                .filter(entry -> entry.getValue() == original)
+                .peek(entry -> logger.debug("Replacing property '{}' with server variable with ID '{}'.", propertyName, entry.getKey()))
                 .findFirst()
-                .<Object>map(record -> new InjectedVariable(record.id(), null))
+                .<Object>map(entry -> new InjectedVariable(entry.getKey(), null))
                 .orElse(original);
     }
 
-    @Override
-    public void put(Object key, Object value) {
-        // Do nothing
+    public synchronized <T> T inject(String key, String packageName, String type) {
+        logger.debug("Injecting variable with key '{}' and type '{}'.", key, type);
+        if (!injectionMap.containsKey(key)) {
+            logger.debug("Injection map doesn't contain the key, generating a new one.");
+            injectionMap.put(key, switch (type.toLowerCase()) {
+                case "boolean" -> new Boolean(false);
+                case "integer" -> new Integer(0);
+                case "string", "object" -> new String();
+                case "list" -> new ArrayList<>();
+                case "double" -> new Double(0D);
+                case "long" -> new Long(0L);
+                case "short" -> new Short((short) 0);
+                case "byte" -> new Byte((byte) 0);
+                default -> {
+                    try {
+                        String className = format("%s.%s", packageName, type);
+                        logger.debug("Type is not basic, generating new default instance with default constructor for class {}.", className);
+                        yield Class.forName(className).getConstructor().newInstance();
+                    } catch (InstantiationException e) {
+                        // FIXME: Throw the appropriate exception.
+                        throw new PolyApiException(e);
+                    } catch (IllegalAccessException e) {
+                        // FIXME: Throw the appropriate exception.
+                        throw new PolyApiException(e);
+                    } catch (InvocationTargetException e) {
+                        // FIXME: Throw the appropriate exception.
+                        throw new PolyApiException(e);
+                    } catch (NoSuchMethodException e) {
+                        // FIXME: Throw the appropriate exception.
+                        throw new PolyApiException(e);
+                    } catch (ClassNotFoundException e) {
+                        // FIXME: Throw the appropriate exception.
+                        throw new PolyApiException(e);
+                    }
+                }
+            });
+        }
+        return (T) injectionMap.get(key);
     }
 }
