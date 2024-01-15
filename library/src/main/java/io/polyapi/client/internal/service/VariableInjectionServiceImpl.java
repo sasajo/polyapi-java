@@ -1,7 +1,9 @@
 package io.polyapi.client.internal.service;
 
 import io.polyapi.client.api.InjectedVariable;
-import io.polyapi.commons.api.error.PolyApiException;
+import io.polyapi.client.error.generation.GeneratedClassInstantiationException;
+import io.polyapi.client.error.generation.GeneratedClassNotFoundException;
+import io.polyapi.client.error.generation.MissingDefaultConstructorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,30 +38,21 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
                 case "integer" -> new Integer(0);
                 case "string", "object" -> new String();
                 case "list" -> new ArrayList<>();
-                case "double" -> new Double(0D);
+                case "double", "number" -> new Double(0D);
                 case "long" -> new Long(0L);
                 case "short" -> new Short((short) 0);
                 case "byte" -> new Byte((byte) 0);
                 default -> {
+                    String className = format("%s.%s", packageName, type);
                     try {
-                        String className = format("%s.%s", packageName, type);
                         logger.debug("Type is not basic, generating new default instance with default constructor for class {}.", className);
                         yield Class.forName(className).getConstructor().newInstance();
-                    } catch (InstantiationException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
-                    } catch (IllegalAccessException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
-                    } catch (InvocationTargetException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
-                    } catch (NoSuchMethodException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
+                    } catch (InstantiationException | InvocationTargetException e) {
+                        throw new GeneratedClassInstantiationException(className, e);
+                    } catch (NoSuchMethodException | IllegalAccessException e) {
+                        throw new MissingDefaultConstructorException(className, e);
                     } catch (ClassNotFoundException e) {
-                        // FIXME: Throw the appropriate exception.
-                        throw new PolyApiException(e);
+                        throw new GeneratedClassNotFoundException(className, e);
                     }
                 }
             });

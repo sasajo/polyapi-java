@@ -5,12 +5,11 @@ import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.api.AuthTokenOptions;
 import io.polyapi.client.api.GetAuthTokenResponse;
 import io.polyapi.client.api.model.function.PolyAuthSubresource;
-import io.polyapi.client.error.invocation.delegate.DelegateCreationException;
+import io.polyapi.client.error.generation.GeneratedClassInstantiationException;
+import io.polyapi.client.error.generation.GeneratedClassNotFoundException;
+import io.polyapi.client.error.generation.MissingDefaultConstructorException;
 import io.polyapi.client.error.invocation.delegate.DelegateExecutionException;
-import io.polyapi.client.error.invocation.delegate.DelegateNotFoundException;
-import io.polyapi.client.error.invocation.delegate.InvalidDelegateClassTypeException;
 import io.polyapi.client.error.invocation.delegate.InvalidMethodDeclarationException;
-import io.polyapi.client.error.invocation.delegate.MissingDefaultConstructorException;
 import io.polyapi.client.internal.websocket.WebSocketClient;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.error.http.UnexpectedHttpResponseException;
@@ -72,11 +71,9 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
             try {
                 delegate = delegateClass.getConstructor().newInstance();
             } catch (NoSuchMethodException e) {
-                throw new MissingDefaultConstructorException(invokingClass, e);
-            } catch (InvocationTargetException | IllegalAccessException e) {
-                throw new DelegateCreationException(invokingClass, e);
-            } catch (InstantiationException e) {
-                throw new InvalidDelegateClassTypeException(invokingClass, e);
+                throw new MissingDefaultConstructorException(invokingClass.getName(), e);
+            } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
+                throw new GeneratedClassInstantiationException(invokingClass.getName(), e);
             }
             var method = Stream.of(invokingClass.getDeclaredMethods()).findFirst()
                     .orElseThrow(() -> new PolyApiException());
@@ -89,7 +86,7 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
                 throw new DelegateExecutionException(invokingClass, e);
             }
         } catch (ClassNotFoundException e) {
-            throw new DelegateNotFoundException(invokingClass, e);
+            throw new GeneratedClassNotFoundException(invokingClass.getName(), e);
         }
     }
 
