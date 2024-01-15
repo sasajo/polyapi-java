@@ -39,9 +39,8 @@ public class FileServiceImpl implements FileService {
 
   public void createFileWithContent(File file, String content) {
     if (file.exists() && !overwriteFiles) {
-      logger.info("File {} already exists. Skipping its creation.", file.getAbsolutePath());
+      logger.debug("File {} already exists. Skipping its creation.", file.getAbsolutePath());
     } else {
-      Optional.ofNullable(file).map(File::getAbsolutePath).orElseThrow(NullPointerException::new);
       logger.debug("Creating file with content for file {}.", file.getAbsolutePath());
       File parent = file.getParentFile();
       logger.debug("Creating parent folder at {}.", parent.getAbsolutePath());

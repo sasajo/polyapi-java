@@ -40,7 +40,7 @@ public class CodeGenerationVisitor implements PolyVisitor {
     }
 
     private void generate(Generable generable, String template) {
-        logger.info("Writing {} with template {} on package {}.", generable.getClassName(), template, generable.getPackageName());
+        logger.debug("Attempting to write {} with template {} on package {}.", generable.getClassName(), template, generable.getPackageName());
         fileService.createClassFile(generable.getPackageName(), generable.getClassName(), template, generable);
     }
 
@@ -54,7 +54,7 @@ public class CodeGenerationVisitor implements PolyVisitor {
     public void visit(FunctionSpecification specification) {
         visit((Specification) specification);
 
-        logger.info("Generating class for {} function return type.", specification.getName());
+        logger.debug("Generating class for {} function return type.", specification.getName());
         var functionMetadata = specification.getFunction();
         Optional.ofNullable(functionMetadata.getReturnType())
                 .filter(not(VoidPropertyType.class::isInstance))

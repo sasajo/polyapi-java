@@ -66,6 +66,7 @@ public class GenerateSourcesMojo extends PolyApiMojo {
         fileService.createFileWithContent(new File(new File("target/.poly"), "specs.json"), jsonParser.toJsonString(specifications));
         writeContext("Poly", specifications, FunctionSpecification.class);
         writeContext("Vari", specifications, ServerVariableSpecification.class);
+        logger.info("Sources generated correctly.");
     }
 
     private <T extends Specification> void writeContext(String rootName, List<Specification> specifications, Class<T> filter) {
