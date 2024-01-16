@@ -9,13 +9,11 @@
         <version>0.2.0-SNAPSHOT</version>
         <relativePath>../parent-pom</relativePath>
     </parent>
-
     <artifactId>library</artifactId>
     <packaging>jar</packaging>
     <name>Poly API client library</name>
     <url>https://polyapi.io</url>
     <description>Java client library for Poly API</description>
-
     <developers>
         <developer>
             <id>polyapi</id>
@@ -25,7 +23,6 @@
             <organizationUrl>https://polyapi.io</organizationUrl>
         </developer>
     </developers>
-
     <licenses>
         <license>
             <name>MIT</name>
@@ -33,7 +30,6 @@
             <url>https://spdx.org/licenses/MIT.html</url>
         </license>
     </licenses>
-
     <dependencies>
         <dependency>
             <groupId>io.polyapi</groupId>
@@ -96,7 +92,6 @@
             <version>20231013</version>
         </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>
@@ -149,6 +144,34 @@
                             <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
                             <autoReleaseAfterClose>true</autoReleaseAfterClose>
                         </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.1.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

@@ -10,7 +10,6 @@
     <name>Poly API Java parent POM</name>
     <url>https://polyapi.io</url>
     <description>Java client library for Poly API</description>
-
     <developers>
         <developer>
             <id>polyapi</id>
@@ -20,7 +19,6 @@
             <organizationUrl>https://polyapi.io</organizationUrl>
         </developer>
     </developers>
-
     <licenses>
         <license>
             <name>MIT</name>
@@ -28,7 +26,11 @@
             <url>https://spdx.org/licenses/MIT.html</url>
         </license>
     </licenses>
-
+    <scm>
+        <connection>scm:git:git@github.com:polyapi/polyapi-java.git</connection>
+        <developerConnection>scm:git:git@github.com:polyapi/polyapi-java.git</developerConnection>
+        <url>https://github.com/polyapi/polyapi-java</url>
+    </scm>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -37,7 +39,6 @@
         <slf4j.version>2.0.9</slf4j.version>
         <powermock.version>2.0.9</powermock.version>
     </properties>
-
     <dependencies>
 
         <!-- JUnit dependencies -->
@@ -132,6 +133,34 @@
                             <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
                             <autoReleaseAfterClose>true</autoReleaseAfterClose>
                         </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.1.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
