@@ -72,7 +72,7 @@ public class CodeGenerationVisitor implements PolyVisitor {
     public void visit(CustomFunctionSpecification specification) {
         if (specification.isJava()) {
             visit((FunctionSpecification) specification);
-            new CustomType(specification.getPackageName(), format("%sDelegate", specification.getClassName()), specification.getCode()).accept(this);
+            new CustomType(specification.getPackageName(), format("%sDelegate", specification.getClassName()), (specification.getCode().trim().startsWith("package ") ? specification.getCode() : format("package %s;\n%s", specification.getPackageName(), specification.getCode())).replace("PolyCustomFunction", specification.getClassName() + "Delegate")).accept(this);
         }
     }
 

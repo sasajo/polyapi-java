@@ -3,8 +3,16 @@ package io.polyapi.plugin.service;
 import com.fasterxml.jackson.databind.JavaType;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ClassLoaderTypeSolver;
@@ -18,7 +26,6 @@ import io.polyapi.plugin.error.classloader.QualifiedNameNotFoundException;
 import io.polyapi.plugin.model.TypeData;
 import io.polyapi.plugin.model.function.PolyFunction;
 import io.polyapi.plugin.model.function.PolyFunctionArgument;
-import io.polyapi.plugin.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,12 +33,14 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
-import static java.lang.String.format;
+import static com.github.javaparser.ast.Modifier.Keyword.PUBLIC;
+import static java.lang.Character.isUpperCase;
+import static java.util.stream.IntStream.range;
 
 public class JavaParserServiceImpl implements JavaParserService {
     private static final Logger logger = LoggerFactory.getLogger(JavaParserServiceImpl.class);
@@ -43,28 +52,35 @@ public class JavaParserServiceImpl implements JavaParserService {
         this.jsonParser = jsonParser;
     }
 
-    @Override
-    public TypeData parse(Type type) {
+    private TypeData parse(ResolvedType type) {
         logger.debug("Resolving type of method declaration.");
         TypeData result = new TypeData("void", null);
-        if (!type.isVoidType()) {
+        if (!type.isVoid()) {
             logger.trace("Parsing loaded class to TypeData class.");
-            result = new TypeData("object", jsonParser.toJsonSchema(toMap(type.resolve())));
+            result = new TypeData("object", jsonParser.toJsonSchema(toMap(type)));
         }
         logger.debug("Type resolved to {}.", result.name());
         return result;
     }
 
     private java.lang.reflect.Type toMap(ResolvedType type) {
+        String qualifiedName = type.asReferenceType().getQualifiedName();
+        String publicClassName = Arrays.stream(qualifiedName.split("\\."))
+                .filter(keyword -> isUpperCase(keyword.toCharArray()[0]))
+                .findFirst()
+                .orElseThrow();// FIXME: Throw the appropriate exception.
+
+        // Adding this way of defining the qualified name of a class because the library handles inner classes incorrectly, assigning them 'package.MainClass.InnerClass' when it should be 'package.MainClass$InnerClass'.
+        String fixedQualifiedName = qualifiedName.substring(0, qualifiedName.indexOf(publicClassName)).concat(publicClassName).concat(qualifiedName.substring(qualifiedName.indexOf(publicClassName) + publicClassName.length()).replace(".", "$"));
         try {
             var typeFactory = defaultInstance();
-            return typeFactory.constructParametricType(Class.forName(type.asReferenceType().getQualifiedName()), type.asReferenceType().getTypeParametersMap().stream()
+            return typeFactory.constructParametricType(Class.forName(fixedQualifiedName, true, classLoader), type.asReferenceType().getTypeParametersMap().stream()
                     .map(pair -> pair.b)
                     .map(this::toMap)
                     .map(typeFactory::constructType)
                     .toArray(JavaType[]::new));
         } catch (ClassNotFoundException e) {
-            throw new QualifiedNameNotFoundException(type.asReferenceType().getQualifiedName(), e);
+            throw new QualifiedNameNotFoundException(fixedQualifiedName, e);
         }
     }
 
@@ -97,42 +113,56 @@ public class JavaParserServiceImpl implements JavaParserService {
             var parser = new JavaParser(new ParserConfiguration().setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver)));
             logger.debug("Parser complete.");
             logger.info("Proceeding with parsing of file in path '{}'.", file.getAbsolutePath());
-            var compilationUnit = parser.parse(file).getResult().get();
+            var compilationUnit = parser.parse(file).getResult().orElseThrow();
             var functions = new ArrayList<PolyFunction>();
-            compilationUnit.findAll(MethodDeclaration.class).stream()
-                    .filter(methodDeclaration -> methodDeclaration.getNameAsString().equals(functionName))
-                    .peek(methodDeclaration -> logger.debug("Found matching method declaration: {}", methodDeclaration.getDeclarationAsString()))
-                    .forEach(methodDeclaration -> {
-                        logger.debug("Creating PolyFunction from method declaration: {}", methodDeclaration.getNameAsString());
-                        var function = new PolyFunction();
-                        function.setDescription(description);
-                        function.setContext(context);
-                        function.setArguments(new ArrayList<>());
-                        logger.trace("Parsing return type for {}.", methodDeclaration.getNameAsString());
-                        var typeData = parse(methodDeclaration.getType());
-                        function.setName(methodDeclaration.getNameAsString());
-                        function.setReturnType(typeData.name());
-                        logger.trace("Adding JSon schema to return type.");
-                        function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
-                        logger.trace("Parsing parameters.");
-                        Optional.<List<com.github.javaparser.ast.body.Parameter>>ofNullable(methodDeclaration.getParameters()).orElseGet(ArrayList::new).stream()
-                                .peek(param -> logger.trace("    Parsing parameter {}.", param.getName()))
-                                .map(param -> {
-                                    logger.trace("Converting to PolyFunctionArgument.");
-                                    var argument = new PolyFunctionArgument();
-                                    argument.setName(param.getNameAsString());
-                                    var argumentTypeData = parse(param.getType());
-                                    argument.setType(param.getType().resolve().asReferenceType().getQualifiedName());
-                                    argument.setTypeSchema(argumentTypeData.jsonSchema());
-                                    return argument;
-                                })
-                                .forEach(function.getArguments()::add);
-                        logger.trace("Parsed {} parameters.", function.getArguments().size());
-                        compilationUnit.getPackageDeclaration().ifPresent(declaration -> declaration.setName(format("io.polyapi.function.custom.%s", Optional.ofNullable(context).map(String::toLowerCase).orElse(""))));
-                        compilationUnit.getType(0).setName(format("%sDelegate", StringUtils.toPascalCase(function.getName())));
-                        function.setCode(compilationUnit.toString());
-                        functions.add(function);
+            compilationUnit.getTypes().stream()
+                    .map(TypeDeclaration::resolve)
+                    .forEach(resolvedCompilationUnit -> {
+                        resolvedCompilationUnit.getDeclaredMethods().stream()
+                                .filter(methodDeclaration -> methodDeclaration.getName().equals(functionName))
+                                .peek(methodDeclaration -> logger.debug("Found matching method declaration: {}", methodDeclaration.getSignature()))
+                                .forEach(methodDeclaration -> {
+                                    logger.debug("Creating PolyFunction from method declaration: {}", methodDeclaration.getName());
+                                    var function = new PolyFunction();
+                                    function.setDescription(description);
+                                    function.setContext(context);
+                                    function.setArguments(new ArrayList<>());
+                                    logger.trace("Parsing return type for {}.", methodDeclaration.getName());
+                                    var typeData = parse(methodDeclaration.getReturnType());
+                                    function.setName(methodDeclaration.getName());
+                                    function.setReturnType(typeData.name());
+                                    logger.trace("Adding JSon schema to return type.");
+                                    function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
+                                    if (!methodDeclaration.getName().equals("execute")) {
+                                        logger.debug("Adding execute() method for server to invoke.");
+                                        MethodDeclaration executeMethod = compilationUnit.getType(0).asClassOrInterfaceDeclaration().addMethod("execute", PUBLIC)
+                                                .setType(methodDeclaration.getReturnType().asReferenceType().getQualifiedName())
+                                                .setBody(new BlockStmt(NodeList.nodeList(new ReturnStmt(new MethodCallExpr(methodDeclaration.getName(), range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam).map(ResolvedParameterDeclaration::getName).map(NameExpr::new).toArray(Expression[]::new))))));
+                                        range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam)
+                                                .forEach(param -> executeMethod.addParameter(param.asParameter().getType().asReferenceType().getQualifiedName().substring(param.asParameter().getType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1), param.getName()));
+                                    }
+                                    logger.trace("Parsing parameters.");
+                                    range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam)
+                                            .peek(param -> logger.trace("    Parsing parameter {}.", param.getName()))
+                                            .map(param -> {
+                                                logger.debug("Adding parameter '{}' to execute method.", param.getName());
+                                                logger.trace("Converting to PolyFunctionArgument.");
+                                                var argument = new PolyFunctionArgument();
+                                                argument.setName(param.getName());
+                                                var argumentTypeData = parse(param.getType());
+                                                argument.setType(param.getType().asReferenceType().getQualifiedName());
+                                                argument.setTypeSchema(argumentTypeData.jsonSchema());
+                                                return argument;
+                                            })
+                                            .forEach(function.getArguments()::add);
+                                    logger.trace("Parsed {} parameters.", function.getArguments().size());
+                                    compilationUnit.getPackageDeclaration().ifPresent(Node::remove);
+                                    compilationUnit.getType(0).setName("PolyCustomFunction");
+                                    function.setCode(compilationUnit.toString());
+                                    functions.add(function);
+                                });
                     });
+
             if (functions.isEmpty()) {
                 throw new PolyApiMavenPluginException("No function with name " + functionName + " found in file: " + file.getAbsolutePath());
             } else if (functions.size() > 1) {

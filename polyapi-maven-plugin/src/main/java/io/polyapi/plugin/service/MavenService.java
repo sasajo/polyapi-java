@@ -82,7 +82,7 @@ public class MavenService {
                         }
                     })
                     .toArray(URL[]::new),
-                    getClass().getClassLoader());
+                    ClassLoader.getSystemClassLoader());
         } catch (DependencyResolutionRequiredException e) {
             throw new RuntimeException(e);
         }
