@@ -18,7 +18,18 @@
     <name>Poly API Java libraries</name>
     <url>https://polyapi.io</url>
     <description>Java libraries for Poly API</description>
+
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <distribution>repo</distribution>
+            <url>https://spdx.org/licenses/MIT.html</url>
+        </license>
+    </licenses>
+
     <scm>
+        <connection>scm:git:git@github.com:polyapi/polyapi-java.git</connection>
+        <developerConnection>scm:git:git@github.com:polyapi/polyapi-java.git</developerConnection>
         <url>https://github.com/polyapi/polyapi-java</url>
     </scm>
 
