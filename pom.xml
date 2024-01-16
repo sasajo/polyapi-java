@@ -4,7 +4,7 @@
 
     <groupId>io.polyapi</groupId>
     <artifactId>polyapi-java</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>parent-pom</module>
@@ -29,7 +29,7 @@
         <connection>scm:git:git@github.com:polyapi/polyapi-java.git</connection>
         <developerConnection>scm:git:git@github.com:polyapi/polyapi-java.git</developerConnection>
         <url>https://github.com/polyapi/polyapi-java</url>
-      <tag>polyapi-java-0.2.0</tag>
+      <tag>HEAD</tag>
   </scm>
 
     <build>
