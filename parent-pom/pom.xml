@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.polyapi</groupId>
     <artifactId>parent-pom</artifactId>
-    <version>0.2.1</version>
+    <version>0.2.2-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Poly API Java parent POM</name>
     <url>https://polyapi.io</url>
@@ -28,7 +28,7 @@
         <connection>scm:git:git@github.com:polyapi/polyapi-java.git</connection>
         <developerConnection>scm:git:git@github.com:polyapi/polyapi-java.git</developerConnection>
         <url>https://github.com/polyapi/polyapi-java</url>
-      <tag>polyapi-java-0.2.1</tag>
+      <tag>HEAD</tag>
   </scm>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
