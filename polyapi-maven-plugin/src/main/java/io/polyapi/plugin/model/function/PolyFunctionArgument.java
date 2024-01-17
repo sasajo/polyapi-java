@@ -6,6 +6,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class PolyFunctionArgument {
+    private String key;
     private String name;
     private String type;
     private String typeSchema;

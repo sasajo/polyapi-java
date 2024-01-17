@@ -148,10 +148,18 @@ public class JavaParserServiceImpl implements JavaParserService {
                                                 logger.debug("Adding parameter '{}' to execute method.", param.getName());
                                                 logger.trace("Converting to PolyFunctionArgument.");
                                                 var argument = new PolyFunctionArgument();
+                                                argument.setKey(param.getName());
                                                 argument.setName(param.getName());
                                                 var argumentTypeData = parse(param.getType());
-                                                argument.setType(param.getType().asReferenceType().getQualifiedName());
-                                                argument.setTypeSchema(argumentTypeData.jsonSchema());
+                                                switch (param.getType().asReferenceType().getQualifiedName()) {
+                                                    case "java.lang.Integer", "java.lang.Long", "java.lang.Number", "java.lang.Double", "java.lang.Float", "java.lang.Short", "java.lang.Byte" -> argument.setType("number");
+                                                    case "java.lang.Boolean" -> argument.setType("boolean");
+                                                    case "java.lang.String", "java.lang.Character" -> argument.setType("string");
+                                                    default -> {
+                                                        argument.setType("object");
+                                                        argument.setTypeSchema(argumentTypeData.jsonSchema());
+                                                    }
+                                                }
                                                 return argument;
                                             })
                                             .forEach(function.getArguments()::add);
