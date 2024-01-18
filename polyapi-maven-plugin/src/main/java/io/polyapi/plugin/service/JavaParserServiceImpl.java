@@ -136,7 +136,7 @@ public class JavaParserServiceImpl implements JavaParserService {
                                     if (!methodDeclaration.getName().equals("execute")) {
                                         logger.debug("Adding execute() method for server to invoke.");
                                         MethodDeclaration executeMethod = compilationUnit.getType(0).asClassOrInterfaceDeclaration().addMethod("execute", PUBLIC)
-                                                .setType(methodDeclaration.getReturnType().asReferenceType().getQualifiedName())
+                                                .setType(methodDeclaration.getReturnType().asReferenceType().getQualifiedName().substring(methodDeclaration.getReturnType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1))
                                                 .setBody(new BlockStmt(NodeList.nodeList(new ReturnStmt(new MethodCallExpr(methodDeclaration.getName(), range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam).map(ResolvedParameterDeclaration::getName).map(NameExpr::new).toArray(Expression[]::new))))));
                                         range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam)
                                                 .forEach(param -> executeMethod.addParameter(param.asParameter().getType().asReferenceType().getQualifiedName().substring(param.asParameter().getType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1), param.getName()));
