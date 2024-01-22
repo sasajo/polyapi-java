@@ -164,7 +164,7 @@ public class JavaParserServiceImpl implements JavaParserService {
                                             })
                                             .forEach(function.getArguments()::add);
                                     logger.trace("Parsed {} parameters.", function.getArguments().size());
-                                    compilationUnit.getPackageDeclaration().ifPresent(Node::remove);
+                                    compilationUnit.setPackageDeclaration("io.polyapi.knative.function");
                                     compilationUnit.getType(0).setName("PolyCustomFunction");
                                     function.setCode(compilationUnit.toString());
                                     functions.add(function);

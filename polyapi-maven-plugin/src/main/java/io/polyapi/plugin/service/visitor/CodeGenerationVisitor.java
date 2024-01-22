@@ -3,11 +3,13 @@ package io.polyapi.plugin.service.visitor;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.CustomType;
 import io.polyapi.plugin.model.Generable;
+import io.polyapi.plugin.model.property.PropertyType;
 import io.polyapi.plugin.model.property.VoidPropertyType;
 import io.polyapi.plugin.model.specification.Context;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
+import io.polyapi.plugin.model.specification.function.PropertyMetadata;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.service.JsonSchemaParser;
 import org.slf4j.Logger;
@@ -17,12 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 import static java.util.stream.IntStream.range;
-import static java.util.stream.Stream.concat;
 
 public class CodeGenerationVisitor implements PolyVisitor {
     private static final Logger logger = LoggerFactory.getLogger(CodeGenerationVisitor.class);
@@ -54,18 +54,23 @@ public class CodeGenerationVisitor implements PolyVisitor {
     public void visit(FunctionSpecification specification) {
         visit((Specification) specification);
 
-        logger.debug("Generating class for {} function return type.", specification.getName());
+        logger.debug("Generating classes for {} function return type.", specification.getName());
         var functionMetadata = specification.getFunction();
         Optional.ofNullable(functionMetadata.getReturnType())
                 .filter(not(VoidPropertyType.class::isInstance))
-                .filter(returnType -> Objects.nonNull(returnType.getTypeSchema()))
-                .map(returnType -> concat(jsonSchemaParser.parse(specification.getClassName() + "Response", specification.getPackageName(), functionMetadata.getReturnType()).stream(),
-                        range(0, Optional.ofNullable(functionMetadata.getArguments()).orElseGet(ArrayList::new).size())
-                                .boxed()
-                                .map(i -> jsonSchemaParser.parse(format("%sArgument%s", specification.getClassName(), i), specification.getPackageName(), functionMetadata.getArguments().get(i).getType()))
-                                .flatMap(List::stream))
-                ).orElseGet(Stream::of)
-                .forEach(this::generate);
+                .ifPresent(type -> generate(specification.getClassName() + "Response", specification.getPackageName(), type));
+        logger.debug("Generating classes for {} function arguments.", specification.getName());
+        List<PropertyMetadata> arguments = Optional.ofNullable(functionMetadata.getArguments()).orElseGet(ArrayList::new);
+        range(0, arguments.size()).forEach(i -> generate(format("%sArgument%s", specification.getClassName(), i), specification.getPackageName(), arguments.get(i).getType()));
+    }
+
+    private void generate(String defaultName, String packageName, PropertyType propertyType) {
+        Optional.of(propertyType)
+                .filter(type -> Objects.nonNull(type.getTypeSchema()))
+                .map(type -> jsonSchemaParser.parse(defaultName, packageName, type))
+                .stream()
+                .flatMap(List::stream)
+                .forEach(type -> type.accept(this));
     }
 
     @Override

@@ -1,0 +1,16 @@
+{
+  "type": "array",
+  "items": {
+    "properties": {
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "count"
+    ],
+    "title": "Foobar",
+    "type": "object"
+  }
+}

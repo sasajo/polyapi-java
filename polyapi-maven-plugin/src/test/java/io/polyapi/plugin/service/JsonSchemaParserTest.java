@@ -27,7 +27,9 @@ public class JsonSchemaParserTest {
                 Arguments.of("Recursive schema with base type.", "Case 2", 8, List.of("Coupon", "Discount", "Address", "CouponMetadata", "ResponseTypeMetadata", "TestResponse", "InvoiceSettings", "Shipping")),
                 Arguments.of("Schema that has a text value evaluated to null.", "Case 3", 8, List.of("Message", "TestResponse", "Edited", "Metadata", "Block", "Attachment", "Text", "EventPayload")),
                 Arguments.of("Schema with base type and no definitions.", "Case 4", 1, List.of("TestResponse")),
-                Arguments.of("Schema for array of numbers.", "Case 5", 1, List.of("TestResponse")));
+                Arguments.of("Schema for array of numbers.", "Case 5", 1, List.of("TestResponse")),
+                Arguments.of("Schema for array of integers.", "Case 6", 1, List.of("TestResponse")),
+                Arguments.of("Simple schema with attribute.", "Case 7", 1, List.of("TestResponse")));
     }
 
     @ParameterizedTest(name = "{1}: {0}")

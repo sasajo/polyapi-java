@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "desiredNumbers": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "desiredNumbers"
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

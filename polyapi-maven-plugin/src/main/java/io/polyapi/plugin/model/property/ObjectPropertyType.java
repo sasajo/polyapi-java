@@ -90,10 +90,13 @@ public class ObjectPropertyType extends PropertyType {
     }
 
     private Set<String> getImports(JsonNode node, String basePackage, String defaultType) {
-        if (Optional.ofNullable(node).map(Object::toString).filter(schema -> schema.trim().replace(" ", "").length() > 2).isPresent()) {
+        if (Optional.ofNullable(node)
+                .map(Object::toString)
+                .filter(schema -> schema.trim().replace(" ", "").length() > 2)
+                .isPresent()) {
             return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
                 case "array" ->
-                        Optional.ofNullable(getRefType(node, format("%s.", basePackage), type -> getImports(type, basePackage, defaultType).stream().findFirst().orElse(null)))
+                        Optional.ofNullable(getRefType(node, format("%s.", basePackage), type -> format("%s.%s", basePackage, getType(type, defaultType))))
                                 .map(Set::of)
                                 .orElseGet(Set::of);
                 case "integer", "string", "number", "boolean" -> Set.of();
