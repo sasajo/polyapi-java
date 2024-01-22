@@ -96,7 +96,7 @@ public class ObjectPropertyType extends PropertyType {
                 .isPresent()) {
             return switch (Optional.ofNullable(node.get("type")).map(JsonNode::textValue).orElse("")) {
                 case "array" ->
-                        Optional.ofNullable(getRefType(node, format("%s.", basePackage), type -> format("%s.%s", basePackage, getType(type, defaultType))))
+                        Optional.ofNullable(getRefType(node, format("%s.", basePackage), type -> getImports(type, basePackage, defaultType).stream().findFirst().orElse(null)))
                                 .map(Set::of)
                                 .orElseGet(Set::of);
                 case "integer", "string", "number", "boolean" -> Set.of();
