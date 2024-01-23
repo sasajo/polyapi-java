@@ -11,9 +11,11 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
 import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.resolution.types.ResolvedVoidType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ClassLoaderTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -32,10 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static com.github.javaparser.ast.Modifier.Keyword.PUBLIC;
@@ -132,12 +131,19 @@ public class JavaParserServiceImpl implements JavaParserService {
                                     function.setName(methodDeclaration.getName());
                                     function.setReturnType(typeData.name());
                                     logger.trace("Adding JSon schema to return type.");
-                                    function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
+                                    if (!methodDeclaration.getReturnType().isVoid()) {
+                                        function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
+                                    }
                                     if (!methodDeclaration.getName().equals("execute")) {
                                         logger.debug("Adding execute() method for server to invoke.");
                                         MethodDeclaration executeMethod = compilationUnit.getType(0).asClassOrInterfaceDeclaration().addMethod("execute", PUBLIC)
-                                                .setType(methodDeclaration.getReturnType().asReferenceType().getQualifiedName().substring(methodDeclaration.getReturnType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1))
-                                                .setBody(new BlockStmt(NodeList.nodeList(new ReturnStmt(new MethodCallExpr(methodDeclaration.getName(), range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam).map(ResolvedParameterDeclaration::getName).map(NameExpr::new).toArray(Expression[]::new))))));
+                                                .setType(methodDeclaration.getReturnType().isVoid() ? "void" : methodDeclaration.getReturnType().asReferenceType().getQualifiedName().substring(methodDeclaration.getReturnType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1))
+                                                .setBody(new BlockStmt(NodeList.nodeList(Optional.of(new MethodCallExpr(methodDeclaration.getName(), range(0, methodDeclaration.getNumberOfParams()).boxed()
+                                                                .map(methodDeclaration::getParam)
+                                                                .map(ResolvedParameterDeclaration::getName)
+                                                                .map(NameExpr::new)
+                                                                .toArray(Expression[]::new)))
+                                                        .map(expression -> methodDeclaration.getReturnType().isVoid() ? new ExpressionStmt(expression) : new ReturnStmt(expression)).get())));
                                         range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam)
                                                 .forEach(param -> executeMethod.addParameter(param.asParameter().getType().asReferenceType().getQualifiedName().substring(param.asParameter().getType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1), param.getName()));
                                     }
@@ -152,9 +158,11 @@ public class JavaParserServiceImpl implements JavaParserService {
                                                 argument.setName(param.getName());
                                                 var argumentTypeData = parse(param.getType());
                                                 switch (param.getType().asReferenceType().getQualifiedName()) {
-                                                    case "java.lang.Integer", "java.lang.Long", "java.lang.Number", "java.lang.Double", "java.lang.Float", "java.lang.Short", "java.lang.Byte" -> argument.setType("number");
+                                                    case "java.lang.Integer", "java.lang.Long", "java.lang.Number", "java.lang.Double", "java.lang.Float", "java.lang.Short", "java.lang.Byte" ->
+                                                            argument.setType("number");
                                                     case "java.lang.Boolean" -> argument.setType("boolean");
-                                                    case "java.lang.String", "java.lang.Character" -> argument.setType("string");
+                                                    case "java.lang.String", "java.lang.Character" ->
+                                                            argument.setType("string");
                                                     default -> {
                                                         argument.setType("object");
                                                         argument.setTypeSchema(argumentTypeData.jsonSchema());
