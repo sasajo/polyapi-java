@@ -11,7 +11,7 @@ import io.polyapi.plugin.model.specification.function.CustomFunctionSpecificatio
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.function.PropertyMetadata;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
-import io.polyapi.plugin.service.JsonSchemaParser;
+import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +77,7 @@ public class CodeGenerationVisitor implements PolyVisitor {
     public void visit(CustomFunctionSpecification specification) {
         if (specification.isJava()) {
             visit((FunctionSpecification) specification);
-            new CustomType(specification.getPackageName(), format("%sDelegate", specification.getClassName()), (specification.getCode().trim().startsWith("package ") ? specification.getCode() : format("package %s;\n%s", specification.getPackageName(), specification.getCode())).replace("PolyCustomFunction", specification.getClassName() + "Delegate")).accept(this);
+            new CustomType(specification.getPackageName(), format("%sDelegate", specification.getClassName()), format("package %s;\n%s", specification.getPackageName(), specification.getCode().trim().startsWith("package ") ? specification.getCode().substring(specification.getCode().indexOf(';')) : specification.getCode()).replace("PolyCustomFunction", specification.getClassName() + "Delegate")).accept(this);
         }
     }
 

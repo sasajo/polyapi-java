@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/ResponseTypeElement"
+  },
+  "definitions": {
+    "ResponseTypeElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "+1": {
+          "type": "integer"
+        },
+        "-1": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "+1", "-1"
+      ],
+      "title": "ResponseTypeElement"
+    }
+  }
+}

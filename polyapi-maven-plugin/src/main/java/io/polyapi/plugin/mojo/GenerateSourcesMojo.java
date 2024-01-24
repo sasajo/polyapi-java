@@ -11,7 +11,7 @@ import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
-import io.polyapi.plugin.service.JsonSchemaParser;
+import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import io.polyapi.plugin.service.MavenService;
 import io.polyapi.plugin.service.SpecificationServiceImpl;
 import io.polyapi.plugin.service.template.PolyHandlebars;

@@ -6,6 +6,7 @@ import io.polyapi.client.api.model.websocket.WebhookEventConsumer;
 import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.internal.proxy.WebhookHandlerFactory;
 import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.AuthTokenOptions;
 {{~#each specifications}}
     {{~#ifIsType this "ServerFunctionSpecification"}}
         {{~#each this.imports}}
@@ -66,7 +67,11 @@ super(proxyFactory, webhookHandlerFactory);
         this.{{name}} = createWebhookHandle({{className}}.class);
     {{~/ifIsType}}
     {{~#ifIsType this "AuthFunctionSpecification"}}
-        this.{{name}} = createWebhookHandle({{className}}.class);
+        {{~#if subResource}}
+        this.{{name}} = createSubresourceAuthFunction({{className}}.class);
+        {{~else}}
+        this.{{name}} = create{{#if audienceRequired}}Audience{{/if}}TokenAuthFunction({{className}}.class);
+        {{~/if}}
     {{~/ifIsType}}
 {{~/each}}
 {{#each subcontexts}}
