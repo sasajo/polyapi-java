@@ -37,6 +37,7 @@ public class DeployFunctionsMojo extends PolyApiMojo {
                     logger.info("Deployed {} function '{}' on context '{}' with id '{}'", polyFunctionMetadata.getTypedType(), polyFunctionMetadata.name(), polyFunctionMetadata.context(), id);
                     logger.debug("Function can be accessed at {}:{}/functions/{}/{}", host, port, polyFunctionMetadata.getTypedType(), id);
                 } catch (HttpResponseException e) {
+                    logger.error("{} function '{}' deployment failed.", polyFunctionMetadata.getTypedType(), polyFunctionMetadata.name());
                     exceptions.put(polyFunctionMetadata, e);
                 }
             } else {
@@ -51,7 +52,7 @@ public class DeployFunctionsMojo extends PolyApiMojo {
                 logger.debug("{} occurred while deploying {} function '{}' on context '{}'. Exception message is '{}'.", exception.getClass(), polyFunctionMetadata.getTypedType(), polyFunctionMetadata.name(), polyFunctionMetadata.context(), Optional.ofNullable(exception.getMessage()).orElse("No message"));
                 if (exception instanceof HttpResponseException) {
                     try {
-                        logger.info(IOUtils.toString(HttpResponseException.class.cast(exception).getResponse().body()));
+                        logger.error(IOUtils.toString(HttpResponseException.class.cast(exception).getResponse().body()));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
