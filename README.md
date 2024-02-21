@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.3.0
+### v0.3.2
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -347,6 +347,13 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.3.2
+- Fixed bug in deploy-functions where inner classes weren't taken into consideration.
+- Refactored deploy-functions to be reflection based instead of reading source code.
+
+### v0.3.1
+- Fixed bug in deploy-functions where generics weren't taken into consideration.
+
 ### v0.3.0
 - Added deploy-functions MOJO.
 - Added functionality to add maven dependencies to executions.
