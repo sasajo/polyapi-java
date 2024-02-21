@@ -5,10 +5,7 @@ import io.polyapi.commons.api.model.PolyGeneratedClass;
 import io.polyapi.commons.api.model.RequiredDependencies;
 import io.polyapi.commons.api.model.RequiredDependency;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
-import io.polyapi.plugin.error.validation.InvalidPropertyException;
-import io.polyapi.plugin.error.validation.KeywordUseException;
 import io.polyapi.plugin.error.validation.PropertyNotFoundException;
-import io.polyapi.plugin.model.function.PolyFunctionMetadata;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
@@ -21,11 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.lang.model.SourceVersion;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.lang.reflect.Type;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -132,7 +125,7 @@ public class MavenService {
         }
     }
 
-    public Set<PolyFunctionMetadata> scanPolyFunctions() {
+    public Set<Method> scanPolyFunctions() {
         logger.info("Scanning the project for functions annotated with {}}.", PolyFunction.class.getName());
         URLClassLoader projectClassLoader = getProjectClassLoader();
         Reflections reflections = new Reflections(new ConfigurationBuilder()
@@ -146,58 +139,67 @@ public class MavenService {
         List.of(RequiredDependency.class, RequiredDependencies.class).forEach(annotation ->
                 reflections.getMethodsAnnotatedWith(annotation).stream()
                         .filter(not(methods::contains))
-                        .forEach(misusedMethod -> {
-                            logger.warn("Method {} is annotated with {} but is ignored as it needs to be annotated with {} to be scanned.", misusedMethod, misusedMethod.getAnnotation(annotation).getClass().getSimpleName(), PolyFunction.class.getSimpleName());
-                        }));
-        return methods.stream()
+                        .forEach(misusedMethod -> logger.warn("Method {} is annotated with {} but is ignored as it needs to be annotated with {} to be scanned.", misusedMethod, misusedMethod.getAnnotation(annotation).getClass().getSimpleName(), PolyFunction.class.getSimpleName())));
+        Set<Method> validatedMethods = methods.stream()
                 .filter(not(method -> method.getDeclaringClass().isAnnotationPresent(PolyGeneratedClass.class)))
-                .map(method -> {
-                    try {
-                        logger.info("Processing method '{}'.", method);
-                        PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
-                        logger.debug("Retrieving function name.");
-                        String functionName = Optional.ofNullable(polyFunction.name()).filter(not(String::isBlank)).orElseGet(method::getName);
-                        if (!functionName.matches(FUNCTION_NAME_PATTERN)) {
-                            throw new InvalidPropertyException("functionName", functionName, method, FUNCTION_NAME_PATTERN);
-                        }
-                        if (isKeyword(functionName.trim())) {
-                            throw new KeywordUseException("functionName", functionName, method, functionName);
-                        }
-                        Class<?> declaringClass = method.getDeclaringClass();
-                        logger.debug("Retrieving context.");
-                        String context = Optional.ofNullable(polyFunction.context()).filter(not(String::isEmpty)).orElseGet(declaringClass::getPackageName);
-                        if (!context.matches(CONTEXT_PATTERN)) {
-                            throw new InvalidPropertyException("context", context, method, CONTEXT_PATTERN);
-                        }
-                        Optional.of(Arrays.stream(context.split("\\.")).filter(SourceVersion::isKeyword).toArray(String[]::new)).filter(array -> array.length > 0).ifPresent(keywords -> {
-                            throw new KeywordUseException("context", context, method, keywords);
-                        });
-                        logger.debug("Retrieving required dependencies.");
-                        Pattern pattern = compile(Optional.of(concat(Optional.ofNullable(method.getAnnotation(RequiredDependencies.class)).map(RequiredDependencies::value).stream().flatMap(Arrays::stream), Optional.ofNullable(method.getAnnotation(RequiredDependency.class)).stream())
-                                        .map(requiredDependency -> format("%s:%s:%s", requiredDependency.groupId(), requiredDependency.artifactId(), requiredDependency.version()))
-                                        .collect(joining("|")))
-                                .filter(not(String::isEmpty))
-                                .orElse("(?=a)b"));
-                        logger.debug("Pattern used to match required dependencies is: {}", pattern.pattern());
-                        List<String> requiredDependencies = project.getDependencies().stream()
-                                .map(dependency -> format("%s:%s:%s", dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion()))
-                                .filter(pattern.asPredicate())
-                                .toList();
-                        logger.debug("Required dependencies found: {}", requiredDependencies);
-                        return new PolyFunctionMetadata(functionName,
-                                format("%s(%s)", method.getName(), Arrays.stream(method.getParameters()).map(Parameter::getParameterizedType).map(Type::getTypeName).collect(joining(", "))),
-                                polyFunction.type(),
-                                new FileInputStream(format("src/main/java/%s/%s.java",
-                                        declaringClass.getPackageName().replace(".", "/"),
-                                        declaringClass.getSimpleName())),
-                                context,
-                                requiredDependencies,
-                                polyFunction.isDeployable());
-                    } catch (FileNotFoundException e) {
-                        throw new RuntimeException(e); // FIXME: Throw the appropriate exception.
+                .filter(method -> {
+                    boolean result = true;
+                    PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
+                    logger.debug("Validating function name.");
+                    String functionName = Optional.ofNullable(polyFunction.name()).filter(not(String::isBlank)).orElseGet(method::getName);
+                    if (!functionName.matches(FUNCTION_NAME_PATTERN)) {
+                        logger.error("Method '{}' skipped. Property 'functionName' with value '{}' doesn't match pattern '{}'.", method, functionName, FUNCTION_NAME_PATTERN);
+                        result = false;
                     }
+                    if (isKeyword(functionName.trim())) {
+                        logger.error("Method '{}' skipped. Property 'functionName' with value '{}' is a Java keyword.", method, functionName);
+                        result = false;
+                    }
+                    return result;
+                })
+                .filter(method -> {
+                    boolean result = true;
+                    PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
+                    logger.debug("Validating context.");
+                    String context = Optional.ofNullable(polyFunction.context()).filter(not(String::isEmpty)).orElseGet(method.getDeclaringClass()::getPackageName);
+                    if (!context.matches(CONTEXT_PATTERN)) {
+                        logger.error("Method '{}' skipped. Property 'context' with value '{}' doesn't match pattern '{}'.", method, context, CONTEXT_PATTERN);
+                        result = false;
+                    }
+                    String keywords = Arrays.stream(context.split("\\.")).filter(SourceVersion::isKeyword).collect(joining(","));
+                    if (!keywords.isEmpty()) {
+                        logger.error("Method '{}' skipped. Property 'context' with value '{}' uses Java keywords '{}}'. Please rename the context accordingly.", method, context, keywords);
+                        result = false;
+                    }
+                    return result;
+                })
+                .filter(method -> {
+                    PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
+                    boolean isDeployable = polyFunction.isDeployable();
+                    if (!isDeployable) {
+                        logger.warn("Method '{}' skipped. Marked as not deployable.", method);
+                    }
+                    return isDeployable;
                 })
                 .collect(toSet());
+        if (validatedMethods.size() < methods.size()) {
+            logger.warn("Only {} of {} methods are valid.", validatedMethods.size(), methods.size());
+        }
+        return validatedMethods;
+    }
+
+    public List<String> getMatchingDependencies(List<String> patterns) {
+        logger.debug("Retrieving required dependencies.");
+        Pattern pattern = compile(Optional.of(String.join("|", patterns))
+                .filter(not(String::isEmpty))
+                .orElse("(?=a)b"));
+        logger.debug("Pattern used to match required dependencies is: {}", pattern.pattern());
+        List<String> requiredDependencies = project.getDependencies().stream()
+                .map(dependency -> format("%s:%s:%s", dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion()))
+                .filter(pattern.asPredicate())
+                .toList();
+        logger.debug("Required dependencies found: {}", requiredDependencies);
+        return requiredDependencies;
     }
 
     public Set<Method> getPolyFunctionMethods() {

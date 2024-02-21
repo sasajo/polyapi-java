@@ -9,5 +9,5 @@ public interface PolyFunctionService {
 
     PolyFunction postClientFunction(PolyFunction polyFunction);
 
-    String deploy(PolyFunctionMetadata polyFunctionMetadata);
+    String deploy(String type, PolyFunction polyFunction);
 }

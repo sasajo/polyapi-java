@@ -38,10 +38,10 @@ public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunct
     }
 
     @Override
-    public String deploy(PolyFunctionMetadata polyFunctionMetadata) {
-        logger.info("Deploying {} function '{}' on context '{}'.", polyFunctionMetadata.getTypedType(), polyFunctionMetadata.name(), polyFunctionMetadata.context());
-        PolyFunction function = post(format("functions/%s", polyFunctionMetadata.getTypedType()), javaParserService.parseFunction(polyFunctionMetadata), PolyFunction.class);
-        logger.info("Deployment of {} function '{}' on context'{}' successful.", polyFunctionMetadata.getTypedType(), polyFunctionMetadata.name(), polyFunctionMetadata.context());
+    public String deploy(String type, PolyFunction polyFunction) {
+        logger.info("Deploying {} function '{}' on context '{}'.", type, polyFunction.getName(), polyFunction.getContext());
+        PolyFunction function = post(format("functions/%s", type), polyFunction, PolyFunction.class);
+        logger.info("Deployment of {} function '{}' on context'{}' successful.", type, polyFunction.getName(), polyFunction.getContext());
         return function.getId();
     }
 }

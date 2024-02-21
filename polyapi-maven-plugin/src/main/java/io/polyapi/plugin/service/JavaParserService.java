@@ -9,8 +9,6 @@ import java.util.List;
 
 public interface JavaParserService {
 
-    PolyFunction parseFunction(PolyFunctionMetadata polyFunctionMetadata);
-
     @Deprecated
     PolyFunction parseFunction(List<File> sourceRoots, List<String> jarPaths, File file, Method method, String description, String context);
 }
