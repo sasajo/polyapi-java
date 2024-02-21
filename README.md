@@ -53,7 +53,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.2.5</poly.version>
+  <poly.version>0.3.2</poly.version>
 </properties>
 <dependencies>
   <dependency>
