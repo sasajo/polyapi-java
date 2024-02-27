@@ -1,6 +1,7 @@
 package io.polyapi.plugin.service.visitor;
 
 import io.polyapi.commons.api.json.JsonParser;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.CustomType;
 import io.polyapi.plugin.model.Generable;
@@ -92,6 +93,7 @@ public class CodeGenerationVisitor implements PolyVisitor {
                         return result;
                     });
             codeObject.setPackageName(format("%s.delegate", specification.getPackageName()));
+            codeObject.setCode(codeObject.getCode().replace("public class", format("@%s\npublic class", PolyGeneratedClass.class.getName())));
             new CustomType(codeObject.getPackageName(), codeObject.getClassName(), format("package %s;\n%s", codeObject.getPackageName(), codeObject.getCode().trim().startsWith("package ") ? codeObject.getCode().substring(codeObject.getCode().indexOf(';') + 1) : codeObject.getCode())).accept(this);
         }
     }
