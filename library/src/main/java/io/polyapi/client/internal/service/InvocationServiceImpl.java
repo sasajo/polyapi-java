@@ -11,21 +11,22 @@ import io.polyapi.client.error.generation.GeneratedClassNotFoundException;
 import io.polyapi.client.error.generation.MissingDefaultConstructorException;
 import io.polyapi.client.error.invocation.delegate.DelegateExecutionException;
 import io.polyapi.client.error.invocation.delegate.InvalidMethodDeclarationException;
-import io.polyapi.client.internal.websocket.WebSocketClient;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.error.http.UnexpectedHttpResponseException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.http.ResponseRecord;
 import io.polyapi.commons.api.json.JsonParser;
-import io.polyapi.commons.api.model.FunctionType;
 import io.polyapi.commons.api.model.PolyFunction;
 import io.polyapi.commons.api.service.PolyApiService;
+import io.polyapi.commons.api.websocket.Handle;
+import io.polyapi.commons.api.websocket.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -121,13 +122,14 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
             GetAuthTokenResponse data = post(format("auth-providers/%s/execute", id), replace(body), GetAuthTokenResponse.class);
             if (data.getToken() == null) {
                 if (data.getUrl() == null || !optionalOptions.map(AuthTokenOptions::getAutoCloseOnUrl).orElse(false)) {
-                    webSocketClient.registerAuthFunctionEventHandler(id, objects -> {
+                    Handle handle;
+                    handle = webSocketClient.registerAuthFunctionEventHandler(id, objects -> {
                         try {
                             GetAuthTokenResponse event = jsonParser.parseString(objects[0].toString(), GetAuthTokenResponse.class);
                             if (event.getToken() != null) {
                                 callback.accept(event.getToken(), event.getUrl(), event.getError());
                                 if (optionalOptions.map(AuthTokenOptions::getAutoCloseOnToken).orElse(true)) {
-                                    webSocketClient.unregisterAuthFunctionEventHandler(id);
+                                    //handle.close();
                                 }
                             }
                         } catch (RuntimeException e) {
@@ -142,7 +144,7 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
                         new Timer().schedule(new TimerTask() {
                             @Override
                             public void run() {
-                                webSocketClient.unregisterAuthFunctionEventHandler(id);
+                                handle.close();
                                 callback.accept(null, null, format("Timeout reached for auth function %s.", id));
                             }
                         }, timeout);
@@ -168,8 +170,8 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     }
 
     @Override
-    public <T> T injectVariable(String id, String packageName, String type) {
-        return variableInjectionService.inject(id, packageName, type);
+    public <T> T injectVariable(String id, String type) {
+        return variableInjectionService.inject(id, type);
     }
 
     @Override

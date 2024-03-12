@@ -1,5 +1,6 @@
 package io.polyapi.plugin.model.specification.function;
 
+import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,7 +14,12 @@ public class AuthFunctionSpecification extends FunctionSpecification {
     }
 
     @Override
-    protected String getSubtypePackage() {
+    public void accept(PolySpecificationVisitor visitor) {
+        visitor.visit(this);
+    }
+
+    @Override
+    protected String getSpecificationSubtype() {
         return "auth";
     }
 }

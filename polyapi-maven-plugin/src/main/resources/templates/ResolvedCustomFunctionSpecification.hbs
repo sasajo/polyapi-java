@@ -1,0 +1,17 @@
+package {{packageName}};
+
+import io.polyapi.client.api.model.function.PolyCustomFunction;
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.model.PolyMetadata;
+{{~#each imports}}
+import {{this}};
+{{~/each}}
+
+@PolyEntity("{{id}}")
+@PolyMetadata(delegate = "{{{delegate}}}",
+    paramNames = { {{{paramNames}}} },
+    paramTypes = { {{{paramTypes}}} })
+public interface {{className}} extends PolyCustomFunction {
+
+    {{{returnType}}} {{{methodSignature}}};
+}

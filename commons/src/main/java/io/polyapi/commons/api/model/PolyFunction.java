@@ -3,7 +3,6 @@ package io.polyapi.commons.api.model;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.Boolean.FALSE;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
@@ -41,5 +40,5 @@ public @interface PolyFunction {
      *
      * @return boolean The flag indicating if this function is to be deployed.
      */
-    boolean isDeployable() default true;
+    boolean deployFunction() default true;
 }

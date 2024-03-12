@@ -4,6 +4,7 @@ import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.plugin.model.specification.Specification;
+import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,9 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
         }
         logger.debug("Validating for duplicate context/name pairs.");
         Map<String, Specification> uniquenessValidationMap = new HashMap<>();
-        specifications.forEach(specification -> {
+        specifications.stream()
+                .filter(specification -> !(specification instanceof ServerFunctionSpecification serverFunctionSpecification && !serverFunctionSpecification.getLanguage().equalsIgnoreCase("java")))
+                .forEach(specification -> {
             String key = format("%s.%s", specification.getContext(), specification.getName()).toLowerCase();
             if (uniquenessValidationMap.containsKey(key)) {
                 logger.warn("Skipping {} specification '{}' in context '{}' as it clashes with {} specification with the same name and context.", specification.getType(), specification.getName(), specification.getContext(), uniquenessValidationMap.get(key).getType());

@@ -175,7 +175,7 @@ public class MavenService {
                 })
                 .filter(method -> {
                     PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
-                    boolean isDeployable = polyFunction.isDeployable();
+                    boolean isDeployable = polyFunction.deployFunction();
                     if (!isDeployable) {
                         logger.warn("Method '{}' skipped. Marked as not deployable.", method);
                     }

@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.polyapi</groupId>
         <artifactId>parent-pom</artifactId>
-        <version>0.3.7-SNAPSHOT</version>
+        <version>0.4.0-SNAPSHOT</version>
         <relativePath>../parent-pom</relativePath>
     </parent>
     <artifactId>library</artifactId>
@@ -64,17 +64,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>io.socket</groupId>
-            <artifactId>socket.io-client</artifactId>
-            <version>2.1.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.json</groupId>
-                    <artifactId>json</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>com.github.javaparser</groupId>
             <artifactId>javaparser-symbol-solver-core</artifactId>
             <version>3.25.6</version>
@@ -83,11 +72,6 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
-            <version>20231013</version>
         </dependency>
     </dependencies>
     <build>

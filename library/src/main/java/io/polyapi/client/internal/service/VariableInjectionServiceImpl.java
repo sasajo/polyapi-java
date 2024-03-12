@@ -29,8 +29,8 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
                 .orElse(original);
     }
 
-    public synchronized <T> T inject(String key, String packageName, String type) {
-        logger.debug("Injecting variable with key '{}' and type '{}'.", key, type);
+    public synchronized <T> T inject(String key, String type) {
+        logger.error("Injecting variable with key '{}' and type '{}'.", key, type);
         if (!injectionMap.containsKey(key)) {
             logger.debug("Injection map doesn't contain the key, generating a new one.");
             injectionMap.put(key, switch (type.toLowerCase()) {
@@ -43,16 +43,15 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
                 case "short" -> new Short((short) 0);
                 case "byte" -> new Byte((byte) 0);
                 default -> {
-                    String className = format("%s.%s", packageName, type);
                     try {
-                        logger.debug("Type is not basic, generating new default instance with default constructor for class {}.", className);
-                        yield Class.forName(className).getConstructor().newInstance();
+                        logger.debug("Type is not basic, generating new default instance with default constructor for class {}.", type);
+                        yield Class.forName(type).getConstructor().newInstance();
                     } catch (InstantiationException | InvocationTargetException e) {
-                        throw new GeneratedClassInstantiationException(className, e);
+                        throw new GeneratedClassInstantiationException(type, e);
                     } catch (NoSuchMethodException | IllegalAccessException e) {
-                        throw new MissingDefaultConstructorException(className, e);
+                        throw new MissingDefaultConstructorException(type, e);
                     } catch (ClassNotFoundException e) {
-                        throw new GeneratedClassNotFoundException(className, e);
+                        throw new GeneratedClassNotFoundException(type, e);
                     }
                 }
             });

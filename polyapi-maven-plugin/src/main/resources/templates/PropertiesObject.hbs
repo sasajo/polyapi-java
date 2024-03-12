@@ -1,0 +1,16 @@
+package {{packageName}};
+
+import lombok.Getter;
+import io.polyapi.commons.api.model.PolyObject;
+
+{{~#each imports}}
+import {{this}};
+{{~/each}}
+
+@Getter
+public class {{className}} implements PolyObject {
+
+{{~#each properties}}
+    private {{{this}}};
+{{~/each}}
+}

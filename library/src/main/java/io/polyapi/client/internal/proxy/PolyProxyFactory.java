@@ -8,8 +8,13 @@ import io.polyapi.client.api.model.function.SubresourceAuthFunction;
 import io.polyapi.client.api.model.function.TokenAuthFunction;
 import io.polyapi.client.api.model.function.PolyServerFunction;
 import io.polyapi.client.api.model.variable.ServerVariableHandler;
+import io.polyapi.client.api.model.websocket.PolyTrigger;
+import io.polyapi.client.internal.proxy.invocation.handler.PolyInvocationHandler;
+import io.polyapi.client.internal.proxy.invocation.handler.PolyTriggerInvocationHandler;
+import io.polyapi.client.internal.proxy.invocation.handler.VariInvocationHandler;
 import io.polyapi.client.internal.service.InvocationService;
 import io.polyapi.commons.api.model.PolyObject;
+import io.polyapi.commons.api.websocket.WebSocketClient;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -26,13 +31,15 @@ public class PolyProxyFactory {
     private final InvocationHandler subresourceAuthFunctionInvocationHandler;
     private final InvocationHandler authFunctionInvocationHandler;
     private final InvocationHandler serverVariableInvocationHandler;
+    private final PolyTriggerInvocationHandler polyTriggerInvocationHandler;
 
-    public PolyProxyFactory(InvocationService invocationService) {
+    public PolyProxyFactory(InvocationService invocationService, WebSocketClient webSocketClient) {
         this.serverFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeServerFunction);
         this.apiFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeApiFunction);
         this.customFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeCustomFunction);
         this.authFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeAuthFunction);
         this.subresourceAuthFunctionInvocationHandler = new PolyInvocationHandler(invocationService::invokeSubresourceAuthFunction);
+        this.polyTriggerInvocationHandler = new PolyTriggerInvocationHandler(webSocketClient);
         this.serverVariableInvocationHandler = new VariInvocationHandler(invocationService);
     }
 
@@ -126,5 +133,9 @@ public class PolyProxyFactory {
             throw new IllegalArgumentException(format("Poly object defined is not annotated by PolyEntity annotation. Input class is '%s'", polyInterface.getName()));
         }
         return polyInterface.cast(newProxyInstance(polyInterface.getClassLoader(), new Class[]{polyInterface}, invocationHandler));
+    }
+
+    public <T extends PolyTrigger> T createPolyTrigger(Class<T> polyInterface) {
+        return createProxy(polyTriggerInvocationHandler, polyInterface);
     }
 }

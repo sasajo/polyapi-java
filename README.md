@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.3.6
+### v0.4.0
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -317,9 +317,9 @@ This approach requires that you have a setup project. In this project, you need 
     <version>${poly.version}</version>
 </dependency>
 ```
-Then annotate the function you want to upload with `@PolyFunction`. Have in mind that to mark this as a custom function (or client function) you need to set the property `type` in the annotation to `CLIENT`, leaving the annotation something like: 
+Then annotate the function you want to upload with `@PolyFunction`. Have in mind that to mark this as a custom function (or client function) you need to set the property `polyType` in the annotation to `CLIENT`, leaving the annotation something like: 
 ```java
-@PolyFunction(type = FunctionType.CLIENT) 
+@PolyFunction(polyType = FunctionType.CLIENT) 
 ```
 Then, just run:
 ```bash
@@ -337,7 +337,7 @@ mvn polyapi:add-server-function -Dname=sayHello -Dfile="src/main/java/custom/Cus
 Otherwise it's the same as in the client functions.
 
 #### Annotation approach
-This is the same as the client functions, but you don't need to set the `type` property in the annotation. By default it will assume its a server function.
+This is the same as the client functions, but you don't need to set the `polyType` property in the annotation. By default it will assume its a server function.
 
 ## Limitations
 Comparing to its Typescript counterpart, the Java library is still missing the following features:
@@ -347,6 +347,12 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.4.0
+- Added single function filter to deploy-functions MOJO.
+- Fixed Poly functions invocation in webhooks.
+- Made webhooks return a handle that allows for stopping it's operation.
+- Renamed isDeployable property to deployFunction in PolyFunction annotation.
+- Added support for Poly functions within webhook callbacks.
 ### v0.3.6
 - Fixed bug where generated custom functions where taken for deployment.
 ### v0.3.5
@@ -354,8 +360,8 @@ These features will be added in the future releases.
 ### v0.3.4
 - Added validation to avoid duplicate specifications based on context and name.
 ### v0.3.3
-- Fixed 'type' property for Server variables
-- Added missing 'type' property to specs.json
+- Fixed 'polyType' property for Server variables
+- Added missing 'polyType' property to specs.json
 ### v0.3.2
 - Fixed bug in deploy-functions where inner classes weren't taken into consideration.
 - Refactored deploy-functions to be reflection based instead of reading source code.
@@ -378,12 +384,12 @@ These features will be added in the future releases.
 ### v0.2.1
 - Fixed bug in add-server-function that uploaded arguments without keys.
 ### v0.2.0
-- Improved type generation.
+- Improved polyType generation.
 - Unified the client usage.
 - Replaced approach to use proxies.
 - Split project into multiple modules.
 ### v0.1.8
-- Fixed type generation for Java server functions
+- Fixed polyType generation for Java server functions
 ### v0.1.7
 - Added support for Java server functions
 ### v0.1.6

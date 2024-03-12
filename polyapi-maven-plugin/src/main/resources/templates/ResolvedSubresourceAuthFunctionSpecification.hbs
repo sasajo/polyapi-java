@@ -1,0 +1,15 @@
+package {{packageName}};
+
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.model.PolyMetadata;
+import io.polyapi.client.api.model.function.SubresourceAuthFunction;
+import io.polyapi.client.api.model.function.PolyAuthSubresource;
+
+@PolyEntity("{{id}}")
+@PolyMetadata(paramNames = { {{{paramNames}}} },
+    paramTypes = { {{{paramTypes}}} })
+@PolyAuthSubresource("{{{subResource}}}")
+public interface {{className}} extends SubresourceAuthFunction {
+
+    {{{returnType}}} {{{methodSignature}}};
+}

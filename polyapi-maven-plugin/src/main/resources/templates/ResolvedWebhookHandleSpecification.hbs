@@ -1,0 +1,14 @@
+package {{packageName}};
+
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.model.PolyMetadata;
+import io.polyapi.client.api.model.websocket.PolyTrigger;
+import io.polyapi.commons.api.websocket.Handle;
+import java.util.function.Consumer;
+
+@PolyEntity("{{id}}")
+@PolyMetadata(paramTypes="{{{eventType}}}")
+public interface {{className}} extends PolyTrigger {
+
+    Handle {{name}}(Consumer<{{{eventType}}}> trigger);
+}

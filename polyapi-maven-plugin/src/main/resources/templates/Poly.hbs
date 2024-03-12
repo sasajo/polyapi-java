@@ -1,89 +1,66 @@
 package {{packageName}};
 
+import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
+import io.polyapi.client.api.AuthTokenEventConsumer;
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.AuthTokenOptions;
+{{~#each this.imports}}
+import {{{this}}};
+{{~/each}}
+
+public class {{className}} extends PolyContext {
 {{~#each specifications}}
-    import {{{packageName}}}.{{{className}}};
-    {{~#ifIsType this "ServerFunctionSpecification"}}
-        {{~#each this.imports}}
-            import {{{this}}};
-        {{~/each}}
-    {{~/ifIsType}}
-    {{~#ifIsType this "CustomFunctionSpecification"}}
-        {{~#each this.imports}}
-            import {{{this}}};
-        {{~/each}}
-    {{~/ifIsType}}
-    {{~#ifIsType this "ApiFunctionSpecification"}}
-        {{~#each this.imports}}
-            import {{{this}}};
-        {{~/each}}
-    {{~/ifIsType}}
+    private static {{this.className}} {{this.name}};
 {{~/each}}
 {{#each subcontexts}}
-    import {{{packageName}}}.{{{className}}};
+    public static {{this.className}} {{this.name}};
 {{~/each}}
 
-
-public final class Poly extends PolyContext {
-{{~#each specifications}}
-    private static final {{className}} {{name}};
+    static {
+        Poly poly = new Poly();
+{{~#each serverFunctionSpecifications}}
+        poly.{{this.name}} = poly.createServerFunctionProxy({{this.className}}.class);
 {{~/each}}
-{{#each subcontexts}}
-    public static final {{className}} {{name}};
+{{~#each customFunctionSpecifications}}
+        poly.{{this.name}} = poly.createCustomFunctionProxy({{this.className}}.class);
 {{~/each}}
-
-static {
-Poly poly = new Poly();
-{{~#each specifications}}
-    {{~#ifIsType this "ServerFunctionSpecification"}}
-        {{name}} = poly.createServerFunctionProxy({{className}}.class);
-    {{~/ifIsType}}
-    {{~#ifIsType this "CustomFunctionSpecification"}}
-        {{name}} = poly.createCustomFunctionProxy({{className}}.class);
-    {{~/ifIsType}}
-    {{~#ifIsType this "ApiFunctionSpecification"}}
-        {{name}} = poly.createApiFunctionProxy({{className}}.class);
-    {{~/ifIsType}}
-    {{~#ifIsType this "WebhookHandleSpecification"}}
-        {{name}} = poly.createWebhookHandle({{className}}.class);
-    {{~/ifIsType}}
+{{~#each apiFunctionSpecifications}}
+        poly.{{this.name}} = poly.createApiFunctionProxy({{this.className}}.class);
+{{~/each}}
+{{~#each subResourceAuthFunctionSpecifications}}
+        poly.{{this.name}} = poly.createSubresourceAuthFunction({{this.className}}.class);
+{{~/each}}
+{{~#each standardAuthFunctionSpecifications}}
+        poly.{{this.name}} = poly.create{{#if audienceRequired}}Audience{{/if}}TokenAuthFunction({{this.className}}.class);
+{{~/each}}
+{{~#each webhookHandleSpecifications}}
+        poly.{{this.name}} = poly.createPolyTrigger({{this.className}}.class);
 {{~/each}}
 {{#each subcontexts}}
-    {{name}} = poly.createSubContext({{className}}.class);
+        poly.{{this.name}} = poly.createSubContext({{this.className}}.class);
 {{~/each}}
-}
+    }
+
+{{~#each functionSpecifications}}
+    public static {{{this.returnType}}} {{{this.methodSignature}}} {
+    {{~#if this.returnsValue}}
+        return
+    {{~else}}
+    {{~/if}} {{this.name}}.{{this.name}}({{this.paramVariableNames}});
+    }
+
+    public {{{this.className}}} get{{{this.className}}}Function() {
+        return {{{this.name}}};
+    }
+{{~/each}}
+{{~#each webhookHandlerSpecifications}}
+    public Handle {{this.name}}(Consumer<{{{this.valueType}}}> callback) {
+        return {{this.name}}.{{this.name}}(callback);
+    }
+{{~/each}}
 
 {{~#each specifications}}
-    {{~#ifIsType this "ApiFunctionSpecification"}}
-        public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments this}}}) {
-        return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
-        }
-    {{~/ifIsType}}
-
-    {{~#ifIsType this "CustomFunctionSpecification"}}
-        {{~#if this.isJava}}
-            {{~#if function.returnsValue}}
-                public static {{function.returnType}}
-            {{~else}}
-                public static void
-            {{~/if}} {{name}}({{{renderArguments this}}}) {
-            {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
-            }
-        {{~/if}}
-    {{~/ifIsType}}
-
-    {{~#ifIsType this "ServerFunctionSpecification"}}
-        public static {{{function.returnType.getInCodeType}}} {{name}}({{{renderArguments this}}}) {
-        return {{name}}.{{name}}({{~#each function.arguments}}{{inCodeName}}{{~#unless @last}}, {{~/unless}}{{~/each}});
-        }
-    {{~/ifIsType}}
-
-    {{~#ifIsType this "WebhookHandleSpecification"}}
-        public void {{name}}(WebhookEventConsumer<{{{function.arguments.0.type.spec.arguments.0.type.inCodeType}}}> callback) {
-        this.{{name}}.{{name}}(callback);
-        }
-    {{~/ifIsType}}
-
     {{~#ifIsType this "AuthFunctionSpecification"}}
         {{~#if subResource}}
             public void {{name}}(String token) {
@@ -101,6 +78,10 @@ Poly poly = new Poly();
                     audienceRequired}}, audience{{/if}}, scopes, callback, options);
             }
         {{~/if}}
+
+        public {{{this.className}}} get{{{this.className}}}AuthFunction() {
+        return this.{{{this.name}}};
+        }
     {{~/ifIsType}}
 {{~/each}}
 }

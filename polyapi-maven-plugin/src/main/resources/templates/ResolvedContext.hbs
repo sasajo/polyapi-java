@@ -1,0 +1,117 @@
+package {{packageName}};
+
+import io.polyapi.client.internal.proxy.PolyProxyFactory;
+import io.polyapi.client.internal.model.PolyContext;
+import io.polyapi.client.api.AuthTokenEventConsumer;
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.AuthTokenOptions;
+{{~#each this.imports}}
+import {{{this}}};
+{{~/each}}
+
+public class {{className}} extends PolyContext {
+{{~#each functionSpecifications}}
+    private final {{this.className}} {{this.name}};
+{{~/each}}
+{{~#each authFunctionSpecifications}}
+    private final {{this.className}} {{this.name}};
+{{~/each}}
+{{~#each serverVariableSpecifications}}
+    public final {{this.className}} {{this.name}};
+{{~/each}}
+{{~#each webhookHandlerSpecifications}}
+    private final {{this.className}} {{this.name}};
+{{~/each}}
+
+{{#each subcontexts}}
+    public final {{this.className}} {{this.name}};
+{{~/each}}
+
+    public {{className}}(PolyProxyFactory proxyFactory) {
+        super(proxyFactory);
+{{~#each serverFunctionSpecifications}}
+        this.{{this.name}} = createServerFunctionProxy({{this.className}}.class);
+{{~/each}}
+{{~#each customFunctionSpecifications}}
+        this.{{this.name}} = createCustomFunctionProxy({{this.className}}.class);
+{{~/each}}
+{{~#each apiFunctionSpecifications}}
+        this.{{this.name}} = createApiFunctionProxy({{this.className}}.class);
+{{~/each}}
+{{~#each subResourceAuthFunctionSpecifications}}
+        this.{{this.name}} = createSubresourceAuthFunction({{this.className}}.class);
+{{~/each}}
+{{~#each standardAuthFunctionSpecifications}}
+        this.{{this.name}} = create{{#if audienceRequired}}Audience{{/if}}TokenAuthFunction({{this.className}}.class);
+{{~/each}}
+{{~#each serverVariableSpecifications}}
+        this.{{this.name}} = createServerVariableHandler({{this.className}}.class);
+{{~/each}}
+{{~#each webhookHandlerSpecifications}}
+        this.{{this.name}} = createPolyTriggerProxy({{this.className}}.class);
+{{~/each}}
+{{#each subcontexts}}
+        this.{{this.name}} = new {{this.className}}(proxyFactory);
+{{~/each}}
+    }
+
+{{~#each functionSpecifications}}
+    public {{{this.returnType}}} {{{this.methodSignature}}} {
+    {{~#if this.returnsValue}}
+        return
+    {{~else}}
+    {{~/if}} this.{{this.name}}.{{this.name}}({{this.paramVariableNames}});
+    }
+
+    public {{{this.className}}} get{{{this.className}}}Function() {
+        return this.{{{this.name}}};
+    }
+{{~/each}}
+
+{{~#each subResourceAuthFunctionSpecifications}}
+    public void {{this.name}}(String token) {
+        this.{{this.name}}.{{this.name}}(token);
+    }
+{{~/each}}
+{{~#each standardAuthFunctionSpecifications}}
+    public void getToken(String clientId, String clientSecret{{#if this.audienceRequired}}, String audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
+        this.{{this.name}}.getToken(clientId, clientSecret{{#if this.audienceRequired}}, audience{{/if}}, scopes, callback);
+    }
+
+    public void getToken(String clientId, String clientSecret{{#if this.audienceRequired}}, String audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
+        this.{{this.name}}.getToken(clientId, clientSecret{{#if this.audienceRequired}}, audience{{/if}}, scopes, callback, options);
+    }
+{{~/each}}
+
+{{~#each webhookHandlerSpecifications}}
+    public Handle {{this.name}}(Consumer<{{{this.eventType}}}> callback) {
+        return this.{{this.name}}.{{this.name}}(callback);
+    }
+{{~/each}}
+
+{{~#each specifications}}
+
+    {{~#ifIsType this "AuthFunctionSpecification"}}
+        {{~#if subResource}}
+            public void {{name}}(String token) {
+                this.{{name}}.{{name}}(token);
+            }
+        {{~else}}
+            public void getToken(String clientId, String clientSecret{{#if
+                    audienceRequired}}, String audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback) {
+            this.{{name}}.getToken(clientId, clientSecret{{#if audienceRequired}}, audience{{/if}}, scopes, callback);
+            }
+
+            public void getToken(String clientId, String clientSecret{{#if
+                    audienceRequired}}, String audience{{/if}}, String[] scopes, AuthTokenEventConsumer callback, AuthTokenOptions options) {
+            this.{{name}}.getToken(clientId, clientSecret{{#if
+                    audienceRequired}}, audience{{/if}}, scopes, callback, options);
+            }
+        {{~/if}}
+
+        public {{{this.className}}} get{{{this.className}}}AuthFunction() {
+            return this.{{{this.name}}};
+        }
+    {{~/ifIsType}}
+{{~/each}}
+}

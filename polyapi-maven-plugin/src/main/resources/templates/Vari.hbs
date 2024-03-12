@@ -1,54 +1,43 @@
 package {{packageName}};
 
-import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.internal.proxy.PolyProxyFactory;
 import io.polyapi.client.internal.model.PolyContext;
-{{~#each specifications}}
-    import {{{packageName}}}.{{{className}}};
-    {{~#ifIsType this "ServerVariableSpecification"}}
-        {{~#each this.imports}}
-            import {{{this}}};
-        {{~/each}}
-    {{/ifIsType}}
-{{~/each}}
-{{#each subcontexts}}
-    import {{{packageName}}}.{{{className}}};
+import io.polyapi.client.api.AuthTokenEventConsumer;
+import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.api.AuthTokenOptions;
+{{~#each this.imports}}
+import {{{this}}};
 {{~/each}}
 
-public final class Vari extends PolyContext {
-{{~#each specifications}}
-    {{~#ifIsType this "ServerVariableSpecification"}}
-        @PolyEntity("{{id}}")
-        private static final {{valueType}} {{name}};
-    {{~/ifIsType}}
+public class {{className}} extends PolyContext {
+
+{{~#each serverVariableSpecifications}}
+    private static final {{this.className}} {{this.name}};
 {{~/each}}
 {{#each subcontexts}}
-    public static final {{className}} {{name}};
+    public static final {{this.className}} {{this.name}};
 {{~/each}}
 
-static {
-var vari = new Vari();
-{{~#each specifications}}
-    {{~#ifIsType this "ServerVariableSpecification"}}
-        {{name}} = vari.createServerVariable("{{{valueType}}}", "{{{packageName}}}");
-    {{~/ifIsType}}
+    static {
+        Vari vari = new Vari();
+{{~#each serverVariableSpecifications}}
+        {{this.name}} = vari.createServerVariableHandler({{this.className}}.class);
 {{~/each}}
 {{#each subcontexts}}
-    {{name}} = vari.createSubContext({{className}}.class);
+        {{this.name}} = vari.createSubContext({{this.className}}.class);
 {{~/each}}
-}
+    }
 
-{{~#ifIsType this "ServerVariableSpecification"}}
+{{~#each serverVariableSpecification}}
     public static void update{{{className}}}Variable({{{valueType}}} value) {
         this.{{name}}Handler.update(value);
     }
 
-    {{~#if variable.secret}}
+    {{~#if secret}}
     {{~else}}
     public static {{{valueType}}} get{{{className}}}Variable() {
         return this.{{name}}Handler.get();
     }
     {{/if}}
-{{~/ifIsType}}
-
+{{~/each}}
 }

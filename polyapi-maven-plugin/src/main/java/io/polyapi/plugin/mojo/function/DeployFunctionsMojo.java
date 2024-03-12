@@ -22,7 +22,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static java.lang.String.format;
@@ -39,7 +38,7 @@ public class DeployFunctionsMojo extends PolyApiMojo {
 
     @Override
     protected void execute(String host, Integer port) {
-        PolyFunctionService polyFunctionService = new PolyFunctionServiceImpl(host, port, getHttpClient(), getJsonParser(), getMavenService().getProjectClassLoader());
+        PolyFunctionService polyFunctionService = new PolyFunctionServiceImpl(host, port, getHttpClient(), getJsonParser());
         logger.info("Initiating the deployment of functions.");
         Map<io.polyapi.plugin.model.function.PolyFunction, HttpResponseException> exceptions = new HashMap<>();
         Set<Method> methods = getMavenService().scanPolyFunctions();

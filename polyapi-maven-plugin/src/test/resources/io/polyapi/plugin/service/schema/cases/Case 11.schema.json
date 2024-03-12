@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft-06/schema#",
+  "allOf": [
+    {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "x-readme-ref-name": "NewPet"
+    },
+    {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    }
+  ],
+  "x-readme-ref-name": "Pet"
+}

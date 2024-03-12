@@ -1,23 +1,28 @@
 package io.polyapi.plugin.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.polyapi.plugin.model.CustomType;
-import io.polyapi.plugin.model.property.ObjectPropertyType;
+import com.sun.codemodel.JCodeModel;
+import com.sun.codemodel.JType;
+import io.polyapi.plugin.error.PolyApiMavenPluginException;
+import io.polyapi.plugin.model.generation.CustomType;
 import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
+import io.polyapi.plugin.service.schema.PolyRuleFactory;
+import org.apache.commons.io.IOUtils;
+import org.jsonschema2pojo.SchemaGenerator;
+import org.jsonschema2pojo.SchemaMapper;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.function.Predicate;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
+import static java.nio.charset.Charset.defaultCharset;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,7 +42,9 @@ public class JsonSchemaParserTest {
                 Arguments.of("Schema for array of integers.", "Case 6", 1, List.of(DEFAULT_RESPONSE_NAME)),
                 Arguments.of("Simple schema with attribute.", "Case 7", 1, List.of(DEFAULT_RESPONSE_NAME)),
                 Arguments.of("Schema with duplicate fields.", "Case 8", 1, List.of("ResponseTypeElement")),
-                Arguments.of("Schema with enum.", "Case 9", 2, List.of("TestResponse", "DashStyle")));
+                Arguments.of("Schema with enum.", "Case 9", 2, List.of("TestResponse", "DashStyle")),
+                Arguments.of("Schema that is a String.", "Case 10", 0, List.of()),
+                Arguments.of("Schema that uses allof.", "Case 11", 0, List.of()));
     }
 
     @ParameterizedTest(name = "{1}: {0}")
@@ -46,9 +53,7 @@ public class JsonSchemaParserTest {
         var specification = new ApiFunctionSpecification();
         specification.setName("test");
         specification.setContext("polyapi.testing");
-        var returnType = new ObjectPropertyType();
-        returnType.setSchema(objectMapper.readTree(JsonSchemaParser.class.getResourceAsStream(format("/%s/cases/%s.schema.json", JsonSchemaParser.class.getPackageName().replace(".", "/"), schemaFileName))));
-        var customTypes = jsonSchemaParser.parse("TestResponse", specification.getPackageName(), returnType);
+        var customTypes = jsonSchemaParser.parse("TestResponse", specification.getPackageName(), IOUtils.toString(JsonSchemaParser.class.getResourceAsStream(format("/%s/cases/%s.schema.json", JsonSchemaParser.class.getPackageName().replace(".", "/"), schemaFileName)), defaultCharset()));
         assertThat(customTypes, notNullValue());
         assertThat(customTypes.size(), equalTo(expectedSize));
         var customTypeNames = customTypes.stream().map(CustomType::getName).toList();

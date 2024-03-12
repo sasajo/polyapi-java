@@ -4,27 +4,16 @@ import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.plugin.model.function.PolyFunction;
-import io.polyapi.plugin.model.function.PolyFunctionMetadata;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 import static java.lang.String.format;
 
 public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunctionService {
     private static final Logger logger = LoggerFactory.getLogger(PolyFunctionServiceImpl.class);
-    private final JavaParserService javaParserService;
 
-    @Deprecated
     public PolyFunctionServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
-        this(host, port, client, jsonParser, null);
-    }
-
-    public PolyFunctionServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser, ClassLoader classLoader) {
         super(host, port, client, jsonParser);
-        this.javaParserService = new JavaParserServiceImpl(classLoader, jsonParser);
     }
 
     @Override
