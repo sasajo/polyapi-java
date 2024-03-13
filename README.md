@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.4.0
+### v0.4.1
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
