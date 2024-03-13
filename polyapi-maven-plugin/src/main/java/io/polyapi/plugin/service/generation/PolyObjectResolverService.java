@@ -8,6 +8,7 @@ import io.polyapi.plugin.model.specification.resolved.*;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
 import io.polyapi.plugin.model.type.PropertyPolyType;
+import io.polyapi.plugin.model.type.complex.ObjectPolyType;
 import io.polyapi.plugin.model.type.function.FunctionPolyType;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import io.polyapi.plugin.service.visitor.ImportsCollectorVisitor;
@@ -46,7 +47,12 @@ public class PolyObjectResolverService {
     }
 
     public ResolvedAuthFunctionSpecification resolve(AuthFunctionSpecification specification) {
-        return resolve(specification, specification.getSubResource() == null ? ResolvedAuthFunctionSpecification::new : ResolvedSubresourceAuthFunctionSpecification::new);
+        return resolve(specification, specification.getSubResource() == null ? base -> new ResolvedStandardAuthFunctionSpecification(base, specification.getFunction().getArguments().stream()
+                .filter(argument -> argument.getName().equalsIgnoreCase("options"))
+                .map(PropertyPolyType::getType)
+                .map(ObjectPolyType.class::cast)
+                .anyMatch(type -> type.getProperties().stream()
+                        .anyMatch(property -> property.getName().equalsIgnoreCase("audience")))) : ResolvedSubresourceAuthFunctionSpecification::new);
     }
 
     public ResolvedWebhookHandleSpecification resolve(WebhookHandleSpecification specification) {

@@ -1,11 +1,14 @@
 package io.polyapi.plugin.model.specification.resolved;
 
 public class ResolvedStandardAuthFunctionSpecification extends ResolvedAuthFunctionSpecification {
-    public ResolvedStandardAuthFunctionSpecification(ResolvedFunctionSpecification base) {
+    private final Boolean audienceRequired;
+
+    public ResolvedStandardAuthFunctionSpecification(ResolvedFunctionSpecification base, Boolean audienceRequired) {
         super(base);
+        this.audienceRequired = audienceRequired;
     }
 
     public Boolean getAudienceRequired() {
-        return true; // FIXME: This needs to be set dynamically.
+        return audienceRequired;
     }
 }

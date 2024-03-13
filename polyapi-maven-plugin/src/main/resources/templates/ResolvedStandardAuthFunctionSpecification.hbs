@@ -2,10 +2,10 @@ package {{packageName}};
 
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
-import io.polyapi.client.api.model.function.TokenAuthFunction;
+import io.polyapi.client.api.model.function.{{#if this.audienceRequired}}Audience{{/if}}TokenAuthFunction;
 
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{{paramNames}}} },
     paramTypes = { {{{paramTypes}}} })
-public interface {{className}} extends TokenAuthFunction {
+public interface {{className}} extends {{#if this.audienceRequired}}Audience{{/if}}TokenAuthFunction {
 }

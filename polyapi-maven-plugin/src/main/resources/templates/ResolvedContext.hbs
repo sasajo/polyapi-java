@@ -13,7 +13,10 @@ public class {{className}} extends PolyContext {
 {{~#each functionSpecifications}}
     private final {{this.className}} {{this.name}};
 {{~/each}}
-{{~#each authFunctionSpecifications}}
+{{~#each standardAuthFunctionSpecifications}}
+    private final {{this.className}} {{this.name}};
+{{~/each}}
+{{~#each subresourceAuthFunctionSpecifications}}
     private final {{this.className}} {{this.name}};
 {{~/each}}
 {{~#each serverVariableSpecifications}}
@@ -38,7 +41,7 @@ public class {{className}} extends PolyContext {
 {{~#each apiFunctionSpecifications}}
         this.{{this.name}} = createApiFunctionProxy({{this.className}}.class);
 {{~/each}}
-{{~#each subResourceAuthFunctionSpecifications}}
+{{~#each subresourceAuthFunctionSpecifications}}
         this.{{this.name}} = createSubresourceAuthFunction({{this.className}}.class);
 {{~/each}}
 {{~#each standardAuthFunctionSpecifications}}
@@ -68,7 +71,7 @@ public class {{className}} extends PolyContext {
     }
 {{~/each}}
 
-{{~#each subResourceAuthFunctionSpecifications}}
+{{~#each subresourceAuthFunctionSpecifications}}
     public void {{this.name}}(String token) {
         this.{{this.name}}.{{this.name}}(token);
     }
