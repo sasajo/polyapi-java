@@ -6,6 +6,9 @@ import io.polyapi.client.api.model.websocket.PolyTrigger;
 import io.polyapi.commons.api.websocket.Handle;
 import java.util.function.Consumer;
 
+/**
+ * Poly webhook handler with ID {{id}}.
+ */
 @PolyEntity("{{id}}")
 @PolyMetadata(paramTypes="{{{eventType}}}")
 public interface {{className}} extends PolyTrigger {

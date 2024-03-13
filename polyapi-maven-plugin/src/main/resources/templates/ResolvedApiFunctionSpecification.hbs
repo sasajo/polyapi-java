@@ -7,6 +7,9 @@ import io.polyapi.client.api.model.PolyMetadata;
 import {{this}};
 {{~/each}}
 
+/**
+ * Poly API function with ID {{id}}.
+ */
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{{paramNames}}} },
     paramTypes = { {{{paramTypes}}} })

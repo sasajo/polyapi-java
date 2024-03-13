@@ -7,7 +7,9 @@ import io.polyapi.client.api.model.variable.{{~#if secret}}ServerVariable{{~else
 import {{this}};
 {{~/each}}
 
-
+/**
+ * Poly server variable with ID {{id}}.
+ */
 @PolyEntity("{{id}}")
 @PolyMetadata(paramTypes = "{{{valueType}}}")
 public interface {{className}} extends{{~#if secret}} ServerVariable{{~else}} RetrievableServerVariable{{/if}}Handler<{{valueType}}> {

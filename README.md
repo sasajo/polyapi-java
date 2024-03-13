@@ -347,6 +347,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.4.1
+- Added Function ID in the javadocs of functions.
 ### v0.4.0
 - Added single function filter to deploy-functions MOJO.
 - Fixed Poly functions invocation in webhooks.
