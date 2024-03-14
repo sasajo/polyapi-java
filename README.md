@@ -1,5 +1,5 @@
 # Java Client Library (beta)
-### v0.4.1
+### v0.4.2
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -87,7 +87,15 @@ Nice to have some customers looking around here! So, you'll need to run the foll
         </execution>
       </executions>
     </plugin>
-    <plugin>
+      <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.12.1</version>
+          <configuration>
+              <parameters>true</parameters>
+          </configuration>
+      </plugin>
+      <plugin>
       <groupId>org.codehaus.mojo</groupId>
       <artifactId>build-helper-maven-plugin</artifactId>
       <version>3.2.0</version>
@@ -222,6 +230,19 @@ This MOJO requires a project to run and the commons library to be set as a depen
 ```
 It scans the project for classes annotated with `@PolyFunction` and it will upload them. See the documentation of the class for documentation. If the class is also annotated with `@RequiredDependency` it will add the dependencies indicated in the annotation to the server function so they will provide their classes when the function executes.'
 
+This MOJO uses reflection to retrieve the information from the functions to deploy. In order to properly obtain the property names for the arguments, the following plugin needs to be added:
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <version>3.12.1</version>
+    <configuration>
+        <parameters>true</parameters>
+    </configuration>
+</plugin>
+```
+Otherwise argument names will be shown as "arg0", "arg1", etc.
+
 ##### Parameters
 Here's the list of parameters:
 - **host (required):** The host where the Poly API instance is hosted.
@@ -347,6 +368,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.4.2
+- TBD
 ### v0.4.1
 - Added Function ID in the javadocs of functions.
 ### v0.4.0
