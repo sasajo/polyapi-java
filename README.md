@@ -1,5 +1,7 @@
 # Java Client Library (beta)
-### v0.4.2
+
+### Latest snapshot version v0.4.3-SNAPSHOT
+### Latest released version v0.4.2
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -369,7 +371,8 @@ These features will be added in the future releases.
 
 ## Changelog
 ### v0.4.2
-- TBD
+- Fixed code generation bug where enum constants had dashes in them '-'.
+- Fixed code generation bug where multiple classes within a package had the same enum declaration.
 ### v0.4.1
 - Added Function ID in the javadocs of functions.
 ### v0.4.0

@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "definitions": {
+    "Data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hello": {
+          "type": "string"
+        },
+        "identifier": {
+          "type": "string",
+          "description": "Record identifier",
+          "default": "current",
+          "enum": [
+            "current",
+            "co-applicant"
+          ]
+        }
+      },
+      "required": [
+        "hello"
+      ],
+      "title": "Data"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "#/definitions/Data"
+    },
+    "identifier": {
+      "type": "string",
+      "description": "Record identifier",
+      "default": "current",
+      "enum": [
+        "current",
+        "co-applicant"
+      ]
+    }
+  },
+  "required": [
+    "data"
+  ],
+  "title": "ResponseType"
+}

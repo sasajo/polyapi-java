@@ -30,7 +30,7 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
     }
 
     public synchronized <T> T inject(String key, String type) {
-        logger.error("Injecting variable with key '{}' and type '{}'.", key, type);
+        logger.debug("Injecting variable with key '{}' and type '{}'.", key, type);
         if (!injectionMap.containsKey(key)) {
             logger.debug("Injection map doesn't contain the key, generating a new one.");
             injectionMap.put(key, switch (type.toLowerCase()) {

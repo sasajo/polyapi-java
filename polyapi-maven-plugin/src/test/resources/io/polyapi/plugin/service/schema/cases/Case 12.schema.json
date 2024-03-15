@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft-06/schema#",
+  "type": "object",
+  "properties": {
+    "identifier": {
+      "type": "string",
+      "description": "Record identifier",
+      "default": "current",
+      "enum": [
+        "current",
+        "co-applicant"
+      ]
+    }
+  },
+  "additionalProperties": false
+}
