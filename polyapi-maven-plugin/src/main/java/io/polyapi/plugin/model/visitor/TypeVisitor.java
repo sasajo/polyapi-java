@@ -16,72 +16,72 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public interface TypeVisitor {
-    Logger logger = LoggerFactory.getLogger(TypeVisitor.class);
+    Logger log = LoggerFactory.getLogger(TypeVisitor.class);
 
     default void visit(PolyType polyType) {
-        logger.trace("Visiting PolyType.");
+        log.trace("Visiting PolyType.");
         // Do nothing.
     }
 
     default void visit(ObjectPolyType type) {
-        logger.trace("Visiting ObjectPolyType.");
+        log.trace("Visiting ObjectPolyType.");
         visit((PolyType) type);
     }
 
     default void visit(SchemaObjectPolyType type) {
-        logger.trace("Visiting SchemaObjectPolyType.");
+        log.trace("Visiting SchemaObjectPolyType.");
         visit((ObjectPolyType) type);
     }
 
     default void visit(PropertiesObjectPolyType type) {
-        logger.trace("Visiting PropertiesObjectPolyType.");
+        log.trace("Visiting PropertiesObjectPolyType.");
         visit((ObjectPolyType) type);
     }
 
     default void visit(MapObjectPolyType type) {
-        logger.trace("Visiting MapObjectPolyType.");
+        log.trace("Visiting MapObjectPolyType.");
         visit((ObjectPolyType) type);
     }
 
     default void visit(PlainPolyType type) {
-        logger.trace("Visiting PlainPolyType.");
+        log.trace("Visiting PlainPolyType.");
         visit((PolyType) type);
     }
 
     default void visit(VoidPolyType type) {
-        logger.trace("Visiting VoidPolyType.");
+        log.trace("Visiting VoidPolyType.");
         visit((PolyType) type);
     }
 
     default void visit(ArrayPolyType type) {
-        logger.trace("Visiting ArrayPolyType.");
+        log.trace("Visiting ArrayPolyType.");
         type.getItems().accept(this);
     }
 
     default void visit(FunctionSpecPolyType type) {
-        logger.trace("Visiting FunctionSpecPolyType.");
+        log.trace("Visiting FunctionSpecPolyType.");
         type.getArguments().forEach(argument -> argument.accept(this));
         type.getReturnType().accept(this);
     }
 
     default void visit(VariablePolyType type) {
-        logger.trace("Visiting VariablePolyType.");
+        log.trace("Visiting VariablePolyType.");
         type.getValueType().accept(this);
     }
 
     default void visit(FunctionPolyType type) {
-        logger.trace("Visiting FunctionPolyType.");
+        log.trace("Visiting FunctionPolyType.");
         type.getSpec().accept(this);
     }
 
     default void visit(PropertyPolyType type) {
-        logger.trace("Visiting PropertyPolyType.");
+        log.trace("Visiting PropertyPolyType.");
         type.getType().accept(this);
     }
 
 
     default void visit(PrimitivePolyType type) {
-        logger.trace("Visiting PrimitivePolyType.");
+        log.trace("Visiting PrimitivePolyType.");
         visit((PolyType) type);
     }
 }

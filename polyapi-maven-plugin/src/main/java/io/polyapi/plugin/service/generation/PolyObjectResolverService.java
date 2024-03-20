@@ -26,7 +26,7 @@ import java.util.stream.IntStream;
 import static java.lang.String.format;
 
 public class PolyObjectResolverService {
-    private static final Logger logger = LoggerFactory.getLogger(PolyObjectResolverService.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyObjectResolverService.class);
     private final JsonSchemaParser jsonSchemaParser;
 
     public PolyObjectResolverService(JsonSchemaParser jsonSchemaParser) {
@@ -91,7 +91,7 @@ public class PolyObjectResolverService {
     }
 
     private <T extends ResolvedFunctionSpecification> T resolve(FunctionSpecification specification, Function<ResolvedFunctionSpecification, T> constructor) {
-        logger.debug("Generating classes for {} function '{}'.", specification.getType(), specification.getName());
+        log.debug("Generating classes for {} function '{}'.", specification.getType(), specification.getName());
         String basePackage = specification.getPackageName();
         String className = specification.getClassName();
         ImportsCollectorVisitor importsCollectorVisitor = new ImportsCollectorVisitor(basePackage, className, jsonSchemaParser);

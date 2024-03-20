@@ -11,12 +11,12 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
 @Mojo(name = "add-server-function", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
 public class AddServerFunctionMojo extends AddFunctionMojo {
 
-    private static final Logger logger = LoggerFactory.getLogger(AddClientFunctionMojo.class);
+    private static final Logger log = LoggerFactory.getLogger(AddClientFunctionMojo.class);
 
     @Override
     protected void deployFunction(PolyFunction function, PolyFunctionService polyFunctionService) {
-        logger.info("Deploying server function...");
+        log.info("Deploying server function...");
         var response = polyFunctionService.postServerFunction(function);
-        logger.info("Function deployed successfully: " + response.getName());
+        log.info("Function deployed successfully: " + response.getName());
     }
 }

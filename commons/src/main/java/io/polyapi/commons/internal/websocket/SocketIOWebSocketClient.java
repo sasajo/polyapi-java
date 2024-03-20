@@ -27,7 +27,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 
 public class SocketIOWebSocketClient implements WebSocketClient {
-    private static final Logger logger = LoggerFactory.getLogger(SocketIOWebSocketClient.class);
+    private static final Logger log = LoggerFactory.getLogger(SocketIOWebSocketClient.class);
     private final String url;
     private final TokenProvider tokenProvider;
     private final String clientId;
@@ -58,12 +58,12 @@ public class SocketIOWebSocketClient implements WebSocketClient {
         try {
             CompletableFuture<Boolean> completableFuture = new CompletableFuture<Boolean>()
                     .orTimeout(registrationTimeout, MILLISECONDS);
-            logger.info("Registering event handler on server.");
+            log.info("Registering event handler on server.");
             getSocket().emit("registerWebhookEventHandler", new Object[]{Map.of("clientID", clientId,
                             "webhookHandleID", handleId,
                             "apiKey", tokenProvider.getToken())},
                     objects -> {
-                        logger.debug("Received response from server.");
+                        log.debug("Received response from server.");
                         completableFuture.complete((boolean) Optional.ofNullable(objects[0]).orElse(FALSE));
                     });
             if (!completableFuture.get()) {
@@ -72,13 +72,13 @@ public class SocketIOWebSocketClient implements WebSocketClient {
             String eventKey = format("%s:%s", event, handleId);
             return new EmitterHandle(eventKey, getSocket().on(eventKey, objects -> {
                 try {
-                    logger.debug("Received event {} on handle {}.", event, handleId);
+                    log.debug("Received event {} on handle {}.", event, handleId);
                     String input = objects[0].toString();
-                    logger.debug("Parsing input to {}.", eventType);
+                    log.debug("Parsing input to {}.", eventType);
                     T parsedInput = jsonParser.parseString(jsonParser.<EventMessage>parseString(input, EventMessage.class).getBody(), eventType);
-                    logger.debug("Input parsed. Passing it to listener.");
+                    log.debug("Input parsed. Passing it to listener.");
                     trigger.accept(parsedInput);
-                    logger.debug("Input dispatched.");
+                    log.debug("Input dispatched.");
                 } catch (JsonToObjectParsingException e) {
                     throw new WebsocketInputParsingException(eventType, e);
                 }

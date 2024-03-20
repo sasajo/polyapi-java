@@ -29,7 +29,7 @@ import static java.util.stream.StreamSupport.stream;
 import static org.jsonschema2pojo.rules.PrimitiveTypes.isPrimitive;
 
 public class PublicEnumRule extends EnumRule {
-    private static final Logger logger = LoggerFactory.getLogger(PublicEnumRule.class);
+    private static final Logger log = LoggerFactory.getLogger(PublicEnumRule.class);
 
     protected PublicEnumRule(RuleFactory ruleFactory) {
         super(ruleFactory);

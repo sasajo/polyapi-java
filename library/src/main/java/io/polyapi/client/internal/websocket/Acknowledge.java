@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import static java.lang.String.format;
 
 public class Acknowledge implements Ack {
-  private static final Logger logger = LoggerFactory.getLogger(Acknowledge.class);
+  private static final Logger log = LoggerFactory.getLogger(Acknowledge.class);
   private final Socket socket;
   private final String eventType;
   private final String eventId;
@@ -26,9 +26,9 @@ public class Acknowledge implements Ack {
   public void call(Object... args) {
     if (args[0].equals(true)) {
       socket.on(format("%s:%s", eventType, eventId), callback);
-      logger.debug("Event acknowledged.");
+      log.debug("Event acknowledged.");
     } else {
-      logger.warn("Could not register event handler for {}", eventType);
+      log.warn("Could not register event handler for {}", eventType);
     }
   }
 }

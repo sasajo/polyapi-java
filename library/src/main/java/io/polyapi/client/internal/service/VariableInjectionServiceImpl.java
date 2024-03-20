@@ -15,7 +15,7 @@ import java.util.Map;
 import static java.lang.String.format;
 
 public class VariableInjectionServiceImpl implements VariableInjectionService {
-    private static final Logger logger = LoggerFactory.getLogger(VariableInjectionServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(VariableInjectionServiceImpl.class);
 
     private static final Map<String, Object> injectionMap = new HashMap<>();
 
@@ -23,16 +23,16 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
     public Object replace(String propertyName, Object original) {
         return injectionMap.entrySet().stream()
                 .filter(entry -> entry.getValue() == original)
-                .peek(entry -> logger.debug("Replacing property '{}' with server variable with ID '{}'.", propertyName, entry.getKey()))
+                .peek(entry -> log.debug("Replacing property '{}' with server variable with ID '{}'.", propertyName, entry.getKey()))
                 .findFirst()
                 .<Object>map(entry -> new InjectedVariable(entry.getKey(), null))
                 .orElse(original);
     }
 
     public synchronized <T> T inject(String key, String type) {
-        logger.debug("Injecting variable with key '{}' and type '{}'.", key, type);
+        log.debug("Injecting variable with key '{}' and type '{}'.", key, type);
         if (!injectionMap.containsKey(key)) {
-            logger.debug("Injection map doesn't contain the key, generating a new one.");
+            log.debug("Injection map doesn't contain the key, generating a new one.");
             injectionMap.put(key, switch (type.toLowerCase()) {
                 case "boolean" -> new Boolean(false);
                 case "integer" -> new Integer(0);
@@ -44,7 +44,7 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
                 case "byte" -> new Byte((byte) 0);
                 default -> {
                     try {
-                        logger.debug("Type is not basic, generating new default instance with default constructor for class {}.", type);
+                        log.debug("Type is not basic, generating new default instance with default constructor for class {}.", type);
                         yield Class.forName(type).getConstructor().newInstance();
                     } catch (InstantiationException | InvocationTargetException e) {
                         throw new GeneratedClassInstantiationException(type, e);

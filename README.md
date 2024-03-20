@@ -370,6 +370,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.4.3
+- Updated logs to use lombok @Slf4j.
 ### v0.4.2
 - Fixed code generation bug where enum constants had dashes in them '-'.
 - Fixed code generation bug where multiple classes within a package had the same enum declaration.

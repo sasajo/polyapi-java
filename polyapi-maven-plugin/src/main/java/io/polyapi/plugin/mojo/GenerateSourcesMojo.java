@@ -17,10 +17,9 @@ import io.polyapi.plugin.service.template.PolyHandlebars;
 import io.polyapi.plugin.service.visitor.CodeGenerator;
 import io.polyapi.plugin.service.visitor.SpecificationCodeGeneratorVisitor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.*;
@@ -31,8 +30,8 @@ import static java.util.function.Predicate.not;
 
 @Mojo(name = "generate-sources")
 @Setter
+@Slf4j
 public class GenerateSourcesMojo extends PolyApiMojo {
-    private static final Logger logger = LoggerFactory.getLogger(GenerateSourcesMojo.class);
     private FileService fileService;
     private PolyObjectResolverService polyObjectResolverService;
     private CodeGenerator codeGenerator;
@@ -68,11 +67,11 @@ public class GenerateSourcesMojo extends PolyApiMojo {
         fileService.createFileWithContent(new File(new File("target/.poly"), "specs.json"), getJsonParser().toJsonString(specifications));
         writeContext("Poly", specifications, FunctionSpecification.class, WebhookHandleSpecification.class);
         writeContext("Vari", specifications, ServerVariableSpecification.class);
-        logger.info("Sources generated correctly.");
+        log.info("Sources generated correctly.");
     }
 
     private void writeContext(String rootName, List<Specification> specifications, Class<? extends Specification>... filter) {
-        logger.debug("Creating root context.");
+        log.debug("Creating root context.");
         var rootContext = new Context(null, rootName);
         specifications.stream()
                 .filter(specification -> Arrays.stream(filter).anyMatch(clazz -> clazz.isInstance(specification)))
@@ -80,7 +79,7 @@ public class GenerateSourcesMojo extends PolyApiMojo {
                 .filter(specification -> Stream.of(Optional.ofNullable(context).orElse("").toLowerCase().split(","))
                         .map(String::trim)
                         .anyMatch(Optional.ofNullable(specification.getContext()).orElse("").toLowerCase()::startsWith))
-                .peek(specification -> logger.trace("Generating context for specification {}.", specification.getName()))
+                .peek(specification -> log.trace("Generating context for specification {}.", specification.getName()))
                 .forEach(specification -> createContext(rootContext, Stream.of(specification.getContext().split("\\.")).filter(not(String::isEmpty)).toList(), specification));
         generate(rootContext);
     }
@@ -98,12 +97,12 @@ public class GenerateSourcesMojo extends PolyApiMojo {
 
     private Context createContext(Context parent, List<String> contextList, Specification specification) {
         if (contextList.isEmpty()) {
-            logger.debug("Adding specification to context {}.", parent.getName());
+            log.debug("Adding specification to context {}.", parent.getName());
             parent.getSpecifications().add(specification);
             return parent;
         } else {
             var contextName = contextList.get(0);
-            logger.debug("Retrieving context {}.", contextName);
+            log.debug("Retrieving context {}.", contextName);
             return createContext(parent.put(new Context(parent, contextName)),
                     contextList.subList(1, contextList.size()),
                     specification);

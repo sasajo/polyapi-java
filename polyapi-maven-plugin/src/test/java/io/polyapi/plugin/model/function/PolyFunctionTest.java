@@ -16,7 +16,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 
 public class PolyFunctionTest {
-    private static final Logger logger = LoggerFactory.getLogger(PolyFunctionTest.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyFunctionTest.class);
     private static final String DEFAULT_METHOD_NAME = "test";
 
     public static Stream<Arguments> getSignatureTestSource() throws Exception {
@@ -36,8 +36,8 @@ public class PolyFunctionTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("getSignatureTestSource")
     public void getSignatureTest(String caseName, String name, Stream<Class<?>> argumentTypes, String expectedResult) {
-        logger.debug("Executing test case - {}.", caseName);
-        logger.debug("Expected result is {}.", expectedResult);
+        log.debug("Executing test case - {}.", caseName);
+        log.debug("Expected result is {}.", expectedResult);
         var polyFunction = new PolyFunction();
         polyFunction.setName(name);
         polyFunction.setArguments(Optional.ofNullable(argumentTypes)
@@ -49,7 +49,7 @@ public class PolyFunctionTest {
                 .map(Stream::toList)
                 .orElse(null));
         var signature = polyFunction.getSignature();
-        logger.debug("Result is {}.", signature);
+        log.debug("Result is {}.", signature);
         assertThat(signature, equalTo(expectedResult));
     }
 }

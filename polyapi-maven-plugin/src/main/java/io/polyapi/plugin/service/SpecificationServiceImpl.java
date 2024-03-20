@@ -20,7 +20,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class SpecificationServiceImpl extends PolyApiService implements SpecificationService {
-    private static final Logger logger = LoggerFactory.getLogger(SpecificationServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(SpecificationServiceImpl.class);
 
     public SpecificationServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
         super(host, port, client, jsonParser);
@@ -28,22 +28,22 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
 
     @Override
     public List<Specification> getJsonSpecs() {
-        logger.info("Retrieving JSon specifications from Poly API for this user.");
+        log.info("Retrieving JSon specifications from Poly API for this user.");
         List<Specification> specifications = get("specs", defaultInstance().constructCollectionType(List.class, Specification.class));
-        logger.info("{} specifications retrieved.", specifications.size());
-        if (logger.isDebugEnabled()) {
-            logger.trace("Retrieved specifications with the following IDs: [{}]", specifications.stream().map(Specification::getId).collect(joining(", ")));
+        log.info("{} specifications retrieved.", specifications.size());
+        if (log.isDebugEnabled()) {
+            log.trace("Retrieved specifications with the following IDs: [{}]", specifications.stream().map(Specification::getId).collect(joining(", ")));
         }
-        logger.debug("Validating for duplicate context/name pairs.");
+        log.debug("Validating for duplicate context/name pairs.");
         Map<String, Specification> uniquenessValidationMap = new HashMap<>();
         specifications.stream()
                 .filter(specification -> !(specification instanceof ServerFunctionSpecification serverFunctionSpecification && !serverFunctionSpecification.getLanguage().equalsIgnoreCase("java")))
                 .forEach(specification -> {
             String key = format("%s.%s", specification.getContext(), specification.getName()).toLowerCase();
             if (uniquenessValidationMap.containsKey(key)) {
-                logger.warn("Skipping {} specification '{}' in context '{}' as it clashes with {} specification with the same name and context.", specification.getType(), specification.getName(), specification.getContext(), uniquenessValidationMap.get(key).getType());
+                log.warn("Skipping {} specification '{}' in context '{}' as it clashes with {} specification with the same name and context.", specification.getType(), specification.getName(), specification.getContext(), uniquenessValidationMap.get(key).getType());
             } else {
-                logger.debug("Specification key '{}' not repeated (yet).", key);
+                log.debug("Specification key '{}' not repeated (yet).", key);
                 uniquenessValidationMap.put(key, specification);
             }
         });

@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
  * Default implementation of {@link Handle} that works with an {@link Emitter} to do its operations.
  */
 public class EmitterHandle implements Handle {
-    private static final Logger logger = LoggerFactory.getLogger(EmitterHandle.class);
+    private static final Logger log = LoggerFactory.getLogger(EmitterHandle.class);
     private final Emitter emitter;
     private final String eventType;
 
@@ -24,8 +24,8 @@ public class EmitterHandle implements Handle {
      */
     @Override
     public void close() {
-        logger.debug("Closing listener of for event type '{}'.", eventType);
+        log.debug("Closing listener of for event type '{}'.", eventType);
         emitter.off(eventType);
-        logger.debug("Listener closed.");
+        log.debug("Listener closed.");
     }
 }

@@ -7,6 +7,7 @@ import com.kjetland.jackson.jsonSchema.JsonSchemaGenerator;
 import io.polyapi.commons.api.error.parse.JsonToObjectParsingException;
 import io.polyapi.commons.api.error.parse.ObjectToJsonParsingException;
 import io.polyapi.commons.api.json.JsonParser;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +26,8 @@ import static java.nio.charset.Charset.defaultCharset;
 /**
  * Wrapper class around the Jackson mapping library to handle all the errors it can throw and unify all the configuration for it.
  */
+@Slf4j
 public class JacksonJsonParser implements JsonParser {
-    private static final Logger logger = LoggerFactory.getLogger(JsonParser.class);
     private final ObjectMapper objectMapper;
     private final JsonSchemaGenerator jsonSchemaGenerator;
 
@@ -53,11 +54,11 @@ public class JacksonJsonParser implements JsonParser {
     @Override
     public String toJsonString(Object object) {
         try {
-            logger.debug("Parsing object of type {} to String.", object.getClass().getSimpleName());
+            log.debug("Parsing object of type {} to String.", object.getClass().getSimpleName());
             String result = objectMapper.writeValueAsString(object);
-            logger.debug("Parsing successful.");
-            if (logger.isTraceEnabled()) {
-                logger.trace("Parsed result is:\n{}", result);
+            log.debug("Parsing successful.");
+            if (log.isTraceEnabled()) {
+                log.trace("Parsed result is:\n{}", result);
             }
             return result;
         } catch (JsonProcessingException e) {
@@ -71,14 +72,14 @@ public class JacksonJsonParser implements JsonParser {
     @Override
     public InputStream toJsonInputStream(Object object) {
         try {
-            logger.debug("Parsing object of type {} to InputStream.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null"));
+            log.debug("Parsing object of type {} to InputStream.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null"));
             InputStream result = new ByteArrayInputStream(object == null ? new byte[]{} : objectMapper.writeValueAsBytes(object));
-            logger.debug("Parsing successful.");
-            if (logger.isTraceEnabled()) {
-                logger.trace("Parsed result is:\n{}", IOUtils.toString(result, defaultCharset()));
-                logger.trace("Resetting InputStream.");
+            log.debug("Parsing successful.");
+            if (log.isTraceEnabled()) {
+                log.trace("Parsed result is:\n{}", IOUtils.toString(result, defaultCharset()));
+                log.trace("Resetting InputStream.");
                 result.reset();
-                logger.trace("InputStream reset.");
+                log.trace("InputStream reset.");
             }
             return result;
         } catch (IOException e) {
@@ -92,12 +93,12 @@ public class JacksonJsonParser implements JsonParser {
     @Override
     public <O> O parseString(String json, Type expectedResponseType) {
         try {
-            if (logger.isTraceEnabled()) {
-                logger.trace("Input to parse is:\n{}", json);
+            if (log.isTraceEnabled()) {
+                log.trace("Input to parse is:\n{}", json);
             }
-            logger.debug("Parsing JSon String to object of type {}.", expectedResponseType.getTypeName());
+            log.debug("Parsing JSon String to object of type {}.", expectedResponseType.getTypeName());
             O result = objectMapper.readValue(json, defaultInstance().constructType(expectedResponseType));
-            logger.debug("Parsing successful.");
+            log.debug("Parsing successful.");
             return result;
         } catch (IOException e) {
             throw new JsonToObjectParsingException(json, expectedResponseType, e);
@@ -110,15 +111,15 @@ public class JacksonJsonParser implements JsonParser {
     @Override
     public <O> O parseInputStream(InputStream json, Type expectedResponseType) {
         try {
-            if (logger.isTraceEnabled()) {
-                logger.trace("Converting InputStream to String to be able to log its contents.");
+            if (log.isTraceEnabled()) {
+                log.trace("Converting InputStream to String to be able to log its contents.");
                 String compiledInputStream = IOUtils.toString(json, defaultCharset());
-                logger.trace("Input to parse is:\n{}", compiledInputStream);
-                logger.trace("Creating ByteArrayInputStream with the printed contents and using this instead of the argument.");
+                log.trace("Input to parse is:\n{}", compiledInputStream);
+                log.trace("Creating ByteArrayInputStream with the printed contents and using this instead of the argument.");
                 json = new ByteArrayInputStream(compiledInputStream.getBytes(defaultCharset()));
-                logger.trace("ByteArrayInputStream created successfully.");
+                log.trace("ByteArrayInputStream created successfully.");
             }
-            logger.debug("Parsing JSon InputStream to object of type {}.", expectedResponseType.getTypeName());
+            log.debug("Parsing JSon InputStream to object of type {}.", expectedResponseType.getTypeName());
 
             O result;
             if (expectedResponseType == String.class) {
@@ -127,7 +128,7 @@ public class JacksonJsonParser implements JsonParser {
                 result = objectMapper.readValue(json, defaultInstance().constructType(expectedResponseType));
             }
 
-            logger.debug("Parsing successful.");
+            log.debug("Parsing successful.");
             return result;
         } catch (IOException e) {
             throw new JsonToObjectParsingException(json, expectedResponseType, e);
@@ -139,11 +140,11 @@ public class JacksonJsonParser implements JsonParser {
      */
     @Override
     public String toJsonSchema(Type type) {
-        logger.debug("Generating JSon schema for class '{}'", type.getTypeName());
+        log.debug("Generating JSon schema for class '{}'", type.getTypeName());
         JsonNode schema = jsonSchemaGenerator.generateJsonSchema(defaultInstance().constructType(type));
-        logger.debug("Schema generated. Converting to String.");
+        log.debug("Schema generated. Converting to String.");
         String result = toJsonString(schema);
-        logger.debug("JSon converted successfully.");
+        log.debug("JSon converted successfully.");
         return result;
     }
 }

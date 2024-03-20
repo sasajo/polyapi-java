@@ -27,7 +27,7 @@ import static java.util.function.Predicate.isEqual;
 import static java.util.function.Predicate.not;
 
 public class TypeExtractionVisitor implements TypeVisitor {
-    private static final Logger logger = LoggerFactory.getLogger(TypeExtractionVisitor.class);
+    private static final Logger log = LoggerFactory.getLogger(TypeExtractionVisitor.class);
     private final String defaultName;
     private final JsonSchemaParser jsonSchemaParser;
     private final String basePackage;
@@ -41,29 +41,29 @@ public class TypeExtractionVisitor implements TypeVisitor {
     }
 
     public void doVisit(PolyType type) {
-        logger.debug("Extracting type for {}.", type.getKind());
+        log.debug("Extracting type for {}.", type.getKind());
         if (result == null) {
             type.accept(this);
         } else {
             throw new UnsupportedOperationException(format("This visitor has already resolved to '%s' and cannot be reused.", result));
         }
-        logger.debug("Type for {} extracted.", type.getKind());
+        log.debug("Type for {} extracted.", type.getKind());
     }
 
     @Override
     public void visit(PolyType polyType) {
-        logger.trace("Extracting type from PolyType.");
+        log.trace("Extracting type from PolyType.");
         this.result = new ParsedType(Object.class);
     }
 
     public void visit(SchemaObjectPolyType type) {
-        logger.trace("Extracting type from SchemaObjectPolyType.");
+        log.trace("Extracting type from SchemaObjectPolyType.");
         this.result = jsonSchemaParser.getType(defaultName, basePackage, type.getSchema());
     }
 
     @Override
     public void visit(MapObjectPolyType type) {
-        logger.trace("Extracting type from MapObjectPolyType.");
+        log.trace("Extracting type from MapObjectPolyType.");
         this.result = new ParsedType(TypeFactory.defaultInstance().constructMapType(Map.class, String.class, Object.class));
     }
 
@@ -78,26 +78,26 @@ public class TypeExtractionVisitor implements TypeVisitor {
 
     @Override
     public void visit(VoidPolyType type) {
-        logger.trace("Extracting type from VoidPolyType.");
+        log.trace("Extracting type from VoidPolyType.");
         result = new ParsedType(Void.class);
     }
 
     @Override
     public void visit(ArrayPolyType type) {
-        logger.trace("Extracting type from ArrayPolyType.");
+        log.trace("Extracting type from ArrayPolyType.");
         doVisit(type.getItems());
         this.result = new ParsedType(List.class.getName(), List.of(this.result));
     }
 
     @Override
     public void visit(PrimitivePolyType type) {
-        logger.trace("Extracting type from PrimitivePolyType.");
+        log.trace("Extracting type from PrimitivePolyType.");
         this.result = new ParsedType(type.getType().getTypeName());
     }
 
     @Override
     public void visit(FunctionPolyType type) {
-        logger.trace("Extracting type from FunctionPolyType.");
+        log.trace("Extracting type from FunctionPolyType.");
         this.result = new ParsedType(Object.class);
     }
 }

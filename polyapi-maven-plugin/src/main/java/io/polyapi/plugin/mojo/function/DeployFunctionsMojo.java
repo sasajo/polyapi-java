@@ -34,21 +34,21 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
 
 @Mojo(name = "deploy-functions", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
 public class DeployFunctionsMojo extends PolyApiMojo {
-    private static final Logger logger = LoggerFactory.getLogger(DeployFunctionsMojo.class);
+    private static final Logger log = LoggerFactory.getLogger(DeployFunctionsMojo.class);
 
     @Override
     protected void execute(String host, Integer port) {
         PolyFunctionService polyFunctionService = new PolyFunctionServiceImpl(host, port, getHttpClient(), getJsonParser());
-        logger.info("Initiating the deployment of functions.");
+        log.info("Initiating the deployment of functions.");
         Map<io.polyapi.plugin.model.function.PolyFunction, HttpResponseException> exceptions = new HashMap<>();
         Set<Method> methods = getMavenService().scanPolyFunctions();
         methods.forEach(method -> {
-            logger.info("Processing method '{}'.", method);
+            log.info("Processing method '{}'.", method);
             PolyFunction annotation = method.getAnnotation(PolyFunction.class);
             Class<?> declaringClass = method.getDeclaringClass();
             io.polyapi.plugin.model.function.PolyFunction polyFunction = new io.polyapi.plugin.model.function.PolyFunction();
             polyFunction.setName(Optional.ofNullable(annotation.name()).filter(not(String::isBlank)).orElseGet(method::getName));
-            logger.debug("Poly function name is '{}'.", polyFunction.getName());
+            log.debug("Poly function name is '{}'.", polyFunction.getName());
             polyFunction.setLanguage("java");
             CodeObject codeObject = new CodeObject();
             codeObject.setClassName(declaringClass.getSimpleName());
@@ -58,7 +58,7 @@ public class DeployFunctionsMojo extends PolyApiMojo {
             String sourceCodePath = format("src/main/java/%s/%s.java",
                     declaringClass.getPackageName().replace(".", "/"),
                     declaringClass.getSimpleName());
-            logger.debug("Obtaining source code from '{}'", sourceCodePath);
+            log.debug("Obtaining source code from '{}'", sourceCodePath);
             try (FileInputStream fileInputStream = new FileInputStream(sourceCodePath)) {
                 codeObject.setCode(IOUtils.toString(fileInputStream, defaultCharset()));
             } catch (IOException e) {
@@ -66,21 +66,21 @@ public class DeployFunctionsMojo extends PolyApiMojo {
             }
             polyFunction.setCode(getJsonParser().toJsonString(codeObject));
             polyFunction.setContext(Optional.ofNullable(annotation.context()).filter(not(String::isBlank)).orElseGet(declaringClass::getPackageName));
-            logger.debug("Poly function context is '{}'", polyFunction.getContext());
-            logger.debug("Processing parameters.");
+            log.debug("Poly function context is '{}'", polyFunction.getContext());
+            log.debug("Processing parameters.");
             polyFunction.setArguments(new ArrayList<>());
             Arrays.stream(method.getParameters()).map(parameter -> {
-                logger.debug("Processing parameter {}", parameter);
+                log.debug("Processing parameter {}", parameter);
                 PolyFunctionArgument argument = new PolyFunctionArgument();
                 argument.setType(parameter.getParameterizedType().getTypeName());
                 argument.setTypeSchema(getJsonParser().toJsonSchema(parameter.getParameterizedType()));
                 argument.setRequired(true);
                 argument.setKey(parameter.getName());
                 argument.setName(parameter.getName());
-                logger.debug("Parameter '{}' of type '{}' processed.", parameter.getName(), parameter.getParameterizedType());
+                log.debug("Parameter '{}' of type '{}' processed.", parameter.getName(), parameter.getParameterizedType());
                 return argument;
             }).forEach(polyFunction.getArguments()::add);
-            logger.debug("Retrieving required dependencies.");
+            log.debug("Retrieving required dependencies.");
             polyFunction.setRequirements(getMavenService().getMatchingDependencies(concat(Optional.ofNullable(method.getAnnotation(RequiredDependencies.class)).map(RequiredDependencies::value).stream().flatMap(Arrays::stream),
                     Optional.ofNullable(method.getAnnotation(RequiredDependency.class)).stream())
                     .map(requiredDependency -> format("%s:%s:%s", requiredDependency.groupId(), requiredDependency.artifactId(), requiredDependency.version()))
@@ -90,21 +90,21 @@ public class DeployFunctionsMojo extends PolyApiMojo {
             String type = annotation.type().name().toLowerCase();
             try {
                 String id = polyFunctionService.deploy(type, polyFunction);
-                logger.info("Deployed {} function '{}' on context '{}' with id '{}'", type, polyFunction.getName(), polyFunction.getContext(), id);
-                logger.debug("Function can be accessed at {}:{}/functions/{}/{}", host, port, type, id);
+                log.info("Deployed {} function '{}' on context '{}' with id '{}'", type, polyFunction.getName(), polyFunction.getContext(), id);
+                log.debug("Function can be accessed at {}:{}/functions/{}/{}", host, port, type, id);
             } catch (HttpResponseException e) {
-                logger.error("{} function '{}' deployment failed.", type, polyFunction.getName());
+                log.error("{} function '{}' deployment failed.", type, polyFunction.getName());
                 exceptions.put(polyFunction, e);
             }
         });
         if (exceptions.isEmpty()) {
-            logger.info("Deployment of {} functions complete.", methods.size());
+            log.info("Deployment of {} functions complete.", methods.size());
         } else {
-            logger.error("{} Errors occurred while deploying a total of {} functions.", exceptions.size(), methods.size());
+            log.error("{} Errors occurred while deploying a total of {} functions.", exceptions.size(), methods.size());
             exceptions.forEach((polyFunctionMetadata, exception) -> {
                 if (exception instanceof HttpResponseException) {
                     try {
-                        logger.error(IOUtils.toString(HttpResponseException.class.cast(exception).getResponse().body()));
+                        log.error(IOUtils.toString(HttpResponseException.class.cast(exception).getResponse().body()));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }

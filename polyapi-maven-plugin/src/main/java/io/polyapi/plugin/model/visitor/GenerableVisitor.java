@@ -8,15 +8,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public interface GenerableVisitor extends PolySpecificationVisitor {
-    Logger logger = LoggerFactory.getLogger(GenerableVisitor.class);
+    Logger log = LoggerFactory.getLogger(GenerableVisitor.class);
 
     default void visit(Generable generable) {
-        logger.trace("Visiting Generable.");
+        log.trace("Visiting Generable.");
         // Do nothing.
     }
 
     default void visit(CustomType generable) {
-        logger.trace("Visiting CustomType.");
+        log.trace("Visiting CustomType.");
         visit((Generable) generable);
     }
 }

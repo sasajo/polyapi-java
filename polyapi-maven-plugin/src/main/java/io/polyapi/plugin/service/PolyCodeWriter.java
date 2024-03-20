@@ -16,12 +16,12 @@ import static java.nio.charset.Charset.defaultCharset;
 import static java.util.stream.Collectors.toMap;
 
 public class PolyCodeWriter extends CodeWriter implements AutoCloseable {
-    private static final Logger logger = LoggerFactory.getLogger(PolyCodeWriter.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyCodeWriter.class);
     private final Map<String, ByteArrayOutputStream> outputStreams = new HashMap<>();
 
     @Override
     public OutputStream openBinary(JPackage pkg, String fileName) throws IOException {
-        logger.debug("Opening binary on package {} for file {}", pkg.name(), fileName);
+        log.debug("Opening binary on package {} for file {}", pkg.name(), fileName);
         var outputStream = new ByteArrayOutputStream();
         outputStreams.put(fileName.replace(".java", ""), outputStream);
         return new FilterOutputStream(outputStream) {

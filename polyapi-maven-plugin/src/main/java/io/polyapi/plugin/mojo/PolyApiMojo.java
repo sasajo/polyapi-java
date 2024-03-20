@@ -29,7 +29,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Setter
 public abstract class PolyApiMojo extends AbstractMojo {
-    private static final Logger logger = LoggerFactory.getLogger(PolyApiMojo.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyApiMojo.class);
 
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
@@ -50,7 +50,7 @@ public abstract class PolyApiMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
-            logger.debug("Setting up Maven service.");
+            log.debug("Setting up Maven service.");
             mavenService = new MavenService(project);
             mavenService.getPropertyFromPlugin("host", host, this::setHost);
             mavenService.getPropertyFromPlugin("port", port, this::setPort);
@@ -67,20 +67,20 @@ public abstract class PolyApiMojo extends AbstractMojo {
             jsonParser = new JacksonJsonParser();
             execute(host, Integer.valueOf(port));
         } catch (PolyApiMavenPluginException e) {
-            logger.error("An exception occurred during the plugin execution.", e);
+            log.error("An exception occurred during the plugin execution.", e);
             throw new MojoFailureException(e);
         } catch (UnexpectedHttpResponseException e) {
-            logger.error("An unexpected HTTP response code {} was returned from the server.", e.getResponse().statusCode());
-            //if (logger.isTraceEnabled()) {
+            log.error("An unexpected HTTP response code {} was returned from the server.", e.getResponse().statusCode());
+            //if (log.isTraceEnabled()) {
                 try {
-                    logger.info("Response from server is: {}", IOUtils.toString(e.getResponse().body(), defaultCharset()));
+                    log.info("Response from server is: {}", IOUtils.toString(e.getResponse().body(), defaultCharset()));
                 } catch (IOException ex) {
                     throw new MojoExecutionException(ex);
                 }
             //}
             throw new MojoFailureException(e);
         } catch (RuntimeException e) {
-            logger.error("An unexpected exception occurred during the plugin execution.", e);
+            log.error("An unexpected exception occurred during the plugin execution.", e);
             throw new MojoExecutionException(e);
         }
     }

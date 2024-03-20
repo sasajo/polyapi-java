@@ -16,7 +16,7 @@ import static java.util.function.Predicate.isEqual;
 @Getter
 @Setter
 public class Context {
-    private static final Logger logger = LoggerFactory.getLogger(Context.class);
+    private static final Logger log = LoggerFactory.getLogger(Context.class);
     private String name;
     private Context parent;
     private List<Context> subcontexts = new ArrayList<>();

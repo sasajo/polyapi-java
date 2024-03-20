@@ -27,7 +27,7 @@ import java.util.Optional;
 import static java.lang.String.format;
 
 public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements PolySpecificationVisitor {
-    private static final Logger logger = LoggerFactory.getLogger(SpecificationCodeGeneratorVisitor.class);
+    private static final Logger log = LoggerFactory.getLogger(SpecificationCodeGeneratorVisitor.class);
 
     private final JsonSchemaParser jsonSchemaParser;
     private final JsonParser jsonParser;
@@ -42,14 +42,14 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
 
     @Override
     public void doVisit(Specification specification) {
-        logger.debug("Generating code for {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
+        log.debug("Generating code for {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
         PolySpecificationVisitor.super.doVisit(specification);
-        logger.debug("Code for {} specification '{}' on context '{}' generated.", specification.getType(), specification.getName(), specification.getContext());
+        log.debug("Code for {} specification '{}' on context '{}' generated.", specification.getType(), specification.getName(), specification.getContext());
     }
 
     @Override
     public void visit(FunctionSpecification specification) {
-        logger.trace("Generating code for FunctionSpecification.");
+        log.trace("Generating code for FunctionSpecification.");
         PolyObjectResolverVisitor visitor = new PolyObjectResolverVisitor(resolver);
         visitor.doVisit(specification);
         ResolvedSpecification resolvedSpecification = visitor.getResult();
@@ -58,13 +58,13 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
     }
 
     public void visit(ServerFunctionSpecification specification) {
-        logger.trace("Generating code for ServerFunctionSpecification.");
+        log.trace("Generating code for ServerFunctionSpecification.");
         visit(FunctionSpecification.class.cast(specification));
     }
 
     @Override
     public void visit(CustomFunctionSpecification specification) {
-        logger.trace("Generating code for CustomFunctionSpecification.");
+        log.trace("Generating code for CustomFunctionSpecification.");
         ResolvedCustomFunctionSpecification resolvedSpecification = resolver.resolve(specification);
         generate(resolvedSpecification);
         specification.getFunction().accept(new TypeCodeGeneratorVisitor(resolvedSpecification.getClassName(), resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser));
@@ -85,7 +85,7 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
 
     @Override
     public void visit(ServerVariableSpecification specification) {
-        logger.trace("Generating code for ServerVariableSpecification.");
+        log.trace("Generating code for ServerVariableSpecification.");
         ResolvedServerVariableSpecification resolvedSpecification = resolver.resolve(specification);
         generate(resolvedSpecification);
         new TypeCodeGeneratorVisitor(specification.getTypeName(), resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser)
@@ -94,7 +94,7 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
 
     @Override
     public void visit(WebhookHandleSpecification specification) {
-        logger.trace("Generating code for WebhookHandleSpecification.");
+        log.trace("Generating code for WebhookHandleSpecification.");
         ResolvedWebhookHandleSpecification resolvedSpecification = resolver.resolve(specification);
         generate(resolvedSpecification);
         FunctionPolyType.class.cast(specification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).accept(new TypeCodeGeneratorVisitor(resolvedSpecification.getClassName() + "Event", resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser));

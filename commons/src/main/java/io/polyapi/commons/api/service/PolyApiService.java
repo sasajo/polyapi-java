@@ -25,7 +25,7 @@ import static java.util.function.Predicate.not;
  * Parent implementation class for all services that connecto the Poly API service.
  */
 public class PolyApiService {
-  private static final Logger logger = LoggerFactory.getLogger(PolyApiService.class);
+  private static final Logger log = LoggerFactory.getLogger(PolyApiService.class);
 
   private final String host;
   private final Integer port;
@@ -80,13 +80,13 @@ public class PolyApiService {
           throw new UnexpectedHttpResponseException(response);
       }
     }
-    logger.debug("Response is successful. Status code is {}.", response.statusCode());
-    logger.debug("Parsing response.");
+    log.debug("Response is successful. Status code is {}.", response.statusCode());
+    log.debug("Parsing response.");
     O result = Optional.of(expectedResponseType)
       .filter(not(Void.TYPE::equals))
       .map(type -> jsonParser.<O>parseInputStream(response.body(), type))
       .orElse(null);
-    logger.debug("Response parsed successfully.");
+    log.debug("Response parsed successfully.");
     return result;
   }
 
@@ -96,7 +96,7 @@ public class PolyApiService {
       .withQueryParams(queryParams)
       .withBody(body)
       .build();
-    logger.debug("Executing authenticated {} request with target {}", method, request.getUrl());
+    log.debug("Executing authenticated {} request with target {}", method, request.getUrl());
     return client.send(request);
   }
 }

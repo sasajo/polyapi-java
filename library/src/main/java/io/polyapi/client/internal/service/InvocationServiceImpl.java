@@ -36,7 +36,7 @@ import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 
 public class InvocationServiceImpl extends PolyApiService implements InvocationService {
-    private static final Logger logger = LoggerFactory.getLogger(InvocationServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(InvocationServiceImpl.class);
     private final WebSocketClient webSocketClient;
     private final String clientId;
     private final JsonParser jsonParser;
@@ -163,9 +163,9 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     }
 
     private <T> T invokeFunction(String type, String id, Map<String, Object> body, Type expectedResponseType) {
-        logger.debug("Invoking Poly {} function with ID {}.", type, id);
+        log.debug("Invoking Poly {} function with ID {}.", type, id);
         var result = super.<Map<String, Object>, T>post(format("functions/%s/%s/execute", type.toLowerCase(), id), replace(body), expectedResponseType);
-        logger.debug("Function successfully executed. Returning result as {}.", expectedResponseType.getTypeName());
+        log.debug("Function successfully executed. Returning result as {}.", expectedResponseType.getTypeName());
         return result;
     }
 
@@ -176,15 +176,15 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
 
     @Override
     public <T> T getVariable(String id, Type expectedResponseType) {
-        logger.debug("Retrieving variable of type {} with ID {}.", expectedResponseType.getTypeName(), id);
+        log.debug("Retrieving variable of type {} with ID {}.", expectedResponseType.getTypeName(), id);
         return get(format("variables/%s/value", id), expectedResponseType);
     }
 
     @Override
     public <T> void updateVariable(String id, T entity) {
-        logger.debug("Updating variable with ID {}.", id);
+        log.debug("Updating variable with ID {}.", id);
         patch(format("variables/%s", id), entity);
-        logger.debug("Update successful.");
+        log.debug("Update successful.");
     }
 
     @Override

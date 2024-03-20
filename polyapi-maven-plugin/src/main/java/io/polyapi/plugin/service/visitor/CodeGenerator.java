@@ -10,7 +10,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Getter(PROTECTED)
 public class CodeGenerator {
-    private static final Logger logger = LoggerFactory.getLogger(CodeGenerator.class);
+    private static final Logger log = LoggerFactory.getLogger(CodeGenerator.class);
 
     private final FileService fileService;
 
@@ -23,7 +23,7 @@ public class CodeGenerator {
     }
 
     public void generate(Generable generable, String template) {
-        logger.debug("Attempting to write {} with template {} on package {}.", generable.getClassName(), template, generable.getPackageName());
+        log.debug("Attempting to write {} with template {} on package {}.", generable.getClassName(), template, generable.getPackageName());
         fileService.createClassFile(generable.getPackageName(), generable.getClassName(), template, generable);
     }
 }

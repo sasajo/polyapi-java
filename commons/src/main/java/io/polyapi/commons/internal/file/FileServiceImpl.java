@@ -14,7 +14,7 @@ import java.io.PrintWriter;
 import static java.lang.String.format;
 
 public class FileServiceImpl implements FileService {
-  private static final Logger logger = LoggerFactory.getLogger(FileServiceImpl.class);
+  private static final Logger log = LoggerFactory.getLogger(FileServiceImpl.class);
   private final Handlebars handlebars;
   private final boolean overwriteFiles;
 
@@ -26,9 +26,9 @@ public class FileServiceImpl implements FileService {
 
   public void createFileFromTemplate(File file, String template, Object context) {
     try {
-      logger.debug("Creating file content using template {}.", template);
+      log.debug("Creating file content using template {}.", template);
       var content = handlebars.compile(template).apply(context);
-      logger.trace("Content created:\n{}", content);
+      log.trace("Content created:\n{}", content);
       createFileWithContent(file, content);
     } catch (IOException e) {
       // FIXME: Throw appropriate exception.
@@ -38,11 +38,11 @@ public class FileServiceImpl implements FileService {
 
   public void createFileWithContent(File file, String content) {
     if (file.exists() && !overwriteFiles) {
-      logger.debug("File {} already exists. Skipping its creation.", file.getAbsolutePath());
+      log.debug("File {} already exists. Skipping its creation.", file.getAbsolutePath());
     } else {
-      logger.debug("Creating file with content for file {}.", file.getAbsolutePath());
+      log.debug("Creating file with content for file {}.", file.getAbsolutePath());
       File parent = file.getParentFile();
-      logger.debug("Creating parent folder at {}.", parent.getAbsolutePath());
+      log.debug("Creating parent folder at {}.", parent.getAbsolutePath());
       parent.mkdirs();
       try (PrintWriter out = new PrintWriter(file)) {
         out.println(content);
@@ -50,7 +50,7 @@ public class FileServiceImpl implements FileService {
         // FIXME: Throw appropriate exception.
         throw new PolyApiException(format("An exception occurred while creating file %s.", file.getAbsolutePath()), e);
       } finally {
-        logger.debug("File {} created successfully.", file.getAbsolutePath());
+        log.debug("File {} created successfully.", file.getAbsolutePath());
       }
     }
   }

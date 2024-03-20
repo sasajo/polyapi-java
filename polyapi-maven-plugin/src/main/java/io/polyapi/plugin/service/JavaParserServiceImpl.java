@@ -37,7 +37,7 @@ import static java.lang.Character.isUpperCase;
 import static java.util.stream.IntStream.range;
 
 public class JavaParserServiceImpl implements JavaParserService {
-    private static final Logger logger = LoggerFactory.getLogger(JavaParserServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(JavaParserServiceImpl.class);
     private final JsonParser jsonParser;
     private final ClassLoader classLoader;
     private final JavaParser javaParser;
@@ -49,13 +49,13 @@ public class JavaParserServiceImpl implements JavaParserService {
     }
 
     private TypeData parse(ResolvedType type) {
-        logger.debug("Resolving type of method declaration.");
+        log.debug("Resolving type of method declaration.");
         TypeData result = new TypeData("void", null);
         if (!type.isVoid()) {
-            logger.trace("Parsing loaded class to TypeData class.");
+            log.trace("Parsing loaded class to TypeData class.");
             result = new TypeData("object", jsonParser.toJsonSchema(toMap(type)));
         }
-        logger.debug("Type resolved to {}.", result.name());
+        log.debug("Type resolved to {}.", result.name());
         return result;
     }
 
@@ -84,14 +84,14 @@ public class JavaParserServiceImpl implements JavaParserService {
     @Override
     public PolyFunction parseFunction(List<File> sourceRoots, List<String> jarPaths, File file, Method method, String description, String context) {
         try {
-            logger.debug("Setting up a combined type solvers.");
+            log.debug("Setting up a combined type solvers.");
             var combinedTypeSolver = new CombinedTypeSolver();
             sourceRoots.stream()
-                    .peek(sourceRoot -> logger.debug("    Adding JavaParserTypeSolver."))
+                    .peek(sourceRoot -> log.debug("    Adding JavaParserTypeSolver."))
                     .map(JavaParserTypeSolver::new)
                     .forEach(combinedTypeSolver::add);
             jarPaths.stream()
-                    .peek(path -> logger.debug("    Adding JarTypeSolver."))
+                    .peek(path -> log.debug("    Adding JarTypeSolver."))
                     .map(path -> {
                         try {
                             return new JarTypeSolver(path);
@@ -101,15 +101,15 @@ public class JavaParserServiceImpl implements JavaParserService {
                         }
                     })
                     .forEach(combinedTypeSolver::add);
-            logger.debug("    Adding ReflectionTypeSolver.");
+            log.debug("    Adding ReflectionTypeSolver.");
             combinedTypeSolver.add(new ReflectionTypeSolver());
-            logger.debug("    Adding ClassLoaderTypeSolver for classloader defined above.");
+            log.debug("    Adding ClassLoaderTypeSolver for classloader defined above.");
             combinedTypeSolver.add(new ClassLoaderTypeSolver(classLoader));
-            logger.debug("CombinedTypeSolver complete.");
-            logger.debug("Setting up Java Parser.");
+            log.debug("CombinedTypeSolver complete.");
+            log.debug("Setting up Java Parser.");
             var parser = new JavaParser(new ParserConfiguration().setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver)));
-            logger.debug("Parser complete.");
-            logger.info("Proceeding with parsing of file in path '{}'.", file.getAbsolutePath());
+            log.debug("Parser complete.");
+            log.info("Proceeding with parsing of file in path '{}'.", file.getAbsolutePath());
             var compilationUnit = parser.parse(file).getResult().orElseThrow();
             var functions = new ArrayList<PolyFunction>();
             compilationUnit.getTypes().stream()
@@ -117,23 +117,23 @@ public class JavaParserServiceImpl implements JavaParserService {
                     .forEach(resolvedCompilationUnit -> {
                         resolvedCompilationUnit.getDeclaredMethods().stream()
                                 .filter(methodDeclaration -> methodDeclaration.getName().equals(method.getName()))
-                                .peek(methodDeclaration -> logger.debug("Found matching method declaration: {}", methodDeclaration.getSignature()))
+                                .peek(methodDeclaration -> log.debug("Found matching method declaration: {}", methodDeclaration.getSignature()))
                                 .forEach(methodDeclaration -> {
-                                    logger.debug("Creating PolyFunction from method declaration: {}", methodDeclaration.getName());
+                                    log.debug("Creating PolyFunction from method declaration: {}", methodDeclaration.getName());
                                     var function = new PolyFunction();
                                     function.setDescription(description);
                                     function.setContext(context);
                                     function.setArguments(new ArrayList<>());
-                                    logger.trace("Parsing return type for {}.", methodDeclaration.getName());
+                                    log.trace("Parsing return type for {}.", methodDeclaration.getName());
                                     var typeData = parse(methodDeclaration.getReturnType());
                                     function.setName(methodDeclaration.getName());
                                     function.setReturnType(typeData.name());
-                                    logger.trace("Adding JSon schema to return type.");
+                                    log.trace("Adding JSon schema to return type.");
                                     if (!methodDeclaration.getReturnType().isVoid()) {
                                         function.setReturnTypeSchema(jsonParser.parseString(typeData.jsonSchema(), defaultInstance().constructMapType(HashMap.class, String.class, Object.class)));
                                     }
                                     if (!methodDeclaration.getName().equals("execute")) {
-                                        logger.debug("Adding execute() method for server to invoke.");
+                                        log.debug("Adding execute() method for server to invoke.");
                                         MethodDeclaration executeMethod = compilationUnit.getType(0).asClassOrInterfaceDeclaration().addMethod("execute", PUBLIC)
                                                 .setType(methodDeclaration.getReturnType().isVoid() ? "void" : methodDeclaration.getReturnType().asReferenceType().getQualifiedName().substring(methodDeclaration.getReturnType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1))
                                                 .setBody(new BlockStmt(NodeList.nodeList(Optional.of(new MethodCallExpr(methodDeclaration.getName(), range(0, methodDeclaration.getNumberOfParams()).boxed()
@@ -145,12 +145,12 @@ public class JavaParserServiceImpl implements JavaParserService {
                                         range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam)
                                                 .forEach(param -> executeMethod.addParameter(param.asParameter().getType().asReferenceType().getQualifiedName().substring(param.asParameter().getType().asReferenceType().getQualifiedName().lastIndexOf('.') + 1), param.getName()));
                                     }
-                                    logger.trace("Parsing parameters.");
+                                    log.trace("Parsing parameters.");
                                     range(0, methodDeclaration.getNumberOfParams()).boxed().map(methodDeclaration::getParam)
-                                            .peek(param -> logger.trace("    Parsing parameter {}.", param.getName()))
+                                            .peek(param -> log.trace("    Parsing parameter {}.", param.getName()))
                                             .map(param -> {
-                                                logger.debug("Adding parameter '{}' to execute method.", param.getName());
-                                                logger.trace("Converting to PolyFunctionArgument.");
+                                                log.debug("Adding parameter '{}' to execute method.", param.getName());
+                                                log.trace("Converting to PolyFunctionArgument.");
                                                 var argument = new PolyFunctionArgument();
                                                 argument.setKey(param.getName());
                                                 argument.setName(param.getName());
@@ -169,7 +169,7 @@ public class JavaParserServiceImpl implements JavaParserService {
                                                 return argument;
                                             })
                                             .forEach(function.getArguments()::add);
-                                    logger.trace("Parsed {} parameters.", function.getArguments().size());
+                                    log.trace("Parsed {} parameters.", function.getArguments().size());
                                     compilationUnit.setPackageDeclaration("io.polyapi.knative.function");
                                     compilationUnit.getType(0).setName("PolyCustomFunction");
                                     function.setCode(compilationUnit.toString());

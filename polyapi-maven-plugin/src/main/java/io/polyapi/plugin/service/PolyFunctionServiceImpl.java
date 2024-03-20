@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import static java.lang.String.format;
 
 public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunctionService {
-    private static final Logger logger = LoggerFactory.getLogger(PolyFunctionServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyFunctionServiceImpl.class);
 
     public PolyFunctionServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
         super(host, port, client, jsonParser);
@@ -28,9 +28,9 @@ public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunct
 
     @Override
     public String deploy(String type, PolyFunction polyFunction) {
-        logger.info("Deploying {} function '{}' on context '{}'.", type, polyFunction.getName(), polyFunction.getContext());
+        log.info("Deploying {} function '{}' on context '{}'.", type, polyFunction.getName(), polyFunction.getContext());
         PolyFunction function = post(format("functions/%s", type), polyFunction, PolyFunction.class);
-        logger.info("Deployment of {} function '{}' on context'{}' successful.", type, polyFunction.getName(), polyFunction.getContext());
+        log.info("Deployment of {} function '{}' on context'{}' successful.", type, polyFunction.getName(), polyFunction.getContext());
         return function.getId();
     }
 }

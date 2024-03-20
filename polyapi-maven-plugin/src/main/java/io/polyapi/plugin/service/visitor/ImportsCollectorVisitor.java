@@ -27,7 +27,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.IntStream.range;
 
 public class ImportsCollectorVisitor implements TypeVisitor, PolySpecificationVisitor {
-    private static final Logger logger = LoggerFactory.getLogger(ImportsCollectorVisitor.class);
+    private static final Logger log = LoggerFactory.getLogger(ImportsCollectorVisitor.class);
 
     private final String basePackage;
     private final String defaultType;
@@ -43,21 +43,21 @@ public class ImportsCollectorVisitor implements TypeVisitor, PolySpecificationVi
     }
 
     public void doVisit(PolyType type) {
-        logger.debug("Extracting imports from type {}.", type.getKind());
+        log.debug("Extracting imports from type {}.", type.getKind());
         type.accept(this);
-        logger.debug("Imports from type {} extracted.", type.getKind());
+        log.debug("Imports from type {} extracted.", type.getKind());
     }
 
     @Override
     public void doVisit(Specification specification) {
-        logger.debug("Extracting imports from {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
+        log.debug("Extracting imports from {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
         PolySpecificationVisitor.super.doVisit(specification);
-        logger.debug("Imports from {} specification '{}' on context '{}' extracted.", specification.getType(), specification.getName(), specification.getContext());
+        log.debug("Imports from {} specification '{}' on context '{}' extracted.", specification.getType(), specification.getName(), specification.getContext());
     }
 
     @Override
     public void visit(SchemaObjectPolyType type) {
-        logger.trace("Retrieving imports for SchemaObjectPolyType.");
+        log.trace("Retrieving imports for SchemaObjectPolyType.");
         Optional.of(type)
                 .map(SchemaObjectPolyType::getSchema)
                 .filter(not(String::isBlank))
@@ -66,13 +66,13 @@ public class ImportsCollectorVisitor implements TypeVisitor, PolySpecificationVi
 
     @Override
     public void visit(PropertiesObjectPolyType type) {
-        logger.trace("Retrieving imports for PropertiesObjectPolyType.");
+        log.trace("Retrieving imports for PropertiesObjectPolyType.");
         imports.add(format("%s.%s", basePackage, defaultType));
     }
 
     @Override
     public void visit(FunctionSpecPolyType type) {
-        logger.trace("Retrieving imports for FunctionSpecPolyType.");
+        log.trace("Retrieving imports for FunctionSpecPolyType.");
         ImportsCollectorVisitor resultImportsCollectorVisitor = new ImportsCollectorVisitor(basePackage, format("%sResult", defaultType), jsonSchemaParser);
         Optional.ofNullable(type.getReturnType()).ifPresent(resultImportsCollectorVisitor::doVisit);
         imports.addAll(resultImportsCollectorVisitor.imports);
@@ -85,34 +85,34 @@ public class ImportsCollectorVisitor implements TypeVisitor, PolySpecificationVi
 
     @Override
     public void visit(MapObjectPolyType type) {
-        logger.trace("Retrieving imports for MapObjectPolyType.");
+        log.trace("Retrieving imports for MapObjectPolyType.");
         this.imports.add(Map.class.getName());
     }
 
     @Override
     public void visit(ArrayPolyType type) {
-        logger.trace("Retrieving imports for ArrayPolyType.");
+        log.trace("Retrieving imports for ArrayPolyType.");
         this.imports.add(List.class.getName());
         TypeVisitor.super.visit(type);
     }
 
     @Override
     public void visit(FunctionSpecification specification) {
-        logger.trace("Retrieving imports for FunctionSpecification.");
+        log.trace("Retrieving imports for FunctionSpecification.");
         this.imports.add(format("%s.%s", specification.getPackageName(), specification.getClassName()));
         specification.getFunction().accept(this);
     }
 
     @Override
     public void visit(ServerVariableSpecification specification) {
-        logger.trace("Retrieving imports for ServerVariableSpecification.");
+        log.trace("Retrieving imports for ServerVariableSpecification.");
         this.imports.add(format("%s.%s", specification.getPackageName(), specification.getClassName()));
         doVisit(specification.getVariable());
     }
 
     @Override
     public void visit(WebhookHandleSpecification specification) {
-        logger.trace("Retrieving imports for WebhookHandleSpecification.");
+        log.trace("Retrieving imports for WebhookHandleSpecification.");
         this.imports.add(Handle.class.getName());
         this.imports.add(Consumer.class.getName());
         this.imports.add(format("%s.%s", specification.getPackageName(), specification.getClassName()));

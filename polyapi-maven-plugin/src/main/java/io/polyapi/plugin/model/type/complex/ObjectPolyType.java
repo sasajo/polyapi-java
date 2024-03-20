@@ -17,7 +17,7 @@ import static java.lang.String.format;
 @Getter
 @Setter
 public class ObjectPolyType extends PolyType implements PropertiesObjectPolyType, SchemaObjectPolyType, MapObjectPolyType {
-    private static final Logger logger = LoggerFactory.getLogger(ObjectPolyType.class);
+    private static final Logger log = LoggerFactory.getLogger(ObjectPolyType.class);
     @JsonDeserialize(using = RawValueDeserializer.class)
     private String schema;
     private List<PropertyPolyType> properties;

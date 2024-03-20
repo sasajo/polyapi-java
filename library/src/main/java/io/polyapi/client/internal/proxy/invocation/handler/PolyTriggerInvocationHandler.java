@@ -12,7 +12,7 @@ import java.lang.reflect.Method;
 import java.util.function.Consumer;
 
 public class PolyTriggerInvocationHandler implements InvocationHandler {
-    private static final Logger logger = LoggerFactory.getLogger(PolyTriggerInvocationHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyTriggerInvocationHandler.class);
 
     private final WebSocketClient webSocketClient;
 
@@ -26,9 +26,9 @@ public class PolyTriggerInvocationHandler implements InvocationHandler {
             Class<?> invokingClass = method.getDeclaringClass();
             var polyData = invokingClass.getAnnotation(PolyEntity.class);
             var polyMetadata = method.getDeclaringClass().getAnnotation(PolyMetadata.class);
-            logger.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
-            logger.debug("Registering Poly trigger with ID '{}'.", polyData.value());
-            logger.debug("Event type: {}.", polyMetadata.paramTypes()[0]);
+            log.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
+            log.debug("Registering Poly trigger with ID '{}'.", polyData.value());
+            log.debug("Event type: {}.", polyMetadata.paramTypes()[0]);
             return webSocketClient.registerTrigger("handleWebhookEvent", polyData.value(), Class.forName(polyMetadata.paramTypes()[0]), Consumer.class.cast(args[0]));
         } catch (ClassNotFoundException e) {
             throw new PolyApiLibraryException(e); // FIXME: Throw the appropriate exception.

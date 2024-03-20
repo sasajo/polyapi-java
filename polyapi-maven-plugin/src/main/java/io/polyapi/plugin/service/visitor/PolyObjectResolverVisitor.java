@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PolyObjectResolverVisitor implements PolySpecificationVisitor {
-    private static final Logger logger = LoggerFactory.getLogger(PolyObjectResolverVisitor.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyObjectResolverVisitor.class);
 
     private final PolyObjectResolverService resolver;
 
@@ -28,44 +28,44 @@ public class PolyObjectResolverVisitor implements PolySpecificationVisitor {
 
     @Override
     public void doVisit(Specification specification) {
-        logger.debug("Resolving {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
+        log.debug("Resolving {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
         PolySpecificationVisitor.super.doVisit(specification);
-        logger.debug("{} specification '{}' on context '{}' resolved.", specification.getType(), specification.getName(), specification.getContext());
+        log.debug("{} specification '{}' on context '{}' resolved.", specification.getType(), specification.getName(), specification.getContext());
     }
 
     @Override
     public void visit(ServerFunctionSpecification specification) {
-        logger.trace("Resolving ServerFunctionSpecification.");
+        log.trace("Resolving ServerFunctionSpecification.");
         result = resolver.resolve(specification);
     }
 
     @Override
     public void visit(CustomFunctionSpecification specification) {
-        logger.trace("Resolving CustomFunctionSpecification.");
+        log.trace("Resolving CustomFunctionSpecification.");
         result = resolver.resolve(specification);
     }
 
     @Override
     public void visit(ApiFunctionSpecification specification) {
-        logger.trace("Resolving ApiFunctionSpecification.");
+        log.trace("Resolving ApiFunctionSpecification.");
         result = resolver.resolve(specification);
     }
 
     @Override
     public void visit(AuthFunctionSpecification specification) {
-        logger.trace("Resolving AuthFunctionSpecification.");
+        log.trace("Resolving AuthFunctionSpecification.");
         result = resolver.resolve(specification);
     }
 
     @Override
     public void visit(ServerVariableSpecification specification) {
-        logger.trace("Resolving ServerVariableSpecification.");
+        log.trace("Resolving ServerVariableSpecification.");
         result = resolver.resolve(specification);
     }
 
     @Override
     public void visit(WebhookHandleSpecification specification) {
-        logger.trace("Resolving WebhookHandleSpecification.");
+        log.trace("Resolving WebhookHandleSpecification.");
         result = resolver.resolve(specification);
     }
 }

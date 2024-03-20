@@ -22,7 +22,7 @@ import static java.lang.String.format;
 import static java.util.stream.IntStream.range;
 
 public class TypeCodeGeneratorVisitor extends CodeGenerator implements TypeVisitor {
-    private static final Logger logger = LoggerFactory.getLogger(TypeCodeGeneratorVisitor.class);
+    private static final Logger log = LoggerFactory.getLogger(TypeCodeGeneratorVisitor.class);
     private final JsonSchemaParser jsonSchemaParser;
     private final String defaultName;
     private final String basePackage;
@@ -37,20 +37,20 @@ public class TypeCodeGeneratorVisitor extends CodeGenerator implements TypeVisit
     }
 
     public void doVisit(PolyType type) {
-        logger.debug("Generating code for {}.", type.getKind());
+        log.debug("Generating code for {}.", type.getKind());
         type.accept(this);
-        logger.debug("Code for {} generated.", type.getKind());
+        log.debug("Code for {} generated.", type.getKind());
     }
 
     public void doVisit(FunctionSpecPolyType function) {
-        logger.debug("Generating code for {} types.", function.getArguments().size() + Optional.ofNullable(function.getReturnType()).stream().count());
+        log.debug("Generating code for {} types.", function.getArguments().size() + Optional.ofNullable(function.getReturnType()).stream().count());
         function.accept(this);
-        logger.debug("Code generated.");
+        log.debug("Code generated.");
     }
 
     @Override
     public void visit(SchemaObjectPolyType type) {
-        logger.trace("Generating code for schema type with schema:\n{}.", type.getSchema());
+        log.trace("Generating code for schema type with schema:\n{}.", type.getSchema());
         String schema = Optional.ofNullable(type.getSchema()).map(Object::toString).orElse("")
                 // replace all > and < with underscores
                 .replace(">", "_").replace("<", "_");
@@ -74,7 +74,7 @@ public class TypeCodeGeneratorVisitor extends CodeGenerator implements TypeVisit
 
     @Override
     public void visit(PropertiesObjectPolyType type) {
-        logger.trace("Generating code for properties object type with properties:\n{}.", type.getProperties());
+        log.trace("Generating code for properties object type with properties:\n{}.", type.getProperties());
         ImportsCollectorVisitor importsCollectorVisitor = new ImportsCollectorVisitor(basePackage, defaultName, jsonSchemaParser);
         importsCollectorVisitor.doVisit(PolyType.class.cast(type));
         Set<String> imports = importsCollectorVisitor.getImports();
@@ -94,7 +94,7 @@ public class TypeCodeGeneratorVisitor extends CodeGenerator implements TypeVisit
 
     @Override
     public void visit(FunctionSpecPolyType type) {
-        logger.trace("Generating code for FunctionSpecPolyType.");
+        log.trace("Generating code for FunctionSpecPolyType.");
         Optional.ofNullable(type.getReturnType()).ifPresent(returnType -> returnType.accept(new TypeCodeGeneratorVisitor(format("%sResult", defaultName), basePackage, getFileService(), jsonParser, jsonSchemaParser)));
         range(0, type.getArguments().size()).forEach(i -> type.getArguments().get(i).accept(new TypeCodeGeneratorVisitor(format("%sArg%s", defaultName, i), basePackage, getFileService(), jsonParser, jsonSchemaParser)));
     }

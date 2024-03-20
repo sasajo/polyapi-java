@@ -13,7 +13,7 @@ import java.lang.reflect.Method;
 import java.util.stream.Stream;
 
 public class VariInvocationHandler implements InvocationHandler {
-    private static final Logger logger = LoggerFactory.getLogger(PolyInvocationHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(PolyInvocationHandler.class);
     private final InvocationService invocationService;
 
     public VariInvocationHandler(InvocationService invocationService) {
@@ -25,8 +25,8 @@ public class VariInvocationHandler implements InvocationHandler {
         Class<?> serverVariableHandlerInterface = proxy.getClass().getInterfaces()[0];
         var polyData = serverVariableHandlerInterface.getAnnotation(PolyEntity.class);
         var declaredType = serverVariableHandlerInterface.getAnnotation(PolyMetadata.class).paramTypes()[0];
-        logger.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
-        logger.debug("Operating with server variable with ID '{}'.", polyData.value());
+        log.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
+        log.debug("Operating with server variable with ID '{}'.", polyData.value());
         var result = Stream.of(serverVariableHandlerInterface.getInterfaces()[0].getMethods())
                 .filter(parentInterfaceMethod -> parentInterfaceMethod.getName().equals(method.getName()) && parentInterfaceMethod.getParameterCount() == method.getParameterCount())
                 .findFirst()
@@ -43,7 +43,7 @@ public class VariInvocationHandler implements InvocationHandler {
 
                 })
                 .orElse("");
-        logger.debug("Invocation successful.");
+        log.debug("Invocation successful.");
         return result;
     }
 }
