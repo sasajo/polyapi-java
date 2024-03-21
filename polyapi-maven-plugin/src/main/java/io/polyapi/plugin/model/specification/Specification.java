@@ -52,11 +52,12 @@ public abstract class Specification {
     }
 
     public String getPackageName() {
-        return format("io.polyapi.%s",
+        return format("io.polyapi.%s.%s",
                 Stream.of(getSpecificationType(), Optional.ofNullable(context).orElse(""))
                         .filter(not(String::isBlank))
                         .map(String::toLowerCase)
-                        .collect(joining(".")));
+                        .collect(joining(".")),
+                name.toLowerCase());
     }
 
     public String getClassName() {

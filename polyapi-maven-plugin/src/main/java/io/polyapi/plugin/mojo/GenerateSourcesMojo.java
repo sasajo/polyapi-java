@@ -28,9 +28,9 @@ import java.util.stream.Stream;
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 
-@Mojo(name = "generate-sources")
-@Setter
 @Slf4j
+@Setter
+@Mojo(name = "generate-sources")
 public class GenerateSourcesMojo extends PolyApiMojo {
     private FileService fileService;
     private PolyObjectResolverService polyObjectResolverService;
@@ -70,6 +70,7 @@ public class GenerateSourcesMojo extends PolyApiMojo {
         log.info("Sources generated correctly.");
     }
 
+    @SafeVarargs
     private void writeContext(String rootName, List<Specification> specifications, Class<? extends Specification>... filter) {
         log.debug("Creating root context.");
         var rootContext = new Context(null, rootName);

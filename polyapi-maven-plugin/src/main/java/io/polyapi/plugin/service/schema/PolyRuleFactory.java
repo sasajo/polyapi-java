@@ -1,6 +1,8 @@
 package io.polyapi.plugin.service.schema;
 
 import com.sun.codemodel.JClassContainer;
+import com.sun.codemodel.JDocComment;
+import com.sun.codemodel.JDocCommentable;
 import com.sun.codemodel.JType;
 import org.jsonschema2pojo.GenerationConfig;
 import org.jsonschema2pojo.Jackson2Annotator;

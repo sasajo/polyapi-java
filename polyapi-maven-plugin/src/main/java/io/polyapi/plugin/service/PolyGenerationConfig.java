@@ -5,6 +5,11 @@ import org.jsonschema2pojo.DefaultGenerationConfig;
 public class PolyGenerationConfig extends DefaultGenerationConfig {
 
     @Override
+    public boolean isUseTitleAsClassname() {
+        return true;
+    }
+
+    @Override
     public boolean isIncludeToString() {
         return false;
     }

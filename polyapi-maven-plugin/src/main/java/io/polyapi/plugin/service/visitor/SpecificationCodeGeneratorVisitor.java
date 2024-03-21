@@ -42,7 +42,7 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
     @Override
     public void doVisit(Specification specification) {
         log.debug("Generating code for {} specification '{}' on context '{}'.", specification.getType(), specification.getName(), specification.getContext());
-        PolySpecificationVisitor.super.doVisit(specification);
+        specification.accept(this);
         log.debug("Code for {} specification '{}' on context '{}' generated.", specification.getType(), specification.getName(), specification.getContext());
     }
 

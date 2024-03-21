@@ -1,6 +1,6 @@
 # Java Client Library (beta)
 
-### Latest snapshot version v0.4.3-SNAPSHOT
+### Latest snapshot version v0.5.0-SNAPSHOT
 ### Latest released version v0.4.2
 
 ## Introduction
@@ -370,7 +370,9 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
-### v0.4.3
+### v0.5.0
+- Changed packages of generated classes to avoid classes with the same name and package but different attributes to override each other.
+- Changed names of schema generated classes to use the schema title. 
 - Updated logs to use lombok @Slf4j.
 ### v0.4.2
 - Fixed code generation bug where enum constants had dashes in them '-'.

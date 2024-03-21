@@ -5,6 +5,7 @@
       "type": "number"
     }
   },
+  "title": "Response Type",
   "additionalProperties": false,
   "required": [
     "desiredNumbers"
