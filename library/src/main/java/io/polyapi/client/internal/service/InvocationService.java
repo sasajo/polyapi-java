@@ -1,7 +1,5 @@
 package io.polyapi.client.internal.service;
 
-import io.polyapi.client.api.ApiFunctionResponse;
-
 import java.lang.reflect.Type;
 import java.util.Map;
 

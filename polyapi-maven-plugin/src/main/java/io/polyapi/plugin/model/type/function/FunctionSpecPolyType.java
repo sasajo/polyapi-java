@@ -1,8 +1,8 @@
 package io.polyapi.plugin.model.type.function;
 
 import io.polyapi.commons.api.model.PolyObject;
-import io.polyapi.plugin.model.type.PropertyPolyType;
 import io.polyapi.plugin.model.type.PolyType;
+import io.polyapi.plugin.model.type.PropertyPolyType;
 import io.polyapi.plugin.model.visitor.TypeVisitor;
 import lombok.Getter;
 import lombok.Setter;

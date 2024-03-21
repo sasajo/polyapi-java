@@ -7,8 +7,7 @@ import io.polyapi.commons.api.http.HttpMethod;
 import io.polyapi.commons.api.http.Request;
 import io.polyapi.commons.api.http.Response;
 import io.polyapi.commons.api.json.JsonParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
 import java.lang.reflect.Type;
@@ -16,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 import static io.polyapi.commons.api.http.HttpMethod.*;
 import static java.util.function.Predicate.not;
@@ -24,9 +22,8 @@ import static java.util.function.Predicate.not;
 /**
  * Parent implementation class for all services that connecto the Poly API service.
  */
+@Slf4j
 public class PolyApiService {
-  private static final Logger log = LoggerFactory.getLogger(PolyApiService.class);
-
   private final String host;
   private final Integer port;
   private final HttpClient client;

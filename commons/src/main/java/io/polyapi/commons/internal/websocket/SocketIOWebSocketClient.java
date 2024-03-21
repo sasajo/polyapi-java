@@ -9,12 +9,10 @@ import io.polyapi.commons.api.websocket.Handle;
 import io.polyapi.commons.api.websocket.WebSocketClient;
 import io.socket.client.IO;
 import io.socket.client.Socket;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Type;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -26,8 +24,8 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 
+@Slf4j
 public class SocketIOWebSocketClient implements WebSocketClient {
-    private static final Logger log = LoggerFactory.getLogger(SocketIOWebSocketClient.class);
     private final String url;
     private final TokenProvider tokenProvider;
     private final String clientId;

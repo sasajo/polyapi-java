@@ -11,10 +11,9 @@ import io.polyapi.plugin.model.function.PolyFunctionArgument;
 import io.polyapi.plugin.mojo.PolyApiMojo;
 import io.polyapi.plugin.service.PolyFunctionService;
 import io.polyapi.plugin.service.PolyFunctionServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -33,8 +32,8 @@ import static java.util.stream.Stream.concat;
 import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 @Mojo(name = "deploy-functions", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
+@Slf4j
 public class DeployFunctionsMojo extends PolyApiMojo {
-    private static final Logger log = LoggerFactory.getLogger(DeployFunctionsMojo.class);
 
     @Override
     protected void execute(String host, Integer port) {

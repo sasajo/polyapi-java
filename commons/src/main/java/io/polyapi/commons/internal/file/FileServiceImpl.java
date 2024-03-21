@@ -3,8 +3,7 @@ package io.polyapi.commons.internal.file;
 import com.github.jknack.handlebars.Handlebars;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.service.file.FileService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -13,8 +12,8 @@ import java.io.PrintWriter;
 
 import static java.lang.String.format;
 
+@Slf4j
 public class FileServiceImpl implements FileService {
-  private static final Logger log = LoggerFactory.getLogger(FileServiceImpl.class);
   private final Handlebars handlebars;
   private final boolean overwriteFiles;
 

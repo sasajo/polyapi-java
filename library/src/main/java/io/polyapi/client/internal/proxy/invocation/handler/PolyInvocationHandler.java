@@ -2,19 +2,17 @@ package io.polyapi.client.internal.proxy.invocation.handler;
 
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.IntStream.range;
 
+@Slf4j
 public class PolyInvocationHandler implements InvocationHandler {
-  private static final Logger log = LoggerFactory.getLogger(PolyInvocationHandler.class);
   private final PolyInvocation invocation;
 
   public PolyInvocationHandler(PolyInvocation invocation) {

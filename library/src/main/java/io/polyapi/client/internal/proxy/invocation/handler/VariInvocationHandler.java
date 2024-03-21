@@ -4,16 +4,15 @@ import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
 import io.polyapi.client.internal.service.InvocationService;
 import io.polyapi.commons.api.error.PolyApiException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.stream.Stream;
 
+@Slf4j
 public class VariInvocationHandler implements InvocationHandler {
-    private static final Logger log = LoggerFactory.getLogger(PolyInvocationHandler.class);
     private final InvocationService invocationService;
 
     public VariInvocationHandler(InvocationService invocationService) {

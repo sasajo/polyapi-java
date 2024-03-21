@@ -1,7 +1,5 @@
 package io.polyapi.client.internal.proxy.invocation.handler;
 
-import io.polyapi.client.internal.proxy.invocation.handler.PolyInvocationHandler;
-
 import java.lang.reflect.Type;
 import java.util.Map;
 

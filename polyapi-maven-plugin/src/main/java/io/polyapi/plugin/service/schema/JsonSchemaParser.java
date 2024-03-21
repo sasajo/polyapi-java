@@ -2,28 +2,22 @@ package io.polyapi.plugin.service.schema;
 
 import com.sun.codemodel.JClass;
 import com.sun.codemodel.JCodeModel;
-import com.sun.codemodel.JType;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.model.ParsedType;
 import io.polyapi.plugin.model.generation.CustomType;
-import io.polyapi.plugin.model.type.PolyType;
 import io.polyapi.plugin.service.PolyCodeWriter;
 import io.polyapi.plugin.service.PolyGenerationConfig;
+import lombok.extern.slf4j.Slf4j;
 import org.jsonschema2pojo.SchemaGenerator;
 import org.jsonschema2pojo.SchemaMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
-import static java.util.stream.Collectors.toSet;
-
+@Slf4j
 public class JsonSchemaParser {
-    private static final Logger log = LoggerFactory.getLogger(JsonSchemaParser.class);
 
     // FIXME: This whole JSon schema parsing needs:
     // FIXME: 1. More automated testing.

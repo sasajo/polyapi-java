@@ -8,9 +8,8 @@ import io.polyapi.plugin.service.JavaParserServiceImpl;
 import io.polyapi.plugin.service.PolyFunctionService;
 import io.polyapi.plugin.service.PolyFunctionServiceImpl;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.lang.reflect.Method;
@@ -22,8 +21,8 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 @Setter
+@Slf4j
 public abstract class AddFunctionMojo extends PolyApiMojo {
-    private static final Logger log = LoggerFactory.getLogger(AddFunctionMojo.class);
 
     @Parameter(property = "functionName")
     private String functionName;

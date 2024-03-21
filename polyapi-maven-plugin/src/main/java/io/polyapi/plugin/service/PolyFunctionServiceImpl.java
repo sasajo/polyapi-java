@@ -4,13 +4,12 @@ import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.plugin.model.function.PolyFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import static java.lang.String.format;
 
+@Slf4j
 public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunctionService {
-    private static final Logger log = LoggerFactory.getLogger(PolyFunctionServiceImpl.class);
 
     public PolyFunctionServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
         super(host, port, client, jsonParser);

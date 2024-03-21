@@ -2,14 +2,13 @@ package io.polyapi.commons.internal.websocket;
 
 import io.polyapi.commons.api.websocket.Handle;
 import io.socket.emitter.Emitter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Default implementation of {@link Handle} that works with an {@link Emitter} to do its operations.
  */
+@Slf4j
 public class EmitterHandle implements Handle {
-    private static final Logger log = LoggerFactory.getLogger(EmitterHandle.class);
     private final Emitter emitter;
     private final String eventType;
 

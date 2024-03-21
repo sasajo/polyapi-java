@@ -1,11 +1,9 @@
 package io.polyapi.plugin.model.generation;
 
 import io.polyapi.plugin.model.specification.Specification;
-import io.polyapi.plugin.model.visitor.GenerableVisitor;
 import lombok.Getter;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
@@ -15,8 +13,8 @@ import static java.util.function.Predicate.isEqual;
 
 @Getter
 @Setter
+@Slf4j
 public class Context {
-    private static final Logger log = LoggerFactory.getLogger(Context.class);
     private String name;
     private Context parent;
     private List<Context> subcontexts = new ArrayList<>();

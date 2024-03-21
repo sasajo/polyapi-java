@@ -16,8 +16,7 @@ import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
 import io.polyapi.plugin.model.visitor.TypeVisitor;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -26,9 +25,8 @@ import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 import static java.util.stream.IntStream.range;
 
+@Slf4j
 public class ImportsCollectorVisitor implements TypeVisitor, PolySpecificationVisitor {
-    private static final Logger log = LoggerFactory.getLogger(ImportsCollectorVisitor.class);
-
     private final String basePackage;
     private final String defaultType;
 

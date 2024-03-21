@@ -1,25 +1,23 @@
 package io.polyapi.client.internal.proxy;
 
-import io.polyapi.client.internal.service.InvocationService;
 import io.polyapi.client.api.model.PolyEntity;
+import io.polyapi.client.internal.service.InvocationService;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.powermock.api.mockito.PowerMockito;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@Slf4j
 public class PolyProxyFactoryTest {
-    private static final Logger log = LoggerFactory.getLogger(PolyProxyFactoryTest.class);
     private static final String DEFAULT_STRING = "DEFAULT_STRING";
 
     @Test

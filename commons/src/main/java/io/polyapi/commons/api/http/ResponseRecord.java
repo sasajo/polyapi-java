@@ -1,7 +1,5 @@
 package io.polyapi.commons.api.http;
 
-import io.polyapi.commons.api.http.Response;
-
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;

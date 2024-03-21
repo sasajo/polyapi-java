@@ -10,6 +10,7 @@ import io.polyapi.commons.internal.json.JacksonJsonParser;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.service.MavenService;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.AbstractMojo;
@@ -17,8 +18,6 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -28,8 +27,8 @@ import static java.nio.charset.Charset.defaultCharset;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Setter
+@Slf4j
 public abstract class PolyApiMojo extends AbstractMojo {
-    private static final Logger log = LoggerFactory.getLogger(PolyApiMojo.class);
 
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;

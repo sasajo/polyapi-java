@@ -14,6 +14,7 @@ import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import io.polyapi.plugin.service.visitor.ImportsCollectorVisitor;
 import io.polyapi.plugin.service.visitor.PolyObjectResolverVisitor;
 import io.polyapi.plugin.service.visitor.TypeExtractionVisitor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +26,8 @@ import java.util.stream.IntStream;
 
 import static java.lang.String.format;
 
+@Slf4j
 public class PolyObjectResolverService {
-    private static final Logger log = LoggerFactory.getLogger(PolyObjectResolverService.class);
     private final JsonSchemaParser jsonSchemaParser;
 
     public PolyObjectResolverService(JsonSchemaParser jsonSchemaParser) {

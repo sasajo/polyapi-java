@@ -3,14 +3,15 @@ package io.polyapi.plugin.service.visitor;
 import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.generation.Generable;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static lombok.AccessLevel.PROTECTED;
 
 @Getter(PROTECTED)
+@Slf4j
 public class CodeGenerator {
-    private static final Logger log = LoggerFactory.getLogger(CodeGenerator.class);
 
     private final FileService fileService;
 

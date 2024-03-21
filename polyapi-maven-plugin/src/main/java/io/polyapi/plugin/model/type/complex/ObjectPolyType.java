@@ -7,17 +7,14 @@ import io.polyapi.plugin.model.type.PropertyPolyType;
 import io.polyapi.plugin.model.visitor.TypeVisitor;
 import lombok.Getter;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
-import static java.lang.String.format;
-
 @Getter
 @Setter
+@Slf4j
 public class ObjectPolyType extends PolyType implements PropertiesObjectPolyType, SchemaObjectPolyType, MapObjectPolyType {
-    private static final Logger log = LoggerFactory.getLogger(ObjectPolyType.class);
     @JsonDeserialize(using = RawValueDeserializer.class)
     private String schema;
     private List<PropertyPolyType> properties;

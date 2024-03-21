@@ -4,18 +4,15 @@ import io.polyapi.client.api.InjectedVariable;
 import io.polyapi.client.error.generation.GeneratedClassInstantiationException;
 import io.polyapi.client.error.generation.GeneratedClassNotFoundException;
 import io.polyapi.client.error.generation.MissingDefaultConstructorException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import static java.lang.String.format;
-
+@Slf4j
 public class VariableInjectionServiceImpl implements VariableInjectionService {
-    private static final Logger log = LoggerFactory.getLogger(VariableInjectionServiceImpl.class);
 
     private static final Map<String, Object> injectionMap = new HashMap<>();
 

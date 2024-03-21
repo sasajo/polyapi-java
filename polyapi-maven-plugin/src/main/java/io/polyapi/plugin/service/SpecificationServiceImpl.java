@@ -5,6 +5,7 @@ import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,8 +20,8 @@ import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
+@Slf4j
 public class SpecificationServiceImpl extends PolyApiService implements SpecificationService {
-    private static final Logger log = LoggerFactory.getLogger(SpecificationServiceImpl.class);
 
     public SpecificationServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
         super(host, port, client, jsonParser);

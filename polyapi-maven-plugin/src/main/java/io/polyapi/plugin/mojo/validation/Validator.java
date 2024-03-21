@@ -3,16 +3,15 @@ package io.polyapi.plugin.mojo.validation;
 import io.polyapi.plugin.error.validation.InexistentFileException;
 import io.polyapi.plugin.error.validation.InvalidPortNumberException;
 import io.polyapi.plugin.error.validation.NullOrEmptyValueException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.util.Optional;
 
 import static java.util.function.Predicate.not;
 
+@Slf4j
 public class Validator {
-    private static final Logger log = LoggerFactory.getLogger(Validator.class);
 
     /**
      * Validates that a determined named {@link String} is not null, empty nor filled only with blank spaces.

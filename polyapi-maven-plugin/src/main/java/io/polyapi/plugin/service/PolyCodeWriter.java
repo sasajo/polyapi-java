@@ -2,6 +2,7 @@ package io.polyapi.plugin.service;
 
 import com.sun.codemodel.CodeWriter;
 import com.sun.codemodel.JPackage;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +16,8 @@ import java.util.Map;
 import static java.nio.charset.Charset.defaultCharset;
 import static java.util.stream.Collectors.toMap;
 
+@Slf4j
 public class PolyCodeWriter extends CodeWriter implements AutoCloseable {
-    private static final Logger log = LoggerFactory.getLogger(PolyCodeWriter.class);
     private final Map<String, ByteArrayOutputStream> outputStreams = new HashMap<>();
 
     @Override

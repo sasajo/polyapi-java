@@ -22,6 +22,7 @@ import io.polyapi.plugin.error.classloader.QualifiedNameNotFoundException;
 import io.polyapi.plugin.model.TypeData;
 import io.polyapi.plugin.model.function.PolyFunction;
 import io.polyapi.plugin.model.function.PolyFunctionArgument;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +37,8 @@ import static com.github.javaparser.ast.Modifier.Keyword.PUBLIC;
 import static java.lang.Character.isUpperCase;
 import static java.util.stream.IntStream.range;
 
+@Slf4j
 public class JavaParserServiceImpl implements JavaParserService {
-    private static final Logger log = LoggerFactory.getLogger(JavaParserServiceImpl.class);
     private final JsonParser jsonParser;
     private final ClassLoader classLoader;
     private final JavaParser javaParser;

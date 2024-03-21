@@ -1,35 +1,20 @@
 package io.polyapi.plugin.service.schema;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.codemodel.*;
-import org.json.JSONObject;
-import org.jsonschema2pojo.GenerationConfig;
-import org.jsonschema2pojo.Jackson2Annotator;
+import com.sun.codemodel.JClassContainer;
+import com.sun.codemodel.JType;
+import lombok.extern.slf4j.Slf4j;
 import org.jsonschema2pojo.Schema;
-import org.jsonschema2pojo.SchemaStore;
-import org.jsonschema2pojo.exception.ClassAlreadyExistsException;
-import org.jsonschema2pojo.exception.GenerationException;
-import org.jsonschema2pojo.model.EnumDefinition;
 import org.jsonschema2pojo.rules.EnumRule;
 import org.jsonschema2pojo.rules.RuleFactory;
-import org.jsonschema2pojo.util.NameHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
-import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import static java.util.Spliterator.ORDERED;
-import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.stream.StreamSupport.stream;
-import static org.jsonschema2pojo.rules.PrimitiveTypes.isPrimitive;
 
+@Slf4j
 public class PublicEnumRule extends EnumRule {
-    private static final Logger log = LoggerFactory.getLogger(PublicEnumRule.class);
 
     protected PublicEnumRule(RuleFactory ruleFactory) {
         super(ruleFactory);

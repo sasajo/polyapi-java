@@ -7,27 +7,24 @@ import io.polyapi.plugin.model.type.basic.ArrayPolyType;
 import io.polyapi.plugin.model.type.basic.PlainPolyType;
 import io.polyapi.plugin.model.type.basic.VoidPolyType;
 import io.polyapi.plugin.model.type.complex.MapObjectPolyType;
-import io.polyapi.plugin.model.type.complex.ObjectPolyType;
 import io.polyapi.plugin.model.type.complex.SchemaObjectPolyType;
 import io.polyapi.plugin.model.type.function.FunctionPolyType;
 import io.polyapi.plugin.model.type.primitive.PrimitivePolyType;
 import io.polyapi.plugin.model.visitor.TypeVisitor;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 import static java.util.function.Predicate.not;
 
+@Slf4j
 public class TypeExtractionVisitor implements TypeVisitor {
-    private static final Logger log = LoggerFactory.getLogger(TypeExtractionVisitor.class);
     private final String defaultName;
     private final JsonSchemaParser jsonSchemaParser;
     private final String basePackage;

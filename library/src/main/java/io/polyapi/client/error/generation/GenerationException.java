@@ -1,7 +1,6 @@
 package io.polyapi.client.error.generation;
 
 import io.polyapi.client.error.PolyApiLibraryException;
-import io.polyapi.commons.api.error.PolyApiException;
 import lombok.Getter;
 
 import static java.lang.String.format;

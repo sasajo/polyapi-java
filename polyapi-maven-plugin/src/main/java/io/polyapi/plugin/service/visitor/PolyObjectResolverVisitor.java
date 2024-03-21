@@ -11,11 +11,10 @@ import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
 import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
 import io.polyapi.plugin.service.generation.PolyObjectResolverService;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class PolyObjectResolverVisitor implements PolySpecificationVisitor {
-    private static final Logger log = LoggerFactory.getLogger(PolyObjectResolverVisitor.class);
 
     private final PolyObjectResolverService resolver;
 

@@ -6,6 +6,7 @@ import io.polyapi.commons.api.model.RequiredDependencies;
 import io.polyapi.commons.api.model.RequiredDependency;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.error.validation.PropertyNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
@@ -36,8 +37,8 @@ import static java.util.stream.Stream.concat;
 import static javax.lang.model.SourceVersion.isKeyword;
 import static org.reflections.scanners.Scanners.MethodsAnnotated;
 
+@Slf4j
 public class MavenService {
-    private static final Logger log = LoggerFactory.getLogger(MavenService.class);
     private static final String FUNCTION_NAME_PATTERN = "^[a-z][\\w$_]+$";
     private static final String CONTEXT_PATTERN = "^[a-z][\\w$_.]*[\\w$_]$";
     private final MavenProject project;

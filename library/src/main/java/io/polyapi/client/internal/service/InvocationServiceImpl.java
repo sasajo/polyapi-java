@@ -20,13 +20,11 @@ import io.polyapi.commons.api.model.PolyFunction;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.commons.api.websocket.Handle;
 import io.polyapi.commons.api.websocket.WebSocketClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,8 +33,8 @@ import static io.polyapi.commons.api.model.FunctionType.CLIENT;
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 
+@Slf4j
 public class InvocationServiceImpl extends PolyApiService implements InvocationService {
-    private static final Logger log = LoggerFactory.getLogger(InvocationServiceImpl.class);
     private final WebSocketClient webSocketClient;
     private final String clientId;
     private final JsonParser jsonParser;

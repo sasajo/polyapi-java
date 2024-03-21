@@ -4,15 +4,14 @@ import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
 import io.polyapi.client.error.PolyApiLibraryException;
 import io.polyapi.commons.api.websocket.WebSocketClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
 
+@Slf4j
 public class PolyTriggerInvocationHandler implements InvocationHandler {
-    private static final Logger log = LoggerFactory.getLogger(PolyTriggerInvocationHandler.class);
 
     private final WebSocketClient webSocketClient;
 

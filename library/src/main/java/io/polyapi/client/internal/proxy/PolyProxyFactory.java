@@ -1,12 +1,7 @@
 package io.polyapi.client.internal.proxy;
 
 import io.polyapi.client.api.model.PolyEntity;
-import io.polyapi.client.api.model.function.PolyApiFunction;
-import io.polyapi.client.api.model.function.PolyCustomFunction;
-import io.polyapi.client.api.model.function.AudienceTokenAuthFunction;
-import io.polyapi.client.api.model.function.SubresourceAuthFunction;
-import io.polyapi.client.api.model.function.TokenAuthFunction;
-import io.polyapi.client.api.model.function.PolyServerFunction;
+import io.polyapi.client.api.model.function.*;
 import io.polyapi.client.api.model.variable.ServerVariableHandler;
 import io.polyapi.client.api.model.websocket.PolyTrigger;
 import io.polyapi.client.internal.proxy.invocation.handler.PolyInvocationHandler;

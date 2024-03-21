@@ -9,7 +9,6 @@ import io.polyapi.client.internal.service.VariableInjectionServiceImpl;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
-import io.polyapi.commons.api.model.PolyObject;
 import io.polyapi.commons.internal.http.DefaultHttpClient;
 import io.polyapi.commons.internal.http.HardcodedTokenProvider;
 import io.polyapi.commons.internal.json.JacksonJsonParser;
@@ -17,10 +16,8 @@ import io.polyapi.commons.internal.websocket.SocketIOWebSocketClient;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Function;
 
 public class PolyContext {
     private final PolyProxyFactory proxyFactory;

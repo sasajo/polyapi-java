@@ -19,15 +19,14 @@ import io.polyapi.plugin.model.type.function.FunctionPolyType;
 import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
 import io.polyapi.plugin.service.generation.PolyObjectResolverService;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
 import static java.lang.String.format;
 
+@Slf4j
 public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements PolySpecificationVisitor {
-    private static final Logger log = LoggerFactory.getLogger(SpecificationCodeGeneratorVisitor.class);
 
     private final JsonSchemaParser jsonSchemaParser;
     private final JsonParser jsonParser;

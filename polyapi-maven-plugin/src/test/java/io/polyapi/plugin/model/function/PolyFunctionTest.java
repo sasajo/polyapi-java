@@ -1,6 +1,7 @@
 package io.polyapi.plugin.model.function;
 
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -15,8 +16,8 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 
+@Slf4j
 public class PolyFunctionTest {
-    private static final Logger log = LoggerFactory.getLogger(PolyFunctionTest.class);
     private static final String DEFAULT_METHOD_NAME = "test";
 
     public static Stream<Arguments> getSignatureTestSource() throws Exception {

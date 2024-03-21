@@ -5,9 +5,6 @@ import io.polyapi.plugin.model.visitor.TypeVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Getter
 @Setter
 public class PlainPolyType extends PolyType {

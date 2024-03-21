@@ -1,6 +1,5 @@
 package io.polyapi.plugin.error.deploy;
 
-import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 
 import java.util.Collection;

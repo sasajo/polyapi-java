@@ -10,8 +10,7 @@ import io.polyapi.plugin.model.type.complex.SchemaObjectPolyType;
 import io.polyapi.plugin.model.type.function.FunctionSpecPolyType;
 import io.polyapi.plugin.model.visitor.TypeVisitor;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,8 +20,8 @@ import java.util.Set;
 import static java.lang.String.format;
 import static java.util.stream.IntStream.range;
 
+@Slf4j
 public class TypeCodeGeneratorVisitor extends CodeGenerator implements TypeVisitor {
-    private static final Logger log = LoggerFactory.getLogger(TypeCodeGeneratorVisitor.class);
     private final JsonSchemaParser jsonSchemaParser;
     private final String defaultName;
     private final String basePackage;
