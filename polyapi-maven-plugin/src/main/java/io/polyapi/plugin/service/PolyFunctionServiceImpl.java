@@ -16,16 +16,6 @@ public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunct
     }
 
     @Override
-    public PolyFunction postServerFunction(PolyFunction polyFunction) {
-        return post("functions/server", polyFunction, PolyFunction.class);
-    }
-
-    @Override
-    public PolyFunction postClientFunction(PolyFunction polyFunction) {
-        return post("functions/client", polyFunction, PolyFunction.class);
-    }
-
-    @Override
     public String deploy(String type, PolyFunction polyFunction) {
         log.info("Deploying {} function '{}' on context '{}'.", type, polyFunction.getName(), polyFunction.getContext());
         PolyFunction function = post(format("functions/%s", type), polyFunction, PolyFunction.class);

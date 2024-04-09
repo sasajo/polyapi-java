@@ -1,7 +1,7 @@
 # Java Client Library (beta)
 
-### Latest snapshot version v0.5.0-SNAPSHOT
-### Latest released version v0.4.2
+### Latest snapshot version v0.6.0-SNAPSHOT
+### Latest released version v0.5.0
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -55,7 +55,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.3.3</poly.version>
+  <poly.version>0.5.0</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -76,16 +76,16 @@ Nice to have some customers looking around here! So, you'll need to run the foll
       <artifactId>polyapi-maven-plugin</artifactId>
       <version>${poly.version}</version>
       <executions>
-        <configuration>
-          <host>https://develop-k8s.polyapi.io</host>
-          <port>443</port>
-          <apiKey>{API_KEY}</apiKey>
-        </configuration>
         <execution>
           <phase>generate-sources</phase>
           <goals>
             <goal>generate-sources</goal>
           </goals>
+          <configuration>
+              <host>https://develop-k8s.polyapi.io</host>
+              <port>443</port>
+              <apiKey>{API_KEY}</apiKey>
+          </configuration>
         </execution>
       </executions>
     </plugin>
@@ -184,32 +184,6 @@ One of the key classes in this library is the proxy factory. As most of the gene
 ### Maven plugin
 This maven plugin provides the following MOJOs:
 
-#### add-server-function
-This MOJO adds a server function to the Poly Server. Poly Server functions are functions that are run in the Poly server.
-
-##### Parameters
-Here's the list of parameters:
- - **host (required):** The host where the Poly API instance is hosted.
- - **port:** The port that the Poly API instance is listening to. Default value is 443.
- - **apiKey (required):** The API key required to authenticate to Poly.
- - **file (required):** The relative path to the file that contains the function to be uploaded.
- - **functionName (required):** The name of the method to be converted into the function to be uploaded.
- - **context:** The context where the function will be hosted. When generating the function interface, this will influence the package name.
- - **description:** The description of the function.
-
-#### add-client-function
-This MOJO adds a client function to the Poly Server. Poly Client functions are functions that, although are stored in the Server, are ultimately executed in the client.
-
-##### Parameters
-Here's the list of parameters:
-- **host (required):** The host where the Poly API instance is hosted.
-- **port:** The port that the Poly API instance is listening to. Default value is 443.
-- **apiKey (required):** The API key required to authenticate to Poly.
-- **file (required):** The relative path to the file that contains the function to be uploaded.
-- **functionName (required):** The name of the method to be converted into the function to be uploaded.
-- **context:** The context where the function will be hosted. When generating the function interface, this will influence the package name.
-- **description:** The description of the function.
-
 #### generate-sources
 This MOJO generates all the sources for a determined API key into the `target/generated-sources` folder.
 
@@ -250,6 +224,7 @@ Here's the list of parameters:
 - **host (required):** The host where the Poly API instance is hosted.
 - **port:** The port that the Poly API instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
+- **functions:** Comma separated value containing the names of the functions to deploy. The functions must be annotated with the `@PolyFunction` annotation as it is described. This parameter triggers a filter by function name and/or context + function name in the `[context].[functionName]` format. Each comma separated value will be taken independently and deployed.
 
 <a name="project-usage"></a>
 ## Usage
@@ -305,8 +280,8 @@ Vari.auth.clientId.onUpdate((event) -> {
 });
 ```
 
-### Custom functions
-It is possible to create custom functions that can be used in Poly. To do so, you need to create a class with desired function. For example:
+### Poly server functions
+It is possible to deploy server functions that can be used in Poly. To do so, you need to create a class with desired function. For example:
 ```java
 public class CustomFunction {
     public String sayHello(String name) {
@@ -314,25 +289,7 @@ public class CustomFunction {
     }
 }
 ```
-
-Then there are 2 approaches:
-
-#### Manual approach
-In this approach, you will use the `add-client-function` goals of the PolyAPI maven plugin.
-
-Just run:
-```bash
-mvn polyapi:add-client-function -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.client" -Dclient -Ddescription="This says hello to you"
-```
-This will add the function with specified name and context to Poly, so it can be used in code:
-
-```java
-var result = Poly.test.client.sayHello("John");
-System.out.println(result);
-```
-
-#### Annotation approach
-This approach requires that you have a setup project. In this project, you need to have the PolyAPI commons library installed as a dependency.
+Then, it is required that you have a setup project. In this project, you need to have the PolyAPI commons library installed as a dependency.
 ```xml
 <dependency>
     <groupId>io.polyapi</groupId>
@@ -340,28 +297,16 @@ This approach requires that you have a setup project. In this project, you need 
     <version>${poly.version}</version>
 </dependency>
 ```
-Then annotate the function you want to upload with `@PolyFunction`. Have in mind that to mark this as a custom function (or client function) you need to set the property `polyType` in the annotation to `CLIENT`, leaving the annotation something like: 
-```java
-@PolyFunction(polyType = FunctionType.CLIENT) 
-```
-Then, just run:
+Then, annotate the function you want to upload with `@PolyFunction`. 
+And finally, just run:
 ```bash
 mvn polyapi:deploy-functions
 ```
-### Server Functions
-Similar to Custom Functions, you can create Server Functions. To do so, you need to create a class with desired function same as with Custom Functions.
-Then to add it to Poly, there are the same 2 approaches:
-
-#### Manual approach
-In here instead of using the `add-client-function` goal, you use the `add-server-function` one:
-```bash
-mvn polyapi:add-server-function -Dname=sayHello -Dfile="src/main/java/custom/CustomFunction.java" -Dcontext="test.server" -Ddescription="This says hello to you from server"
+### Poly client functions
+To create a Poly client Function you need to follow the same steps as with a server function, but when adding the `@PolyFunction` annotation, you need to set the property `polyType` in the annotation to `CLIENT`, leaving the annotation something like:
+```java
+@PolyFunction(polyType = FunctionType.CLIENT) 
 ```
-Otherwise it's the same as in the client functions.
-
-#### Annotation approach
-This is the same as the client functions, but you don't need to set the `polyType` property in the annotation. By default it will assume its a server function.
-
 ## Limitations
 Comparing to its Typescript counterpart, the Java library is still missing the following features:
 - Error handlers
@@ -370,6 +315,10 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.6.0
+- Removed add-server-function MOJO. Now only deploy-functions is allowed.
+- Removed add-client-function MOJO. Now only deploy-functions is allowed.
+- Added functions parameter to deploy-functions.
 ### v0.5.0
 - Changed packages of generated classes to avoid classes with the same name and package but different attributes to override each other.
 - Changed names of schema generated classes to use the schema title. 

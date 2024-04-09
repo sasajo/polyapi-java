@@ -25,6 +25,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -126,7 +127,7 @@ public class MavenService {
         }
     }
 
-    public Set<Method> scanPolyFunctions() {
+    public Set<Method> scanPolyFunctions(Predicate<Method> filter) {
         log.info("Scanning the project for functions annotated with {}}.", PolyFunction.class.getName());
         URLClassLoader projectClassLoader = getProjectClassLoader();
         Reflections reflections = new Reflections(new ConfigurationBuilder()
@@ -134,9 +135,10 @@ public class MavenService {
                 .addScanners(MethodsAnnotated)
                 .addUrls(projectClassLoader.getURLs()));
         log.debug("Reflections URLS: {}", reflections.getConfiguration().getUrls().size());
-        Set<Method> methods = reflections.getMethodsAnnotatedWith(PolyFunction.class);
+        Set<Method> methods = reflections.getMethodsAnnotatedWith(PolyFunction.class).stream()
+                .filter(filter)
+                .collect(toSet());
         log.info("Found {} methods to convert.", methods.size());
-
         List.of(RequiredDependency.class, RequiredDependencies.class).forEach(annotation ->
                 reflections.getMethodsAnnotatedWith(annotation).stream()
                         .filter(not(methods::contains))

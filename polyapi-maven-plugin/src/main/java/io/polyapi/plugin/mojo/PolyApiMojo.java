@@ -33,13 +33,13 @@ public abstract class PolyApiMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
-    @Parameter(property = "host")
+    @Parameter(property = "host", required = true)
     private String host;
 
     @Parameter(property = "port")
     private String port;
 
-    @Parameter(property = "apiKey")
+    @Parameter(property = "apiKey", required = true)
     private String apiKey;
     private MavenService mavenService;
     private TokenProvider tokenProvider;

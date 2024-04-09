@@ -1,16 +1,7 @@
 {
   "type": "array",
   "items": {
-    "type": "object",
-    "properties": {
-      "value": {
-        "type": "number"
-      }
-    },
-    "title": "Response Type",
-    "additionalProperties": false,
-    "required": [
-      "value"
-    ]
+    "type": "number",
+    "title": "Response Type"
   }
 }
