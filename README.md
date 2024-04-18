@@ -1,6 +1,6 @@
 # Java Client Library (beta)
 
-### Latest snapshot version v0.6.1-SNAPSHOT
+### Latest snapshot version v0.7.0-SNAPSHOT
 ### Latest released version v0.6.0
 
 ## Introduction
@@ -315,6 +315,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.7.0
+- Added ability to handle headers and params on webhook triggers.
 ### v0.6.0
 - Removed add-server-function MOJO. Now only deploy-functions is allowed.
 - Removed add-client-function MOJO. Now only deploy-functions is allowed.

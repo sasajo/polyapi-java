@@ -10,7 +10,8 @@ import java.util.Map;
 @Getter
 @Setter
 public class EventMessage {
-    private Map<String, Object> headers;
+    private Map<String, String> headers;
+    private Map<String, Object> params;
     @JsonDeserialize(using = RawValueDeserializer.class)
     private String body;
 }

@@ -1,10 +1,12 @@
 package io.polyapi.commons.internal.websocket;
 
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.polyapi.commons.api.error.parse.JsonToObjectParsingException;
 import io.polyapi.commons.api.error.websocket.EventRegistrationException;
 import io.polyapi.commons.api.error.websocket.WebsocketInputParsingException;
 import io.polyapi.commons.api.http.TokenProvider;
 import io.polyapi.commons.api.json.JsonParser;
+import io.polyapi.commons.api.model.PolyEventConsumer;
 import io.polyapi.commons.api.websocket.Handle;
 import io.polyapi.commons.api.websocket.WebSocketClient;
 import io.socket.client.IO;
@@ -13,11 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
 
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
@@ -52,7 +54,7 @@ public class SocketIOWebSocketClient implements WebSocketClient {
         return socket;
     }
 
-    public <T> Handle registerTrigger(String event, String handleId, Type eventType, Consumer<T> trigger) {
+    public <T> Handle registerTrigger(String event, String handleId, Type eventType, PolyEventConsumer<T> trigger) {
         try {
             CompletableFuture<Boolean> completableFuture = new CompletableFuture<Boolean>()
                     .orTimeout(registrationTimeout, MILLISECONDS);
@@ -71,11 +73,11 @@ public class SocketIOWebSocketClient implements WebSocketClient {
             return new EmitterHandle(eventKey, getSocket().on(eventKey, objects -> {
                 try {
                     log.debug("Received event {} on handle {}.", event, handleId);
-                    String input = objects[0].toString();
-                    log.debug("Parsing input to {}.", eventType);
-                    T parsedInput = jsonParser.parseString(jsonParser.<EventMessage>parseString(input, EventMessage.class).getBody(), eventType);
+                    EventMessage message = jsonParser.parseString(objects[0].toString(), EventMessage.class);
+                    log.debug("Parsing payload to {}.", eventType);
+                    T parsedInput = jsonParser.parseString(message.getBody(), eventType);
                     log.debug("Input parsed. Passing it to listener.");
-                    trigger.accept(parsedInput);
+                    trigger.accept(parsedInput, message.getHeaders(), message.getParams());
                     log.debug("Input dispatched.");
                 } catch (JsonToObjectParsingException e) {
                     throw new WebsocketInputParsingException(eventType, e);
@@ -87,9 +89,8 @@ public class SocketIOWebSocketClient implements WebSocketClient {
     }
 
     @Override
-    public Handle registerAuthFunctionEventHandler(String id, Consumer<Object[]> trigger) {
-        Handle handle = registerTrigger("", id, Object[].class, trigger);
-        return handle;
+    public <T> Handle registerAuthFunctionEventHandler(String id, PolyEventConsumer<T> trigger) {
+        return registerTrigger("", id, Object[].class, trigger);
     }
 
 

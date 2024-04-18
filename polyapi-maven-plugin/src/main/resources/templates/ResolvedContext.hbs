@@ -90,6 +90,10 @@ public class {{className}} extends PolyContext {
     public Handle {{this.name}}(Consumer<{{{this.eventType}}}> callback) {
         return this.{{this.name}}.{{this.name}}(callback);
     }
+
+    public Handle {{this.name}}(PolyEventConsumer<{{{this.eventType}}}> callback) {
+        return this.{{this.name}}.{{this.name}}(callback);
+    }
 {{~/each}}
 
 {{~#each specifications}}

@@ -1,5 +1,6 @@
 package io.polyapi.plugin.service.visitor;
 
+import io.polyapi.commons.api.model.PolyEventConsumer;
 import io.polyapi.commons.api.websocket.Handle;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
@@ -113,6 +114,7 @@ public class ImportsCollectorVisitor implements TypeVisitor, PolySpecificationVi
         log.trace("Retrieving imports for WebhookHandleSpecification.");
         this.imports.add(Handle.class.getName());
         this.imports.add(Consumer.class.getName());
+        this.imports.add(PolyEventConsumer.class.getName());
         this.imports.add(format("%s.%s", specification.getPackageName(), specification.getClassName()));
         FunctionPolyType.class.cast(specification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).accept(this);
     }

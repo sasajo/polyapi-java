@@ -121,9 +121,9 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
             if (data.getToken() == null) {
                 if (data.getUrl() == null || !optionalOptions.map(AuthTokenOptions::getAutoCloseOnUrl).orElse(false)) {
                     Handle handle;
-                    handle = webSocketClient.registerAuthFunctionEventHandler(id, objects -> {
+                    handle = webSocketClient.registerAuthFunctionEventHandler(id, (payload, headers, params) -> {
                         try {
-                            GetAuthTokenResponse event = jsonParser.parseString(objects[0].toString(), GetAuthTokenResponse.class);
+                            GetAuthTokenResponse event = jsonParser.parseString(payload.toString(), GetAuthTokenResponse.class);
                             if (event.getToken() != null) {
                                 callback.accept(event.getToken(), event.getUrl(), event.getError());
                                 if (optionalOptions.map(AuthTokenOptions::getAutoCloseOnToken).orElse(true)) {

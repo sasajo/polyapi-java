@@ -1,5 +1,7 @@
 package io.polyapi.commons.api.websocket;
 
+import io.polyapi.commons.api.model.PolyEventConsumer;
+
 import java.lang.reflect.Type;
 import java.util.function.Consumer;
 
@@ -15,7 +17,7 @@ public interface WebSocketClient extends AutoCloseable {
      * @param <T>       The type of object that is received from the server.
      * @return Handle An object that handles the listener.
      */
-    <T> Handle registerTrigger(String event, String handleId, Type eventType, Consumer<T> trigger);
+    <T> Handle registerTrigger(String event, String handleId, Type eventType, PolyEventConsumer<T> trigger);
 
-    Handle registerAuthFunctionEventHandler(String id, Consumer<Object[]> trigger);
+    <T> Handle registerAuthFunctionEventHandler(String id, PolyEventConsumer<T> trigger);
 }
