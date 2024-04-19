@@ -1,6 +1,16 @@
 package io.polyapi.commons.internal.websocket;
 
-import com.fasterxml.jackson.databind.type.TypeFactory;
+import static java.lang.Boolean.FALSE;
+import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
+import java.lang.reflect.Type;
+import java.net.URI;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 import io.polyapi.commons.api.error.parse.JsonToObjectParsingException;
 import io.polyapi.commons.api.error.websocket.EventRegistrationException;
 import io.polyapi.commons.api.error.websocket.WebsocketInputParsingException;
@@ -13,19 +23,6 @@ import io.socket.client.IO;
 import io.socket.client.Socket;
 import lombok.extern.slf4j.Slf4j;
 
-import java.lang.reflect.Type;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
-import static java.lang.Boolean.FALSE;
-import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
-
 @Slf4j
 public class SocketIOWebSocketClient implements WebSocketClient {
     private final String url;
@@ -35,7 +32,8 @@ public class SocketIOWebSocketClient implements WebSocketClient {
     private final JsonParser jsonParser;
     private Socket socket;
 
-    public SocketIOWebSocketClient(String url, String clientId, TokenProvider tokenProvider, JsonParser jsonParser, Long registrationTimeout) {
+    public SocketIOWebSocketClient(String url, String clientId, TokenProvider tokenProvider, JsonParser jsonParser,
+            Long registrationTimeout) {
         this.clientId = clientId;
         this.url = url;
         this.tokenProvider = tokenProvider;
@@ -47,8 +45,8 @@ public class SocketIOWebSocketClient implements WebSocketClient {
     private synchronized Socket getSocket() {
         if (this.socket == null) {
             this.socket = IO.socket(URI.create(format("%s/events", url)), IO.Options.builder()
-                            .setTransports(new String[]{"websocket"})
-                            .build())
+                    .setTransports(new String[] { "websocket" })
+                    .build())
                     .connect();
         }
         return socket;
@@ -59,14 +57,14 @@ public class SocketIOWebSocketClient implements WebSocketClient {
             CompletableFuture<Boolean> completableFuture = new CompletableFuture<Boolean>()
                     .orTimeout(registrationTimeout, MILLISECONDS);
             log.info("Registering event handler on server.");
-            getSocket().emit("registerWebhookEventHandler", new Object[]{Map.of("clientID", clientId,
-                            "webhookHandleID", handleId,
-                            "apiKey", tokenProvider.getToken())},
+            getSocket().emit("registerWebhookEventHandler", new Object[] { Map.of("clientID", clientId,
+                    "webhookHandleID", handleId,
+                    "apiKey", tokenProvider.getToken()) },
                     objects -> {
                         log.debug("Received response from server.");
                         completableFuture.complete((boolean) Optional.ofNullable(objects[0]).orElse(FALSE));
                     });
-            if (!completableFuture.get()) {
+            if (FALSE.equals(completableFuture.get())) {
                 throw new EventRegistrationException(event, handleId);
             }
             String eventKey = format("%s:%s", event, handleId);
@@ -92,7 +90,6 @@ public class SocketIOWebSocketClient implements WebSocketClient {
     public <T> Handle registerAuthFunctionEventHandler(String id, PolyEventConsumer<T> trigger) {
         return registerTrigger("", id, Object[].class, trigger);
     }
-
 
     @Override
     public void close() {

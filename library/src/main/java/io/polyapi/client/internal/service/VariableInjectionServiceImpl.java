@@ -26,6 +26,7 @@ public class VariableInjectionServiceImpl implements VariableInjectionService {
                 .orElse(original);
     }
 
+    @SuppressWarnings({ "unchecked", "removal" })
     public synchronized <T> T inject(String key, String type) {
         log.debug("Injecting variable with key '{}' and type '{}'.", key, type);
         if (!injectionMap.containsKey(key)) {

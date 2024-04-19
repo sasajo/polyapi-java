@@ -54,7 +54,7 @@ public class JacksonJsonParser implements JsonParser {
         try {
             log.debug("Parsing object of type {} to String.", object.getClass().getSimpleName());
             String result = objectMapper.writeValueAsString(object);
-            log.debug("Parsing successful.");
+            log.debug("Object to String parsing successful.");
             if (log.isTraceEnabled()) {
                 log.trace("Parsed result is:\n{}", result);
             }
@@ -72,7 +72,7 @@ public class JacksonJsonParser implements JsonParser {
         try {
             log.debug("Parsing object of type {} to InputStream.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null"));
             InputStream result = new ByteArrayInputStream(object == null ? new byte[]{} : objectMapper.writeValueAsBytes(object));
-            log.debug("Parsing successful.");
+            log.debug("String to object parsing successful.");
             if (log.isTraceEnabled()) {
                 log.trace("Parsed result is:\n{}", IOUtils.toString(result, defaultCharset()));
                 log.trace("Resetting InputStream.");
@@ -107,6 +107,7 @@ public class JacksonJsonParser implements JsonParser {
      * @see JsonParser#parseInputStream(InputStream, Type)
      */
     @Override
+    @SuppressWarnings("unchecked")
     public <O> O parseInputStream(InputStream json, Type expectedResponseType) {
         try {
             if (log.isTraceEnabled()) {

@@ -1,10 +1,7 @@
 package io.polyapi.plugin.service;
 
-import com.sun.codemodel.CodeWriter;
-import com.sun.codemodel.JPackage;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.nio.charset.Charset.defaultCharset;
+import static java.util.stream.Collectors.toMap;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
@@ -13,8 +10,10 @@ import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import static java.nio.charset.Charset.defaultCharset;
-import static java.util.stream.Collectors.toMap;
+import com.sun.codemodel.CodeWriter;
+import com.sun.codemodel.JPackage;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class PolyCodeWriter extends CodeWriter implements AutoCloseable {
@@ -26,6 +25,7 @@ public class PolyCodeWriter extends CodeWriter implements AutoCloseable {
         var outputStream = new ByteArrayOutputStream();
         outputStreams.put(fileName.replace(".java", ""), outputStream);
         return new FilterOutputStream(outputStream) {
+            @Override
             public void close() {
                 // don't let this stream close
             }

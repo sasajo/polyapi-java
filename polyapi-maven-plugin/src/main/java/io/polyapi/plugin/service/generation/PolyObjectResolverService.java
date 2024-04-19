@@ -1,10 +1,34 @@
 package io.polyapi.plugin.service.generation;
 
+import static java.lang.String.format;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.IntStream;
+
 import io.polyapi.plugin.model.generation.Context;
 import io.polyapi.plugin.model.generation.KeyValuePair;
 import io.polyapi.plugin.model.generation.ResolvedContext;
-import io.polyapi.plugin.model.specification.function.*;
-import io.polyapi.plugin.model.specification.resolved.*;
+import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.FunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedApiFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedAuthFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedCustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedServerFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedServerVariableSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedStandardAuthFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedSubresourceAuthFunctionSpecification;
+import io.polyapi.plugin.model.specification.resolved.ResolvedWebhookHandleSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
 import io.polyapi.plugin.model.type.PropertyPolyType;
@@ -15,16 +39,6 @@ import io.polyapi.plugin.service.visitor.ImportsCollectorVisitor;
 import io.polyapi.plugin.service.visitor.PolyObjectResolverVisitor;
 import io.polyapi.plugin.service.visitor.TypeExtractionVisitor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.IntStream;
-
-import static java.lang.String.format;
 
 @Slf4j
 public class PolyObjectResolverService {

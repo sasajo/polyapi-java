@@ -1,34 +1,5 @@
 package io.polyapi.plugin.service;
 
-import io.polyapi.commons.api.model.PolyFunction;
-import io.polyapi.commons.api.model.PolyGeneratedClass;
-import io.polyapi.commons.api.model.RequiredDependencies;
-import io.polyapi.commons.api.model.RequiredDependency;
-import io.polyapi.plugin.error.PolyApiMavenPluginException;
-import io.polyapi.plugin.error.validation.PropertyNotFoundException;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.model.Plugin;
-import org.apache.maven.model.PluginExecution;
-import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.reflections.Reflections;
-import org.reflections.util.ConfigurationBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.lang.model.SourceVersion;
-import java.io.File;
-import java.lang.reflect.Method;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
-
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 import static java.util.regex.Pattern.compile;
@@ -38,10 +9,44 @@ import static java.util.stream.Stream.concat;
 import static javax.lang.model.SourceVersion.isKeyword;
 import static org.reflections.scanners.Scanners.MethodsAnnotated;
 
+import java.io.File;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
+
+import javax.lang.model.SourceVersion;
+
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.reflections.Reflections;
+import org.reflections.util.ConfigurationBuilder;
+
+import io.polyapi.commons.api.model.PolyFunction;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
+import io.polyapi.commons.api.model.RequiredDependencies;
+import io.polyapi.commons.api.model.RequiredDependency;
+import io.polyapi.plugin.error.PolyApiMavenPluginException;
+import io.polyapi.plugin.error.validation.PropertyNotFoundException;
+import lombok.extern.slf4j.Slf4j;
+
 @Slf4j
 public class MavenService {
-    private static final String FUNCTION_NAME_PATTERN = "^[a-z][\\w$_]+$";
-    private static final String CONTEXT_PATTERN = "^[a-z][\\w$_.]*[\\w$_]$";
+    private static final String FUNCTION_NAME_PATTERN = "^[a-z][\\w$]*$";
+    private static final String CONTEXT_PATTERN = "^[a-z][\\w$.]*[\\w$]$";
     private final MavenProject project;
 
     public MavenService(MavenProject project) {
@@ -66,19 +71,21 @@ public class MavenService {
         return plugins.stream()
                 .filter(plugin -> pluginGroupId.equals(plugin.getGroupId()))
                 .filter(plugin -> pluginArtifactId.equals(plugin.getArtifactId()))
-                .peek(plugin -> log.debug("Found match: {}.{}:{}.\nRetrieving executions.", plugin.getGroupId(), plugin.getArtifactId(), plugin.getVersion()))
-                .map(Plugin::getExecutions)
-                .peek(pluginExecutions -> log.debug("Found {} executions.", pluginExecutions.size()))
-                .flatMap(List::stream)
+                .flatMap(plugin -> {
+                    log.debug("Found match: {}.{}:{}.\nRetrieving executions.", plugin.getGroupId(), plugin.getArtifactId(), plugin.getVersion());
+                    List<PluginExecution> executions = Optional.ofNullable(plugin.getExecutions()).orElseGet(ArrayList::new);
+                    log.debug("Found {} executions.", executions.size());
+                    return executions.stream();
+                })
                 .map(PluginExecution::getConfiguration)
                 .filter(Objects::nonNull)
                 .map(Xpp3Dom.class::cast)
-                .peek(configuration -> log.debug("Found configuration within the execution. Retrieving children."))
-                .map(Xpp3Dom::getChildren)
-                .peek(children -> log.debug("Found {} children properties.", children.length))
-                .flatMap(Stream::of)
-                .filter(Objects::nonNull)
-                .peek(property -> log.debug("Property '{}' found.", propertyName))
+                .flatMap(configuration -> {
+                    log.debug("Found configuration within the execution. Retrieving children.");
+                    Xpp3Dom[] children = Optional.ofNullable(configuration.getChildren()).orElse(new Xpp3Dom[]{});
+                    log.debug("Found {} children properties.", children.length);
+                    return Arrays.stream(children);
+                })
                 .map(Xpp3Dom::getValue)
                 .findFirst()
                 .orElseThrow(() -> new PropertyNotFoundException(propertyName));
@@ -89,7 +96,6 @@ public class MavenService {
             return new URLClassLoader(concat(concat(project.getCompileClasspathElements().stream(),
                             project.getRuntimeClasspathElements().stream()),
                     Stream.of(project.getBuild().getOutputDirectory()))
-                    .peek(classLoadingPath -> log.debug("    Adding classloading path '{}'.", classLoadingPath))
                     .map(File::new)
                     .map(File::toURI)
                     .map(uri -> {
@@ -103,13 +109,12 @@ public class MavenService {
                     .toArray(URL[]::new),
                     MavenService.class.getClassLoader());
         } catch (DependencyResolutionRequiredException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(e); // FIXME: Throw the appropriate exception.
         }
     }
 
     public List<File> getSourceFolders() {
         return concat(project.getCompileSourceRoots().stream(), Stream.of(project.getBasedir() + "/target/generated-sources"))
-                .peek(sourceRoot -> log.debug("    Retrieving source root '{}'", sourceRoot))
                 .map(File::new)
                 .filter(File::exists)
                 .toList();
@@ -119,7 +124,6 @@ public class MavenService {
         try {
             return project.getCompileClasspathElements().stream()
                     .filter(path -> path.endsWith(".jar"))
-                    .peek(path -> log.debug("    Retrieving jar sources from '{}'.", path))
                     .toList();
         } catch (DependencyResolutionRequiredException e) {
             // FIXME: Throw appropriate exception.

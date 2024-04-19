@@ -5,14 +5,12 @@ import io.polyapi.plugin.model.visitor.TypeVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Getter
 @Setter
 public class PrimitivePolyType extends PolyType {
     private PrimitiveTypeValue type;
 
+    @Override
     public void accept(TypeVisitor visitor) {
         visitor.visit(this);
     }

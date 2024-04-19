@@ -5,14 +5,6 @@ import io.polyapi.plugin.model.visitor.TypeVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Set;
-
-import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
-
 @Getter
 @Setter
 public class PropertyPolyType implements PolyObject {

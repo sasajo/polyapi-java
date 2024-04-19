@@ -4,6 +4,7 @@ import io.polyapi.commons.api.error.http.HttpResponseException;
 import io.polyapi.commons.api.model.PolyFunction;
 import io.polyapi.commons.api.model.RequiredDependencies;
 import io.polyapi.commons.api.model.RequiredDependency;
+import io.polyapi.commons.api.model.UpdateStrategy;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.error.deploy.DeploymentWrapperException;
 import io.polyapi.plugin.model.function.CodeObject;
@@ -44,18 +45,20 @@ public class DeployFunctionsMojo extends PolyApiMojo {
     @org.apache.maven.plugins.annotations.Parameter(property = "functions")
     private String functions;
 
+    @org.apache.maven.plugins.annotations.Parameter(property = "update.strategy", defaultValue = "AUTOMATIC")
+    private UpdateStrategy defaultUpdateStrategy;
 
     @Override
     protected void execute(String host, Integer port) {
         PolyFunctionService polyFunctionService = new PolyFunctionServiceImpl(host, port, getHttpClient(), getJsonParser());
         log.info("Initiating the deployment of functions.");
         Map<io.polyapi.plugin.model.function.PolyFunction, HttpResponseException> exceptions = new HashMap<>();
-        Predicate<Method> filter = null;
+        Predicate<Method> filter;
         if (isBlank(functions)) {
             log.debug("No specific functions to deploy were declared.");
             filter = method -> true;
         } else {
-            filter = method -> Arrays.stream(functions.split(",")).map(String::trim).peek(functionName -> log.debug("Looking for function {} to deploy.", functionName)).anyMatch(name -> {
+            filter = method -> Arrays.stream(functions.split(",")).map(String::trim).anyMatch(name -> {
                 PolyFunction annotation = method.getAnnotation(PolyFunction.class);
                 String functionName = Optional.ofNullable(annotation.name()).filter(not(String::isBlank)).orElseGet(method::getName);
                 return functionName.equals(name) || format("%s.%s", Optional.ofNullable(annotation.context()).filter(not(String::isBlank)).orElseGet(method.getDeclaringClass()::getPackageName), functionName).equals(name);
@@ -118,7 +121,7 @@ public class DeployFunctionsMojo extends PolyApiMojo {
             log.error("{} Errors occurred while deploying a total of {} functions.", exceptions.size(), methods.size());
             exceptions.forEach((polyFunctionMetadata, exception) -> {
                 try {
-                    log.error(IOUtils.toString(HttpResponseException.class.cast(exception).getResponse().body()));
+                    log.error(IOUtils.toString(HttpResponseException.class.cast(exception).getResponse().body(), defaultCharset()));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

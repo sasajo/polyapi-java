@@ -1,10 +1,9 @@
 package io.polyapi.plugin.model.generation;
 
-import io.polyapi.plugin.model.visitor.GenerableVisitor;
-import io.polyapi.plugin.utils.StringUtils;
-import lombok.Getter;
-
 import static io.polyapi.plugin.utils.StringUtils.toPascalCase;
+
+import io.polyapi.plugin.model.visitor.GenerableVisitor;
+import lombok.Getter;
 
 @Getter
 public class CustomType implements Generable {

@@ -6,10 +6,6 @@ import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Set;
-
-import static java.lang.String.format;
-
 @Getter
 @Setter
 public abstract class FunctionSpecification extends Specification {
@@ -26,4 +22,31 @@ public abstract class FunctionSpecification extends Specification {
     public void accept(PolySpecificationVisitor visitor) {
         visitor.visit(this);
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = super.hashCode();
+        result = prime * result + ((function == null) ? 0 : function.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (!super.equals(obj))
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        FunctionSpecification other = (FunctionSpecification) obj;
+        if (function == null) {
+            if (other.function != null)
+                return false;
+        } else if (!function.equals(other.function))
+            return false;
+        return true;
+    }
+
+    
 }
