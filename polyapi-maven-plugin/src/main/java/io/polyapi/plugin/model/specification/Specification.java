@@ -1,26 +1,26 @@
 package io.polyapi.plugin.model.specification;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
-import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
-import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
-import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
-import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
-import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
-import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
-import lombok.Getter;
-import lombok.Setter;
-
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
-
 import static io.polyapi.plugin.utils.StringUtils.toPascalCase;
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
+
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
+import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
+import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
+import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
+import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Setter

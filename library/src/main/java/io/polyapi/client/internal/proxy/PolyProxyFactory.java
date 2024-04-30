@@ -66,6 +66,7 @@ public class PolyProxyFactory {
         return createProxy(apiFunctionInvocationHandler, polyInterface);
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T createServerVariableProxy(String type, String packageName) {
         return (T) switch (type.toLowerCase()) {
             case "boolean" -> new Boolean(false);

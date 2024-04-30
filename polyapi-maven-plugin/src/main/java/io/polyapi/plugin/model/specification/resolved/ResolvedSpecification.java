@@ -1,14 +1,11 @@
 package io.polyapi.plugin.model.specification.resolved;
 
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
 import io.polyapi.plugin.model.generation.Generable;
-import io.polyapi.plugin.model.generation.KeyValuePair;
 import lombok.Getter;
-
-import java.util.*;
-import java.util.stream.Stream;
-
-import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
 
 @Getter
 public class ResolvedSpecification implements Generable {

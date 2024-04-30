@@ -315,6 +315,9 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.7.1
+- Fixed bug about having duplicate schema types with the same name.
+- Improved minor code issues.
 ### v0.7.0
 - Added ability to handle headers and params on webhook triggers.
 ### v0.6.0

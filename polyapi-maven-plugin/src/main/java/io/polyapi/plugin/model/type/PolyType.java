@@ -2,6 +2,7 @@ package io.polyapi.plugin.model.type;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 import io.polyapi.commons.api.model.PolyObject;
 import io.polyapi.plugin.model.type.basic.ArrayPolyType;
 import io.polyapi.plugin.model.type.basic.PlainPolyType;
@@ -12,9 +13,6 @@ import io.polyapi.plugin.model.type.primitive.PrimitivePolyType;
 import io.polyapi.plugin.model.visitor.TypeVisitor;
 import lombok.Getter;
 import lombok.Setter;
-
-import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

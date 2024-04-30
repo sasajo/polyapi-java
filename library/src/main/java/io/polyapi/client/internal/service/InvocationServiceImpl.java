@@ -40,7 +40,8 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     private final JsonParser jsonParser;
     private final VariableInjectionService variableInjectionService;
 
-    public InvocationServiceImpl(String host, Integer port, String clientId, HttpClient client, JsonParser jsonParser, WebSocketClient webSocketClient, VariableInjectionService variableInjectionService) {
+    public InvocationServiceImpl(String host, Integer port, String clientId, HttpClient client, JsonParser jsonParser,
+            WebSocketClient webSocketClient, VariableInjectionService variableInjectionService) {
         super(host, port, client, jsonParser);
         this.clientId = clientId;
         this.jsonParser = jsonParser;
@@ -49,47 +50,54 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     }
 
     @Override
-    public <T> T invokeServerFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
+    public <T> T invokeServerFunction(Class<?> invokingClass, String id, Map<String, Object> body,
+            Type expectedResponseType) {
         return invokeFunction("server", id, body, expectedResponseType);
     }
 
     @Override
-    public <T> T invokeApiFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
-        ApiFunctionResponse<T> response = invokeFunction("API", id, body, defaultInstance().constructParametricType(ApiFunctionResponse.class, defaultInstance().constructType(expectedResponseType)));
+    public <T> T invokeApiFunction(Class<?> invokingClass, String id, Map<String, Object> body,
+            Type expectedResponseType) {
+        ApiFunctionResponse<T> response = invokeFunction("API", id, body, defaultInstance().constructParametricType(
+                ApiFunctionResponse.class, defaultInstance().constructType(expectedResponseType)));
         if (response.getStatus() < 200 || response.getStatus() >= 400) {
-            throw new UnexpectedHttpResponseException(new ResponseRecord(response.getHeaders().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> List.of(entry.getValue()))), Optional.ofNullable(response.getData()).map(jsonParser::toJsonInputStream).orElse(null), response.getStatus()));
+            throw new UnexpectedHttpResponseException(new ResponseRecord(
+                    response.getHeaders().entrySet().stream()
+                            .collect(Collectors.toMap(Map.Entry::getKey, entry -> List.of(entry.getValue()))),
+                    Optional.ofNullable(response.getData()).map(jsonParser::toJsonInputStream).orElse(null),
+                    response.getStatus()));
         }
 
         return response.getData();
     }
 
     @Override
-    public <T> T invokeCustomFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
+    @SuppressWarnings("unchecked")
+    public <T> T invokeCustomFunction(Class<?> invokingClass, String id, Map<String, Object> body,
+            Type expectedResponseType) {
         try {
-            var delegateClass = Class.forName(format("%s.delegate.%s", invokingClass.getPackageName(), Optional.ofNullable(invokingClass.getDeclaredAnnotation(PolyMetadata.class)).map(PolyMetadata::delegate).filter(not(String::isBlank)).orElseGet(invokingClass::getSimpleName)));
+            var delegateClass = Class.forName(format("%s.delegate.%s", invokingClass.getPackageName(),
+                    Optional.ofNullable(invokingClass.getDeclaredAnnotation(PolyMetadata.class))
+                            .map(PolyMetadata::delegate).filter(not(String::isBlank))
+                            .orElseGet(invokingClass::getSimpleName)));
             Object delegate;
-            try {
-                delegate = delegateClass.getConstructor().newInstance();
-            } catch (NoSuchMethodException e) {
-                throw new MissingDefaultConstructorException(invokingClass.getName(), e);
-            } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
-                throw new GeneratedClassInstantiationException(invokingClass.getName(), e);
-            }
+            delegate = delegateClass.getConstructor().newInstance();
             var method = Stream.of(invokingClass.getDeclaredMethods()).findFirst()
-                    .orElseThrow(() -> new PolyApiException());
+                    .orElseThrow(PolyApiException::new);
             try {
                 return (T) Arrays.stream(delegateClass.getDeclaredMethods())
-                        .filter(declaredMethod ->
-                                Optional.ofNullable(declaredMethod.getDeclaredAnnotation(PolyFunction.class))
-                                        .filter(annotation -> annotation.type().equals(CLIENT))
-                                        .filter(not(annotation -> annotation.name().isBlank()))
-                                        .filter(annotation -> annotation.name().equalsIgnoreCase(method.getName()))
-                                        .isPresent())
-                        .filter(declaredMethod -> declaredMethod.getParameterTypes().equals(method.getParameterTypes()))
+                        .filter(declaredMethod -> Optional
+                                .ofNullable(declaredMethod.getDeclaredAnnotation(PolyFunction.class))
+                                .filter(annotation -> annotation.type().equals(CLIENT))
+                                .filter(not(annotation -> annotation.name().isBlank()))
+                                .filter(annotation -> annotation.name().equalsIgnoreCase(method.getName()))
+                                .isPresent())
+                        .filter(declaredMethod -> Arrays.equals(declaredMethod.getParameterTypes(), method.getParameterTypes()))
                         .findFirst()
                         .orElseGet(() -> {
                             try {
-                                return delegateClass.getDeclaredMethod(method.getName(), method.getParameterTypes());
+                                return delegateClass.getDeclaredMethod(method.getName(),
+                                        method.getParameterTypes());
                             } catch (NoSuchMethodException e) {
                                 throw new InvalidMethodDeclarationException(invokingClass, e);
                             }
@@ -100,14 +108,18 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
             } catch (InvocationTargetException e) {
                 throw new DelegateExecutionException(invokingClass, e);
             }
-        } catch (
-                ClassNotFoundException e) {
+        } catch (NoSuchMethodException e) {
+            throw new MissingDefaultConstructorException(invokingClass.getName(), e);
+        } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
+            throw new GeneratedClassInstantiationException(invokingClass.getName(), e);
+        } catch (ClassNotFoundException e) {
             throw new GeneratedClassNotFoundException(invokingClass.getName(), e);
         }
     }
 
     @Override
-    public Void invokeAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
+    public Void invokeAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body,
+            Type expectedResponseType) {
         try {
             AuthTokenEventConsumer callback = AuthTokenEventConsumer.class.cast(body.remove("callback"));
             AuthTokenOptions options = AuthTokenOptions.class.cast(body.remove("options"));
@@ -117,17 +129,19 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
                 body.put("callbackUrl", options.getCallbackUrl());
             });
             Optional<AuthTokenOptions> optionalOptions = Optional.ofNullable(options);
-            GetAuthTokenResponse data = post(format("auth-providers/%s/execute", id), replace(body), GetAuthTokenResponse.class);
+            GetAuthTokenResponse data = post(format("auth-providers/%s/execute", id), replace(body),
+                    GetAuthTokenResponse.class);
             if (data.getToken() == null) {
                 if (data.getUrl() == null || !optionalOptions.map(AuthTokenOptions::getAutoCloseOnUrl).orElse(false)) {
                     Handle handle;
                     handle = webSocketClient.registerAuthFunctionEventHandler(id, (payload, headers, params) -> {
                         try {
-                            GetAuthTokenResponse event = jsonParser.parseString(payload.toString(), GetAuthTokenResponse.class);
+                            GetAuthTokenResponse event = jsonParser.parseString(payload.toString(),
+                                    GetAuthTokenResponse.class);
                             if (event.getToken() != null) {
                                 callback.accept(event.getToken(), event.getUrl(), event.getError());
                                 if (optionalOptions.map(AuthTokenOptions::getAutoCloseOnToken).orElse(true)) {
-                                    //handle.close();
+                                    // handle.close();
                                 }
                             }
                         } catch (RuntimeException e) {
@@ -136,7 +150,8 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
                     });
                     callback.accept(data.getToken(), data.getUrl(), data.getError());
 
-                    // FIXME: This will always unregister the event handler and indicate that the timeout has been reached.
+                    // FIXME: This will always unregister the event handler and indicate that the
+                    // timeout has been reached.
                     var timeout = optionalOptions.map(AuthTokenOptions::getTimeout).orElse(120_000);
                     if (timeout > 0) {
                         new Timer().schedule(new TimerTask() {
@@ -162,7 +177,8 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
 
     private <T> T invokeFunction(String type, String id, Map<String, Object> body, Type expectedResponseType) {
         log.debug("Invoking Poly {} function with ID {}.", type, id);
-        var result = super.<Map<String, Object>, T>post(format("functions/%s/%s/execute", type.toLowerCase(), id), replace(body), expectedResponseType);
+        var result = super.<Map<String, Object>, T>post(format("functions/%s/%s/execute", type.toLowerCase(), id),
+                replace(body), expectedResponseType);
         log.debug("Function successfully executed. Returning result as {}.", expectedResponseType.getTypeName());
         return result;
     }
@@ -186,14 +202,17 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     }
 
     @Override
-    public Void invokeSubresourceAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body, Type expectedResponseType) {
+    public Void invokeSubresourceAuthFunction(Class<?> invokingClass, String id, Map<String, Object> body,
+            Type expectedResponseType) {
         body.put("clientID", clientId);
-        post(format("auth-providers/%s/%s", id, invokingClass.getDeclaredAnnotation(PolyAuthSubresource.class).value()), replace(body), expectedResponseType);
+        post(format("auth-providers/%s/%s", id, invokingClass.getDeclaredAnnotation(PolyAuthSubresource.class).value()),
+                replace(body), expectedResponseType);
         return null;
     }
 
     private Map<String, Object> replace(Map<String, Object> body) {
-        return body.entrySet().stream().collect(Collectors.<Map.Entry<String, Object>, String, Object>toMap(Map.Entry::getKey, entry -> variableInjectionService.replace(entry.getKey(), entry.getValue())));
+        return body.entrySet().stream().collect(Collectors.<Map.Entry<String, Object>, String, Object>toMap(
+                Map.Entry::getKey, entry -> variableInjectionService.replace(entry.getKey(), entry.getValue())));
     }
 
 }

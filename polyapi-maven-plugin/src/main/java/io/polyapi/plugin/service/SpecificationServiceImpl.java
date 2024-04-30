@@ -1,24 +1,19 @@
 package io.polyapi.plugin.service;
 
+import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
-import static java.lang.String.format;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.joining;
 
 @Slf4j
 public class SpecificationServiceImpl extends PolyApiService implements SpecificationService {

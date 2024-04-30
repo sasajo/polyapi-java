@@ -1,11 +1,10 @@
 package io.polyapi.plugin.model.visitor;
 
-import io.polyapi.plugin.model.generation.CustomType;
-import io.polyapi.plugin.model.generation.Generable;
-import io.polyapi.plugin.model.generation.Context;
-import io.polyapi.plugin.model.specification.Specification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.polyapi.plugin.model.generation.CustomType;
+import io.polyapi.plugin.model.generation.Generable;
 
 public interface GenerableVisitor extends PolySpecificationVisitor {
     Logger log = LoggerFactory.getLogger(GenerableVisitor.class);

@@ -8,7 +8,9 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Arrays;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 
 @Slf4j
@@ -26,10 +28,12 @@ public class PolyInvocationHandler implements InvocationHandler {
     var polyMetadata = method.getDeclaringClass().getAnnotation(PolyMetadata.class);
     log.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
     log.debug("Executing Poly function with ID '{}'.", polyData.value());
-    log.debug("Poly metadata param names: {}.", polyMetadata.paramNames());
-    log.debug("Poly metadata param types: {}.", polyMetadata.paramTypes());
+    
+    log.debug("Poly metadata param names: {}.", Arrays.stream(polyMetadata.paramNames()).collect(joining(",")));
+    log.debug("Poly metadata param types: {}.", Arrays.stream(polyMetadata.paramTypes()).collect(joining(",")));
     Map<String, Object> body = new HashMap<>();
-    range(0, polyMetadata.paramNames().length).boxed().forEach(i -> body.put(polyMetadata.paramNames()[i], arguments[i]));
+    range(0, polyMetadata.paramNames().length).boxed()
+        .forEach(i -> body.put(polyMetadata.paramNames()[i], arguments[i]));
     return invocation.invoke(invokingClass, polyData.value(), body, method.getGenericReturnType());
   }
 }

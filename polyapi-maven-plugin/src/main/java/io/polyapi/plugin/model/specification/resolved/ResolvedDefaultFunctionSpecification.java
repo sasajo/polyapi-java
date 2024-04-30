@@ -1,19 +1,9 @@
 package io.polyapi.plugin.model.specification.resolved;
 
-import io.polyapi.plugin.model.generation.KeyValuePair;
-import io.polyapi.plugin.utils.StringUtils;
-import lombok.Getter;
-
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import static java.lang.String.format;
-import static java.util.function.Predicate.isEqual;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.joining;
+import io.polyapi.plugin.model.generation.KeyValuePair;
 
 public class ResolvedDefaultFunctionSpecification extends ResolvedFunctionSpecification {
 

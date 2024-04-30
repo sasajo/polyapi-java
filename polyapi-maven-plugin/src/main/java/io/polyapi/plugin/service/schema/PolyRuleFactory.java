@@ -1,15 +1,14 @@
 package io.polyapi.plugin.service.schema;
 
-import com.sun.codemodel.JClassContainer;
-import com.sun.codemodel.JDocComment;
-import com.sun.codemodel.JDocCommentable;
-import com.sun.codemodel.JType;
 import org.jsonschema2pojo.GenerationConfig;
 import org.jsonschema2pojo.Jackson2Annotator;
 import org.jsonschema2pojo.SchemaStore;
 import org.jsonschema2pojo.rules.Rule;
 import org.jsonschema2pojo.rules.RuleFactory;
 import org.jsonschema2pojo.util.NameHelper;
+
+import com.sun.codemodel.JClassContainer;
+import com.sun.codemodel.JType;
 
 public class PolyRuleFactory extends RuleFactory {
 

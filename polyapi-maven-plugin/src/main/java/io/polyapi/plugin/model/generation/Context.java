@@ -1,19 +1,22 @@
 package io.polyapi.plugin.model.generation;
 
-import io.polyapi.plugin.model.specification.Specification;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.*;
-
 import static io.polyapi.plugin.utils.StringUtils.toPascalCase;
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+import io.polyapi.plugin.model.specification.Specification;
+import lombok.Getter;
+import lombok.Setter;
+
 @Getter
 @Setter
-@Slf4j
 public class Context {
     private String name;
     private Context parent;
@@ -26,7 +29,7 @@ public class Context {
     }
 
     public String getPackageName() {
-        return Optional.ofNullable(parent).map(parent -> format("%s.context.%s", parent.getPackageName(), parent.getName().toLowerCase())).orElse("io.polyapi");
+        return Optional.ofNullable(parent).map(parentContext -> format("%s.context.%s", parentContext.getPackageName(), parentContext.getName().toLowerCase())).orElse("io.polyapi");
     }
 
     public String getClassName() {
