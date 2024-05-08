@@ -70,13 +70,13 @@ public abstract class PolyApiMojo extends AbstractMojo {
             throw new MojoFailureException(e);
         } catch (UnexpectedHttpResponseException e) {
             log.error("An unexpected HTTP response code {} was returned from the server.", e.getResponse().statusCode());
-            //if (log.isTraceEnabled()) {
+            if (log.isDebugEnabled()) {
                 try {
-                    log.info("Response from server is: {}", IOUtils.toString(e.getResponse().body(), defaultCharset()));
+                    log.debug("Response from server is: {}", IOUtils.toString(e.getResponse().body(), defaultCharset()));
                 } catch (IOException ex) {
                     throw new MojoExecutionException(ex);
                 }
-            //}
+            }
             throw new MojoFailureException(e);
         } catch (RuntimeException e) {
             log.error("An unexpected exception occurred during the plugin execution.", e);

@@ -1,6 +1,7 @@
 # Java Client Library (beta)
 
-### Latest released version v0.7.0
+### Latest released version v0.7.1
+### Latest snapshot version v0.7.2-SNAPSHOT
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -54,7 +55,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.7.0</poly.version>
+  <poly.version>0.7.1</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -314,6 +315,9 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.7.2
+- Made JacksonJSonParser extend ObjectMapper instead of using it.
+- Made response from server on errors be displayed under debug log instead of info.
 ### v0.7.1
 - Fixed bug about having duplicate schema types with the same name.
 - Improved minor code issues.

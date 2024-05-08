@@ -25,15 +25,15 @@ import static java.nio.charset.Charset.defaultCharset;
  * Wrapper class around the Jackson mapping library to handle all the errors it can throw and unify all the configuration for it.
  */
 @Slf4j
-public class JacksonJsonParser implements JsonParser {
-    private final ObjectMapper objectMapper;
+public class JacksonJsonParser extends ObjectMapper implements JsonParser {
     private final JsonSchemaGenerator jsonSchemaGenerator;
 
     /**
      * Utility constructor that uses a standard {@link ObjectMapper} instance.
      */
     public JacksonJsonParser() {
-        this(new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false));
+        configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.jsonSchemaGenerator = new JsonSchemaGenerator(this);
     }
 
     /**
@@ -42,7 +42,7 @@ public class JacksonJsonParser implements JsonParser {
      * @param objectMapper The object mapper.
      */
     public JacksonJsonParser(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        super(objectMapper);
         this.jsonSchemaGenerator = new JsonSchemaGenerator(objectMapper);
     }
 
@@ -53,7 +53,7 @@ public class JacksonJsonParser implements JsonParser {
     public String toJsonString(Object object) {
         try {
             log.debug("Parsing object of type {} to String.", object.getClass().getSimpleName());
-            String result = objectMapper.writeValueAsString(object);
+            String result = writeValueAsString(object);
             log.debug("Object to String parsing successful.");
             if (log.isTraceEnabled()) {
                 log.trace("Parsed result is:\n{}", result);
@@ -71,7 +71,7 @@ public class JacksonJsonParser implements JsonParser {
     public InputStream toJsonInputStream(Object object) {
         try {
             log.debug("Parsing object of type {} to InputStream.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null"));
-            InputStream result = new ByteArrayInputStream(object == null ? new byte[]{} : objectMapper.writeValueAsBytes(object));
+            InputStream result = new ByteArrayInputStream(object == null ? new byte[]{} : writeValueAsBytes(object));
             log.debug("String to object parsing successful.");
             if (log.isTraceEnabled()) {
                 log.trace("Parsed result is:\n{}", IOUtils.toString(result, defaultCharset()));
@@ -95,7 +95,7 @@ public class JacksonJsonParser implements JsonParser {
                 log.trace("Input to parse is:\n{}", json);
             }
             log.debug("Parsing JSon String to object of type {}.", expectedResponseType.getTypeName());
-            O result = objectMapper.readValue(json, defaultInstance().constructType(expectedResponseType));
+            O result = readValue(json, defaultInstance().constructType(expectedResponseType));
             log.debug("Parsing successful.");
             return result;
         } catch (IOException e) {
@@ -124,7 +124,7 @@ public class JacksonJsonParser implements JsonParser {
             if (expectedResponseType == String.class) {
                 result = (O) IOUtils.toString(json, Charset.defaultCharset());
             } else {
-                result = objectMapper.readValue(json, defaultInstance().constructType(expectedResponseType));
+                result = readValue(json, defaultInstance().constructType(expectedResponseType));
             }
 
             log.debug("Parsing successful.");
