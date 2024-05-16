@@ -315,6 +315,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.8.1
+- Removed unused `unsued.strategy` parameter from `deploy-functions` mojo.
 ### v0.8.0
 - Added PolyCustom functionality.
 ### v0.7.2

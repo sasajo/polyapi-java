@@ -4,7 +4,6 @@ import io.polyapi.commons.api.error.http.HttpResponseException;
 import io.polyapi.commons.api.model.PolyFunction;
 import io.polyapi.commons.api.model.RequiredDependencies;
 import io.polyapi.commons.api.model.RequiredDependency;
-import io.polyapi.commons.api.model.UpdateStrategy;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
 import io.polyapi.plugin.error.deploy.DeploymentWrapperException;
 import io.polyapi.plugin.model.function.CodeObject;
@@ -44,9 +43,6 @@ public class DeployFunctionsMojo extends PolyApiMojo {
 
     @org.apache.maven.plugins.annotations.Parameter(property = "functions")
     private String functions;
-
-    @org.apache.maven.plugins.annotations.Parameter(property = "update.strategy", defaultValue = "AUTOMATIC")
-    private UpdateStrategy defaultUpdateStrategy;
 
     @Override
     protected void execute(String host, Integer port) {
