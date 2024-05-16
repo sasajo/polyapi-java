@@ -3,7 +3,6 @@ package io.polyapi.commons.api.model;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static io.polyapi.commons.api.model.UpdateStrategy.PROJECT;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
@@ -42,11 +41,4 @@ public @interface PolyFunction {
      * @return boolean The flag indicating if this function is to be deployed.
      */
     boolean deployFunction() default true;
-
-    /**
-     * The strategy to be used to update the function once it is deployed. By default, it delegates the strategy to the project.
-     *
-     * @return UpdateStrategy The strategy enum.
-     */
-    UpdateStrategy updateStrategy() default PROJECT;
 }
