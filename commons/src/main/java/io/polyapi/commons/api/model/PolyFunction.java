@@ -50,7 +50,7 @@ public @interface PolyFunction {
      * all the functions within the `polyapi.sample` and `polyapi.example` will be available for the function as well as
      * functions within a `polyapi.sample.value` subcontext, but not functions within `polyapi.others` nor within
      * `polyapi.sample1`. If no value is set for this, then the code will be scanned for functions or server variables and their contexts will be added automatically.</p>
-     * <p></p>This is an attribute for performance purposes. Removing availability of a context containing a Poly function that
+     * <p>This is an attribute for performance purposes. Removing availability of a context containing a Poly function that
      * is being used may lead to deployment failure.</p>
      *
      * @return String The comma separated value indicating the contexts available for the function.
