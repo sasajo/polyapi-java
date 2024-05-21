@@ -316,6 +316,8 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 These features will be added in the future releases.
 
 ## Changelog
+### v0.9.1
+- Fixed bug where deployment of a single function blocked the deployment of the rest. 
 ### v0.9.0
 - Added context awareness for Poly functions.
 - Added dry-run mode to `deploy-functions` MOJO.
