@@ -24,7 +24,7 @@ import java.util.function.Function;
 @Getter
 @AllArgsConstructor
 public class HttpClientConfiguration {
-    public static final Long DEFAULT_TIMEOUT_MILLIS = 10000L;
+    public static final Long DEFAULT_TIMEOUT_MILLIS = 600000L;
     private final TokenProvider tokenProvider;
     private Long connectTimeoutMillis;
     private Long readTimeoutMillis;
