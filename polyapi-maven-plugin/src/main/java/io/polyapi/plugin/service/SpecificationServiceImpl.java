@@ -8,7 +8,6 @@ import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,12 +20,12 @@ import static java.util.stream.Collectors.joining;
 @Slf4j
 public class SpecificationServiceImpl extends PolyApiService implements SpecificationService {
 
-    public SpecificationServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
-        super(host, port, client, jsonParser);
+    public SpecificationServiceImpl(HttpClient client, JsonParser jsonParser, String host, Integer port) {
+        super(client, jsonParser, host, port);
     }
 
     @Override
-    public List<Specification> getJsonSpecs(String... contextFilters) {
+    public List<Specification> list(List<String> contextFilters) {
         log.info("Retrieving JSon specifications from Poly API for this user.");
         List<Specification> specifications = get("specs", defaultInstance().constructCollectionType(List.class, Specification.class));
         log.debug("{} specifications retrieved without filter.", specifications.size());
@@ -39,7 +38,7 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
                 .filter(not(IgnoredSpecification.class::isInstance))
                 .filter(specification -> {
                     String context = specification.getContext().trim().toLowerCase();
-                    return Arrays.stream(contextFilters)
+                    return contextFilters.stream()
                             .map(String::trim)
                             .map(String::toLowerCase)
                             .anyMatch(contextFilter -> contextFilter.equalsIgnoreCase(context) || contextFilter.isEmpty() || context.startsWith(format("%s.", contextFilter)));

@@ -29,7 +29,7 @@ public class PolyApiService {
   private final HttpClient client;
   private final JsonParser jsonParser;
 
-  public PolyApiService(String host, Integer port, HttpClient client, JsonParser jsonParser) {
+  public PolyApiService(HttpClient client, JsonParser jsonParser, String host, Integer port) {
     this.client = client;
     this.jsonParser = jsonParser;
     this.host = host;

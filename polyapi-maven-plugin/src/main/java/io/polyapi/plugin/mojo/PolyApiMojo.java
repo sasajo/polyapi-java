@@ -1,5 +1,6 @@
 package io.polyapi.plugin.mojo;
 
+import io.polyapi.commons.api.error.http.HttpResponseException;
 import io.polyapi.commons.api.error.http.UnexpectedHttpResponseException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.http.TokenProvider;
@@ -20,6 +21,9 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 import static io.polyapi.plugin.mojo.validation.Validator.validateNotEmpty;
 import static io.polyapi.plugin.mojo.validation.Validator.validatePortFormat;
@@ -58,9 +62,23 @@ public abstract class PolyApiMojo extends AbstractMojo {
             tokenProvider = new HardcodedTokenProvider(apiKey);
             httpClient = new DefaultHttpClient(HttpClientConfiguration.builder(tokenProvider).build());
             jsonParser = new JacksonJsonParser();
+            log.debug("Using host: {}", host);
+            log.debug("Using port: {}", host);
             execute(host, Integer.valueOf(port));
         } catch (PolyApiMavenPluginException e) {
             log.error("An exception occurred during the plugin execution.", e);
+            List<Throwable> suppressedExceptions = Arrays.stream(Optional.ofNullable(e.getSuppressed()).orElse(new Throwable[] {})).toList();
+            for (Throwable suppressedException : suppressedExceptions) {
+                try {
+                    if (suppressedException instanceof HttpResponseException httpException) {
+                        log.error(IOUtils.toString(httpException.getResponse().body(), defaultCharset()));
+                    } else {
+                        log.error("Non HTTP suppressed exception: {}", suppressedException.getMessage());
+                    }
+                } catch (IOException ex) {
+                    throw new MojoExecutionException(ex);
+                }
+            }
             throw new MojoFailureException(e);
         } catch (UnexpectedHttpResponseException e) {
             log.error("An unexpected HTTP response code {} was returned from the server.", e.getResponse().statusCode());

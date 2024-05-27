@@ -42,9 +42,9 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
     private final JsonParser jsonParser;
     private final VariableInjectionService variableInjectionService;
 
-    public InvocationServiceImpl(String host, Integer port, String clientId, HttpClient client, JsonParser jsonParser,
+    public InvocationServiceImpl(HttpClient client, JsonParser jsonParser, String host, Integer port, String clientId,
                                  WebSocketClient webSocketClient, VariableInjectionService variableInjectionService) {
-        super(host, port, client, jsonParser);
+        super(client, jsonParser, host, port);
         this.clientId = clientId;
         this.jsonParser = jsonParser;
         this.webSocketClient = webSocketClient;

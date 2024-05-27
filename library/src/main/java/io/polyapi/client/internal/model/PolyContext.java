@@ -49,7 +49,7 @@ public class PolyContext {
     }
 
     private PolyContext(String host, Integer port, String clientId, HttpClient httpClient, SocketIOWebSocketClient webSocketClient, JsonParser jsonParser) {
-        this(new PolyProxyFactory(new InvocationServiceImpl(host, port, clientId, httpClient, jsonParser, webSocketClient, new VariableInjectionServiceImpl()), webSocketClient));
+        this(new PolyProxyFactory(new InvocationServiceImpl(httpClient, jsonParser, host, port, clientId, webSocketClient, new VariableInjectionServiceImpl()), webSocketClient));
     }
 
     public PolyContext(PolyProxyFactory proxyFactory) {

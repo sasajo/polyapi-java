@@ -2,7 +2,6 @@ package io.polyapi.plugin.service.visitor;
 
 import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.model.PolyGeneratedClass;
-import io.polyapi.commons.api.service.file.FileService;
 import io.polyapi.plugin.model.function.CodeObject;
 import io.polyapi.plugin.model.generation.CustomType;
 import io.polyapi.plugin.model.specification.Specification;
@@ -17,6 +16,7 @@ import io.polyapi.plugin.model.specification.variable.ServerVariableSpecificatio
 import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
 import io.polyapi.plugin.model.type.function.FunctionPolyType;
 import io.polyapi.plugin.model.visitor.PolySpecificationVisitor;
+import io.polyapi.plugin.service.FileService;
 import io.polyapi.plugin.service.generation.PolyObjectResolverService;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import lombok.extern.slf4j.Slf4j;
@@ -26,17 +26,20 @@ import java.util.Optional;
 import static java.lang.String.format;
 
 @Slf4j
-public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements PolySpecificationVisitor {
+public class SpecificationCodeGeneratorVisitor implements PolySpecificationVisitor {
 
     private final JsonSchemaParser jsonSchemaParser;
     private final JsonParser jsonParser;
     private final PolyObjectResolverService resolver;
+    private final FileService fileService;
+    private final boolean overwriteFiles;
 
-    public SpecificationCodeGeneratorVisitor(FileService fileService, PolyObjectResolverService resolver, JsonParser jsonParser, JsonSchemaParser jsonSchemaParser) {
-        super(fileService);
+    public SpecificationCodeGeneratorVisitor(FileService fileService, PolyObjectResolverService resolver, JsonParser jsonParser, JsonSchemaParser jsonSchemaParser, boolean overwriteFiles) {
+        this.fileService = fileService;
         this.resolver = resolver;
         this.jsonParser = jsonParser;
         this.jsonSchemaParser = jsonSchemaParser;
+        this.overwriteFiles = overwriteFiles;
     }
 
     @Override
@@ -52,8 +55,8 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
         PolyObjectResolverVisitor visitor = new PolyObjectResolverVisitor(resolver);
         visitor.doVisit(specification);
         ResolvedSpecification resolvedSpecification = visitor.getResult();
-        generate(resolvedSpecification);
-        new TypeCodeGeneratorVisitor(resolvedSpecification.getClassName(), resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser).doVisit(specification.getFunction());
+        fileService.generateFile(resolvedSpecification, overwriteFiles);
+        new TypeCodeGeneratorVisitor(fileService, jsonParser, jsonSchemaParser, resolvedSpecification.getClassName(), resolvedSpecification.getPackageName(), overwriteFiles).doVisit(specification.getFunction());
     }
 
     public void visit(ServerFunctionSpecification specification) {
@@ -65,8 +68,8 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
     public void visit(CustomFunctionSpecification specification) {
         log.trace("Generating code for CustomFunctionSpecification.");
         ResolvedCustomFunctionSpecification resolvedSpecification = resolver.resolve(specification);
-        generate(resolvedSpecification);
-        specification.getFunction().accept(new TypeCodeGeneratorVisitor(resolvedSpecification.getClassName(), resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser));
+        fileService.generateFile(resolvedSpecification, overwriteFiles);
+        specification.getFunction().accept(new TypeCodeGeneratorVisitor(fileService, jsonParser, jsonSchemaParser, resolvedSpecification.getClassName(), resolvedSpecification.getPackageName(), overwriteFiles));
         CodeObject codeObject = Optional.of(specification.getCode())
                 .map(String::trim)
                 .filter(code -> code.startsWith("{"))
@@ -79,15 +82,15 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
                 });
         codeObject.setPackageName(format("%s.delegate", resolvedSpecification.getPackageName()));
         codeObject.setCode(codeObject.getCode().replace("public class", format("@%s\npublic class", PolyGeneratedClass.class.getName())));
-        generate(new CustomType(codeObject.getPackageName(), codeObject.getClassName(), format("package %s;\n%s", codeObject.getPackageName(), codeObject.getCode().trim().startsWith("package ") ? codeObject.getCode().substring(codeObject.getCode().indexOf(';') + 1) : codeObject.getCode())));
+        fileService.generateFile(new CustomType(codeObject.getPackageName(), codeObject.getClassName(), format("package %s;\n%s", codeObject.getPackageName(), codeObject.getCode().trim().startsWith("package ") ? codeObject.getCode().substring(codeObject.getCode().indexOf(';') + 1) : codeObject.getCode())), overwriteFiles);
     }
 
     @Override
     public void visit(ServerVariableSpecification specification) {
         log.trace("Generating code for ServerVariableSpecification.");
         ResolvedServerVariableSpecification resolvedSpecification = resolver.resolve(specification);
-        generate(resolvedSpecification);
-        new TypeCodeGeneratorVisitor(specification.getTypeName(), resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser)
+        fileService.generateFile(resolvedSpecification, overwriteFiles);
+        new TypeCodeGeneratorVisitor(fileService, jsonParser, jsonSchemaParser, specification.getTypeName(), resolvedSpecification.getPackageName(), overwriteFiles)
                 .doVisit(specification.getVariable());
     }
 
@@ -95,7 +98,7 @@ public class SpecificationCodeGeneratorVisitor extends CodeGenerator implements 
     public void visit(WebhookHandleSpecification specification) {
         log.trace("Generating code for WebhookHandleSpecification.");
         ResolvedWebhookHandleSpecification resolvedSpecification = resolver.resolve(specification);
-        generate(resolvedSpecification);
-        FunctionPolyType.class.cast(specification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).accept(new TypeCodeGeneratorVisitor(resolvedSpecification.getClassName() + "Event", resolvedSpecification.getPackageName(), getFileService(), jsonParser, jsonSchemaParser));
+        fileService.generateFile(resolvedSpecification, overwriteFiles);
+        FunctionPolyType.class.cast(specification.getFunction().getArguments().get(0).getType()).getSpec().getArguments().get(0).accept(new TypeCodeGeneratorVisitor(fileService, jsonParser, jsonSchemaParser,resolvedSpecification.getClassName() + "Event", resolvedSpecification.getPackageName(), overwriteFiles));
     }
 }
