@@ -24,7 +24,7 @@ public interface WebSocketClient extends AutoCloseable {
      * Registers a listener for error messages.
      *
      * @param path     The path that will filter the messages.
-     * @param listener The {@link Consumer}<{@link PolyErrorEvent}> that will work as a listener.
+     * @param listener The {@link Consumer} of {@link PolyErrorEvent}s that will work as a listener.
      * @return Handle The handle that allows for closing of the socket.
      */
     Handle registerErrorHandler(String path, Consumer<PolyErrorEvent> listener);
