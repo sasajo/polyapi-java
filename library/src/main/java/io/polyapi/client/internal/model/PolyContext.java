@@ -14,6 +14,9 @@ import io.polyapi.client.internal.service.VariableInjectionServiceImpl;
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
+import io.polyapi.commons.api.model.PolyErrorEvent;
+import io.polyapi.commons.api.websocket.Handle;
+import io.polyapi.commons.api.websocket.WebSocketClient;
 import io.polyapi.commons.internal.http.DefaultHttpClient;
 import io.polyapi.commons.internal.http.HardcodedTokenProvider;
 import io.polyapi.commons.internal.http.HttpClientConfiguration;
@@ -24,9 +27,11 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 public class PolyContext {
     private final PolyProxyFactory proxyFactory;
+    private final WebSocketClient webSocketClient;
 
     public PolyContext() {
         this(Optional.of(new Properties())
@@ -48,12 +53,13 @@ public class PolyContext {
                 .build()), new SocketIOWebSocketClient(config.getUrl(), config.getClientId(), new HardcodedTokenProvider(config.getApiKey()), jsonParser, config.getConnectionTimeoutMillis()), jsonParser);
     }
 
-    private PolyContext(String host, Integer port, String clientId, HttpClient httpClient, SocketIOWebSocketClient webSocketClient, JsonParser jsonParser) {
-        this(new PolyProxyFactory(new InvocationServiceImpl(httpClient, jsonParser, host, port, clientId, webSocketClient, new VariableInjectionServiceImpl()), webSocketClient));
+    private PolyContext(String host, Integer port, String clientId, HttpClient httpClient, WebSocketClient webSocketClient, JsonParser jsonParser) {
+        this(new PolyProxyFactory(new InvocationServiceImpl(httpClient, jsonParser, host, port, clientId, webSocketClient, new VariableInjectionServiceImpl()), webSocketClient), webSocketClient);
     }
 
-    public PolyContext(PolyProxyFactory proxyFactory) {
+    public PolyContext(PolyProxyFactory proxyFactory, WebSocketClient webSocketClient) {
         this.proxyFactory = proxyFactory;
+        this.webSocketClient = webSocketClient;
     }
 
     protected <T extends PolyServerFunction> T createServerFunctionProxy(Class<T> polyInterface) {
@@ -94,11 +100,15 @@ public class PolyContext {
 
     protected <T extends PolyContext> T createSubContext(Class<T> polyContextType) {
         try {
-            return polyContextType.getDeclaredConstructor(PolyProxyFactory.class).newInstance(proxyFactory);
+            return polyContextType.getDeclaredConstructor(PolyProxyFactory.class, WebSocketClient.class).newInstance(proxyFactory, webSocketClient);
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                  NoSuchMethodException e) {
             // FIXME: Throw appropriate exception.
             throw new PolyApiException(e);
         }
+    }
+
+    protected Handle addErrorListener(String path, Consumer<PolyErrorEvent> errorListener) {
+        return webSocketClient.registerErrorHandler(path, errorListener);
     }
 }

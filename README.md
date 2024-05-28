@@ -245,6 +245,13 @@ Poly.myWebhooks.onCoolEvent((event, headers, params) -> {
 });
 ```
 
+### Error handlers
+```java
+Poly.onError("poly.context", errorEvent -> {
+    System.out.println(errorEvent.getMessage());
+});
+```
+
 ### Auth functions
 ```java
 var clientId = "...";

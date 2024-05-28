@@ -5,6 +5,10 @@ import io.polyapi.client.internal.model.PolyContext;
 import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.AuthTokenOptions;
+import io.polyapi.commons.api.websocket.Handle;
+import java.util.function.Consumer;
+import io.polyapi.commons.api.model.PolyErrorEvent;
+
 {{~#each this.imports}}
 import {{{this}}};
 {{~/each}}
@@ -16,9 +20,11 @@ public class {{className}} extends PolyContext {
 {{#each subcontexts}}
     public static {{this.className}} {{this.name}};
 {{~/each}}
+    private static final Poly poly;
+
 
     static {
-        Poly poly = new Poly();
+        poly = new Poly();
 {{~#each serverFunctionSpecifications}}
         poly.{{this.name}} = poly.createServerFunctionProxy({{this.className}}.class);
 {{~/each}}
@@ -84,4 +90,8 @@ public class {{className}} extends PolyContext {
         }
     {{~/ifIsType}}
 {{~/each}}
+
+    public static Handle onError(String path, Consumer<PolyErrorEvent> errorListener) {
+        return poly.addErrorListener(path, errorListener);
+    }
 }
