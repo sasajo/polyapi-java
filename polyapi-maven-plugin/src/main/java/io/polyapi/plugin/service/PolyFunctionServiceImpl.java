@@ -11,15 +11,15 @@ import static java.lang.String.format;
 @Slf4j
 public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunctionService {
 
-    public PolyFunctionServiceImpl(String host, Integer port, HttpClient client, JsonParser jsonParser) {
-        super(host, port, client, jsonParser);
+    public PolyFunctionServiceImpl(HttpClient client, JsonParser jsonParser, String host, Integer port) {
+        super(client, jsonParser, host, port);
     }
 
     @Override
-    public String deploy(String type, PolyFunction polyFunction) {
+    public PolyFunction deploy(String type, PolyFunction polyFunction) {
         log.info("Deploying {} function '{}' on context '{}'.", type, polyFunction.getName(), polyFunction.getContext());
         PolyFunction function = post(format("functions/%s", type), polyFunction, PolyFunction.class);
         log.info("Deployment of {} function '{}' on context'{}' successful.", type, polyFunction.getName(), polyFunction.getContext());
-        return function.getId();
+        return function;
     }
 }

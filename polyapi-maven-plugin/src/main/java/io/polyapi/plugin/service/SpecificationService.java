@@ -15,5 +15,5 @@ public interface SpecificationService {
      * @param context The contexts that should be used to filter the specifications.
      * @return String A JSON containing the specifications.
      */
-    List<Specification> getJsonSpecs(String... context);
+    List<Specification> list(List<String> context);
 }
