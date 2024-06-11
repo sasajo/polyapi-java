@@ -28,15 +28,3 @@ jobs:
         servers: '[{"id": "ossrh", "username": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}", "password": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}"}]'
     - name: Release to production
       run: mvn clean release:clean release:prepare release:perform -B -DaltDeploymentRepository=ossrh::https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/
-
-    - name: Delete sample post-production verification function
-      run: mvn clean polyapi:delete-function -Dcontext=io.polyapi.deploy.verification -Dname=verification-function
-
-    - name: Deploy sample post-production verification function
-      run: mvn polyapi:deploy-functions // Complete this
-
-    - name: Generate sources for sample post-production verification function
-      run: mvn clean compile // Fix this
-
-    - name: Execute post-production verification function
-      run: mvn clean verify
