@@ -29,7 +29,7 @@ public interface PolySpecificationVisitor {
         visit((FunctionSpecification) specification);
     }
 
-    default void visit(CustomFunctionSpecification specification) {
+    default void visit(ClientFunctionSpecification specification) {
         log.trace("Visiting CustomFunctionSpecification.");
         visit((FunctionSpecification) specification);
     }

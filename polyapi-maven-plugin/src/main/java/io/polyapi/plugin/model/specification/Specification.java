@@ -14,7 +14,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
-import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ClientFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
@@ -32,7 +32,7 @@ import lombok.Setter;
 )
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ApiFunctionSpecification.class, name = "apiFunction"),
-        @JsonSubTypes.Type(value = CustomFunctionSpecification.class, name = "customFunction"),
+        @JsonSubTypes.Type(value = ClientFunctionSpecification.class, name = "customFunction"),
         @JsonSubTypes.Type(value = ServerFunctionSpecification.class, name = "serverFunction"),
         @JsonSubTypes.Type(value = AuthFunctionSpecification.class, name = "authFunction"),
         @JsonSubTypes.Type(value = WebhookHandleSpecification.class, name = "webhookHandle"),

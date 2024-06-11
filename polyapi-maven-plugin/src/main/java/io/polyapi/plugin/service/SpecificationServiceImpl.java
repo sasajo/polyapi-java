@@ -38,7 +38,7 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
                 .filter(not(IgnoredSpecification.class::isInstance))
                 .filter(specification -> {
                     String context = specification.getContext().trim().toLowerCase();
-                    return contextFilters.stream()
+                    return contextFilters.isEmpty() || contextFilters.stream()
                             .map(String::trim)
                             .map(String::toLowerCase)
                             .anyMatch(contextFilter -> contextFilter.equalsIgnoreCase(context) || contextFilter.isEmpty() || context.startsWith(format("%s.", contextFilter)));

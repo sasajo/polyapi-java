@@ -5,7 +5,7 @@ import io.polyapi.commons.api.model.PolyGeneratedClass;
 import io.polyapi.plugin.model.function.CodeObject;
 import io.polyapi.plugin.model.generation.CustomType;
 import io.polyapi.plugin.model.specification.Specification;
-import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ClientFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import io.polyapi.plugin.model.specification.resolved.ResolvedCustomFunctionSpecification;
@@ -65,7 +65,7 @@ public class SpecificationCodeGeneratorVisitor implements PolySpecificationVisit
     }
 
     @Override
-    public void visit(CustomFunctionSpecification specification) {
+    public void visit(ClientFunctionSpecification specification) {
         log.trace("Generating code for CustomFunctionSpecification.");
         ResolvedCustomFunctionSpecification resolvedSpecification = resolver.resolve(specification);
         fileService.generateFile(resolvedSpecification, overwriteFiles);

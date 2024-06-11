@@ -5,7 +5,7 @@ import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.plugin.model.generation.Context;
 import io.polyapi.plugin.model.generation.ResolvedContext;
 import io.polyapi.plugin.model.specification.Specification;
-import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ClientFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
 import io.polyapi.plugin.model.specification.webhook.WebhookHandleSpecification;
@@ -72,7 +72,7 @@ public class PolyGenerationServiceImpl implements PolyGenerationService {
         var rootContext = new Context(null, rootName);
         specifications.stream()
                 .filter(specification -> Arrays.stream(filter).anyMatch(clazz -> clazz.isInstance(specification)))
-                .filter(specification -> !(specification instanceof CustomFunctionSpecification customFunctionSpecification && !customFunctionSpecification.isJava()))
+                .filter(specification -> !(specification instanceof ClientFunctionSpecification clientFunctionSpecification && !clientFunctionSpecification.isJava()))
                 .forEach(specification -> createContext(rootContext, Stream.of(specification.getContext().split("\\.")).filter(not(String::isEmpty)).toList(), specification));
         generate(rootContext, overwrite);
     }

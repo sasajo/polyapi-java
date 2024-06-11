@@ -3,7 +3,7 @@ package io.polyapi.plugin.service.visitor;
 import io.polyapi.plugin.model.specification.Specification;
 import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
-import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ClientFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import io.polyapi.plugin.model.specification.resolved.ResolvedSpecification;
 import io.polyapi.plugin.model.specification.variable.ServerVariableSpecification;
@@ -39,7 +39,7 @@ public class PolyObjectResolverVisitor implements PolySpecificationVisitor {
     }
 
     @Override
-    public void visit(CustomFunctionSpecification specification) {
+    public void visit(ClientFunctionSpecification specification) {
         log.trace("Resolving CustomFunctionSpecification.");
         result = resolver.resolve(specification);
     }
