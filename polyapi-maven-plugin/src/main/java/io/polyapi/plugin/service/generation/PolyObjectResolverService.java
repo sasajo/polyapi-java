@@ -17,7 +17,7 @@ import io.polyapi.plugin.model.generation.KeyValuePair;
 import io.polyapi.plugin.model.generation.ResolvedContext;
 import io.polyapi.plugin.model.specification.function.ApiFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.AuthFunctionSpecification;
-import io.polyapi.plugin.model.specification.function.CustomFunctionSpecification;
+import io.polyapi.plugin.model.specification.function.ClientFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.FunctionSpecification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import io.polyapi.plugin.model.specification.resolved.ResolvedApiFunctionSpecification;
@@ -52,7 +52,7 @@ public class PolyObjectResolverService {
         return resolve(specification, ResolvedServerFunctionSpecification::new);
     }
 
-    public ResolvedCustomFunctionSpecification resolve(CustomFunctionSpecification specification) {
+    public ResolvedCustomFunctionSpecification resolve(ClientFunctionSpecification specification) {
         Matcher matcher = Pattern.compile("public class [a-zA-Z0-9]*").matcher(specification.getCode());
         return resolve(specification, base -> new ResolvedCustomFunctionSpecification(base, matcher.find() ? matcher.group().substring(13) : base.getClassName()));
     }

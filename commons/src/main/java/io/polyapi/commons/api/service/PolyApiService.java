@@ -60,6 +60,15 @@ public class PolyApiService {
     parsedCall(PATCH, relativePath, headers, queryParams, body, Void.TYPE);
   }
 
+  public void delete(String relativePath) {
+    delete(relativePath, new HashMap<>(), new HashMap<>(), null);
+  }
+
+
+  public <I> void delete(String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body) {
+    parsedCall(DELETE, relativePath, headers, queryParams, body, Void.TYPE);
+  }
+
   private <I, O> O parsedCall(HttpMethod method, String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, I body, Type expectedResponseType) {
     Map<String, List<String>> allHeaders = new HashMap<>();
     allHeaders.put("Accept", List.of("application/json"));

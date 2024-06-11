@@ -6,14 +6,14 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class CustomFunctionSpecification extends FunctionSpecification {
+public class ClientFunctionSpecification extends FunctionSpecification {
     private String[] requirements;
     private String code;
     private String language;
 
     @Override
     protected String getSpecificationSubtype() {
-        return "custom";
+        return "client";
     }
 
     @Override
