@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import javax.lang.model.SourceVersion;
 
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
+import org.apache.maven.model.Build;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
@@ -66,7 +67,7 @@ public class MavenService {
 
     public String getPropertyFromPlugin(String pluginGroupId, String pluginArtifactId, String propertyName) {
         log.debug("Scanning plugins.");
-        List<Plugin> plugins = project.getBuild().getPlugins();
+        List<Plugin> plugins = Optional.ofNullable(project).map(MavenProject::getBuild).map(Build::getPlugins).orElseGet(ArrayList::new);
         log.debug("Found {} plugins. Filtering by group ID matching '{}' and artifact ID matching '{}'.", plugins.size(), pluginGroupId, pluginArtifactId);
         return plugins.stream()
                 .filter(plugin -> pluginGroupId.equals(plugin.getGroupId()))

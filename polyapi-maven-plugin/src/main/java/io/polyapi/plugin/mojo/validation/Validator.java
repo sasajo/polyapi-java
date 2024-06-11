@@ -2,11 +2,14 @@ package io.polyapi.plugin.mojo.validation;
 
 import io.polyapi.plugin.error.validation.InexistentFileException;
 import io.polyapi.plugin.error.validation.InvalidPortNumberException;
+import io.polyapi.plugin.error.validation.InvalidPropertyException;
+import io.polyapi.plugin.error.validation.InvalidUUIDException;
 import io.polyapi.plugin.error.validation.NullOrEmptyValueException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.UUID;
 
 import static java.util.function.Predicate.not;
 
@@ -52,6 +55,16 @@ public class Validator {
             }
         } catch (NumberFormatException e) {
             throw new InvalidPortNumberException(propertyName, property, e);
+        }
+    }
+
+    public static void validateUUIDFormat(String propertyName, String property) {
+        try {
+            log.debug("Validating that property '{}' has a valid key format.", propertyName);
+            validateNotEmpty(propertyName, property);
+            UUID.fromString(property);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidUUIDException(propertyName, property, e);
         }
     }
 }

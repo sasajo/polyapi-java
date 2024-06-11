@@ -1,7 +1,7 @@
 # Java Client Library (beta)
 
-* Latest released version 0.9.3
-* Latest snapshot version 0.10.0-SNAPSHOT
+* Latest released version 0.10.1
+* Latest snapshot version 0.11.0-SNAPSHOT
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -55,7 +55,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.9.3</poly.version>
+  <poly.version>0.10.1</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -226,6 +226,22 @@ Here's the list of parameters:
 - **apiKey (required):** The API key required to authenticate to Poly.
 - **functions:** Comma separated value containing the names of the functions to deploy. The functions must be annotated with the `@PolyFunction` annotation as it is described. This parameter triggers a filter by function name and/or context + function name in the `[context].[functionName]` format. Each comma separated value will be taken independently and deployed.
 - **dry-run:** Flag that when added makes the MOJO prepare everything for a deployment but not do it. This is for debugging purposes.
+
+#### delete-function
+This MOJO doesn't require a project to run.
+
+It deletes a server/client/api/auth function, webhook or variable from the Poly server. It can take 2 types of inputs:
+ - **id**: Deletes the entity with the matching ID.
+ - **contxt/function name**: Deletes the entity that matches the context and function name. It's case insensitive, but will fall back to be case sensitive in case that there are 2 or more matches with different cases. If none of those cases match exactly, it will throw an error. 
+
+##### Parameters
+Here's the list of parameters:
+- **host (required):** The host where the Poly API instance is hosted.
+- **port:** The port that the Poly API instance is listening to. Default value is 443.
+- **apiKey (required):** The API key required to authenticate to Poly.
+- **id:** ID of the entity to delete. Cannot coexist with either `functionName` nor `context` arguments.
+- **functionName:** Name of the function to delete. Cannot coexist with `id` argument. Mandatory unless `id` is set.
+- **context:** Context of the function to delete. Cannot coexist with `id` argument. Mandatory unless `id` is set.
 
 <a name="project-usage"></a>
 ## Usage
