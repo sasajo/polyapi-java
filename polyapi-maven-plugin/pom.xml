@@ -244,6 +244,9 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+            <properties>
+                <keyEnvName>MAVEN_GPG_KEY</keyEnvName>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
