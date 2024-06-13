@@ -78,7 +78,6 @@ public class PolyFunctionServiceImpl extends PolyApiService implements PolyFunct
                 relativePath = "variables";
                 break;
         }
-        log.info(format("functions/%s/%s", relativePath, specification.getId()));
         super.delete(format("functions/%s/%s", relativePath, specification.getId()));
         log.info("Function with ID '{}'.", specification.getId());
     }
