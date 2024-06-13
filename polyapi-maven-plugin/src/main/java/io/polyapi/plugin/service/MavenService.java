@@ -98,6 +98,7 @@ public class MavenService {
                             project.getRuntimeClasspathElements().stream()),
                     Stream.of(project.getBuild().getOutputDirectory()))
                     .map(File::new)
+                    .filter(File::exists)
                     .map(File::toURI)
                     .map(uri -> {
                         try {
@@ -139,7 +140,7 @@ public class MavenService {
                 .addClassLoaders(projectClassLoader)
                 .addScanners(MethodsAnnotated)
                 .addUrls(projectClassLoader.getURLs()));
-        log.debug("Reflections URLS: {}", reflections.getConfiguration().getUrls().size());
+        log.info("Reflections URLS: {}", reflections.getConfiguration().getUrls().size());
         Set<Method> methods = reflections.getMethodsAnnotatedWith(PolyFunction.class).stream()
                 .filter(filter)
                 .collect(toSet());
