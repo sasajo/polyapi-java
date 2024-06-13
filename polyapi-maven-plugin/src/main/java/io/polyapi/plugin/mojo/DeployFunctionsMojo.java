@@ -10,6 +10,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Predicates.equalTo;
 import static java.lang.String.join;
@@ -31,7 +32,7 @@ public class DeployFunctionsMojo extends PolyApiMojo {
     protected void execute(String host, Integer port) {
         log.info("Initiating deployment of Poly functions.");
         DeploymentService polyFunctionService = new DeploymentServiceImpl(getHttpClient(), getJsonParser(), getMavenService(), host, port);
-        List<String> functionFilters = Arrays.stream(functions.split(","))
+        List<String> functionFilters = Arrays.stream(Optional.ofNullable(functions).orElse("").split(","))
                 .map(String::trim)
                 .filter(not(equalTo("")))
                 .toList();
