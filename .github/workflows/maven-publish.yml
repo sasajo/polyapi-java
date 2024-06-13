@@ -25,7 +25,6 @@ jobs:
         server-id: ossrh
         server-username: OSSRH_USERNAME
         server-password: OSSRH_PASSWORD
-        gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
         settings-path: ${{ github.workspace }}
 
     - uses: webfactory/ssh-agent@v0.9.0
@@ -37,3 +36,4 @@ jobs:
       env:
         OSSRH_USERNAME: ${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}
         OSSRH_PASSWORD: ${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}
+        MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
