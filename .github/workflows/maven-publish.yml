@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - 'main'
+    paths-ignore:
+      - '**pom.xml'
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -15,17 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: 'maven'
-        server-id: ossrh
-        server-username: OSSRH_USERNAME
-        server-password: OSSRH_PASSWORD
-        settings-path: ${{ github.workspace }}
 
     - name: Install gpg secret key
       run: |
@@ -43,6 +33,15 @@ jobs:
       uses: fregante/setup-git-user@v2
 
     - name: Release to production
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+        server-id: ossrh
+        server-username: OSSRH_USERNAME
+        server-password: OSSRH_PASSWORD
+        settings-path: ${{ github.workspace }}
       run: mvn clean release:clean release:prepare release:perform -B -DaltDeploymentRepository=ossrh::https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/ -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DpreparationGoals=install -P release
       env:
         OSSRH_USERNAME: ${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}
