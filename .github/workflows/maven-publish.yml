@@ -15,7 +15,8 @@ jobs:
       packages: write
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - name: Install gpg secret key
       run: |
