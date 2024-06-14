@@ -43,7 +43,12 @@ jobs:
 
     - uses: s4u/maven-settings-action@v3.0.0
       with:
-        servers: '[{"id": "ossrh", "username": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}", "password": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}"}]'
+        servers: |
+          [{
+            "id": "ossrh",
+            "username": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}",
+            "password": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}"
+          }]
 
     - name: Release to production
       run: mvn clean release:clean release:prepare release:perform -B -DaltDeploymentRepository=ossrh::https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/ -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DpreparationGoals=install -P release
