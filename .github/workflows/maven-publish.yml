@@ -39,7 +39,7 @@ jobs:
         ssh-private-key: ${{ secrets.TAG_SSH_KEY }}
 
     - name: Release to production
-      run: mvn clean release:clean release:prepare release:perform -B -DaltDeploymentRepository=ossrh::https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/ -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DpreparationGoals=install -P release
+      run: mvn clean release:clean release:prepare release:perform -B -DaltDeploymentRepository=ossrh::https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/ -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DpreparationGoals=install -P release
       env:
         OSSRH_USERNAME: ${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}
         OSSRH_PASSWORD: ${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}
