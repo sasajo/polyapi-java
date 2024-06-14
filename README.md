@@ -1,7 +1,7 @@
 # Java Client Library (beta)
 
-* Latest released version 0.10.1
-* Latest snapshot version 0.11.0-SNAPSHOT
+* Latest released version 0.11.0
+* Latest snapshot version 0.12.0-SNAPSHOT
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -55,7 +55,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.10.1</poly.version>
+  <poly.version>0.11.0</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -242,6 +242,23 @@ Here's the list of parameters:
 - **id:** ID of the entity to delete. Cannot coexist with either `functionName` nor `context` arguments.
 - **functionName:** Name of the function to delete. Cannot coexist with `id` argument. Mandatory unless `id` is set.
 - **context:** Context of the function to delete. Cannot coexist with `id` argument. Mandatory unless `id` is set.
+
+#### create-server-variable
+This MOJO doesn't require a project to run.
+
+Creates a Poly server variable. Available types are String or primitive types.
+
+##### Parameters
+Here's the list of parameters:
+- **host (required):** The host where the Poly API instance is hosted.
+- **port:** The port that the Poly API instance is listening to. Default value is 443.
+- **apiKey (required):** The API key required to authenticate to Poly.
+- **context (required):** Context of the variable to add.
+- **name (required):** The name of the variable to add.
+- **value (required):** The content of the variable to add.
+- **description:** The description of the variable being added. If not set, it will be automatically generated.
+- **secret:** Whether or not the variable contents will be revealed.
+- **type:** The type of the variable being set. This field is case insensitive. Valid inputs are `string`, `java.lang.String`, `integer`, `int`, `java.lang.Integer`, `double`, `java.lang.Double`, `long`, `java.lang.Long`, `float`, `java.lang.Float`, `byte`, `java.lang.Byte`, `short`, `java.lang.Short`, `boolean`, `java.lang.Boolean`. The content of the `value` field will be cast to this type before upload. If not set, the type will be auto-detected from the `value` content.
 
 <a name="project-usage"></a>
 ## Usage

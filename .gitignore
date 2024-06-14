@@ -11,3 +11,5 @@
 
 **/target
 **/pom.xml.versionsBackup
+
+src/it/deploy-function-it/build.log
