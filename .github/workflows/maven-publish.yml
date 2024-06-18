@@ -55,3 +55,8 @@ jobs:
 
     - name: Release to production
       run: mvn clean release:clean release:prepare release:perform -B -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DpreparationGoals=install
+
+    - name: Rollback
+      if: failure()
+      continue-on-error: true
+      run: mvn clean release:rollback -B && exit 1
