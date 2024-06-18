@@ -246,7 +246,8 @@ Here's the list of parameters:
 #### create-server-variable
 This MOJO doesn't require a project to run.
 
-Creates a Poly server variable. Available types are String or primitive types.
+Creates a Poly server variable. Available types are String or primitive types. See parameter description for more information.
+
 
 ##### Parameters
 Here's the list of parameters:
