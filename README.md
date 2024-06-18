@@ -349,6 +349,12 @@ To create a Poly client Function you need to follow the same steps as with a ser
 ```java
 @PolyFunction(polyType = FunctionType.CLIENT) 
 ```
+### Vari server variables
+To create a Poly server variable you need to just run the following command:
+``` bash
+mvn polyapi:create-server-variable -Dname=myVariable -Dvalue=myValue -Dcontext=myContext
+```
+
 ## Limitations
 Comparing to its Typescript counterpart, the Java library is still missing the following features:
 - Error handlers
