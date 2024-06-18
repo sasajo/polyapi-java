@@ -41,7 +41,8 @@ jobs:
         cache: 'maven'
         settings-path: ${{ github.workspace }}
 
-    - uses: s4u/maven-settings-action@v3.0.0
+    - name: Setup deployment server
+      uses: s4u/maven-settings-action@v3.0.0
       with:
         servers: |
           [{
