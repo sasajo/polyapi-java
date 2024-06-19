@@ -20,6 +20,18 @@ public interface WebSocketClient extends AutoCloseable {
      */
     <T> Handle registerTrigger(String event, String handleId, Type eventType, PolyEventConsumer<T> trigger);
 
+
+    /**
+     * Registers an event on the server so that it triggers a consumer every time an event is dispatched and blocks the current thread.
+     *
+     * @param event     The event to listen to.
+     * @param handleId  The ID of the emitter of the event in the server.
+     * @param eventType The type of object to be handled by the consumer. This parameter is so that a proper casting can be done.
+     * @param trigger   The {@link Consumer} that will be triggered every time a listener comes. This should be a stateless object.
+     * @param <T>       The type of object that is received from the server.
+     */
+    <T> void registerTriggerAndWait(String event, String handleId, Type eventType, PolyEventConsumer<T> trigger);
+
     /**
      * Registers a listener for error messages.
      *
@@ -28,6 +40,15 @@ public interface WebSocketClient extends AutoCloseable {
      * @return Handle The handle that allows for closing of the socket.
      */
     Handle registerErrorHandler(String path, Consumer<PolyErrorEvent> listener);
+
+
+    /**
+     * Registers a listener for error messages and blocks the current thread.
+     *
+     * @param path     The path that will filter the messages.
+     * @param listener The {@link Consumer} of {@link PolyErrorEvent}s that will work as a listener.
+     */
+    void registerErrorHandlerAndWait(String path, Consumer<PolyErrorEvent> listener);
 
     <T> Handle registerAuthFunctionEventHandler(String id, PolyEventConsumer<T> trigger);
 }

@@ -1,7 +1,7 @@
 # Java Client Library (beta)
 
-* Latest released version 0.12.0
-* Latest snapshot version 0.12.1-SNAPSHOT
+* Latest released version 0.13.0
+* Latest snapshot version 0.13.1-SNAPSHOT
 
 ## Introduction
 Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
