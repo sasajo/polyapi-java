@@ -31,7 +31,12 @@ public class PolyTriggerInvocationHandler implements InvocationHandler {
             log.debug("Executing method {} in proxy class {}.", method, proxy.getClass().getSimpleName());
             log.debug("Registering Poly trigger with ID '{}'.", polyData.value());
             log.debug("Event type: {}.", polyMetadata.paramTypes()[0]);
-            return webSocketClient.registerTrigger("handleWebhookEvent", polyData.value(), Class.forName(polyMetadata.paramTypes()[0]), consumer);
+            if (method.getName().equalsIgnoreCase(invokingClass.getSimpleName())) {
+                webSocketClient.registerTriggerAndWait("handleWebhookEvent", polyData.value(), Class.forName(polyMetadata.paramTypes()[0]), consumer);
+                return null;
+            } else {
+                return webSocketClient.registerTrigger("handleWebhookEvent", polyData.value(), Class.forName(polyMetadata.paramTypes()[0]), consumer);
+            }
         } catch (ClassNotFoundException e) {
             throw new PolyApiLibraryException(e); // FIXME: Throw the appropriate exception.
         }

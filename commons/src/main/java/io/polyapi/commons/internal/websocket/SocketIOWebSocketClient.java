@@ -69,13 +69,24 @@ public class SocketIOWebSocketClient implements WebSocketClient {
             }
             String eventKey = format("%s:%s", event, handleId);
             return new EmitterHandle(eventKey, getSocket().on(eventKey, new PolyEventListener<>(event, handleId, jsonParser, EventMessage.class, message -> {
-                    log.debug("Parsing payload to {}.", eventType);
-                    T parsedInput = jsonParser.parseString(message.getBody(), eventType);
-                    log.debug("Input parsed. Passing it to listener.");
-                    trigger.accept(parsedInput, message.getHeaders(), message.getParams());
+                log.debug("Parsing payload to {}.", eventType);
+                T parsedInput = jsonParser.parseString(message.getBody(), eventType);
+                log.debug("Input parsed. Passing it to listener.");
+                trigger.accept(parsedInput, message.getHeaders(), message.getParams());
             })));
         } catch (InterruptedException | ExecutionException e) {
             throw new EventRegistrationException(event, handleId, e);
+        }
+    }
+
+    @Override
+    public <T> void registerTriggerAndWait(String event, String handleId, Type eventType, PolyEventConsumer<T> trigger) {
+        try (Handle handle = registerTrigger(event, handleId, eventType, trigger)) {
+            synchronized (this) {
+                this.wait();
+            }
+        } catch (InterruptedException e) {
+            log.warn("Event listener for '{}' with ID '{}' interrupted.", event, handleId, e);
         }
     }
 
@@ -99,6 +110,18 @@ public class SocketIOWebSocketClient implements WebSocketClient {
             return new EmitterHandle(eventKey, getSocket().on(eventKey, new PolyEventListener<>("handleError", handleId, jsonParser, PolyErrorEvent.class, listener)));
         } catch (InterruptedException | ExecutionException e) {
             throw new EventRegistrationException("registerErrorHandler", null, e);
+        }
+    }
+
+
+    @Override
+    public void registerErrorHandlerAndWait(String path, Consumer<PolyErrorEvent> listener) {
+        try (Handle handle = registerErrorHandler(path, listener)) {
+            synchronized (this) {
+                this.wait();
+            }
+        } catch (InterruptedException e) {
+            log.warn("Error listener for path '{}' interrupted.", path, e);
         }
     }
 

@@ -17,7 +17,7 @@ import static java.lang.Boolean.TRUE;
 @Slf4j
 @Setter
 @Mojo(name = "create-server-variable", requiresProject = false)
-public class createServerVariableMojo extends PolyApiMojo {
+public class CreateServerVariableMojo extends PolyApiMojo {
     @Parameter(property = "name", required = true)
     private String name;
 

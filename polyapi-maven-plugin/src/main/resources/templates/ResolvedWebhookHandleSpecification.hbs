@@ -14,7 +14,11 @@ import java.util.function.Consumer;
 @PolyMetadata(paramTypes="{{{eventType}}}")
 public interface {{className}} extends PolyTrigger {
 
-    Handle {{name}}(PolyEventConsumer<{{{eventType}}}> trigger);
+    Handle handle{{className}}(PolyEventConsumer<{{{eventType}}}> trigger);
 
-    Handle {{name}}(Consumer<{{{eventType}}}> trigger);
+    Handle handle{{className}}(Consumer<{{{eventType}}}> trigger);
+
+    void {{name}}(PolyEventConsumer<{{{eventType}}}> trigger);
+
+    void {{name}}(Consumer<{{{eventType}}}> trigger);
 }

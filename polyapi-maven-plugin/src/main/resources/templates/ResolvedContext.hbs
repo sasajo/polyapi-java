@@ -87,13 +87,22 @@ public class {{className}} extends PolyContext {
 {{~/each}}
 
 {{~#each webhookHandlerSpecifications}}
-    public Handle {{this.name}}(Consumer<{{{this.eventType}}}> callback) {
-        return this.{{this.name}}.{{this.name}}(callback);
+    public Handle handle{{this.className}}(Consumer<{{{this.eventType}}}> callback) {
+        return this.{{this.name}}.handle{{this.className}}(callback);
     }
 
-    public Handle {{this.name}}(PolyEventConsumer<{{{this.eventType}}}> callback) {
-        return this.{{this.name}}.{{this.name}}(callback);
+    public Handle handle{{this.className}}(PolyEventConsumer<{{{this.eventType}}}> callback) {
+        return this.{{this.name}}.handle{{this.className}}(callback);
     }
+
+    public void {{this.name}}(Consumer<{{{this.eventType}}}> callback) {
+        this.{{this.name}}.{{this.name}}(callback);
+    }
+
+    public void {{this.name}}(PolyEventConsumer<{{{this.eventType}}}> callback) {
+        this.{{this.name}}.{{this.name}}(callback);
+    }
+
 {{~/each}}
 
 {{~#each specifications}}
