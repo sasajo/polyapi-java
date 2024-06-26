@@ -7,21 +7,12 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * Annotation that marks a specific method as a Poly function.
- * This annotation is deprecated and will be removed in a future release. Use {@link io.polyapi.commons.api.model.PolyServerFunction} or {@link io.polyapi.commons.api.model.PolyClientFunction} instead.
+ * Annotation that marks a specific method as a Poly server function.
  */
 @Target(METHOD)
 @Retention(RUNTIME)
-@Deprecated
-public @interface PolyFunction {
+public @interface PolyServerFunction {
     String AUTO_DETECT_CONTEXT = "-autodetect-";
-
-    /**
-     * Enum that describes the type of function and where will be executed when invoked.
-     *
-     * @return FunctionType The type of the function.
-     */
-    FunctionType type() default FunctionType.SERVER;
 
     /**
      * The context that holds the function. If not set, it will default to the class package.

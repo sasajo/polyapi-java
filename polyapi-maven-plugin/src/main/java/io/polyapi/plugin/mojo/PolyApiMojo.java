@@ -71,7 +71,7 @@ public abstract class PolyApiMojo extends AbstractMojo {
             for (Throwable suppressedException : suppressedExceptions) {
                 try {
                     if (suppressedException instanceof HttpResponseException httpException) {
-                        log.error(IOUtils.toString(httpException.getResponse().body(), defaultCharset()));
+                        log.debug(IOUtils.toString(httpException.getResponse().body(), defaultCharset()));
                     } else {
                         log.error("Non HTTP suppressed exception: {}", suppressedException.getMessage());
                     }

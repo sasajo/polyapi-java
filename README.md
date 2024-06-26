@@ -204,7 +204,7 @@ This MOJO requires a project to run and the commons library to be set as a depen
     <version>${poly.version}</version>
 </dependency>
 ```
-It scans the project for classes annotated with `@PolyFunction` and it will upload them. See the documentation of the class for documentation. If the class is also annotated with `@RequiredDependency` it will add the dependencies indicated in the annotation to the server function so they will provide their classes when the function executes.'
+It scans the project for classes annotated with `@PolyServerFunction` or `@PolyClientFunction` and it will upload them. See the documentation of the class for documentation. If the class is also annotated with `@RequiredDependency` it will add the dependencies indicated in the annotation to the server function so they will provide their classes when the function executes.'
 
 This MOJO uses reflection to retrieve the information from the functions to deploy. In order to properly obtain the property names for the arguments, the following plugin needs to be added:
 ```xml
@@ -224,7 +224,7 @@ Here's the list of parameters:
 - **host (required):** The host where the Poly API instance is hosted.
 - **port:** The port that the Poly API instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
-- **functions:** Comma separated value containing the names of the functions to deploy. The functions must be annotated with the `@PolyFunction` annotation as it is described. This parameter triggers a filter by function name and/or context + function name in the `[context].[functionName]` format. Each comma separated value will be taken independently and deployed.
+- **functions:** Comma separated value containing the names of the functions to deploy. The functions must be annotated with either the `@PolyServerFunction` or `@PolyClientFunction` annotations as it is described. This parameter triggers a filter by function name and/or context + function name in the `[context].[functionName]` format. Each comma separated value will be taken independently and deployed.
 - **dry-run:** Flag that when added makes the MOJO prepare everything for a deployment but not do it. This is for debugging purposes.
 
 #### delete-function
@@ -339,16 +339,13 @@ Then, it is required that you have a setup project. In this project, you need to
     <version>${poly.version}</version>
 </dependency>
 ```
-Then, annotate the function you want to upload with `@PolyFunction`. 
+Then, annotate the function you want to upload with `@PolyServerFunction`. 
 And finally, just run:
 ```bash
 mvn polyapi:deploy-functions
 ```
 ### Poly client functions
-To create a Poly client Function you need to follow the same steps as with a server function, but when adding the `@PolyFunction` annotation, you need to set the property `polyType` in the annotation to `CLIENT`, leaving the annotation something like:
-```java
-@PolyFunction(polyType = FunctionType.CLIENT) 
-```
+To create a Poly client Function you need to follow the same steps as with a server function, but instead using the `@PolyClientFunction` annotation.
 ### Vari server variables
 To create a Poly server variable you need to just run the following command:
 ``` bash
