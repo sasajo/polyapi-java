@@ -1,14 +1,24 @@
 package io.polyapi.plugin.service;
 
-import static java.lang.String.format;
-import static java.util.function.Predicate.not;
-import static java.util.regex.Pattern.compile;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toSet;
-import static java.util.stream.Stream.concat;
-import static javax.lang.model.SourceVersion.isKeyword;
-import static org.reflections.scanners.Scanners.MethodsAnnotated;
+import io.polyapi.commons.api.model.PolyClientFunction;
+import io.polyapi.commons.api.model.PolyFunctionAnnotationRecord;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
+import io.polyapi.commons.api.model.PolyServerFunction;
+import io.polyapi.commons.api.model.RequiredDependencies;
+import io.polyapi.commons.api.model.RequiredDependency;
+import io.polyapi.plugin.error.PolyApiMavenPluginException;
+import io.polyapi.plugin.error.validation.PropertyNotFoundException;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.reflections.Reflections;
+import org.reflections.util.ConfigurationBuilder;
 
+import javax.lang.model.SourceVersion;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
@@ -25,24 +35,14 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import javax.lang.model.SourceVersion;
-
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.model.Build;
-import org.apache.maven.model.Plugin;
-import org.apache.maven.model.PluginExecution;
-import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.reflections.Reflections;
-import org.reflections.util.ConfigurationBuilder;
-
-import io.polyapi.commons.api.model.PolyFunction;
-import io.polyapi.commons.api.model.PolyGeneratedClass;
-import io.polyapi.commons.api.model.RequiredDependencies;
-import io.polyapi.commons.api.model.RequiredDependency;
-import io.polyapi.plugin.error.PolyApiMavenPluginException;
-import io.polyapi.plugin.error.validation.PropertyNotFoundException;
-import lombok.extern.slf4j.Slf4j;
+import static java.lang.String.format;
+import static java.util.function.Predicate.not;
+import static java.util.regex.Pattern.compile;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Stream.concat;
+import static javax.lang.model.SourceVersion.isKeyword;
+import static org.reflections.scanners.Scanners.MethodsAnnotated;
 
 @Slf4j
 public class MavenService {
@@ -115,45 +115,28 @@ public class MavenService {
         }
     }
 
-    public List<File> getSourceFolders() {
-        return concat(project.getCompileSourceRoots().stream(), Stream.of(project.getBasedir() + "/target/generated-sources"))
-                .map(File::new)
-                .filter(File::exists)
-                .toList();
-    }
-
-    public List<String> getJarSources() {
-        try {
-            return project.getCompileClasspathElements().stream()
-                    .filter(path -> path.endsWith(".jar"))
-                    .toList();
-        } catch (DependencyResolutionRequiredException e) {
-            // FIXME: Throw appropriate exception.
-            throw new PolyApiMavenPluginException(e);
-        }
-    }
-
     public Set<Method> scanPolyFunctions(Predicate<Method> filter) {
-        log.info("Scanning the project for functions annotated with {}}.", PolyFunction.class.getName());
+        log.info("Scanning the project for functions annotated with {} or {}.", PolyServerFunction.class.getName(), PolyClientFunction.class.getName());
         URLClassLoader projectClassLoader = getProjectClassLoader();
         Reflections reflections = new Reflections(new ConfigurationBuilder()
                 .addClassLoaders(projectClassLoader)
                 .addScanners(MethodsAnnotated)
                 .addUrls(projectClassLoader.getURLs()));
         log.info("Reflections URLS: {}", reflections.getConfiguration().getUrls().size());
-        Set<Method> methods = reflections.getMethodsAnnotatedWith(PolyFunction.class).stream()
+        Set<Method> methods = Stream.concat(reflections.getMethodsAnnotatedWith(PolyServerFunction.class).stream(),
+                reflections.getMethodsAnnotatedWith(PolyClientFunction.class).stream())
                 .filter(filter)
                 .collect(toSet());
         log.info("Found {} methods to convert.", methods.size());
         List.of(RequiredDependency.class, RequiredDependencies.class).forEach(annotation ->
                 reflections.getMethodsAnnotatedWith(annotation).stream()
                         .filter(not(methods::contains))
-                        .forEach(misusedMethod -> log.warn("Method {} is annotated with {} but is ignored as it needs to be annotated with {} to be scanned.", misusedMethod, misusedMethod.getAnnotation(annotation).getClass().getSimpleName(), PolyFunction.class.getSimpleName())));
+                        .forEach(misusedMethod -> log.warn("Method {} is annotated with {} but is ignored as it needs to be annotated with either {} or {} to be scanned.", misusedMethod, misusedMethod.getAnnotation(annotation).getClass().getSimpleName(), PolyServerFunction.class.getSimpleName(), PolyClientFunction.class.getSimpleName())));
         Set<Method> validatedMethods = methods.stream()
                 .filter(not(method -> method.getDeclaringClass().isAnnotationPresent(PolyGeneratedClass.class)))
                 .filter(method -> {
                     boolean result = true;
-                    PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
+                    PolyFunctionAnnotationRecord polyFunction = PolyFunctionAnnotationRecord.createFrom(method);
                     log.debug("Validating function name.");
                     String functionName = Optional.ofNullable(polyFunction.name()).filter(not(String::isBlank)).orElseGet(method::getName);
                     if (!functionName.matches(FUNCTION_NAME_PATTERN)) {
@@ -168,7 +151,7 @@ public class MavenService {
                 })
                 .filter(method -> {
                     boolean result = true;
-                    PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
+                    PolyFunctionAnnotationRecord polyFunction = PolyFunctionAnnotationRecord.createFrom(method);
                     log.debug("Validating context.");
                     String context = Optional.ofNullable(polyFunction.context()).filter(not(String::isEmpty)).orElseGet(method.getDeclaringClass()::getPackageName);
                     if (!context.matches(CONTEXT_PATTERN)) {
@@ -183,7 +166,7 @@ public class MavenService {
                     return result;
                 })
                 .filter(method -> {
-                    PolyFunction polyFunction = method.getAnnotation(PolyFunction.class);
+                    PolyFunctionAnnotationRecord polyFunction = PolyFunctionAnnotationRecord.createFrom(method);
                     boolean isDeployable = polyFunction.deployFunction();
                     if (!isDeployable) {
                         log.warn("Method '{}' skipped. Marked as not deployable.", method);
@@ -209,18 +192,5 @@ public class MavenService {
                 .toList();
         log.debug("Required dependencies found: {}", requiredDependencies);
         return requiredDependencies;
-    }
-
-    public Set<Method> getPolyFunctionMethods() {
-        log.info("Scanning projects for methods annotated with @PolyFunction.");
-        URLClassLoader projectClassLoader = getProjectClassLoader();
-        Reflections reflections = new Reflections(new ConfigurationBuilder()
-                .addClassLoaders(projectClassLoader)
-                .addScanners(MethodsAnnotated)
-                .addUrls(projectClassLoader.getURLs()));
-        log.info("Reflections URLS: {}", reflections.getConfiguration().getUrls().size());
-        Set<Method> methods = reflections.getMethodsAnnotatedWith(PolyFunction.class);
-        log.info("Methods: {}", methods.size());
-        return methods;
     }
 }

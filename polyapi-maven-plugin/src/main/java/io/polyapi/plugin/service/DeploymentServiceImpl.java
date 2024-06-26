@@ -3,6 +3,8 @@ package io.polyapi.plugin.service;
 import io.polyapi.commons.api.error.http.HttpResponseException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
+import io.polyapi.commons.api.model.PolyFunctionAnnotationRecord;
+import io.polyapi.commons.api.model.PolyServerFunction;
 import io.polyapi.commons.api.model.RequiredDependencies;
 import io.polyapi.commons.api.model.RequiredDependency;
 import io.polyapi.plugin.error.PolyApiMavenPluginException;
@@ -32,7 +34,6 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
-import static io.polyapi.commons.api.model.PolyFunction.AUTO_DETECT_CONTEXT;
 import static java.lang.String.format;
 import static java.nio.charset.Charset.defaultCharset;
 import static java.util.function.Predicate.isEqual;
@@ -58,16 +59,20 @@ public class DeploymentServiceImpl implements DeploymentService {
             log.debug("No specific functions to deploy were declared.");
             filter = method -> true;
         } else {
-            filter = method -> functionFilters.stream().anyMatch(name -> {
-                io.polyapi.commons.api.model.PolyFunction annotation = method.getAnnotation(io.polyapi.commons.api.model.PolyFunction.class);
-                String functionName = Optional.ofNullable(annotation.name()).filter(not(String::isBlank)).orElseGet(method::getName);
-                return functionName.equals(name) || format("%s.%s", Optional.ofNullable(annotation.context()).filter(not(String::isBlank)).orElseGet(method.getDeclaringClass()::getPackageName), functionName).equals(name);
-            });
+            filter = method -> functionFilters.stream().anyMatch(
+                    name -> {
+                        PolyFunctionAnnotationRecord annotation = PolyFunctionAnnotationRecord.createFrom(method);
+                        String functionName = Optional.ofNullable(annotation)
+                                .map(PolyFunctionAnnotationRecord::name)
+                                .filter(not(String::isBlank))
+                                .orElseGet(method::getName);
+                        return functionName.equals(name) || format("%s.%s", Optional.ofNullable(annotation).map(PolyFunctionAnnotationRecord::context).filter(not(String::isBlank)).orElseGet(method.getDeclaringClass()::getPackageName), functionName).equals(name);
+                    });
         }
         Set<Method> methods = mavenService.scanPolyFunctions(filter);
         List<PolyFunction> deployedFunctions = methods.stream().map(method -> {
                     log.info("Processing method '{}'.", method);
-                    io.polyapi.commons.api.model.PolyFunction annotation = method.getAnnotation(io.polyapi.commons.api.model.PolyFunction.class);
+                    PolyFunctionAnnotationRecord annotation = PolyFunctionAnnotationRecord.createFrom(method);
                     Class<?> declaringClass = method.getDeclaringClass();
                     PolyFunction polyFunction = new PolyFunction();
                     polyFunction.setName(Optional.ofNullable(annotation.name()).filter(not(String::isBlank)).orElseGet(method::getName));
@@ -83,7 +88,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                     try (FileInputStream fileInputStream = new FileInputStream(sourceCodePath)) {
                         String code = IOUtils.toString(fileInputStream, defaultCharset());
                         codeObject.setCode(code);
-                        if (annotation.contextAwareness().equals(AUTO_DETECT_CONTEXT)) {
+                        if (annotation.contextAwareness().equals(PolyServerFunction.AUTO_DETECT_CONTEXT)) {
                             Set<String> matches = Pattern.compile("(Vari|Poly)\\.[.a-zA-Z0-9_\\s]+[^.a-zA-Z0-9_\\s]")
                                     .matcher(code)
                                     .results()
@@ -136,12 +141,11 @@ public class DeploymentServiceImpl implements DeploymentService {
                         default -> "object";
                     });
                     Optional.of(method.getGenericReturnType()).filter(not(isEqual(Void.TYPE))).map(jsonParser::toJsonSchema).map(schema -> jsonParser.<Map<String, Object>>parseString(schema, defaultInstance().constructMapType(HashMap.class, String.class, Object.class))).ifPresent(polyFunction::setReturnTypeSchema);
-                    String type = annotation.type().name().toLowerCase();
+                    String type = annotation.type();
                     PolyFunction result = null;
                     if (dryRun) {
-                        log.info("{} function with content '{}' should be deployed.", type, polyFunction);
-                        log.info("Skipping deployment because dry run mode is activated.");
-                        log.info("Dry run complete for {} functions.", methods.size());
+                        log.debug("{} function with content '{}' should be deployed.", type, polyFunction);
+                        log.info("Skipping deployment of {} function '{}' because dry run mode is activated.", type, polyFunction.getName());
                     } else {
                         try {
                             result = polyFunctionService.deploy(type, polyFunction);
@@ -162,3 +166,4 @@ public class DeploymentServiceImpl implements DeploymentService {
         return deployedFunctions;
     }
 }
+

@@ -1,10 +1,10 @@
 package io.polyapi.it;
 
-import io.polyapi.commons.api.model.PolyFunction;
+import io.polyapi.commons.api.model.PolyServerFunction;
 
 public class DefaultFunction {
 
-    @PolyFunction
+    @PolyServerFunction
     public String defaultFunction(String parameter) {
         return String.format("%s - %s", parameter, parameter);
     }

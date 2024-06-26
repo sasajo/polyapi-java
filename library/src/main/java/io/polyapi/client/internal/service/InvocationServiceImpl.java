@@ -14,7 +14,7 @@ import io.polyapi.client.error.invocation.delegate.InvalidMethodDeclarationExcep
 import io.polyapi.commons.api.error.PolyApiException;
 import io.polyapi.commons.api.http.HttpClient;
 import io.polyapi.commons.api.json.JsonParser;
-import io.polyapi.commons.api.model.PolyFunction;
+import io.polyapi.commons.api.model.PolyFunctionAnnotationRecord;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.commons.api.websocket.Handle;
 import io.polyapi.commons.api.websocket.WebSocketClient;
@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
-import static io.polyapi.commons.api.model.FunctionType.CLIENT;
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 
@@ -80,8 +79,8 @@ public class InvocationServiceImpl extends PolyApiService implements InvocationS
             try {
                 return (T) Arrays.stream(delegateClass.getDeclaredMethods())
                         .filter(declaredMethod -> Optional
-                                .ofNullable(declaredMethod.getDeclaredAnnotation(PolyFunction.class))
-                                .filter(annotation -> annotation.type().equals(CLIENT))
+                                .ofNullable(PolyFunctionAnnotationRecord.createFrom(declaredMethod))
+                                .filter(annotation -> annotation.type().equals("client"))
                                 .filter(not(annotation -> annotation.name().isBlank()))
                                 .filter(annotation -> annotation.name().equalsIgnoreCase(method.getName()))
                                 .isPresent())
