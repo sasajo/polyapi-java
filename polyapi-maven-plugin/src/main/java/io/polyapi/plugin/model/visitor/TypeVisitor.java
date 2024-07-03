@@ -5,6 +5,7 @@ import io.polyapi.plugin.model.type.PolyType;
 import io.polyapi.plugin.model.type.PropertyPolyType;
 import io.polyapi.plugin.model.type.basic.ArrayPolyType;
 import io.polyapi.plugin.model.type.basic.PlainPolyType;
+import io.polyapi.plugin.model.type.basic.AnyPolyType;
 import io.polyapi.plugin.model.type.basic.VoidPolyType;
 import io.polyapi.plugin.model.type.complex.*;
 import io.polyapi.plugin.model.type.complex.MapObjectPolyType;
@@ -83,5 +84,10 @@ public interface TypeVisitor {
     default void visit(PrimitivePolyType type) {
         log.trace("Visiting PrimitivePolyType.");
         visit((PolyType) type);
+    }
+
+    default void visit(AnyPolyType type) {
+        log.trace("Visiting AnyPolyType.");
+        visit((MapObjectPolyType) type);
     }
 }

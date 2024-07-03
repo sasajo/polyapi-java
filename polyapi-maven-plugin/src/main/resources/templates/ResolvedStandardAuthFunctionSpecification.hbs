@@ -3,6 +3,7 @@ package {{packageName}};
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
 import io.polyapi.client.api.model.function.{{#if this.audienceRequired}}Audience{{/if}}TokenAuthFunction;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
 
 /**
  * Poly auth function with ID {{id}}.
@@ -10,5 +11,6 @@ import io.polyapi.client.api.model.function.{{#if this.audienceRequired}}Audienc
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{{paramNames}}} },
     paramTypes = { {{{paramTypes}}} })
+@PolyGeneratedClass
 public interface {{className}} extends {{#if this.audienceRequired}}Audience{{/if}}TokenAuthFunction {
 }

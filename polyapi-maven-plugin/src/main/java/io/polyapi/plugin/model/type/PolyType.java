@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.polyapi.commons.api.model.PolyObject;
 import io.polyapi.plugin.model.type.basic.ArrayPolyType;
 import io.polyapi.plugin.model.type.basic.PlainPolyType;
+import io.polyapi.plugin.model.type.basic.AnyPolyType;
 import io.polyapi.plugin.model.type.basic.VoidPolyType;
 import io.polyapi.plugin.model.type.complex.ObjectPolyType;
 import io.polyapi.plugin.model.type.function.FunctionPolyType;
@@ -17,7 +18,8 @@ import lombok.Setter;
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         property = "kind",
-        visible = true
+        visible = true,
+        defaultImpl = AnyPolyType.class
 )
 @JsonSubTypes({
         @JsonSubTypes.Type(value = VoidPolyType.class, name = "void"),

@@ -2,12 +2,14 @@ package {{packageName}};
 
 import lombok.Getter;
 import io.polyapi.commons.api.model.PolyObject;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
 
 {{~#each imports}}
 import {{this}};
 {{~/each}}
 
 @Getter
+@PolyGeneratedClass
 public class {{className}} implements PolyObject {
 
 {{~#each properties}}

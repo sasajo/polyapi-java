@@ -3,6 +3,7 @@ package {{packageName}};
 import io.polyapi.client.api.model.function.PolyServerFunction;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.model.PolyMetadata;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
 {{~#each imports}}
 import {{this}};
 {{~/each}}
@@ -13,6 +14,7 @@ import {{this}};
 @PolyEntity("{{id}}")
 @PolyMetadata(paramNames = { {{{paramNames}}} },
     paramTypes = { {{{paramTypes}}} })
+@PolyGeneratedClass
 public interface {{className}} extends PolyServerFunction {
 
     {{{returnType}}} {{{methodSignature}}};

@@ -8,11 +8,13 @@ import io.polyapi.client.api.AuthTokenOptions;
 import io.polyapi.commons.api.websocket.Handle;
 import java.util.function.Consumer;
 import io.polyapi.commons.api.model.PolyErrorEvent;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
 
 {{~#each this.imports}}
 import {{{this}}};
 {{~/each}}
 
+@PolyGeneratedClass
 public class {{className}} extends PolyContext {
 {{~#each specifications}}
     private static {{this.className}} {{this.name}};

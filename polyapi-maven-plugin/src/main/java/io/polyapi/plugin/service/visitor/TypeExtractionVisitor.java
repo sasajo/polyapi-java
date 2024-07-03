@@ -3,6 +3,7 @@ package io.polyapi.plugin.service.visitor;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.polyapi.plugin.model.ParsedType;
 import io.polyapi.plugin.model.type.PolyType;
+import io.polyapi.plugin.model.type.basic.AnyPolyType;
 import io.polyapi.plugin.model.type.basic.ArrayPolyType;
 import io.polyapi.plugin.model.type.basic.PlainPolyType;
 import io.polyapi.plugin.model.type.basic.VoidPolyType;
@@ -14,6 +15,7 @@ import io.polyapi.plugin.model.visitor.TypeVisitor;
 import io.polyapi.plugin.service.schema.JsonSchemaParser;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.reflect.TypeUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -69,7 +71,7 @@ public class TypeExtractionVisitor implements TypeVisitor {
         result = Optional.ofNullable(type)
                 .map(PlainPolyType::getValue)
                 .filter(not(isEqual("void")))
-                .map(plainType -> new ParsedType(Object.class))
+                .map(plainType -> new ParsedType(plainType.equals("any")? TypeUtils.parameterize(Map.class, String.class, Object.class) : Object.class))
                 .orElse(new ParsedType(Void.class));
     }
 
