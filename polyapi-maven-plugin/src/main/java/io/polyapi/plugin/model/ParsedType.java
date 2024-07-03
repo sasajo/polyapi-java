@@ -25,7 +25,7 @@ public class ParsedType {
 
     public ParsedType(Type type) {
         if (type instanceof ParameterizedType parameterizedType) {
-            this.baseClass = parameterizedType.getTypeName();
+            this.baseClass = parameterizedType.getRawType().getTypeName();
             this.typeParameters = Arrays.stream(parameterizedType.getActualTypeArguments()).map(ParsedType::new).toList();
         } else {
             this.baseClass = type.getTypeName();
