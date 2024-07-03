@@ -5,10 +5,12 @@ import io.polyapi.client.internal.model.PolyContext;
 import io.polyapi.client.api.AuthTokenEventConsumer;
 import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.AuthTokenOptions;
+import io.polyapi.commons.api.model.PolyGeneratedClass;
 {{~#each this.imports}}
 import {{{this}}};
 {{~/each}}
 
+@PolyGeneratedClass
 public class {{className}} extends PolyContext {
 
 {{~#each serverVariableSpecifications}}

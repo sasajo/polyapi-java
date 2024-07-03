@@ -126,6 +126,7 @@ public class MavenService {
         Set<Method> methods = Stream.concat(reflections.getMethodsAnnotatedWith(PolyServerFunction.class).stream(),
                 reflections.getMethodsAnnotatedWith(PolyClientFunction.class).stream())
                 .filter(filter)
+                .filter(not(method -> method.getDeclaringClass().isAnnotationPresent(PolyGeneratedClass.class)))
                 .collect(toSet());
         log.info("Found {} methods to convert.", methods.size());
         List.of(RequiredDependency.class, RequiredDependencies.class).forEach(annotation ->
@@ -133,7 +134,6 @@ public class MavenService {
                         .filter(not(methods::contains))
                         .forEach(misusedMethod -> log.warn("Method {} is annotated with {} but is ignored as it needs to be annotated with either {} or {} to be scanned.", misusedMethod, misusedMethod.getAnnotation(annotation).getClass().getSimpleName(), PolyServerFunction.class.getSimpleName(), PolyClientFunction.class.getSimpleName())));
         Set<Method> validatedMethods = methods.stream()
-                .filter(not(method -> method.getDeclaringClass().isAnnotationPresent(PolyGeneratedClass.class)))
                 .filter(method -> {
                     boolean result = true;
                     PolyFunctionAnnotationRecord polyFunction = PolyFunctionAnnotationRecord.createFrom(method);

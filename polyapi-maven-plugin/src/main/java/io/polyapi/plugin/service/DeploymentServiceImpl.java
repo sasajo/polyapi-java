@@ -122,8 +122,12 @@ public class DeploymentServiceImpl implements DeploymentService {
                     Arrays.stream(method.getParameters()).map(parameter -> {
                         log.debug("Processing parameter {}", parameter);
                         PolyFunctionArgument argument = new PolyFunctionArgument();
-                        argument.setType(parameter.getParameterizedType().getTypeName());
-                        argument.setTypeSchema(jsonParser.toJsonSchema(parameter.getParameterizedType()));
+                        if (parameter.getType().equals(Map.class)) {
+                            argument.setType("any");
+                        } else {
+                            argument.setType(parameter.getParameterizedType().getTypeName());
+                            argument.setTypeSchema(jsonParser.toJsonSchema(parameter.getParameterizedType()));
+                        }
                         argument.setRequired(true);
                         argument.setKey(parameter.getName());
                         argument.setName(parameter.getName());
@@ -137,10 +141,13 @@ public class DeploymentServiceImpl implements DeploymentService {
                              "java.lang.Short", "java.lang.Byte" -> "number";
                         case "java.lang.Boolean" -> "boolean";
                         case "java.lang.String", "java.lang.Character" -> "string";
+                        case "java.util.Map" -> "any";
                         case "void" -> "void";
                         default -> "object";
                     });
-                    Optional.of(method.getGenericReturnType()).filter(not(isEqual(Void.TYPE))).map(jsonParser::toJsonSchema).map(schema -> jsonParser.<Map<String, Object>>parseString(schema, defaultInstance().constructMapType(HashMap.class, String.class, Object.class))).ifPresent(polyFunction::setReturnTypeSchema);
+                    if (!(polyFunction.getReturnType().equals("any") || polyFunction.getReturnType().equals("void"))) {
+                        Optional.of(method.getGenericReturnType()).map(jsonParser::toJsonSchema).map(schema -> jsonParser.<Map<String, Object>>parseString(schema, defaultInstance().constructMapType(HashMap.class, String.class, Object.class))).ifPresent(polyFunction::setReturnTypeSchema);
+                    }
                     String type = annotation.type();
                     PolyFunction result = null;
                     if (dryRun) {
