@@ -33,7 +33,7 @@ public class JacksonJsonParser extends ObjectMapper implements JsonParser {
      */
     public JacksonJsonParser() {
         configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
-        this.jsonSchemaGenerator = new JsonSchemaGenerator(this);
+        this.jsonSchemaGenerator = new PolyJsonSchemaGenerator(this);
     }
 
     /**
