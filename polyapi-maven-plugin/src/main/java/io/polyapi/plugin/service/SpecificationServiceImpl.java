@@ -5,12 +5,14 @@ import io.polyapi.commons.api.json.JsonParser;
 import io.polyapi.commons.api.service.PolyApiService;
 import io.polyapi.plugin.model.specification.IgnoredSpecification;
 import io.polyapi.plugin.model.specification.Specification;
+import io.polyapi.plugin.model.specification.function.ClientFunctionSpecification;
 import io.polyapi.plugin.model.specification.function.ServerFunctionSpecification;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static java.lang.String.format;
@@ -43,7 +45,7 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
                             .map(String::toLowerCase)
                             .anyMatch(contextFilter -> contextFilter.equalsIgnoreCase(context) || contextFilter.isEmpty() || context.startsWith(format("%s.", contextFilter)));
                 })
-                .filter(specification -> !(specification instanceof ServerFunctionSpecification serverFunctionSpecification && !serverFunctionSpecification.getLanguage().equalsIgnoreCase("java")))
+                .filter(not(specification -> specification instanceof ClientFunctionSpecification clientFunctionSpecification && !clientFunctionSpecification.getLanguage().equalsIgnoreCase("java")))
                 .forEach(specification -> {
             String key = format("%s.%s", specification.getContext(), specification.getName()).toLowerCase();
             if (filteredMap.containsKey(key)) {
