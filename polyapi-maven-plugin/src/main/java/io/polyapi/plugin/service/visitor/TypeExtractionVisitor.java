@@ -71,7 +71,7 @@ public class TypeExtractionVisitor implements TypeVisitor {
         result = Optional.ofNullable(type)
                 .map(PlainPolyType::getValue)
                 .filter(not(isEqual("void")))
-                .map(plainType -> new ParsedType(plainType.equals("any")? TypeUtils.parameterize(Map.class, String.class, Object.class) : Object.class))
+                .map(plainType -> new ParsedType(Object.class))
                 .orElse(new ParsedType(Void.class));
     }
 
