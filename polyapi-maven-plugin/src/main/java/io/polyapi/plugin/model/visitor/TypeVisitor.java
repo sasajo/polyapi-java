@@ -88,6 +88,6 @@ public interface TypeVisitor {
 
     default void visit(AnyPolyType type) {
         log.trace("Visiting AnyPolyType.");
-        visit((MapObjectPolyType) type);
+        visit((PolyType) type);
     }
 }

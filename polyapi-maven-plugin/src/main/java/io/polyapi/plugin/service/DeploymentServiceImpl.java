@@ -36,7 +36,6 @@ import java.util.stream.IntStream;
 import static com.fasterxml.jackson.databind.type.TypeFactory.defaultInstance;
 import static java.lang.String.format;
 import static java.nio.charset.Charset.defaultCharset;
-import static java.util.function.Predicate.isEqual;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
@@ -122,7 +121,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                     Arrays.stream(method.getParameters()).map(parameter -> {
                         log.debug("Processing parameter {}", parameter);
                         PolyFunctionArgument argument = new PolyFunctionArgument();
-                        if (parameter.getType().equals(Map.class)) {
+                        if (parameter.getType().equals(Object.class)) {
                             argument.setType("any");
                         } else {
                             argument.setType(parameter.getParameterizedType().getTypeName());
@@ -141,7 +140,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                              "java.lang.Short", "java.lang.Byte" -> "number";
                         case "java.lang.Boolean" -> "boolean";
                         case "java.lang.String", "java.lang.Character" -> "string";
-                        case "java.util.Map" -> "any";
+                        case "java.util.Object" -> "any";
                         case "void" -> "void";
                         default -> "object";
                     });
