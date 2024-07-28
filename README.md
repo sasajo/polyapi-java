@@ -1,4 +1,4 @@
-# Java Client Library (beta)
+# Java Client Library
 
 * Latest released version 0.15.0
 * Latest snapshot version 0.15.1-SNAPSHOT
