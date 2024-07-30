@@ -93,14 +93,14 @@ public class PolyApiService {
                     if (contentType.startsWith("application/json")) {
                         parsedResult = jsonParser.parseInputStream(response.body(), TypeVariable.class.isAssignableFrom(type.getClass()) ? Object.class : type);
                     } else {
-                        if ((type.getClass().isAssignableFrom(String.class) || TypeVariable.class.isAssignableFrom(type.getClass())) && contentType.startsWith("text/")) {
+                        if (checkType(type, String.class) && contentType.startsWith("text/")) {
                             try {
                                 parsedResult = (O)IOUtils.toString(response.body(), defaultCharset());
                             } catch (IOException e) {
                                 throw new ParsingException("An error occurred while parsing the response.", e);
                             }
                         } else {
-                            if ((InputStream.class.isAssignableFrom(type.getClass()) || type.getClass().isAssignableFrom(TypeVariable.class))) {
+                            if (checkType(type, InputStream.class)) {
                                 parsedResult = (O)response.body();
                             } else {
                                 throw new UnsupportedContentTypeException(contentType, type);
@@ -112,6 +112,10 @@ public class PolyApiService {
                 .orElse(null);
         log.debug("Response parsed successfully.");
         return result;
+    }
+
+    private boolean checkType(Type type, Class<?> expectedClass) {
+        return (type.getClass().isAssignableFrom(Class.class) && Class.class.cast(type).isAssignableFrom(expectedClass)) || TypeVariable.class.isAssignableFrom(type.getClass());
     }
 
     private Response callApi(HttpMethod method, String relativePath, Map<String, List<String>> headers, Map<String, List<String>> queryParams, InputStream body) {
