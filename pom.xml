@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.polyapi</groupId>
     <artifactId>polyapi-java</artifactId>
-    <version>0.15.1-SNAPSHOT</version>
+    <version>0.15.2-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>parent-pom</module>
@@ -11,9 +11,9 @@
         <module>library</module>
         <module>polyapi-maven-plugin</module>
     </modules>
-    <name>Poly API Java libraries</name>
+    <name>PolyAPI Java libraries</name>
     <url>https://polyapi.io</url>
-    <description>Java libraries for Poly API</description>
+    <description>Java libraries for PolyAPI</description>
     <developers>
         <developer>
             <id>polyapi</id>

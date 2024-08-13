@@ -1,7 +1,7 @@
 package io.polyapi.commons.api.error;
 
 /**
- * Default exception that wraps all exceptions thrown as part of the normal usage of Poly API tools.
+ * Default exception that wraps all exceptions thrown as part of the normal usage of PolyAPI tools.
  */
 public class PolyApiException extends RuntimeException {
 

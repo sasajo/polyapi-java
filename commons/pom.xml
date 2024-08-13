@@ -4,14 +4,14 @@
     <parent>
         <groupId>io.polyapi</groupId>
         <artifactId>parent-pom</artifactId>
-        <version>0.15.1-SNAPSHOT</version>
+        <version>0.15.2-SNAPSHOT</version>
         <relativePath>../parent-pom</relativePath>
     </parent>
 
     <artifactId>commons</artifactId>
-    <name>Poly API Commons library</name>
+    <name>PolyAPI Commons library</name>
     <url>https://polyapi.io</url>
-    <description>Java client library for Poly API</description>
+    <description>Java client library for PolyAPI</description>
 
     <developers>
         <developer>

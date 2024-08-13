@@ -4,14 +4,14 @@
     <parent>
         <groupId>io.polyapi</groupId>
         <artifactId>parent-pom</artifactId>
-        <version>0.15.1-SNAPSHOT</version>
+        <version>0.15.2-SNAPSHOT</version>
         <relativePath>../parent-pom</relativePath>
     </parent>
     <artifactId>polyapi-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
-    <name>Poly API Maven plugin</name>
+    <name>PolyAPI Maven plugin</name>
     <url>https://polyapi.io</url>
-    <description>Maven plugin to run handle Poly API functions.</description>
+    <description>Maven plugin to run handle PolyAPI functions.</description>
     <developers>
         <developer>
             <id>polyapi</id>
