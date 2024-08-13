@@ -28,7 +28,7 @@ public class SpecificationServiceImpl extends PolyApiService implements Specific
 
     @Override
     public List<Specification> list(List<String> contextFilters) {
-        log.info("Retrieving JSon specifications from Poly API for this user.");
+        log.info("Retrieving JSON specifications from PolyAPI for this user.");
         List<Specification> specifications = get("specs", defaultInstance().constructCollectionType(List.class, Specification.class));
         log.debug("{} specifications retrieved without filter.", specifications.size());
         if (log.isDebugEnabled()) {

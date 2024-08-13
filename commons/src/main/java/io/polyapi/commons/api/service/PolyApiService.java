@@ -24,7 +24,7 @@ import static java.nio.charset.Charset.defaultCharset;
 import static java.util.function.Predicate.not;
 
 /**
- * Parent implementation class for all services that connecto the Poly API service.
+ * Parent implementation class for all services that connec to the PolyAPI service.
  */
 @Slf4j
 public class PolyApiService {

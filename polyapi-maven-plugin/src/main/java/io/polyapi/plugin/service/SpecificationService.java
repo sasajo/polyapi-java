@@ -5,7 +5,7 @@ import io.polyapi.plugin.model.specification.Specification;
 import java.util.List;
 
 /**
- * Service dedicated to operations with Specifications on the Poly API webservice.
+ * Service dedicated to operations with Specifications on the PolyAPI webservice.
  */
 public interface SpecificationService {
 

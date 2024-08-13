@@ -3,7 +3,7 @@ package io.polyapi.commons.api.error.parse;
 import io.polyapi.commons.api.error.PolyApiException;
 
 /**
- * Parent exception of all the exceptions thrown when parsing to or from JSon.
+ * Parent exception of all the exceptions thrown when parsing to or from JSON.
  */
 public class ParsingException extends PolyApiException {
 
