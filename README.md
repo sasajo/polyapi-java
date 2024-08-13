@@ -1,10 +1,10 @@
 # Java Client Library
 
-* Latest released version 0.15.0
-* Latest snapshot version 0.15.1-SNAPSHOT
+* Latest released version 0.15.2
+* Latest snapshot version 0.15.3-SNAPSHOT
 
 ## Introduction
-Welcome my friends! This is the Poly API Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
+Welcome my friends! This is the PolyAPI Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
 In here you'll find instructions for both developers and customers to work with Poly through our Java clients and maven plugin.
 We hope that you find this documentation useful and easy to understand. If you don't please let us know.
 
@@ -25,7 +25,7 @@ This last (but not least) section shows the list of changes per version of this 
 This is the list of requirements for the usage of this client:
 - Java 17+
 - Maven 3.6.3+ (or Gradle 7.2+)
-- Poly API key
+- PolyAPI key
 
 <a name="project-setup"></a>
 ## Setting up project
@@ -119,7 +119,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
   </plugins>
 </build>
 ```
-Make sure you replace `{API_KEY}` with valid API key to access the Poly API.
+Make sure you replace `{API_KEY}` with valid API key to access PolyAPI.
 If you work on Windows, remember to replace the '/' bar in the resources for '\'. 
 
 3. **Compile the project.** To generate the Poly functions and compile the project (this needs to be done everytime you update your Poly functions) run this beautiful command:
@@ -169,7 +169,7 @@ Have in mind that there are other interfaces that can be implemented, such as [R
 
 This basic functionality is used to write files into the FileSystem. There isn't any library involved, just plain Java File usage.
 
-#### JSon parser
+#### JSON parser
 
 This parser uses [Jackson](https://github.com/FasterXML/jackson) as default client, but provides an interface [JsonParser](https://github.com/polyapi/polyapi-java/blob/develop/commons/src/main/java/io/polyapi/commons/api/json/JsonParser.java). To use different clients, you just need to replace the implementation but implement the interface.
 
@@ -189,8 +189,8 @@ This MOJO generates all the sources for a determined API key into the `target/ge
 
 ##### Parameters
 Here's the list of parameters:
-- **host (required):** The host where the Poly API instance is hosted.
-- **port:** The port that the Poly API instance is listening to. Default value is 443.
+- **host (required):** The host where the PolyAPI instance is hosted.
+- **port:** The port that the PolyAPI instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
 - **context:** Comma separated values that work as filter for the retrieved specifications. These filters will return any specification that starts with any of the indicated values. (i.e. if you set `polyapi,google` as a value, it will only generate those that have either of those as a context). This parameter is case-insensitive. 
 - **overwrite:** Flag indicating that the generated files will overwrite any existing files. Default value is false.
@@ -221,8 +221,8 @@ Otherwise argument names will be shown as "arg0", "arg1", etc.
 
 ##### Parameters
 Here's the list of parameters:
-- **host (required):** The host where the Poly API instance is hosted.
-- **port:** The port that the Poly API instance is listening to. Default value is 443.
+- **host (required):** The host where the PolyAPI instance is hosted.
+- **port:** The port that the PolyAPI instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
 - **functions:** Comma separated value containing the names of the functions to deploy. The functions must be annotated with either the `@PolyServerFunction` or `@PolyClientFunction` annotations as it is described. This parameter triggers a filter by function name and/or context + function name in the `[context].[functionName]` format. Each comma separated value will be taken independently and deployed.
 - **dry-run:** Flag that when added makes the MOJO prepare everything for a deployment but not do it. This is for debugging purposes.
@@ -236,8 +236,8 @@ It deletes a server/client/api/auth function, webhook or variable from the Poly 
 
 ##### Parameters
 Here's the list of parameters:
-- **host (required):** The host where the Poly API instance is hosted.
-- **port:** The port that the Poly API instance is listening to. Default value is 443.
+- **host (required):** The host where the PolyAPI instance is hosted.
+- **port:** The port that the PolyAPI instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
 - **id:** ID of the entity to delete. Cannot coexist with either `functionName` nor `context` arguments.
 - **functionName:** Name of the function to delete. Cannot coexist with `id` argument. Mandatory unless `id` is set.
@@ -251,8 +251,8 @@ Creates a Poly server variable. Available types are String or primitive types. S
 
 ##### Parameters
 Here's the list of parameters:
-- **host (required):** The host where the Poly API instance is hosted.
-- **port:** The port that the Poly API instance is listening to. Default value is 443.
+- **host (required):** The host where the PolyAPI instance is hosted.
+- **port:** The port that the PolyAPI instance is listening to. Default value is 443.
 - **apiKey (required):** The API key required to authenticate to Poly.
 - **context (required):** Context of the variable to add.
 - **name (required):** The name of the variable to add.

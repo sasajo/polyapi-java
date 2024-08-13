@@ -18,20 +18,20 @@ public class JsonToObjectParsingException extends ParsingException {
   /**
    * Default constructor that stores the InputStream and the type.
    *
-   * @param json  The JSon that was to be converted.
+   * @param json  The JSON that was to be converted.
    * @param type  The type to be converted to.
    * @param cause The cause of the error.
    */
   public JsonToObjectParsingException(InputStream json, Type type, Throwable cause) {
-    super(format("An error occurred while parsing JSon to %s.", type.getTypeName()), cause);
+    super(format("An error occurred while parsing JSON to %s.", type.getTypeName()), cause);
     this.type = type;
     this.json = json;
   }
 
   /**
-   * Utility constructor that converts the JSon from a {@link String} to a {@link ByteArrayInputStream}.
+   * Utility constructor that converts the JSON from a {@link String} to a {@link ByteArrayInputStream}.
    *
-   * @param json  The JSon that was to be converted.
+   * @param json  The JSON that was to be converted.
    * @param type  The type to be converted to.
    * @param cause The cause of the error.
    */

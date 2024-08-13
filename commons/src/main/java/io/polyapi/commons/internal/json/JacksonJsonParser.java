@@ -94,7 +94,7 @@ public class JacksonJsonParser extends ObjectMapper implements JsonParser {
             if (log.isTraceEnabled()) {
                 log.trace("Input to parse is:\n{}", json);
             }
-            log.debug("Parsing JSon String to object of type {}.", expectedResponseType.getTypeName());
+            log.debug("Parsing JSON String to object of type {}.", expectedResponseType.getTypeName());
             O result = readValue(json, defaultInstance().constructType(expectedResponseType));
             log.debug("Parsing successful.");
             return result;
@@ -118,7 +118,7 @@ public class JacksonJsonParser extends ObjectMapper implements JsonParser {
                 json = new ByteArrayInputStream(compiledInputStream.getBytes(defaultCharset()));
                 log.trace("ByteArrayInputStream created successfully.");
             }
-            log.debug("Parsing JSon InputStream to object of type {}.", expectedResponseType.getTypeName());
+            log.debug("Parsing JSON InputStream to object of type {}.", expectedResponseType.getTypeName());
 
             O result;
             if (expectedResponseType == String.class) {
@@ -139,11 +139,11 @@ public class JacksonJsonParser extends ObjectMapper implements JsonParser {
      */
     @Override
     public String toJsonSchema(Type type) {
-        log.debug("Generating JSon schema for class '{}'", type.getTypeName());
+        log.debug("Generating JSON schema for class '{}'", type.getTypeName());
         JsonNode schema = jsonSchemaGenerator.generateJsonSchema(defaultInstance().constructType(type));
         log.debug("Schema generated. Converting to String.");
         String result = toJsonString(schema);
-        log.debug("JSon converted successfully.");
+        log.debug("JSON converted successfully.");
         return result;
     }
 }

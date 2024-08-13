@@ -21,13 +21,13 @@ import java.util.Optional;
 @Slf4j
 public class JsonSchemaParser {
 
-    // FIXME: This whole JSon schema parsing needs:
+    // FIXME: This whole JSON schema parsing needs:
     // FIXME: 1. More automated testing.
     // FIXME: 2. A refactor.
     public List<CustomType> parse(String defaultName, String packageName, String schema) {
         try {
             var codeModel = new JCodeModel();
-            log.trace("Generating Java code from JSon schema {}.", schema);
+            log.trace("Generating Java code from JSON schema {}.", schema);
 
             // This cannot be put as an attribute of this class as it does not take well when being reused and has many errors.
             new SchemaMapper(new PolyRuleFactory(new PolyGenerationConfig()), new SchemaGenerator())

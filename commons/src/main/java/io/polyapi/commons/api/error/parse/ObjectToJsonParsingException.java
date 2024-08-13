@@ -5,7 +5,7 @@ import java.util.Optional;
 import static java.lang.String.format;
 
 /**
- * Exception thrown when an error occurs while parsing an object to JSon.
+ * Exception thrown when an error occurs while parsing an object to JSON.
  */
 public class ObjectToJsonParsingException extends ParsingException {
 
@@ -16,6 +16,6 @@ public class ObjectToJsonParsingException extends ParsingException {
    * @param cause  The cause of the error.
    */
   public ObjectToJsonParsingException(Object object, Throwable cause) {
-    super(format("An error occurred while parsing %s to JSon.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null")), cause);
+    super(format("An error occurred while parsing %s to JSON.", Optional.ofNullable(object).map(Object::getClass).map(Class::getName).orElse("null")), cause);
   }
 }
