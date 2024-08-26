@@ -1,7 +1,7 @@
 # Java Client Library
 
-* Latest released version 0.15.2
-* Latest snapshot version 0.15.3-SNAPSHOT
+* Latest released version 0.15.3
+* Latest snapshot version 0.15.4-SNAPSHOT
 
 ## Introduction
 Welcome my friends! This is the PolyAPI Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -55,7 +55,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.15.0</poly.version>
+  <poly.version>0.15.3</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -359,5 +359,6 @@ Comparing to its Typescript counterpart, the Java library is still missing the f
 
 These features will be added in the future releases.
 
+<a name="changelog"></a>
 ## Changelog
 See the Changelog **[here](https://github.com/polyapi/polyapi-java/releases)**.
