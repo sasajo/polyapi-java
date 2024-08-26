@@ -35,7 +35,7 @@ public class HttpClientConfiguration {
         this(new HardcodedTokenProvider(hardcodedApiKey));
     }
 
-    private HttpClientConfiguration(TokenProvider tokenProvider) {
+    public HttpClientConfiguration(TokenProvider tokenProvider) {
         this.tokenProvider = tokenProvider;
     }
 
