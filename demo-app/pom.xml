@@ -7,17 +7,17 @@
     <version>0.15.3-SNAPSHOT</version>
   </parent>
 
-  <groupId>com.mycompany.app</groupId>
+  <groupId>io.polyapi.it</groupId>
   <artifactId>demo-app</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <name>demo-app</name>
-  <!-- FIXME change it to the project's website -->
-  <url>http://www.example.com</url>
+  <url>http://www.demo-app.com</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
+    <poly.version>0.15.3</poly.version>
   </properties>
 
   <dependencyManagement>
@@ -43,6 +43,11 @@
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.polyapi</groupId>
+      <artifactId>library</artifactId>
+      <version>${poly.version}</version>
     </dependency>
   </dependencies>
 
@@ -90,5 +95,57 @@
         </plugin>
       </plugins>
     </pluginManagement>
+    <resources>
+      <resource>
+        <directory>target/generated-resources</directory>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>io.polyapi</groupId>
+        <artifactId>polyapi-maven-plugin</artifactId>
+        <version>${poly.version}</version>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate-sources</goal>
+            </goals>
+            <configuration>
+              <host>https://na1.polyapi.io</host>
+              <port>443</port>
+              <apiKey></apiKey>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.12.1</version>
+        <configuration>
+          <parameters>true</parameters>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>add-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>target/generated-sources</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>

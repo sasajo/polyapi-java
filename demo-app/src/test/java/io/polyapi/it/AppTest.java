@@ -1,4 +1,4 @@
-package com.mycompany.app;
+package io.polyapi.it;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
