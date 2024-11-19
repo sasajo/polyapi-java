@@ -62,7 +62,7 @@
         <configuration>
           <host>https://na1.polyapi.io</host>
           <port>443</port>
-          <apiKey>9d7aa877-81b4-489c-ac55-1970cf573e36</apiKey>
+          <apiKey>{API_KEY}</apiKey>
         </configuration>
         <executions>
           <execution>
@@ -73,7 +73,7 @@
             <configuration>
               <host>https://na1.polyapi.io</host>
               <port>443</port>
-              <apiKey>9d7aa877-81b4-489c-ac55-1970cf573e36</apiKey>
+              <apiKey>{API_KEY}</apiKey>
             </configuration>
           </execution>
         </executions>
