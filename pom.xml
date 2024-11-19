@@ -10,7 +10,6 @@
         <module>commons</module>
         <module>library</module>
         <module>polyapi-maven-plugin</module>
-        <module>demo-app</module>
     </modules>
     <name>PolyAPI Java libraries</name>
     <url>https://polyapi.io</url>
