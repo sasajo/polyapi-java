@@ -31,5 +31,6 @@ done
 
 echo "Cleanup completed."
 
+ls
 cd "$1"
 mvn clean compile polyapi:deploy-functions
