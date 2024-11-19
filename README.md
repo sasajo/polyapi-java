@@ -75,6 +75,11 @@ Nice to have some customers looking around here! So, you'll need to run the foll
       <groupId>io.polyapi</groupId>
       <artifactId>polyapi-maven-plugin</artifactId>
       <version>${poly.version}</version>
+      <configuration>
+          <host>https://na1.polyapi.io</host>
+          <port>443</port>
+          <apiKey>{API_KEY}</apiKey>
+      </configuration>
       <executions>
         <execution>
           <phase>generate-sources</phase>
@@ -82,7 +87,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
             <goal>generate-sources</goal>
           </goals>
           <configuration>
-              <host>https://develop-k8s.polyapi.io</host>
+              <host>https://na1.polyapi.io</host>
               <port>443</port>
               <apiKey>{API_KEY}</apiKey>
           </configuration>
@@ -92,7 +97,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
       <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.12.1</version>
+          <version>3.13.0</version>
           <configuration>
               <parameters>true</parameters>
           </configuration>
