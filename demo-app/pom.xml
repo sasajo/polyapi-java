@@ -4,7 +4,7 @@
   <parent>
     <artifactId>polyapi-java</artifactId>
     <groupId>io.polyapi</groupId>
-    <version>0.15.9-SNAPSHOT</version>
+    <version>0.15.5-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -16,7 +16,7 @@
   <url>http://www.demo-app.com</url>
 
   <properties>
-    <poly.version>0.15.9-SNAPSHOT</poly.version>
+    <poly.version>0.15.5-SNAPSHOT</poly.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -62,7 +62,7 @@
         <configuration>
           <host>https://na1.polyapi.io</host>
           <port>443</port>
-          <apiKey>{API_KEY}</apiKey>
+          <apiKey>9d7aa877-81b4-489c-ac55-1970cf573e36</apiKey>
         </configuration>
         <executions>
           <execution>
@@ -73,7 +73,7 @@
             <configuration>
               <host>https://na1.polyapi.io</host>
               <port>443</port>
-              <apiKey>{API_KEY}</apiKey>
+              <apiKey>9d7aa877-81b4-489c-ac55-1970cf573e36</apiKey>
             </configuration>
           </execution>
         </executions>
