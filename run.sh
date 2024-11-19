@@ -16,7 +16,7 @@ ROOT_DIR=$(pwd)
 # Delete the target folder in the root directory if it exists
 if [ -d "$ROOT_DIR/$TARGET_FOLDER" ]; then
   echo "Deleting $ROOT_DIR/$TARGET_FOLDER"
-  rm -rf "$ROOT_DIR/$TARGET_FOLDER"
+  rm -rf "$ROOT_DIR/$TARGET_FOLDER/target"
 else
   echo "No $TARGET_FOLDER found in root directory."
 fi
@@ -25,7 +25,7 @@ fi
 for dir in "$ROOT_DIR"/*/; do
   if [ -d "$dir$TARGET_FOLDER" ]; then
     echo "Deleting $dir$TARGET_FOLDER"
-    rm -rf "$dir$TARGET_FOLDER"
+    rm -rf "$dir$TARGET_FOLDER/target"
   fi
 done
 
