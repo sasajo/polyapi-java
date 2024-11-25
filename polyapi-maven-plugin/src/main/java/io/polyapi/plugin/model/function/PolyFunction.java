@@ -23,6 +23,7 @@ public class PolyFunction {
     private String description;
     private String context;
     private String code;
+    private String sourceCode;
     private String language = "java";
     private String returnType;
     private Visibility visibility;
