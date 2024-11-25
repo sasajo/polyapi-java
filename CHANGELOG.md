@@ -6,15 +6,15 @@
 
 ### Added
 
-- Command `mvn clean compile polyapi:deploy-functions` failed issue resolved
+- 
 
 ### Changed
 
--
+- 
 
 ### Fixed
 
--
+- Command `mvn clean compile polyapi:deploy-functions` failed issue resolved
 ---
 
 ## [0.15.4] - 2024-11-15
