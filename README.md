@@ -1,7 +1,7 @@
 # Java Client Library
 
-* Latest released version 0.15.4
-* Latest snapshot version 0.15.4-SNAPSHOT
+* Latest released version 0.15.5
+* Latest snapshot version 0.15.5-SNAPSHOT
 
 ## Introduction
 Welcome my friends! This is the PolyAPI Java client GitHub page. If you are here, then it means you're familiar with what we do at Poly. If you aren't, you can always check [here](https://github.com/polyapi/poly-alpha).
@@ -55,7 +55,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
 2. **Update the project.** Add the following to your project's `pom.xml`:
 ```xml
 <properties>
-  <poly.version>0.15.4</poly.version>
+  <poly.version>0.15.5</poly.version>
 </properties>
 <dependencies>
   <dependency>
@@ -75,6 +75,11 @@ Nice to have some customers looking around here! So, you'll need to run the foll
       <groupId>io.polyapi</groupId>
       <artifactId>polyapi-maven-plugin</artifactId>
       <version>${poly.version}</version>
+      <configuration>
+          <host>https://na1.polyapi.io</host>
+          <port>443</port>
+          <apiKey>{API_KEY}</apiKey>
+      </configuration>
       <executions>
         <execution>
           <phase>generate-sources</phase>
@@ -82,7 +87,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
             <goal>generate-sources</goal>
           </goals>
           <configuration>
-              <host>https://develop-k8s.polyapi.io</host>
+              <host>https://na1.polyapi.io</host>
               <port>443</port>
               <apiKey>{API_KEY}</apiKey>
           </configuration>
@@ -92,7 +97,7 @@ Nice to have some customers looking around here! So, you'll need to run the foll
       <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.12.1</version>
+          <version>3.13.0</version>
           <configuration>
               <parameters>true</parameters>
           </configuration>

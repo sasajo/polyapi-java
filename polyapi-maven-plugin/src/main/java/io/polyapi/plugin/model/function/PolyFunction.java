@@ -1,6 +1,7 @@
 package io.polyapi.plugin.model.function;
 
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.polyapi.commons.api.model.Visibility;
 import lombok.Getter;
 import lombok.Setter;
@@ -28,6 +29,7 @@ public class PolyFunction {
     private String returnType;
     private Visibility visibility;
     private Boolean logsEnabled;
+    @JsonDeserialize(using = RequirementsDeserializer.class)
     private List<String> requirements;
 
     private Map<String, Object> returnTypeSchema;
