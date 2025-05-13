@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.polyapi</groupId>
     <artifactId>polyapi-java</artifactId>
-    <version>0.15.5-SNAPSHOT</version>
+    <version>0.15.4-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>parent-pom</module>
@@ -79,7 +79,7 @@
                                 <configuration>
                                     <properties>
                                         <cloneProjectsTo>${project.build.directory}/it/develop</cloneProjectsTo>
-                                        <host>https://develop-k8s.polyapi.io</host>
+                                        <host>https://dev.polyapi.io</host>
                                         <apiKey>${develop.api.key}</apiKey>
                                         <port>443</port>
                                     </properties>

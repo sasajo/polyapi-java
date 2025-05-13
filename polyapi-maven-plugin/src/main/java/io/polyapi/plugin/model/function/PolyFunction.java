@@ -1,8 +1,8 @@
 package io.polyapi.plugin.model.function;
 
-
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.polyapi.commons.api.model.LifecycleState;
 import io.polyapi.commons.api.model.Visibility;
+import io.polyapi.plugin.model.specification.SchemaRef;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -20,20 +20,25 @@ import static java.util.stream.Collectors.joining;
 @ToString
 public class PolyFunction {
     private String id;
-    private String name;
-    private String description;
     private String context;
+    private String name;
+    private String contextName;
+    private String description;
+    private String sourceCode; // Only used when deploying a function
     private String code;
-    private String sourceCode;
     private String language = "java";
     private String returnType;
     private Visibility visibility;
+    private LifecycleState state;
     private Boolean logsEnabled;
-    @JsonDeserialize(using = RequirementsDeserializer.class)
     private List<String> requirements;
+    private String ownerUserId;
 
     private Map<String, Object> returnTypeSchema;
     private List<PolyFunctionArgument> arguments;
+
+    private List<ReturnType> otherReturnTypes;
+    private List<SchemaRef> unresolvedReturnTypePolySchemaRefs;
 
     /**
      * Gets the signature of this function in the form of functionName(ArgClass, ArgClass2...).
