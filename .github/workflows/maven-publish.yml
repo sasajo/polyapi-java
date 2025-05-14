@@ -73,7 +73,7 @@ jobs:
         properties: '[{"distribution.repository.snapshot.id": "central"}, {"distribution.repository.snapshot.url": "https://central.sonatype.com"}]'
 
     - name: Deploy SNAPSHOT to Maven Repo
-      run: mvn clean deploy -DskipTests=true -Prelease -Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }}
+      run: mvn clean deploy -DskipTests=true -Prelease
 
 
   production_release:
