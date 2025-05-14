@@ -70,7 +70,7 @@ jobs:
             "username": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}",
             "password": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}"
           }]
-        properties: '[{"distribution.repository.snapshot.id": "central"}, {"distribution.repository.snapshot.url": "https://central.sonatype.com"}]'
+        properties: '[{"distribution.repository.snapshot.id": "central"}, {"distribution.repository.snapshot.url": "https://central.sonatype.com/repository/maven-snapshots/"}]'
 
     - name: Deploy SNAPSHOT to Maven Repo
       run: mvn clean deploy -DskipTests=true -Prelease -X
