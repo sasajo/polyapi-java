@@ -35,6 +35,18 @@ Within your local Java project where you want to use the PolyAPI java client: up
     </snapshots>
   </repository>
 </repositories>
+<pluginRepositories>
+  <pluginRepository>
+    <id>central-portal-snapshots</id>
+    <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    <releases>
+      <enabled>false</enabled>
+    </releases>
+    <snapshots>
+      <enabled>true</enabled>
+    </snapshots>
+  </pluginRepository>
+</pluginRepositories>
 ```
 
 You should now be able to use SNAPSHOT versions within the `<poly.version>` property in your `pom.xml`

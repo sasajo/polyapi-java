@@ -13,10 +13,10 @@ We hope that you find this documentation useful and easy to understand. If you d
 Here you'll find the minimum requirements of software that you'll need to work with this Java client.
 2. [Project setup:](#project-setup)
 This section will get you the steps you need to do to setup this Poly client.
-3. [Project description:](#project-description)
-This section describes the structure of this project and its components.
-4. [Usage:](#usage)
+3. [Usage:](#usage)
 In here you will find common usages of this client.
+4. [Project description:](#project-description)
+This section describes the structure of this project and its components.
 5. [Changelog:](#changelog)
 This last (but not least) section shows the list of changes per version of this client. 
 
@@ -160,6 +160,104 @@ This is the list of requirements for the usage of this client:
 
 6. **And Poly is ready to use in your Java project!**
 
+<a name="project-usage"></a>
+## Usage
+
+### Poly Functions
+To use the Poly functions you can import `import io.polyapi.Poly;` and traverse through it to find the function you want to use. For example:
+```java
+var result = Poly.yourApi.context.reallyCoolPolyFunction("https://really.cool.polyfunction.net", "param");
+
+System.out.println(result);
+``` 
+
+### Webhook handlers
+```java
+Poly.myWebhooks.onCoolEvent((event, headers, params) -> {
+  System.out.println(event.getPrice());
+});
+```
+
+### Error handlers
+```java
+Poly.onError("poly.context", errorEvent -> {
+    System.out.println(errorEvent.getMessage());
+});
+```
+
+### Auth functions
+```java
+var clientId = "...";
+var clientSecret = "...";
+var scopes = new String[]{"offline_access"};
+
+Poly.auth0.getToken(clientId, clientSecret, scopes, (token, url, error) -> {
+    System.out.println(token);
+    System.out.println(url);
+    System.out.println(error);
+
+    if (token != null) {
+        ...
+        // revoke token (optional, if you want to revoke the token after you are done with it)
+        Poly.auth0.revokeToken(token);
+    }
+});
+```
+
+### Poly Variables
+To use Poly variables you can import `import io.polyapi.Vari;` and traverse through it to find the variable you want to use. For example:
+```java
+var clientId = Vari.auth.clientId.get();
+System.out.println(clientId);
+```
+You can update variable using the following code:
+```java
+Vari.auth.clientId.update("newClientId");
+```
+You can listen for update events:
+```java
+Vari.auth.clientId.onUpdate((event) -> {
+  System.out.println("Previous value: " + event.getPreviousValue()+", currentValue: " + event.getCurrentValue());
+});
+```
+
+### Poly server functions
+It is possible to deploy server functions that can be used in Poly. To do so, you need to create a class with desired function. For example:
+```java
+public class CustomFunction {
+    public String sayHello(String name) {
+        return "Hello " + name;
+    }
+}
+```
+Then, it is required that you have a setup project. In this project, you need to have the PolyAPI commons library installed as a dependency.
+```xml
+<dependency>
+    <groupId>io.polyapi</groupId>
+    <artifactId>commons</artifactId>
+    <version>${poly.version}</version>
+</dependency>
+```
+Then, annotate the function you want to upload with `@PolyServerFunction`. 
+And finally, just run:
+```bash
+mvn polyapi:deploy-functions
+```
+### Poly client functions
+To create a Poly client Function you need to follow the same steps as with a server function, but instead using the `@PolyClientFunction` annotation.
+### Vari server variables
+To create a Poly server variable you need to just run the following command:
+``` bash
+mvn polyapi:create-server-variable -Dname=myVariable -Dvalue=myValue -Dcontext=myContext
+```
+
+## Limitations
+Comparing to its Typescript counterpart, the Java library is still missing the following features:
+- Error handlers
+- Fetching multiple Poly Variables from context
+
+These features will be added in the future releases.
+
 <a name="project-description"></a>
 ## Project description
 
@@ -281,104 +379,6 @@ Here's the list of parameters:
 - **description:** The description of the variable being added. If not set, it will be automatically generated.
 - **secret:** Whether or not the variable contents will be revealed.
 - **type:** The type of the variable being set. This field is case insensitive. Valid inputs are `string`, `java.lang.String`, `integer`, `int`, `java.lang.Integer`, `double`, `java.lang.Double`, `long`, `java.lang.Long`, `float`, `java.lang.Float`, `byte`, `java.lang.Byte`, `short`, `java.lang.Short`, `boolean`, `java.lang.Boolean`. The content of the `value` field will be cast to this type before upload. If not set, the type will be auto-detected from the `value` content.
-
-<a name="project-usage"></a>
-## Usage
-
-### Poly Functions
-To use the Poly functions you can import `import io.polyapi.Poly;` and traverse through it to find the function you want to use. For example:
-```java
-var result = Poly.yourApi.context.reallyCoolPolyFunction("https://really.cool.polyfunction.net", "param");
-
-System.out.println(result);
-``` 
-
-### Webhook handlers
-```java
-Poly.myWebhooks.onCoolEvent((event, headers, params) -> {
-  System.out.println(event.getPrice());
-});
-```
-
-### Error handlers
-```java
-Poly.onError("poly.context", errorEvent -> {
-    System.out.println(errorEvent.getMessage());
-});
-```
-
-### Auth functions
-```java
-var clientId = "...";
-var clientSecret = "...";
-var scopes = new String[]{"offline_access"};
-
-Poly.auth0.getToken(clientId, clientSecret, scopes, (token, url, error) -> {
-    System.out.println(token);
-    System.out.println(url);
-    System.out.println(error);
-
-    if (token != null) {
-        ...
-        // revoke token (optional, if you want to revoke the token after you are done with it)
-        Poly.auth0.revokeToken(token);
-    }
-});
-```
-
-### Poly Variables
-To use Poly variables you can import `import io.polyapi.Vari;` and traverse through it to find the variable you want to use. For example:
-```java
-var clientId = Vari.auth.clientId.get();
-System.out.println(clientId);
-```
-You can update variable using the following code:
-```java
-Vari.auth.clientId.update("newClientId");
-```
-You can listen for update events:
-```java
-Vari.auth.clientId.onUpdate((event) -> {
-  System.out.println("Previous value: " + event.getPreviousValue()+", currentValue: " + event.getCurrentValue());
-});
-```
-
-### Poly server functions
-It is possible to deploy server functions that can be used in Poly. To do so, you need to create a class with desired function. For example:
-```java
-public class CustomFunction {
-    public String sayHello(String name) {
-        return "Hello " + name;
-    }
-}
-```
-Then, it is required that you have a setup project. In this project, you need to have the PolyAPI commons library installed as a dependency.
-```xml
-<dependency>
-    <groupId>io.polyapi</groupId>
-    <artifactId>commons</artifactId>
-    <version>${poly.version}</version>
-</dependency>
-```
-Then, annotate the function you want to upload with `@PolyServerFunction`. 
-And finally, just run:
-```bash
-mvn polyapi:deploy-functions
-```
-### Poly client functions
-To create a Poly client Function you need to follow the same steps as with a server function, but instead using the `@PolyClientFunction` annotation.
-### Vari server variables
-To create a Poly server variable you need to just run the following command:
-``` bash
-mvn polyapi:create-server-variable -Dname=myVariable -Dvalue=myValue -Dcontext=myContext
-```
-
-## Limitations
-Comparing to its Typescript counterpart, the Java library is still missing the following features:
-- Error handlers
-- Fetching multiple Poly Variables from context
-
-These features will be added in the future releases.
 
 <a name="changelog"></a>
 ## Changelog
