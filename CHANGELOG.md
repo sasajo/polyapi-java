@@ -4,7 +4,7 @@
 
 ### Added
 
-- Passing unaltered sourceCode to PolyAPI for display within Canopy application
+- Passing unaltered sourceCode to PolyAPI for display within Canopy application.
 
 ### Changed
 

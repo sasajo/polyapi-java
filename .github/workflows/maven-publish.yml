@@ -3,14 +3,83 @@ name: Release
 on:
   push:
     branches:
-      - 'main'
+      - develop
+      - main
     paths-ignore:
       - '**pom.xml'
-
+      - '**README.md'
+      - '**README_INTERNAL.md'
 
 jobs:
-  build:
+  develop_release:
     runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    environment: dev
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - id: checkout
+      name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Verify SNAPSHOT version
+      run: |
+        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        echo "Detected version: $VERSION"
+        if [[ "$VERSION" != *-SNAPSHOT ]]; then
+          echo "ERROR: Version is not a SNAPSHOT version! Aborting deploy."
+          exit 1
+        fi
+
+    - id: gpg-install
+      name: Install gpg secret key
+      run: |
+        # Install gpg secret key
+        cat <(echo -e "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}") | gpg --batch --import
+        # Verify gpg secret key
+        gpg --list-secret-keys --keyid-format LONG
+
+    - id: ssh-setup
+      name: Set SSH key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.TAG_SSH_KEY }}
+
+    - id: git-config
+      name: Set GIT user name and email
+      uses: fregante/setup-git-user@v2
+
+    - id: jdk-setup
+      name: Setup JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+        settings-path: ${{ github.workspace }}
+
+    - id: server-setup
+      name: Setup deployment server
+      uses: s4u/maven-settings-action@v3.0.0
+      with:
+        servers: |
+          [{
+            "id": "central",
+            "username": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}",
+            "password": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}"
+          }]
+        properties: '[{"distribution.repository.snapshot.id": "central"}, {"distribution.repository.snapshot.url": "https://central.sonatype.com"}]'
+
+    - name: Deploy SNAPSHOT to Maven Repo
+      run: mvn clean deploy -DskipTests=true -Prelease -Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }}
+
+
+  production_release:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    environment: dev
     permissions:
       contents: read
       packages: write
@@ -53,11 +122,11 @@ jobs:
       with:
         servers: |
           [{
-            "id": "ossrh",
+            "id": "central",
             "username": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_USERNAME }}",
             "password": "${{ secrets.DISTRIBUTION_REPOSITORY_RELEASE_PASSWORD }}"
           }]
-        properties: '[{"distribution.repository.release.id": "ossrh"}, {"distribution.repository.release.url": "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"}]'
+        properties: '[{"distribution.repository.release.id": "central"}, {"distribution.repository.release.url": "https://central.sonatype.com"}]'
 
 
     - id: release
