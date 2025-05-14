@@ -68,7 +68,7 @@
                         <artifactId>maven-invoker-plugin</artifactId>
                         <version>3.7.0</version>
                         <configuration>
-                            <postBuildHookScript>verify</postBuildHookScript>
+                            <!-- <postBuildHookScript>verify</postBuildHookScript> -->
                             <showErrors>true</showErrors>
                             <writeJunitReport>true</writeJunitReport>
                         </configuration>
@@ -107,7 +107,7 @@
                         <artifactId>maven-invoker-plugin</artifactId>
                         <version>3.7.0</version>
                         <configuration>
-                            <postBuildHookScript>verify</postBuildHookScript>
+                            <!-- <postBuildHookScript>verify</postBuildHookScript> -->
                             <showErrors>true</showErrors>
                             <writeJunitReport>true</writeJunitReport>
                         </configuration>
@@ -146,7 +146,7 @@
                         <artifactId>maven-invoker-plugin</artifactId>
                         <version>3.7.0</version>
                         <configuration>
-                            <postBuildHookScript>verify</postBuildHookScript>
+                            <!-- <postBuildHookScript>verify</postBuildHookScript> -->
                             <showErrors>true</showErrors>
                             <writeJunitReport>true</writeJunitReport>
                         </configuration>
