@@ -40,24 +40,31 @@ public class JsonSchemaParserTest {
                 createArguments(13, "Schema with different types that have the same enum.", "Identifier", DEFAULT_RESPONSE_NAME, "Data"),
                 createArguments(14, "Schema that is an Integer."),
                 createArguments(15, "Schema with multiple enums with the same name and properties.", DEFAULT_RESPONSE_NAME, "DashMinusstyle", "DashMinusstyle_", "Other"),
-                createArguments(16, "Schema with json property yhat has a space in it.", "Data", DEFAULT_RESPONSE_NAME));
+                createArguments(16, "Schema with json property yhat has a space in it.", "Data", DEFAULT_RESPONSE_NAME),
+                createArguments(17, "Schema with both order_id and orderId to force a collision", "Case17SchemaWithDuplicateFields"));
     }
 
     public static Stream<Arguments> getTypeSource() {
-        return Stream.of(Arguments.of(1, "Simple recursive schema with no base type.", createClassName(DEFAULT_RESPONSE_NAME)),
+        return Stream.of(
+                Arguments.of(1, "Simple recursive schema with no base type.", createClassName(DEFAULT_RESPONSE_NAME)),
                 Arguments.of(2, "Recursive schema with base type.", createClassName(DEFAULT_RESPONSE_NAME)),
-                Arguments.of(3, "Schema that has a text value evaluated to null.", createClassName(DEFAULT_RESPONSE_NAME)),
+                Arguments.of(3, "Schema that has a text value evaluated to null.",
+                        createClassName(DEFAULT_RESPONSE_NAME)),
                 Arguments.of(4, "Schema with base type and no definitions.", createClassName(DEFAULT_RESPONSE_NAME)),
                 Arguments.of(5, "Schema for array of numbers.", createListClassName(Double.class.getName())),
                 Arguments.of(6, "Schema for array of integers.", createListClassName(Long.class.getName())),
                 Arguments.of(7, "Simple schema with attribute.", createClassName(DEFAULT_RESPONSE_NAME)),
-                Arguments.of(8, "Schema with duplicate fields.", createListClassName(createClassName("ResponseTypeElement"))),
+                Arguments.of(8, "Schema with duplicate fields.",
+                        createListClassName(createClassName("ResponseTypeElement"))),
                 Arguments.of(9, "Schema with enum.", createClassName(DEFAULT_RESPONSE_NAME)),
                 Arguments.of(10, "Schema that is a String.", String.class.getName()),
                 Arguments.of(11, "Schema that uses allof.", Object.class.getName()),
-                Arguments.of(12, "Schema with enum with '-' in one of the options.", createClassName(DEFAULT_RESPONSE_NAME)),
-                Arguments.of(13, "Schema with different types that have the same enum.", createClassName(DEFAULT_RESPONSE_NAME)),
-                Arguments.of(14, "Schema that is an integer.", Long.class.getName()));
+                Arguments.of(12, "Schema with enum with '-' in one of the options.",
+                        createClassName(DEFAULT_RESPONSE_NAME)),
+                Arguments.of(13, "Schema with different types that have the same enum.",
+                        createClassName(DEFAULT_RESPONSE_NAME)),
+                Arguments.of(14, "Schema that is an integer.", Long.class.getName()),
+                Arguments.of(17, "Schema with both order_id and orderId to force a collision", createClassName("Case17SchemaWithDuplicateFields")));
     }
 
     private static String createClassName(String className) {
@@ -81,6 +88,12 @@ public class JsonSchemaParserTest {
         var customTypes = jsonSchemaParser.parse("TestResponse", specification.getPackageName(), getSchema(caseNumber));
         assertThat(customTypes, notNullValue());
         assertThat(customTypes.size(), equalTo(expectedNames.size()));
+        if (caseNumber.equals(17)) {
+            CustomType ct = customTypes.get(0);
+            String code = ct.getCode();
+            // check that we injected the suffixed field into the class
+            assertTrue(code.contains("orderId1"), "Expected generated code to contain field 'orderId1'");
+        }
         var customTypeNames = customTypes.stream().map(CustomType::getName).toList();
         expectedNames.forEach(expectedName -> assertTrue(customTypeNames.contains(expectedName), format("Result should contain object with name %s. Result contains %s.", expectedName, customTypeNames)));
         customTypes.forEach(customType -> assertTrue(customType.getCode().contains(format("public class %s {", customType.getName())) || customType.getCode().contains(format("public enum %s {", customType.getName()))));
@@ -89,12 +102,18 @@ public class JsonSchemaParserTest {
     @ParameterizedTest(name = "Case {0}: {1}")
     @MethodSource("getTypeSource")
     public void getTypeTest(Integer caseNumber, String description, String expectedType) {
-        assertThat(jsonSchemaParser.getType(DEFAULT_RESPONSE_NAME, JsonSchemaParserTest.class.getPackageName(), getSchema(caseNumber)).getFullName(), equalTo(expectedType));
+        assertThat(jsonSchemaParser
+                .getType(DEFAULT_RESPONSE_NAME, JsonSchemaParserTest.class.getPackageName(), getSchema(caseNumber))
+                .getFullName(), equalTo(expectedType));
     }
 
     private String getSchema(Integer caseNumber) {
         try {
-            return IOUtils.toString(JsonSchemaParser.class.getResourceAsStream(format("/%s/cases/Case %s.schema.json", JsonSchemaParser.class.getPackageName().replace(".", "/"), caseNumber)), defaultCharset());
+            return IOUtils
+                    .toString(
+                            JsonSchemaParser.class.getResourceAsStream(format("/%s/cases/Case %s.schema.json",
+                                    JsonSchemaParser.class.getPackageName().replace(".", "/"), caseNumber)),
+                            defaultCharset());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
