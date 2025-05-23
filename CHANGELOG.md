@@ -12,7 +12,7 @@
 
 - PolyApiService.java: Replaced full-body buffering and Commons-IO parsing with a single BufferedInputStream using mark/reset for unified JSON/text/stream parsing and 1 KB error-preview logging.
 
-- Added limbok dependency and plugin to parent-pom
+- Added lombok dependency and plugin to parent-pom
 
 ### Fixed
 
