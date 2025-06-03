@@ -96,6 +96,16 @@ jobs:
       name: Set GIT user name and email
       uses: fregante/setup-git-user@v2
 
+
+    - id: git-auth
+      name: Configure git to use GitHub token over HTTPS
+      run: |
+        git remote set-url origin https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+    - name: Override SCM URL with GitHub token
+      run: |
+        git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
     - id: jdk-setup
       name: Setup JDK
       uses: actions/setup-java@v3
