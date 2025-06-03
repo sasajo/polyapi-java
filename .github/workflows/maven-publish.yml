@@ -102,10 +102,6 @@ jobs:
       run: |
         git remote set-url origin https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
-    - name: Override SCM URL with GitHub token
-      run: |
-        git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
     - id: jdk-setup
       name: Setup JDK
       uses: actions/setup-java@v3
@@ -131,7 +127,7 @@ jobs:
 
     - id: release
       name: Release to production
-      run: mvn clean release:clean release:prepare release:perform -B -DskipTests=true -X -DpreparationGoals=install
+      run: mvn clean release:clean release:prepare release:perform -B -DskipTests=true -X -DpreparationGoals=install -Dscm.url=scm:git:https://${secrets.GITHUB_TOKEN}@github.com/polyapi/polyapi-java.git
       # run: mvn clean release:clean release:prepare release:perform -B -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DskipTests=true -X -DpreparationGoals=install
 
     - id: rollback
