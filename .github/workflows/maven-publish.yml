@@ -16,7 +16,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/develop' }}
     environment: dev
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -40,12 +40,6 @@ jobs:
         cat <(echo -e "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}") | gpg --batch --import
         # Verify gpg secret key
         gpg --list-secret-keys --keyid-format LONG
-
-    - id: ssh-setup
-      name: Set SSH key
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.TAG_SSH_KEY }}
 
     - id: git-config
       name: Set GIT user name and email
@@ -82,7 +76,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' }}
     environment: dev
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -97,12 +91,6 @@ jobs:
         cat <(echo -e "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}") | gpg --batch --import
         # Verify gpg secret key
         gpg --list-secret-keys --keyid-format LONG
-
-    - id: ssh-setup
-      name: Set SSH key
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.TAG_SSH_KEY }}
 
     - id: git-config
       name: Set GIT user name and email
@@ -133,8 +121,6 @@ jobs:
 
     - id: release
       name: Release to production
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: mvn clean release:clean release:prepare release:perform -B -DskipTests=true -X -DpreparationGoals=install
       # run: mvn clean release:clean release:prepare release:perform -B -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DskipTests=true -X -DpreparationGoals=install
 
