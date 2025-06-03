@@ -21,7 +21,7 @@ jobs:
     - name: Hit endpoint and build Java server function pre-built image from scratch
       run: |
         curl -X POST \
-        https://develop-k8s.polyapi.io/functions/server/prebuilt-base-image \
+        https://dev.polyapi.io/functions/server/prebuilt-base-image \
         -H "Authorization: Bearer ${{ secrets.POLY_SUPER_ADMIN_USER_KEY }}" \
         -H "Content-Type: application/json" \
         -d '{"language": "java"}'

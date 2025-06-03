@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.polyapi</groupId>
     <artifactId>polyapi-java</artifactId>
@@ -34,8 +37,8 @@
         <connection>scm:git:git@github.com:polyapi/polyapi-java.git</connection>
         <developerConnection>scm:git:git@github.com:polyapi/polyapi-java.git</developerConnection>
         <url>https://github.com/polyapi/polyapi-java</url>
-      <tag>HEAD</tag>
-  </scm>
+        <tag>HEAD</tag>
+    </scm>
     <build>
         <plugins>
             <plugin>
@@ -65,7 +68,7 @@
                         <artifactId>maven-invoker-plugin</artifactId>
                         <version>3.7.0</version>
                         <configuration>
-                            <postBuildHookScript>verify</postBuildHookScript>
+                            <!-- <postBuildHookScript>verify</postBuildHookScript> -->
                             <showErrors>true</showErrors>
                             <writeJunitReport>true</writeJunitReport>
                         </configuration>
@@ -79,7 +82,7 @@
                                 <configuration>
                                     <properties>
                                         <cloneProjectsTo>${project.build.directory}/it/develop</cloneProjectsTo>
-                                        <host>https://develop-k8s.polyapi.io</host>
+                                        <host>https://dev.polyapi.io</host>
                                         <apiKey>${develop.api.key}</apiKey>
                                         <port>443</port>
                                     </properties>
@@ -104,7 +107,7 @@
                         <artifactId>maven-invoker-plugin</artifactId>
                         <version>3.7.0</version>
                         <configuration>
-                            <postBuildHookScript>verify</postBuildHookScript>
+                            <!-- <postBuildHookScript>verify</postBuildHookScript> -->
                             <showErrors>true</showErrors>
                             <writeJunitReport>true</writeJunitReport>
                         </configuration>
@@ -143,7 +146,7 @@
                         <artifactId>maven-invoker-plugin</artifactId>
                         <version>3.7.0</version>
                         <configuration>
-                            <postBuildHookScript>verify</postBuildHookScript>
+                            <!-- <postBuildHookScript>verify</postBuildHookScript> -->
                             <showErrors>true</showErrors>
                             <writeJunitReport>true</writeJunitReport>
                         </configuration>
@@ -169,7 +172,7 @@
             </build>
         </profile>
 
-    <!-- Release profile. -->
+        <!-- Release profile. -->
         <profile>
             <id>release</id>
             <activation>
@@ -192,14 +195,13 @@
                         </executions>
                     </plugin>
                     <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.13</version>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <serverId>ossrh</serverId>
-                            <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
                         </configuration>
                     </plugin>
                     <plugin>

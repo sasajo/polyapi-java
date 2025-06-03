@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Case 17: Schema with duplicate fields",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string"
+    },
+    "orderId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "order_id",
+    "orderId"
+  ]
+}

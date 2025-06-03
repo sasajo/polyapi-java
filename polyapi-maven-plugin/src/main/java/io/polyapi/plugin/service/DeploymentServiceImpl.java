@@ -87,6 +87,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                     try (FileInputStream fileInputStream = new FileInputStream(sourceCodePath)) {
                         String code = IOUtils.toString(fileInputStream, defaultCharset());
                         codeObject.setCode(code);
+                        polyFunction.setSourceCode(code);
                         if (annotation.contextAwareness().equals(PolyServerFunction.AUTO_DETECT_CONTEXT)) {
                             Set<String> matches = Pattern.compile("(Vari|Poly)\\.[.a-zA-Z0-9_\\s]+[^.a-zA-Z0-9_\\s]")
                                     .matcher(code)
@@ -114,6 +115,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                         throw new PolyApiMavenPluginException(e); // FIXME: Throw the appropriate exception.
                     }
                     polyFunction.setCode(jsonParser.toJsonString(codeObject));
+                    polyFunction.setSourceCode(codeObject.getCode());
                     polyFunction.setContext(Optional.ofNullable(annotation.context()).filter(not(String::isBlank)).orElseGet(declaringClass::getPackageName));
                     log.debug("Poly function context is '{}'", polyFunction.getContext());
                     log.debug("Processing parameters.");
