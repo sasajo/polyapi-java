@@ -58,6 +58,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: 'maven'
+        server-id: github
         settings-path: ${{ github.workspace }}
 
     - id: server-setup
@@ -114,6 +115,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: 'maven'
+        server-id: github
         settings-path: ${{ github.workspace }}
 
     - id: server-setup
@@ -131,7 +133,9 @@ jobs:
 
     - id: release
       name: Release to production
-      run: git remote -v && mvn clean release:clean release:prepare release:perform -B -DskipTests=true -X -DpreparationGoals=install
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: mvn clean release:clean release:prepare release:perform -B -DskipTests=true -X -DpreparationGoals=install
       # run: mvn clean release:clean release:prepare release:perform -B -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DskipTests=true -X -DpreparationGoals=install
 
     - id: rollback
