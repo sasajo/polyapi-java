@@ -5,6 +5,7 @@ import static java.lang.String.format;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects; 
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -43,6 +44,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PolyObjectResolverService {
     private final JsonSchemaParser jsonSchemaParser;
+    private static final Pattern VALID_IMPORT =
+        Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)+$");
 
     public PolyObjectResolverService(JsonSchemaParser jsonSchemaParser) {
         this.jsonSchemaParser = jsonSchemaParser;
@@ -92,12 +95,21 @@ public class PolyObjectResolverService {
 
     public ResolvedContext resolve(Context context) {
         Set<String> imports = new HashSet<>();
-        context.getSubcontexts().stream().map(subcontext -> format("%s.%s", subcontext.getPackageName(), subcontext.getClassName())).forEach(imports::add);
+        context.getSubcontexts().stream()
+            .map(subcontext -> format("%s.%s", subcontext.getPackageName(), subcontext.getClassName()))
+            .filter(s -> !s.isBlank())
+            .forEach(imports::add);
         context.getSpecifications().forEach(specification -> {
             ImportsCollectorVisitor importsCollectorVisitor = new ImportsCollectorVisitor(specification.getPackageName(), specification.getClassName(), jsonSchemaParser);
             importsCollectorVisitor.doVisit(specification);
-            imports.addAll(importsCollectorVisitor.getImports());
+            importsCollectorVisitor.getImports().stream()
+                .filter(Objects::nonNull)
+                .filter(s -> !s.isBlank())
+                .filter(s -> VALID_IMPORT.matcher(s).matches())
+                .filter(s -> !s.substring(s.lastIndexOf('.') + 1).equals(context.getClassName()))
+                .forEach(imports::add);
         });
+
         return new ResolvedContext(context.getName(), context.getPackageName(), imports, context.getClassName(), context.getSubcontexts().stream().map(this::resolve).toList(), context.getSpecifications().stream().map(specification -> {
             PolyObjectResolverVisitor visitor = new PolyObjectResolverVisitor(this);
             visitor.doVisit(specification);
