@@ -96,6 +96,7 @@ jobs:
         cat <(echo -e "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}") | gpg --batch --import
         # Verify gpg secret key
         gpg --list-secret-keys --keyid-format LONG
+        echo "MAVEN_GPG_KEY=${{ secrets.GPG_KEY_NAME }}" >> $GITHUB_ENV
 
     - id: ssh-setup
       name: Set SSH key
