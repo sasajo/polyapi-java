@@ -134,7 +134,7 @@ jobs:
 
     - id: release
       name: Release to production
-      run: mvn clean release:clean release:prepare release:perform -B -DskipTests=true -X -DpreparationGoals=install
+      run: mvn clean release:clean release:prepare release:perform -B -DskipTests=true -DpreparationGoals=install
       # run: mvn clean release:clean release:prepare release:perform -B -Darguments="-Ddevelop.api.key=${{ secrets.DEVELOP_SERVER_API_KEY }} -Dprod.eu1.api.key=${{ secrets.PROD_EU1_SERVER_API_KEY }} -Dprod.na1.api.key=${{ secrets.PROD_NA1_SERVER_API_KEY }}" -DskipTests=true -X -DpreparationGoals=install
 
     - id: rollback
