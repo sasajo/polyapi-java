@@ -88,6 +88,9 @@ jobs:
     - id: checkout
       name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for Maven Release Plugin
+        persist-credentials: false
 
     - id: gpg-install
       name: Install gpg secret key
