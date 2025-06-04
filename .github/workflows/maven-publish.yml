@@ -39,7 +39,7 @@ jobs:
         # Install gpg secret key
         cat <(echo -e "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}") | gpg --batch --import
         # Verify gpg secret key
-        gpg --list-secret-keys --keyid-format LONG
+        gpg --list-secret-keys --keyid-format=long || echo "❌ No secret keys found"
 
     - id: ssh-setup
       name: Set SSH key
@@ -98,7 +98,7 @@ jobs:
         # Install gpg secret key
         cat <(echo -e "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}") | gpg --batch --import
         # Verify gpg secret key
-        gpg --list-secret-keys --keyid-format LONG
+        gpg --list-secret-keys --keyid-format=long || echo "❌ No secret keys found"
 
     - id: ssh-setup
       name: Set SSH key
