@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.polyapi</groupId>
         <artifactId>parent-pom</artifactId>
-        <version>0.15.4-SNAPSHOT</version>
+        <version>0.15.5-SNAPSHOT</version>
         <relativePath>../parent-pom</relativePath>
     </parent>
 
@@ -154,6 +154,12 @@
                                 </goals>
                             </execution>
                         </executions>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                        </configuration>
                     </plugin>
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
