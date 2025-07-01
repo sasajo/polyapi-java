@@ -8,68 +8,74 @@ import io.polyapi.client.api.model.PolyEntity;
 import io.polyapi.client.api.AuthTokenOptions;
 import io.polyapi.commons.api.model.PolyGeneratedClass;
 {{~#each this.imports}}
+{{~#unless (eq (lastSegment this) ../className)}}
 import {{{this}}};
+{{~/unless}}
 {{~/each}}
 
 @PolyGeneratedClass
 public class {{className}} extends PolyContext {
 {{~#each functionSpecifications}}
-    private final {{this.className}} {{this.name}};
+    private final {{typeRef (classFqn this) ../className}} {{this.name}};
 {{~/each}}
 {{~#each standardAuthFunctionSpecifications}}
-    private final {{this.className}} {{this.name}};
+    private final {{typeRef (classFqn this) ../className}} {{this.name}};
 {{~/each}}
 {{~#each subresourceAuthFunctionSpecifications}}
-    private final {{this.className}} {{this.name}};
+    private final {{typeRef (classFqn this) ../className}} {{this.name}};
 {{~/each}}
 {{~#each serverVariableSpecifications}}
-    public final {{this.className}} {{this.name}};
+    private final {{typeRef (classFqn this) ../className}} {{this.name}};
 {{~/each}}
 {{~#each webhookHandlerSpecifications}}
-    private final {{this.className}} {{this.name}};
+    private final {{typeRef (classFqn this) ../className}} {{this.name}};
 {{~/each}}
 {{#each subcontexts}}
-    public final {{this.className}} {{this.name}};
+    private final {{typeRef (classFqn this) ../className}} {{this.name}};
 {{~/each}}
 
-    public {{className}}(PolyProxyFactory proxyFactory, WebSocketClient webSocketClient) {
-        super(proxyFactory, webSocketClient);
+public {{className}}(PolyProxyFactory proxyFactory, WebSocketClient webSocketClient) {
+super(proxyFactory, webSocketClient);
 {{~#each serverFunctionSpecifications}}
-        this.{{this.name}} = createServerFunctionProxy({{this.className}}.class);
+    this.{{this.name}} =
+        createServerFunctionProxy({{classFqn this}}.class);
 {{~/each}}
 {{~#each customFunctionSpecifications}}
-        this.{{this.name}} = createCustomFunctionProxy({{this.className}}.class);
+    this.{{this.name}} =
+        createCustomFunctionProxy({{classFqn this}}.class);
 {{~/each}}
 {{~#each apiFunctionSpecifications}}
-        this.{{this.name}} = createApiFunctionProxy({{this.className}}.class);
+    this.{{this.name}} =
+        createApiFunctionProxy({{classFqn this}}.class);
 {{~/each}}
 {{~#each subresourceAuthFunctionSpecifications}}
-        this.{{this.name}} = createSubresourceAuthFunction({{this.className}}.class);
+    this.{{this.name}} =
+        createSubresourceAuthFunction({{classFqn this}}.class);
 {{~/each}}
 {{~#each standardAuthFunctionSpecifications}}
-        this.{{this.name}} = create{{#if audienceRequired}}Audience{{/if}}TokenAuthFunction({{this.className}}.class);
+    this.{{this.name}} =
+        create{{#if audienceRequired}}Audience{{/if}}TokenAuthFunction({{classFqn this}}.class);
 {{~/each}}
 {{~#each serverVariableSpecifications}}
-        this.{{this.name}} = createServerVariableHandler({{this.className}}.class);
+    this.{{this.name}} =
+        createServerVariableHandler({{classFqn this}}.class);
 {{~/each}}
 {{~#each webhookHandlerSpecifications}}
-        this.{{this.name}} = createPolyTriggerProxy({{this.className}}.class);
+    this.{{this.name}} =
+        createPolyTriggerProxy({{classFqn this}}.class);
 {{~/each}}
 {{#each subcontexts}}
-        this.{{this.name}} = new {{this.className}}(proxyFactory, webSocketClient);
+        this.{{this.name}} = new {{typeRef (classFqn this) ../className}}(proxyFactory, webSocketClient);
 {{~/each}}
     }
 
 {{~#each functionSpecifications}}
     public {{{this.returnType}}} {{{this.methodSignature}}} {
-    {{~#if this.returnsValue}}
-        return
-    {{~else}}
-    {{~/if}} this.{{this.name}}.{{this.name}}({{this.paramVariableNames}});
+        {{#if this.returnsValue}}return {{/if}}this.{{this.name}}.{{this.name}}({{this.paramVariableNames}});
     }
 
-    public {{{this.className}}} get{{{this.className}}}Function() {
-        return this.{{{this.name}}};
+    public {{typeRef (classFqn this) ../className}} get{{this.className}}Function() {
+        return this.{{this.name}};
     }
 {{~/each}}
 
@@ -110,6 +116,9 @@ public class {{className}} extends PolyContext {
 {{~#each specifications}}
 
     {{~#ifIsType this "AuthFunctionSpecification"}}
+        public {{typeRef (classFqn this) ../className}} get{{this.className}}AuthFunction() {
+            return this.{{this.name}};
+        }
         {{~#if subResource}}
             public void {{name}}(String token) {
                 this.{{name}}.{{name}}(token);
@@ -127,8 +136,8 @@ public class {{className}} extends PolyContext {
             }
         {{~/if}}
 
-        public {{{this.className}}} get{{{this.className}}}AuthFunction() {
-            return this.{{{this.name}}};
+        public {{typeRef (classFqn this) ../className}} get{{this.className}}AuthFunction() {
+            return this.{{this.name}};
         }
     {{~/ifIsType}}
 {{~/each}}
