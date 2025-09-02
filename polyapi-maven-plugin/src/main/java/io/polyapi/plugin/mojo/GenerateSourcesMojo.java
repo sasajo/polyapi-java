@@ -24,6 +24,10 @@ public class GenerateSourcesMojo extends PolyApiMojo {
 
     @Parameter(property = "context")
     private String context;
+    
+    @Parameter(property = "functionIds")
+    private String functionIds;
+
     private PolyGenerationService polyGenerationService;
 
     @Override
@@ -32,7 +36,11 @@ public class GenerateSourcesMojo extends PolyApiMojo {
         this.polyGenerationService = new PolyGenerationServiceImpl(getHttpClient(), getJsonParser(), host, port, getTokenProvider().getToken());
         List<String> contextFilters = Arrays.stream(Optional.ofNullable(context).map(contextCsv -> contextCsv.split(",")).orElse(new String[]{""})).toList();
         log.debug("Context filters: \"{}\"", join("\", \"", contextFilters));
-        this.polyGenerationService.generate(contextFilters, overwrite);
+       
+        List<String> functionIdFilters = Arrays.stream(Optional.ofNullable(functionIds).map(functionIdsCsv -> functionIdsCsv.split(",")).orElse(new String[]{""})).toList();
+        log.debug("Function ID filters: \"{}\"", join("\", \"", functionIdFilters));
+        
+        this.polyGenerationService.generate(contextFilters, functionIdFilters, overwrite);
         log.info("Poly generation complete.");
     }
 }
