@@ -51,20 +51,11 @@ public class PolyGenerationServiceImpl implements PolyGenerationService {
 
     @Override
     public void generate(List<String> contextFilters, List<String> functionIdFilters, boolean overwrite) {
-        var specifications = specificationService.list(contextFilters);
-        log.debug("Applying function ID filters for: {}", functionIdFilters);
-        if (functionIdFilters != null && !functionIdFilters.isEmpty()) {
-            log.info("specifications: {}", specifications);
-            specifications = specifications.stream()
-                    .filter(spec -> {
-                        if (spec instanceof FunctionSpecification functionSpec) {
-                            log.debug("Applicable function ID: {}", functionSpec.getId());
-                            return functionIdFilters.contains(functionSpec.getId());
-                        }
-                        return true;
-                    })
-                    .toList();
-        }
+        // The call to list now passes both filters for server-side processing.
+        log.info("Applying context  filters on the API call: {}", contextFilters);
+        log.info("Applying function ID filters on the API call: {}", functionIdFilters);
+        var specifications = specificationService.list(contextFilters, functionIdFilters);
+
         var contextModel = new HashMap<String, Object>();
         contextModel.put("clientId", UUID.randomUUID().toString());
         contextModel.put("host", host);
